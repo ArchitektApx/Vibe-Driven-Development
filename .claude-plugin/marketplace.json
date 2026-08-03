@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "vibe-driven-development",
+  "description": "Adversarial multi-session workflow for agentic coding: plan, review, implement, review.",
+  "owner": {
+    "name": "ArchitektApx",
+    "url": "https://github.com/ArchitektApx"
+  },
+  "plugins": [
+    {
+      "name": "vdd",
+      "source": "./",
+      "description": "Vibe Driven Development role skills: planner, plan-reviewer, coder, code-reviewer. Early WIP release, not battle tested.",
+      "version": "0.1.0",
+      "category": "workflow",
+      "tags": [
+        "workflow",
+        "planning",
+        "code-review",
+        "adversarial",
+        "multi-session"
+      ],
+      "license": "MIT"
+    }
+  ]
+}
