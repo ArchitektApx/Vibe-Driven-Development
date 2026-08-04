@@ -57,6 +57,8 @@ The installer asks which skills to take and which agents to install them for. Ta
 
 If your agent does not support skills at all, paste the equivalent prompts from the workflow sections below.
 
+This repository is developed using its own workflow; `CONTEXT.md` and `docs/adr/` are the glossary and decision records that produces. See `CLAUDE.md`.
+
 ## Workflow
 
 ### Phase 0: Prepare the Environment
