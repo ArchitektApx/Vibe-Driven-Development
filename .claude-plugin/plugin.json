@@ -2,7 +2,7 @@
   "name": "vdd",
   "displayName": "Vibe Driven Development",
   "description": "Role skills for the Vibe Driven Development workflow: separate sessions that plan, adversarially review the plan, implement, and adversarially review the implementation. Early WIP release, not battle tested.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "ArchitektApx"
   },
