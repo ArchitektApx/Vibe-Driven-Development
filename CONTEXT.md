@@ -39,7 +39,7 @@ A Borrowed skill's `SKILL.md` exists in a known store on this machine. Says noth
 _Avoid_: installed, downloaded
 
 **Resolvable**:
-The agent running right now can actually run a Borrowed skill. Present is necessary but not sufficient: a dangling symlink is Present and not Resolvable, and a store the current agent was never wired to is too.
+The agent running right now can actually run a Borrowed skill. Present is necessary but not sufficient: a Borrowed skill sitting in a store this agent was never wired to is Present and not Resolvable. A dangling symlink is neither, because the file it points at does not exist.
 _Avoid_: available, wired, active, visible
 
 **Sibling probe**:
