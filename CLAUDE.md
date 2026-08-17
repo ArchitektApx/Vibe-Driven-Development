@@ -65,3 +65,17 @@ PR; preserve them through any refactor of `.github/`.
 - The skills tell users, not agents, to run `npx skills@latest add
   mattpocock/skills`. That is delegated trust to a third-party repository and
   is deliberate; the Planner cannot run without it. Keep it a user instruction.
+
+## Agent skills
+
+### Issue tracker
+
+Local markdown: specs and tickets live under `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary, label strings equal role names. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
