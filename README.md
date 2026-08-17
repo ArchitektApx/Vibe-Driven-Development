@@ -1,6 +1,6 @@
 # Vibe Driven Development
 
-tl;dr: an opinionated wrapper around Matt Pocock's [skills](https://github.com/mattpocock/skills). It splits planning, plan review, implementation and code review across separate Claude Code / Codex / GitHub Copilot CLI sessions that adversarially check each other's work. His collection is a hard requirement rather than an optional extra: without it the Planner stops at its first handoff.
+tl;dr: an opinionated wrapper around Matt Pocock's [skills](https://github.com/mattpocock/skills). It splits planning, plan review, implementation and code review across separate Claude Code / Codex / GitHub Copilot CLI sessions that adversarially check each other's work. His collection is a hard requirement: without it the Planner stops at its first handoff.
 
 ## Why this works
 
@@ -10,7 +10,7 @@ A single agent session grades its own homework. It plans, implements, and review
 - **Adversarial framing.** A session prompted to find problems finds problems. A session prompted to "implement and review" finds excuses.
 - **Written handoffs.** Forcing the spec, the implementation notes, and the review into files makes every claim checkable and keeps each session's context small.
 
-The result is a loop that converges: plan, push back, revise, sign off, implement, push back, fix, sign off.
+The loop that comes out of this converges: plan, push back, revise, sign off, implement, push back, fix, sign off.
 
 ## Requirements
 
@@ -50,7 +50,7 @@ This repository is a Claude Code plugin marketplace. The `vdd` plugin ships one 
 | Coder | `/vdd:vdd-coder` |
 | Code-Reviewer | `/vdd:vdd-code-reviewer` |
 
-Run `/vdd:vdd-setup` once per repository: it verifies the borrowed skills are installed, the issue tracker is configured, the gitignore entries from Phase 0 exist, and no stale working files are left over from a previous loop. `/vdd:vdd-start-loop` runs it for you at the start of every loop.
+Run `/vdd:vdd-setup` once per repository: it verifies that the borrowed skills are installed, the issue tracker is configured, the gitignore entries from Phase 0 exist, and no stale working files are left over from a previous loop. `/vdd:vdd-start-loop` runs it for you at the start of every loop.
 
 ## Install (Cursor, GitHub Copilot CLI, Codex, other agents)
 
@@ -65,7 +65,7 @@ The installer asks which skills to take and which agents to install them for. Ta
 
 If your agent does not support skills at all, the skill files are ordinary Markdown: paste the body of the relevant `skills/vdd-*/SKILL.md` into your session as a prompt.
 
-This repository is developed using its own workflow; `CONTEXT.md` and `docs/adr/` are the glossary and decision records that produces. See `CLAUDE.md`.
+This repository is developed with its own workflow; `CONTEXT.md` and `docs/adr/` are the glossary and decision records it produced. See `CLAUDE.md`.
 
 ## Workflow
 
@@ -82,13 +82,13 @@ FIXES.md
 CODEREVIEW.md
 ```
 
-With the plugin installed, `/vdd:vdd-setup` handles this phase for you, including checking that the borrowed skills are installed and the issue tracker is configured. Then run `/setup-matt-pocock-skills` yourself if it asks you to, and choose Local markdown.
+With the plugin installed, `/vdd:vdd-setup` handles this phase for you. Then run `/setup-matt-pocock-skills` yourself if it asks you to, and choose Local markdown.
 
 ### Phase 1: The Plan / Plan-Review Loop
 
-#### Model Selection
+#### Model selection
 
-The Planner burns the most tokens on context: it reads the codebase, explores, and drafts. It can run on a lower grade model or thinking level. The Plan-Reviewer reads far less but needs sharper judgment, so give it a higher grade model or thinking level than the Planner.
+The Planner burns the most tokens on context: it reads and explores the codebase, then drafts. It can run on a lower grade model or thinking level. The Plan-Reviewer reads far less but needs sharper judgment, so give it a higher grade model or thinking level than the Planner.
 
 | Session | Model | Thinking Level |
 |---------|-------|----------------|
@@ -118,13 +118,13 @@ Once the names match, a Role that finishes its turn rings the next one's doorbel
 
 #### The Planner
 
-The Planner is a session that performs the following tasks:
+The Planner is the session that:
 
-- Identify an issue described by the user, or
-- Identify improvements to the codebase (refactoring, adding tests, etc.)
-- Grill you on it until you both agree what the work is
-- Hand you `/to-spec` and then `/to-tickets`, which publish the spec and the tickets under `.scratch/<slug>/`
-- Pass the published spec and every ticket through `writing-for-agents` before handing them on, so the Coder gets documents written for the way it reads
+- Identifies an issue described by the user, or
+- Identifies improvements to the codebase (refactoring, adding tests, etc.)
+- Grills you on it until you both agree what the work is
+- Hands you `/to-spec` and then `/to-tickets`, which publish the spec and the tickets under `.scratch/<slug>/`
+- Passes the published spec and every ticket through `writing-for-agents` before handing them on, so the Coder gets documents written for the way it reads
 
 The Planner never writes code. Its deliverables are `.scratch/<slug>/spec.md` and the ticket files in `.scratch/<slug>/issues/`.
 
@@ -132,7 +132,7 @@ The Planner never writes code. Its deliverables are `.scratch/<slug>/spec.md` an
 
 #### The Plan-Reviewer
 
-The Plan-Reviewer is a session that reviews the spec and the tickets and makes sure they are complete, accurate, and grounded in the actual codebase. It also checks them against `writing-for-agents`, because the Planner cannot grade its own prose. It documents its findings and pushbacks in `PLAN-REVIEW.md` and hands that back to the Planner to work on.
+The Plan-Reviewer is the session that reviews the spec and the tickets and checks that they are complete and that every claim in them holds against the actual codebase. It also checks them against `writing-for-agents`, because the Planner cannot grade its own prose. It documents its findings and pushbacks in `PLAN-REVIEW.md` and hands that back to the Planner to work on.
 
 Start the session with `/vdd:vdd-plan-reviewer`.
 
@@ -142,7 +142,7 @@ Hand the spec and `PLAN-REVIEW.md` between the two sessions until all issues are
 
 #### The Coder
 
-The Coder works on the feature branch from `LOOP.md`, which defaults to the feature slug. It takes the tickets in dependency order, implements one at a time, runs its acceptance criteria, commits it, and writes what it did to `FIXES.md`, which is passed to the Code-Reviewer.
+The Coder works on the feature branch from `LOOP.md`, which defaults to the feature slug. It takes the tickets in dependency order, implements one at a time, runs its acceptance criteria, commits it, and writes what it did to `FIXES.md` for the Code-Reviewer.
 
 Start the session with `/vdd:vdd-coder`.
 
@@ -164,7 +164,7 @@ Once the Code-Reviewer has signed off:
 
 ## Tips
 
-- **One session per Role, start to finish.** Fresh means fresh per Role, not per round. Reusing the Planner session as the Coder defeats the purpose: it will implement its own assumptions instead of the spec. But a Role keeps its own session across every round of its loop, so a reviewer holds its findings and a Coder holds the reasoning behind its deviations. Each Role starts cold exactly once.
+- **One session per Role, start to finish.** Fresh means fresh per Role, not per round. Reusing the Planner session as the Coder defeats the purpose: it will implement its own assumptions instead of the spec. But a Role keeps its own session across every round of its loop, so a reviewer holds its findings and a Coder holds the reasoning behind its deviations.
 - **Name your sessions as `LOOP.md` says**, or the Doorbells cannot find their target and you are back to copying lines between terminals.
 - **A Doorbell is a bell, not a letter.** Never ask a Role to explain itself across sessions; that is what the working files are for, and it is the leak the separate sessions exist to prevent.
 - **Reviewers never write code.** The moment a reviewer edits files it stops being a reviewer. Findings go in the review file, fixes go back to the other session.
