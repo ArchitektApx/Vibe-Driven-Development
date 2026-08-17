@@ -52,7 +52,7 @@ survives of it, because `FIXES.md` is a Working file and is gone when the Loop
 closes.
 
 **Document splits the sprawl lever pointed at.** `skills/vdd-setup/SKILL.md` is
-183 lines and its Borrowed-skills check is 145 of them. The split that would
+192 lines and its Borrowed-skills check is 147 of them. The split that would
 earn it moves the search roots, the `find` loop and its rationale, the
 Resolvable probe list and the three-way `code-review` reading into a sibling
 reference file, leaving the three states and the per-Role costs in `SKILL.md`.

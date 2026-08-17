@@ -75,7 +75,7 @@ A Borrowed skill's `SKILL.md` exists in a known store on this machine. Says noth
 _Avoid_: installed, downloaded
 
 **Resolvable**:
-The agent running right now can actually run a Borrowed skill. Present is necessary but not sufficient: a Borrowed skill sitting in a store this agent was never wired to is Present and not Resolvable.
+The agent running right now can run a Borrowed skill. Present is necessary but not sufficient: a Borrowed skill sitting in a store this agent was never wired to is Present and not Resolvable.
 _Avoid_: available, wired, active, visible
 
 **Sibling probe**:

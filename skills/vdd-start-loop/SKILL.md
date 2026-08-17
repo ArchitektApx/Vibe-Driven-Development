@@ -95,6 +95,6 @@ Print this, with the real values filled in:
 > comes.
 
 No agent can rename its own session, so this is the user's job and you carry
-straight on. Immediately invoke the Planner skill (`vdd:vdd-planner`) in this same
-session. If you cannot invoke skills, tell the user to type `/vdd:vdd-planner`
-instead.
+straight on. Immediately invoke the Planner skill (`vdd:vdd-planner`) in this
+same session. If you cannot invoke skills, tell the user to type
+`/vdd:vdd-planner` instead.

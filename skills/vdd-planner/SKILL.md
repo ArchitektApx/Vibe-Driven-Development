@@ -85,7 +85,7 @@ confirmation is the grilling's own terminal condition, not a convention of
 ours: the grilling skill forbids acting until the user gives it. Reaching for
 the Spec early breaks the borrowed skill's contract as well as this one.
 
-Two moves feel productive here and leave the step open:
+Two things hold the step open until the grilling has run:
 
 - The grilling skill runs the interview, once the user types the command. Your
   own questions to the user are a conversation with them, and the step stays
