@@ -1,6 +1,6 @@
 ---
 name: vdd-setup
-description: Environment check for the Vibe Driven Development workflow. Use before starting a VDD loop in a repository for the first time, or when asked to verify the VDD setup. Checks the borrowed skills, the Matt Pocock issue-tracker setup, and that LOOP.md, .scratch/ and the review files are gitignored, and fixes what it can.
+description: Environment check for the Vibe Driven Development workflow. Use before starting a VDD loop in a repository for the first time, or when asked to verify the VDD setup. Checks the Borrowed skills, the tracker configuration and the gitignore entries, and fixes what it can.
 ---
 
 # VDD Setup
@@ -28,8 +28,8 @@ Check, in order:
 
    The five user-invoked ones have `disable-model-invocation: true` in their
    frontmatter, so they never appear in your own skill list even when correctly
-   installed. Do not check your skill list for them; that check always fails.
-   Test two separate conditions instead.
+   installed. Your skill list is silent about those five by design, so answer
+   for them on the two separate conditions below.
 
    **Present.** Search for the files, not the directories, so that a dangling
    symlink reads as absent:
@@ -78,9 +78,10 @@ Check, in order:
    directory whose target is gone, so no `SKILL.md` is ever listed under it.
 
    **Resolvable.** Present only means the file exists somewhere; it does not
-   mean this agent can run it. Do not try to trace symlinks backwards, and do
-   not enumerate other agents' directories. Only your own resolution matters,
-   because the user will be running the loop in this agent.
+   mean this agent can run it. Answer this one from your own skill list alone,
+   leaving symlink targets and other agents' directories where they are. Only
+   your own resolution matters, because the user will be running the loop in
+   this agent.
 
    Probe your own skill list for one of the collection's skills that is *not*
    user-invoked: `writing-for-agents`, `grilling`, `codebase-design`,
@@ -98,9 +99,8 @@ Check, in order:
    `writing-for-agents` leads that list because it is Borrowed in its own
    right, and because Claude Code bundles nothing of that name, so a hit needs
    no reading. That same look is its own Resolvable test: it is agent-invocable,
-   so a wired collection puts it in your skill list. A hit settles the
-   collection and the seventh skill together. A miss on it followed by a hit
-   further down the list means the collection is Resolvable and
+   so a wired collection puts it in your skill list. A miss on it followed by a
+   hit further down the list means the collection is Resolvable and
    `writing-for-agents` is not.
 
    `code-review` is agent-invocable too, so it looks like a second probe. It is
@@ -121,14 +121,14 @@ Check, in order:
 
    - **Present and Resolvable.** Passed, say nothing further.
    - **Present but not Resolvable.** Installed, but not wired to this agent.
-     Do not tell them to install it; they already did. Key the repair on where
-     you found the file: a hit under `~/.claude/plugins/cache/` came from the
-     Claude Code plugin, so the repair belongs on the plugin side (reinstall or
+     The install already happened, so the repair is wiring. Key it on where you
+     found the file: a hit under `~/.claude/plugins/cache/` came from the Claude
+     Code plugin, so the repair belongs on the plugin side (reinstall or
      re-enable `mattpocock-skills`); a hit under an `.agents/skills/` or
      `.claude/skills/` store came from the skills CLI, so tell them to re-run
-     `npx skills@latest add mattpocock/skills` and select this agent. Do not
-     offer the npx repair for a plugin-route install; it would create a second,
-     parallel copy of the collection.
+     `npx skills@latest add mattpocock/skills` and select this agent. Keep each
+     repair on the store its files came from: the npx route offered for a
+     plugin-route install creates a second, parallel copy of the collection.
    - **Not Present.** Tell the user to install it: `/plugin install
      mattpocock-skills` in Claude Code's official marketplace, or
      `npx skills@latest add mattpocock/skills` in other agents, taking the
@@ -176,7 +176,17 @@ Check, in order:
    but the Roles are written for local markdown under `.scratch/<slug>/`.
 
 3. **Git repository.** The workflow needs one. If this directory is not a repository, ask before running `git init`.
-4. **Gitignore.** The loop's working files are scratch space and must not be committed. Ensure `.gitignore` covers `LOOP.md`, `.scratch/`, `PLAN.md`, `PLAN-REVIEW.md`, `FIXES.md`, and `CODEREVIEW.md`; add missing entries. `.scratch/` is the Borrowed tracker directory, and VDD is what invokes it here, so it is scratch space like the rest. `PLAN.md` is not written by any current Role and stays on the list for one release, for users who still have one from a 0.2.0 loop.
-5. **Stale working files.** If `LOOP.md`, or any of the four review files from the previous check, already exists from a previous loop, ask whether to delete it before starting fresh. Never delete anything mid-loop. Do not check `.scratch/` here: you cannot know which feature is stale, and `/vdd:vdd-start-loop` asks about `.scratch/<slug>/` once the user has named the slug.
+4. **Gitignore.** The loop's working files are scratch space, and `.gitignore`
+   is what keeps them out of the user's history. Ensure `.gitignore` covers
+   `LOOP.md`, `.scratch/`, `PLAN.md`, `PLAN-REVIEW.md`, `FIXES.md`, and
+   `CODEREVIEW.md`; add missing entries. `.scratch/` is the Borrowed tracker
+   directory, and VDD is what invokes it here, so it is scratch space like the
+   rest. `PLAN.md` is written by no current Role and stays on the list for one
+   release, for users who still have one from a 0.2.0 loop.
+5. **Stale working files.** If `LOOP.md`, or any of the four review files from
+   the previous check, already exists from a previous loop, ask whether to
+   delete it before starting fresh. Delete only between loops. `.scratch/` is
+   `/vdd:vdd-start-loop`'s to ask about, once the user has named the slug: from
+   here you cannot know which feature is stale.
 
 Finish with a short status report: what passed, what you fixed, what the user still has to do.
