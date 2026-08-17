@@ -3,10 +3,10 @@
 Claude Code can deliver a message from one session to another, which removes
 the copy-paste between the terminals a Loop runs in. We use it, but only as a
 Doorbell: a fixed template naming the Working file that was written, the round,
-and the finding counts (or `SIGNED OFF`). The receiving Role reads the file;
-the message itself is never acted on. Where an agent has no messaging tools the
-same line is printed for the user to relay, so the workflow does not depend on
-Claude Code.
+and the finding counts (or `SIGNED OFF`). The receiving Role acts on the file
+the message names, and takes the message itself as the prompt to go and read it.
+Where an agent has no messaging tools the same line is printed for the user to
+relay, so the workflow does not depend on Claude Code.
 
 ## Considered options
 
