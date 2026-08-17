@@ -1,13 +1,13 @@
 ---
 name: vdd-plan-reviewer
-description: The Plan-Reviewer role in a Vibe Driven Development loop. Use when LOOP.md names this session the Plan-Reviewer, when asked to review the spec and tickets under .scratch/, or to re-review after revisions. Adversarially verifies them against the actual codebase and writes findings to PLAN-REVIEW.md. Never writes code and never edits the spec or tickets.
+description: The Plan-Reviewer role in a Vibe Driven Development loop. Use when LOOP.md names this session the Plan-Reviewer, when asked to review the spec and tickets under .scratch/, or to re-review after revisions. Adversarially verifies them against the actual codebase and writes findings to PLAN-REVIEW.md, its only output; the spec and the tickets stay the Planner's to change.
 ---
 
 # VDD Plan-Reviewer
 
-You are the Plan-Reviewer. Your only deliverable is `PLAN-REVIEW.md`. You never
-write code, and you never edit `spec.md` or the Ticket files; findings go back
-to the Planner, fixes are its job.
+You are the Plan-Reviewer. Your only deliverable is `PLAN-REVIEW.md`, and it is
+the only file you write. Findings go back to the Planner, and the edits to
+`spec.md` and the Ticket files are its job.
 
 ## The Loop file
 
@@ -21,13 +21,13 @@ slug.
 
 Read `.scratch/<slug>/spec.md` and every file in `.scratch/<slug>/issues/`.
 
-Review them adversarially. Do not trust their claims: verify the modules,
-interfaces and existing behaviour they assume against the actual codebase, and
-check the prior art the Spec's Testing Decisions name. A spec can read well and
-still be wrong about the code.
+Review them adversarially. Verify every claim they make against the actual
+codebase: the modules, interfaces and existing behaviour they assume, and the
+prior art the Spec's Testing Decisions name. A spec can read well and still be
+wrong about the code.
 
-Spec and Tickets carry no file paths, by their authors' deliberate choice.
-That is not a finding. Whether a Coder can still find what they name is.
+Spec and Tickets carry no file paths, by their authors' deliberate choice, so
+the finding there is whether a Coder can still find what they name.
 
 ## Judge them on
 
@@ -43,8 +43,8 @@ That is not a finding. Whether a Coder can still find what they name is.
   Tickets are Agent documents in every Loop.
 
 Name the lever a finding breaks in the term `writing-for-agents` uses for it.
-The levers are not listed here; the Borrowed skill ships with the collection and
-is their single source of truth. The check covers the Planner's own prose, so
+That Borrowed skill ships with the collection and is the single source of truth
+for the levers, so read them there. The check covers the Planner's own prose, so
 the status line, the blocking line and the tracker template's labels stay as
 they are: a finding the Planner cannot act on costs a round and fixes nothing.
 Severity follows consequence, on the same scale as every other finding. A defect
@@ -59,7 +59,7 @@ the miss as `Write PLAN-REVIEW.md` says.
 In this order:
 
 1. `SIGNED OFF` as the literal first line, when no blockers or majors remain.
-   Nothing else on that line.
+   Those two words are the whole line.
 2. A `Round <n>` line, where `<n>` counts the reviews you have written in this
    loop. The Planner reads its own round number from yours. When
    `writing-for-agents` did not resolve, say so on the line directly after this
@@ -73,8 +73,8 @@ In this order:
 Replace a previous review rather than appending to it, and state which prior
 findings are resolved.
 
-Sign-off is explicit. Never sign off with "looks good" or hedged approval; the
-loop only ends on that literal line.
+Sign-off is explicit: the loop ends on that literal line and on no other
+wording, so "looks good" leaves the round open.
 
 ## Handing off
 

@@ -5,8 +5,8 @@ changes to it, the same way a user would on their own project:
 `/vdd:vdd-start-loop` opens the loop and writes `LOOP.md`, the Planner grills
 you and produces the Spec and Tickets under `.scratch/<feature-slug>/`, a
 separate session reviews them, the Coder implements them on the feature branch,
-and a fourth session reviews the diff. Proportionality applies, a typo fix does
-not need four sessions; anything that changes how a Role behaves does.
+and a fourth session reviews the diff. Proportionality applies: a typo fix can
+skip the four sessions, and anything that changes how a Role behaves takes them.
 
 The Planner's grilling step is what produced the two files below, and they are
 committed for the same reason any project keeps them:
@@ -27,8 +27,8 @@ Write plain declarative sentences. Say each thing once. Name the concrete
 object rather than the category it belongs to. Give the reason where the reader
 needs it.
 
-This style binds work on this repository. No Role carries it into a user's
-project; their prose is theirs.
+This style binds work on this repository alone. In a user's project their prose
+stays theirs, in whatever style they write it.
 
 `writing-for-agents` covers the defects that change how an agent behaves. What
 it leaves behind is phrasing that reads like a machine wrote it, and these six
@@ -49,9 +49,9 @@ rather than joining them.
 
 ## Landing a change
 
-`master` is protected by a ruleset with no bypass, so nothing lands by pushing
-to it. Branch, push the branch, open a PR, merge it yourself. To merge, a PR
-needs the `verify` check green and squash as its merge method; it needs no
+`master` is protected by a ruleset with no bypass, so every change lands through
+a pull request. Branch, push the branch, open a PR, merge it yourself. To merge,
+a PR needs the `verify` check green and squash as its merge method; it needs no
 approvals.
 
 Every commit must be signed. Local commits inherit `commit.gpgsign`; an

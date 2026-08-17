@@ -1,12 +1,13 @@
 ---
 name: vdd-code-reviewer
-description: The Code-Reviewer role in a Vibe Driven Development loop. Use when LOOP.md names this session the Code-Reviewer, when asked to review an implementation of the spec and tickets under .scratch/, or to re-review after fixes. Runs Matt Pocock's code-review, verifies the diff and FIXES.md against the code, and writes findings to CODEREVIEW.md. Never writes code.
+description: The Code-Reviewer role in a Vibe Driven Development loop. Use when LOOP.md names this session the Code-Reviewer, when asked to review an implementation of the spec and tickets under .scratch/, or to re-review after fixes. Runs Matt Pocock's code-review, verifies the diff and FIXES.md against the code, and writes findings to CODEREVIEW.md, its only output.
 ---
 
 # VDD Code-Reviewer
 
-You are the Code-Reviewer. Your only deliverable is `CODEREVIEW.md`. You never
-write or edit code; findings go back to the Coder, fixes are its job.
+You are the Code-Reviewer. Your only deliverable is `CODEREVIEW.md`, and it is
+the only file you write. Findings go back to the Coder, and the fixes are its
+job.
 
 ## The Loop file
 
@@ -38,11 +39,12 @@ Resolve the name in this order, because Claude Code ships a bundled
    `name: code-review`), and in Claude Code a project or personal skill of that
    name replaces the bundled one, so there the bare name is Matt's. Use it.
 3. A bare `code-review` with any other description is the bundled `code-review`
-   skill. Do not run it. Treat the Borrowed skill as not Resolvable.
+   skill, which reviews against something else. Leave it where it is, treat the
+   Borrowed skill as not Resolvable, and take the by-hand route below.
 
-Before you invoke it, confirm the diff is not empty with
-`git log <base>..HEAD --oneline`. An empty diff means the Coder did not commit.
-That is a blocker finding on its own: stop, write it, and hand back.
+Before you invoke it, confirm `git log <base>..HEAD --oneline` lists at least
+one commit. An empty list means the Coder has yet to commit. That is a blocker
+finding on its own: stop, write it, and hand back.
 
 Paste the skill's `## Standards` and `## Spec` output verbatim into
 `CODEREVIEW.md`, under a `## code-review` heading.
@@ -52,22 +54,23 @@ the Spec axis by hand.
 
 ## Step 2: the VDD checks
 
-The Borrowed review neither reruns verification nor distrusts the Coder's own
-account. That is your job.
+Rerunning the verification and testing the Coder's own account are your job.
+The Borrowed review does neither.
 
 Read `FIXES.md` and every Ticket under `.scratch/<slug>/issues/`, then the
-actual changes with `git diff <base>...HEAD`. Do not trust `FIXES.md` or the
-ticked acceptance checkboxes: both are the Coder's account of its own work.
+actual changes with `git diff <base>...HEAD`. Check `FIXES.md` and the ticked
+acceptance checkboxes against that diff: both are the Coder's account of its own
+work.
 
 Judge the implementation on:
 
-- Are every Ticket's acceptance criteria actually met, not just reported as
-  done?
+- Are every Ticket's acceptance criteria met in the code, rather than reported
+  as met?
 - Does the diff contain anything the Spec and Tickets did not ask for?
 - Is the code correct? Look for edge cases, error handling gaps, and
   regressions in surrounding code.
-- Did verification actually pass? Rerun it yourself; reading the Coder's output
-  is not verification.
+- Did verification pass? Rerun it yourself: the Coder's captured output is its
+  claim, and your run is the check.
 - Are the deviations recorded in `FIXES.md` justified?
 
 ## Step 3: the Agent documents in the diff
@@ -84,10 +87,10 @@ findings the Coder cannot act on, and levers read over untouched lines produce
 findings this branch did not earn.
 
 Name the lever a finding breaks in the term `writing-for-agents` uses for it.
-The levers are not listed here; the Borrowed skill ships with the collection and
-is their single source of truth. Severity follows consequence, on the same scale
-as every other finding: a defect that leaves a step ambiguous is a major, sprawl
-that costs tokens without changing behaviour is a minor.
+That Borrowed skill ships with the collection and is the single source of truth
+for the levers, so read them there. Severity follows consequence, on the same
+scale as every other finding: a defect that leaves a step ambiguous is a major,
+sprawl that costs tokens without changing behaviour is a minor.
 
 Two outcomes leave the step with nothing to say, and both are recorded rather
 than passed over: a diff that touches no Agent document, and a
@@ -99,7 +102,7 @@ CODEREVIEW.md` says, and carry on.
 In this order:
 
 1. `SIGNED OFF` as the literal first line, when no blockers or majors remain.
-   Nothing else on that line.
+   Those two words are the whole line.
 2. A `Round <n>` line, where `<n>` counts the reviews you have written in this
    loop.
 3. The `## code-review` section from step 1.
@@ -112,8 +115,8 @@ In this order:
 Replace a previous review rather than appending to it, and state which prior
 findings are resolved.
 
-Sign-off is explicit. Never sign off with hedged approval; the loop only ends
-on that literal line.
+Sign-off is explicit: the loop ends on that literal line and on no other
+wording, so hedged approval leaves the round open.
 
 ## Handing off
 

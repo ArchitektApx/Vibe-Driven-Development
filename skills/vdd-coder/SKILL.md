@@ -24,7 +24,8 @@ Read `git branch --show-current` and compare it with `LOOP.md`:
   already exists locally, which is what a restarted loop on the same slug looks
   like. Create it otherwise.
 - **The feature branch already.** Continue on it.
-- **Anything else.** Ask the user before switching. Do not guess.
+- **Anything else.** Ask the user which branch to work on, and switch on their
+  answer.
 
 ## Precondition
 
@@ -44,11 +45,12 @@ whose blocking Tickets are all done. For each one:
 4. Write its `FIXES.md` entry.
 5. Commit on the feature branch.
 
-A Ticket that turns out to be wrong or impossible is recorded in `FIXES.md`,
-not improvised around. It goes back to the Planner through the user; a broken
-Ticket does not become code.
+A Ticket that turns out to be wrong or impossible is recorded in `FIXES.md` and
+goes back to the Planner through the user. That record is what a broken Ticket
+produces, in place of code.
 
-Unverified work is not done. Reading the Spec is not running the tests.
+Work is done when its verification has run and its output is captured. Reading
+the Spec tells you what should happen; running the tests tells you what does.
 
 ## Commits
 
@@ -58,13 +60,13 @@ work only, and the Borrowed `code-review` skill refuses an empty diff.
 Uncommitted work at hand-off time is a defect: commit first. The Working files
 are gitignored, so nothing leaks into the user's history.
 
-Name the Ticket in the commit message as `Ticket 03`, never as `#3`.
+Name the Ticket in the commit message as `Ticket 03` rather than as `#3`.
 `code-review` treats `#N` in a commit message as an issue reference and goes
 looking for it before it reads the spec it was handed.
 
 ## `FIXES.md`
 
-Cumulative across the whole loop. Never replace it.
+Cumulative across the whole loop: every round adds to what is already there.
 
 Header lines: `Base: <base branch>`, `Branch: <feature branch>`, and
 `Round <n>` with the latest round number.
@@ -83,8 +85,8 @@ Write all of it for a reviewer who shares none of your context.
 ## If `CODEREVIEW.md` exists
 
 A reviewer has pushed back. Address every finding and record what you did in a
-new `FIXES.md` round. Push back in writing if a finding is wrong, but never
-silently skip one. Repeat until the reviewer signs off.
+new `FIXES.md` round. Every finding leaves the round as a fix or as written
+pushback. Repeat until the reviewer signs off.
 
 The review's `## Standards` and `## Spec` sections come from a Borrowed skill
 rather than from the reviewer's own reading. They are findings like any other.

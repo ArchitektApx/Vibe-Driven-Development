@@ -1,10 +1,10 @@
 # Roles are invoked manually, in sequence, by the user
 
 Each Role runs in a session the user starts by hand, in a fixed order: Planner
-and Plan-Reviewer until `PLAN.md` is signed off, then Coder and Code-Reviewer.
-Nothing in this plugin orchestrates the Roles automatically. The workflow's
-value comes from each session's context being genuinely fresh, and from the
-user being present in the loop.
+and Plan-Reviewer until `PLAN-REVIEW.md` signs off the Spec, then Coder and
+Code-Reviewer. The user is what sequences them, and the plugin orchestrates none
+of it. The workflow's value comes from each session's context being genuinely
+fresh, and from the user being present in the loop.
 
 ## Considered options
 
@@ -24,5 +24,5 @@ better option was found.
 This also settles how the Planner handles Borrowed skills. `grill-with-docs`
 and `improve-codebase-architecture` are User-invoked, so an agent cannot start
 them. Under any orchestrated design that would be an obstacle to work around.
-Here it is simply the same pattern the rest of the workflow already uses: the
+Here it is the same pattern the rest of the workflow already uses: the
 Planner asks, the user types the command, the session continues.
