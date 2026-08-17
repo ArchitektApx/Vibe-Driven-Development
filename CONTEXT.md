@@ -41,16 +41,24 @@ A file written to be read by an agent: a skill file, an `AGENTS.md`, a `CLAUDE.m
 _Avoid_: prompt, instruction file, agent-facing doc
 
 **Session name**:
-`<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner`. Set by the user, never by an agent; it is how one Role addresses another with a Doorbell.
+`<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner`. Set by the user rather than by an agent; it is how one Role addresses another with a Doorbell.
 _Avoid_: session id, title, label
 
 **Doorbell**:
-A cross-session message from one Role to its counterpart with a fixed template and no free text: which Working file was written, which round, how many findings per severity, or `SIGNED OFF`. The receiving Role acts on the file, never on the message. Only sent where the agent has the messaging tools; otherwise printed for the user to relay.
+A cross-session message from one Role to its counterpart with a fixed template and no free text: which Working file was written, which round, how many findings per severity, or `SIGNED OFF`.
 _Avoid_: notification, handoff message, ping
 
 **Sign-off**:
 The literal line `SIGNED OFF` at the top of a review file. The only thing that ends a Loop; hedged approval is not sign-off.
 _Avoid_: approval, LGTM, done
+
+**Rule inventory**:
+One entry per behavioural rule in an Agent document, taken before a writing pass over it and marked afterwards as unchanged, re-expressed or proposed for deletion. Written into the Working file of the Role that made the pass, where it is the evidence that no rule left the document.
+_Avoid_: rule list, checklist, audit
+
+**Lever log**:
+One entry per passage a writing pass changed, naming the lever from `writing-for-agents` that the passage broke, in that skill's own term. Written beside the Rule inventory, where it is the evidence that no change was made on taste.
+_Avoid_: change log, diff summary, rationale
 
 ## Skill dependencies
 
@@ -67,7 +75,7 @@ A Borrowed skill's `SKILL.md` exists in a known store on this machine. Says noth
 _Avoid_: installed, downloaded
 
 **Resolvable**:
-The agent running right now can actually run a Borrowed skill. Present is necessary but not sufficient: a Borrowed skill sitting in a store this agent was never wired to is Present and not Resolvable. A dangling symlink is neither, because the file it points at does not exist.
+The agent running right now can actually run a Borrowed skill. Present is necessary but not sufficient: a Borrowed skill sitting in a store this agent was never wired to is Present and not Resolvable.
 _Avoid_: available, wired, active, visible
 
 **Sibling probe**:
