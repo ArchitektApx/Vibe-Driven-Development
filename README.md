@@ -69,6 +69,12 @@ This repository is developed with its own workflow; `CONTEXT.md` and `docs/adr/`
 
 ## Workflow
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/workflow-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/workflow-light.svg">
+  <img alt="The VDD workflow: you start the loop, the Planner and Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then you open the PR." src="docs/workflow-light.svg" width="900">
+</picture>
+
 ### Phase 0: Prepare the Environment
 
 `.gitignore` the working files the loops below will create. They are scratch space for the sessions, not part of your project.
