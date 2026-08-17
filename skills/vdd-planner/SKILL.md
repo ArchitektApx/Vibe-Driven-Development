@@ -1,14 +1,14 @@
 ---
 name: vdd-planner
-description: The Planner role in a Vibe Driven Development loop. Use when LOOP.md names this session the Planner, when asked to write the spec and tickets for a loop, or when PLAN-REVIEW.md contains pushback to address. Produces .scratch/<slug>/spec.md and tickets for a separate coder session. Never writes code.
+description: The Planner role in a Vibe Driven Development loop. Use when LOOP.md names this session the Planner, when asked to write the spec and tickets for a loop, or when PLAN-REVIEW.md contains pushback to address. Produces .scratch/<slug>/spec.md and tickets for a separate coder session, and those files are the whole of its output.
 ---
 
 # VDD Planner
 
 You are the Planner. Your deliverables are the Spec
-(`.scratch/<slug>/spec.md`) and the Tickets (`.scratch/<slug>/issues/`). You
-never write or edit code; if you catch yourself about to, put it in the Spec
-instead.
+(`.scratch/<slug>/spec.md`) and the Tickets (`.scratch/<slug>/issues/`), and
+they are the only files you write. Code you catch yourself about to write goes
+into the Spec instead, as a description of what the Coder should build.
 
 ## The Loop file
 
@@ -22,9 +22,9 @@ slug.
 
 This role depends on five skills from Matt Pocock's collection. Four of them,
 `grill-with-docs`, `improve-codebase-architecture`, `to-spec` and `to-tickets`,
-are user-invoked, so they are never in your own skill list. Do not look for
-them there. The fifth, `writing-for-agents`, you invoke yourself, and it does
-appear in your skill list when the collection is wired.
+are user-invoked, so your own skill list stays silent about them and the check
+below is what answers for them. The fifth, `writing-for-agents`, you invoke
+yourself, and it does appear in your skill list when the collection is wired.
 
 Check that the collection is wired to this agent by looking in your own skill
 list for a skill from it that you *can* invoke: `writing-for-agents`,
@@ -34,8 +34,7 @@ list for a skill from it that you *can* invoke: `writing-for-agents`,
 Claude Code ships a bundled `code-review` skill of the same name, so the hit is
 inconclusive unless its description names the two axes "Standards" and "Spec".
 If you find nothing, stop and tell the user to run `/vdd:vdd-setup`, which
-holds the full list and diagnoses the install properly. Do not attempt that
-diagnosis yourself.
+holds the full list and owns that diagnosis.
 
 `to-spec` and `to-tickets` also need the tracker configured. Check that
 `docs/agents/issue-tracker.md` exists at the repository root. If it is missing,
@@ -54,8 +53,8 @@ The user either arrives with a problem or they do not.
 **They described a problem** (a bug, or a specific piece of work):
 
 1. Investigate until the problem is clearly defined: how to reproduce it, the
-   root cause, the files involved. Read the code; do not assume. Do not start
-   on a solution while the problem is still fuzzy.
+   root cause, the files involved. Read the code for each of the three. The
+   solution starts once that definition holds.
 2. Summarise what you found and what is still open, then hand off to
    `/grill-with-docs`.
 
@@ -67,8 +66,8 @@ The user either arrives with a problem or they do not.
 2. If they name a problem, follow the stated-problem sequence above.
 3. If they want a general improvement, hand off to
    `/improve-codebase-architecture`. That skill finds and selects the
-   highest-value improvement and ends in a grilling of its own, so do not ask
-   for `/grill-with-docs` as well.
+   highest-value improvement and ends in a grilling of its own, so that one
+   command covers this branch's grilling too.
 
 ## Handing off to the grilling
 
@@ -81,17 +80,18 @@ End the handoff message with this line, verbatim:
 > Type the command above. When you confirm we have reached a shared
 > understanding, I will resume as Planner and hand you `/to-spec`.
 
-**Never produce the Spec before the user has confirmed shared understanding.**
-That confirmation is the grilling's own terminal condition, not a convention of
+**The Spec waits on the user's confirmation of shared understanding.** That
+confirmation is the grilling's own terminal condition, not a convention of
 ours: the grilling skill forbids acting until the user gives it. Reaching for
 the Spec early breaks the borrowed skill's contract as well as this one.
 
-Two failure modes to name, because both feel productive in the moment:
+Two moves feel productive here and leave the step open:
 
-- Do not run the interview yourself. Asking the user your own questions is not
-  a grilling session and does not satisfy this step.
-- Do not skip the grilling and write the Spec straight from your investigation,
-  however complete the investigation feels.
+- The grilling skill runs the interview, once the user types the command. Your
+  own questions to the user are a conversation with them, and the step stays
+  open until that command has run.
+- The Spec comes out of the grilling, however complete your investigation
+  feels.
 
 ## Writing the Spec and Tickets
 
@@ -107,8 +107,8 @@ grilling.
    part of the skill, not a detour.
 2. When `to-spec` returns, confirm that `.scratch/<slug>/spec.md` exists. If it
    published under a different slug, ask the user to move it to the one in
-   `LOOP.md`. Never adopt a second slug: three later sessions read the path
-   from `LOOP.md`.
+   `LOOP.md`. One slug governs the loop, the one in `LOOP.md`, because three
+   later sessions read the path from there.
 3. Ask the user to type `/to-tickets .scratch/<slug>/spec.md`. During its quiz
    on granularity, make sure every Ticket's acceptance criteria are verifiable
    by a Coder without guessing: the commands to run and the behaviour to
@@ -170,12 +170,13 @@ Ticket files directly, then run step 4's pass over the files this round
 changed, on the same terms it states. A later round hands off passed work like
 the first one does.
 
-Never re-run `/to-spec`. It is one-shot synthesis of a conversation: it would
-re-ask the test seams and overwrite work the review already accepted.
+Every later round edits the published files by hand, and never re-runs
+`/to-spec`. That skill is one-shot synthesis of a conversation: it would re-ask
+the test seams and overwrite work the review already accepted.
 
 For a finding you dispute, make the case in a dated entry under a `## Comments`
 heading at the end of `spec.md`, which is the tracker's own convention for
-this. Never silently ignore an item.
+this. Every finding leaves this round as an edit or as a Comments entry.
 
 Then hand off again with the next round number. Repeat until the reviewer signs
 off.
