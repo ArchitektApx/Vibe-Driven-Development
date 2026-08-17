@@ -20,15 +20,16 @@ slug.
 
 ## Before anything else
 
-This role depends on four skills from Matt Pocock's collection:
-`grill-with-docs`, `improve-codebase-architecture`, `to-spec` and `to-tickets`.
-All four are user-invoked, so they are never in your own skill list. Do not
-look for them there.
+This role depends on five skills from Matt Pocock's collection. Four of them,
+`grill-with-docs`, `improve-codebase-architecture`, `to-spec` and `to-tickets`,
+are user-invoked, so they are never in your own skill list. Do not look for
+them there. The fifth, `writing-for-agents`, you invoke yourself, and it does
+appear in your skill list when the collection is wired.
 
 Check that the collection is wired to this agent by looking in your own skill
-list for a skill from it that you *can* invoke: `grilling`,
-`codebase-design`, `domain-modeling`, `tdd`, `research`, `prototype`,
-`diagnosing-bugs`, `resolving-merge-conflicts`. A hit on
+list for a skill from it that you *can* invoke: `writing-for-agents`,
+`grilling`, `codebase-design`, `domain-modeling`, `tdd`, `research`,
+`prototype`, `diagnosing-bugs`, `resolving-merge-conflicts`. A hit on
 `mattpocock-skills:code-review` counts too. A bare `code-review` hit does not:
 Claude Code ships a bundled `code-review` skill of the same name, so the hit is
 inconclusive unless its description names the two axes "Standards" and "Spec".
@@ -113,6 +114,16 @@ grilling.
    by a Coder without guessing: the commands to run and the behaviour to
    expect. Spec and Tickets deliberately carry no file paths, so the criteria
    are all the Coder has to check itself against.
+4. Invoke `writing-for-agents`, then apply its levers to the published Spec and
+   to every published Ticket, editing those files directly. The Coder reads them
+   cold, and this is the one point where the whole set passes through your hands
+   as a finished document. You are done when every published file has been
+   through the pass. Two bounds on it: the pass covers your own prose, so the
+   status line, the blocking line and the tracker template's labels stay as the
+   template emitted them; and you edit the published files rather than re-run
+   `/to-spec`. If `writing-for-agents` does not resolve, record that under the
+   `## Comments` heading of `spec.md`, the tracker convention this skill also
+   uses for a disputed finding, and carry on.
 
 ## Handing off
 
@@ -155,7 +166,9 @@ which file to read and nothing more.
 ## If `PLAN-REVIEW.md` exists
 
 A reviewer has pushed back. Address every finding by editing `spec.md` and the
-Ticket files directly.
+Ticket files directly, then run step 4's pass over the files this round
+changed, on the same terms it states. A later round hands off passed work like
+the first one does.
 
 Never re-run `/to-spec`. It is one-shot synthesis of a conversation: it would
 re-ask the test seams and overwrite work the review already accepted.
