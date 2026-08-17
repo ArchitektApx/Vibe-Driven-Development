@@ -39,8 +39,8 @@ That is not a finding. Whether a Coder can still find what they name is.
 - Are edge cases, error handling, and verification steps covered?
 - Would something simpler achieve the same result?
 - Are they written for the agent that reads them? Invoke `writing-for-agents`
-  and check the Spec and every Ticket against its levers. This check carries no
-  condition: the Spec and the Tickets are Agent documents in every Loop.
+  and check the Spec and every Ticket against its levers. The Spec and the
+  Tickets are Agent documents in every Loop.
 
 Name the lever a finding breaks in the term `writing-for-agents` uses for it.
 The levers are not listed here; the Borrowed skill ships with the collection and

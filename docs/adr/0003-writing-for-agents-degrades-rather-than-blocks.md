@@ -9,9 +9,9 @@ knows.
 ## Considered options
 
 **Block, the way a missing `code-review` blocks the Code-Reviewer.** Rejected.
-The two dependencies are not the same size. `code-review` is a whole axis of the
-Code-Reviewer's review, and a session that cannot run it is missing most of its
-deliverable. The levers are one check inside a review that has others, and a
+The two Borrowed skills are not the same size. `code-review` is a whole axis of
+the Code-Reviewer's review, and a session that cannot run it is missing most of
+its Working file. The levers are one check inside a review that has others, and a
 Loop that runs without them still produces a Spec, a diff and a sign-off. A hard
 stop would cost the user the Loop to save one section of one review.
 
@@ -23,7 +23,7 @@ so a review with the check skipped reads as exactly that.
 
 A user whose collection predates `writing-for-agents` runs the workflow on six
 of the seven Borrowed skills and loses the writing pass alone. The setup skill
-tells them which release they are on and how to update it.
+tells them the installed collection predates the skill, and how to update it.
 
 The two reviewers check writing on different terms, and the asymmetry is
 deliberate. The Plan-Reviewer reads documents VDD generated, which are Agent

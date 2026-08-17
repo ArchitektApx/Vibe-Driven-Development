@@ -90,7 +90,10 @@ Check, in order:
    `code-review`. A miss proves nothing, because these collections
    can be installed one skill at a time. On a miss across the whole list, or if
    you cannot inspect your own skill list, ask the user to type
-   `/grill-with-docs` and tell you whether it resolves.
+   `/writing-for-agents` and tell you whether it resolves. That one question
+   answers the collection and the seventh skill together, and a miss on it
+   followed by a `/grill-with-docs` hit is the collection that predates the
+   skill.
 
    `writing-for-agents` leads that list because it is Borrowed in its own
    right, and because Claude Code bundles nothing of that name, so a hit needs
@@ -138,9 +141,12 @@ Check, in order:
    predates the skill and give the update route for the store the six were found
    in. Installing a collection they already have is the wrong advice:
 
-   - Found under `~/.claude/plugins/cache/`: `/plugin marketplace update
-     <marketplace>`, naming the directory under that cache the six sit in, then
-     `/plugin manage` to take the newer version.
+   - Found under `~/.claude/plugins/cache/`: `claude plugin marketplace update
+     <marketplace>` then `claude plugin update mattpocock-skills`.
+     `<marketplace>` is the first directory under `~/.claude/plugins/cache/` on
+     the path the six were found at, which is the marketplace name, not the
+     plugin name below it. In a Claude Code session the marketplace half is
+     `/plugin marketplace update <marketplace>`.
    - Found under an `.agents/skills/` or `.claude/skills/` store:
      `npx skills update`.
 
@@ -150,9 +156,9 @@ Check, in order:
    blocks the Code-Reviewer. A missing or unresolvable `writing-for-agents`
    degrades the Planner, the Plan-Reviewer and the Code-Reviewer instead of
    blocking them: each drops its writing pass, records that in the file it
-   writes, and carries on. The Coder is the only Role with no Borrowed skill
-   dependency at all, and a user resuming mid-workflow is stopped by the
-   `code-review` finding alone.
+   writes, and carries on. The Coder is the only Role that borrows nothing,
+   and a user resuming mid-workflow is stopped by the `code-review` finding
+   alone.
 
 2. **Tracker configured.** `to-spec`, `to-tickets` and `code-review` all read
    `docs/agents/issue-tracker.md` to learn where specs and tickets live, and
