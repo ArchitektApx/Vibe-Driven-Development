@@ -62,8 +62,8 @@ Check, in order:
    Filter with `grep`, not with `-path`. Agent environments commonly replace
    `find` with a shell function around a bundled `bfs`, or route it through a
    command-rewriting proxy, and several of those answer `-path` with
-   `unknown flag '-path', ignored` and then print every `SKILL.md` on the
-   machine, or nothing at all. `-name` survives both. One skill per invocation,
+   `unknown flag '-path', ignored` and then print everything under the roots,
+   or nothing at all. `-name` survives both. One skill per invocation,
    also deliberately: a single `find` with compound predicates is correct POSIX
    and works in a plain shell, but the same proxies reject compound predicates
    outright. The loop is immune and costs nothing.
@@ -144,6 +144,6 @@ Check, in order:
 
 3. **Git repository.** The workflow needs one. If this directory is not a repository, ask before running `git init`.
 4. **Gitignore.** The loop's working files are scratch space and must not be committed. Ensure `.gitignore` covers `LOOP.md`, `.scratch/`, `PLAN.md`, `PLAN-REVIEW.md`, `FIXES.md`, and `CODEREVIEW.md`; add missing entries. `.scratch/` is the Borrowed tracker directory, and VDD is what invokes it here, so it is scratch space like the rest. `PLAN.md` is not written by any current Role and stays on the list for one release, for users who still have one from a 0.2.0 loop.
-5. **Stale working files.** If `LOOP.md`, or any of the other files from the previous check, already exists from a previous loop, ask whether to delete it before starting fresh. Never delete anything mid-loop. Do not check `.scratch/` here: you cannot know which feature is stale, and `/vdd:vdd-start-loop` asks about `.scratch/<slug>/` once the user has named the slug.
+5. **Stale working files.** If `LOOP.md`, or any of the four review files from the previous check, already exists from a previous loop, ask whether to delete it before starting fresh. Never delete anything mid-loop. Do not check `.scratch/` here: you cannot know which feature is stale, and `/vdd:vdd-start-loop` asks about `.scratch/<slug>/` once the user has named the slug.
 
 Finish with a short status report: what passed, what you fixed, what the user still has to do.
