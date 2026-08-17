@@ -70,6 +70,30 @@ Judge the implementation on:
   is not verification.
 - Are the deviations recorded in `FIXES.md` justified?
 
+## Step 3: the Agent documents in the diff
+
+This step fires when the diff touches an Agent document: a skill file, an
+`AGENTS.md`, a `CLAUDE.md`, or any document one of those points at. The Spec and
+the Tickets are Agent documents too, on the rare branch that changes them.
+
+When it fires, invoke `writing-for-agents` and check the added and changed lines
+of those files against its levers. Those lines are the whole object of the step.
+Source files in the same diff stay out of it, and so do the Agent document lines
+the branch left alone: agent-writing levers read over application code produce
+findings the Coder cannot act on, and levers read over untouched lines produce
+findings this branch did not earn.
+
+Name the lever a finding breaks in the term `writing-for-agents` uses for it.
+The levers are not listed here; the Borrowed skill ships with the collection and
+is their single source of truth. Severity follows consequence, on the same scale
+as every other finding: a defect that leaves a step ambiguous is a major, sprawl
+that costs tokens without changing behaviour is a minor.
+
+Two outcomes leave the step with nothing to say, and both are recorded rather
+than passed over: a diff that touches no Agent document, and a
+`writing-for-agents` that does not resolve. Write either one as `Write
+CODEREVIEW.md` says, and carry on.
+
 ## Write `CODEREVIEW.md`
 
 In this order:
@@ -80,7 +104,10 @@ In this order:
    loop.
 3. The `## code-review` section from step 1.
 4. `## Findings`, numbered. Each one carries a severity (blocker / major /
-   minor), a `file:line` reference, and a concrete fix.
+   minor), a `file:line` reference, and a concrete fix. Step 3's findings are
+   numbered here with the rest. When step 3 did not apply, or
+   `writing-for-agents` did not resolve, that line comes first, above finding 1,
+   so a skipped check does not read like a passed one.
 
 Replace a previous review rather than appending to it, and state which prior
 findings are resolved.

@@ -21,6 +21,32 @@ The repository is prose only. There is no build and no tests. Verification
 means reading the skill files as an agent would read them cold; CI only checks
 that what ships is well formed (see Invariants).
 
+## House style
+
+Write plain declarative sentences. Say each thing once. Name the concrete
+object rather than the category it belongs to. Give the reason where the reader
+needs it.
+
+This style binds work on this repository. No Role carries it into a user's
+project; their prose is theirs.
+
+`writing-for-agents` covers the defects that change how an agent behaves. What
+it leaves behind is phrasing that reads like a machine wrote it, and these six
+tells are all of it. The list is closed at six: a seventh replaces one of these
+rather than joining them.
+
+1. Em dashes. Use a comma, a colon or a full stop.
+2. The "not just X, but Y" cadence, and its relatives ("it is not only A, it is
+   also B"). State the half you mean.
+3. Triads of adjectives or verbs used for rhythm. Keep the one word that
+   carries the meaning.
+4. Openers that restate the heading or the question. Answer in the first
+   sentence.
+5. Hedging modifiers: simply, just, basically, really, actually. State the
+   claim plainly.
+6. Closing paragraphs that summarise the section above them. End on the last
+   point.
+
 ## Landing a change
 
 `master` is protected by a ruleset with no bypass, so nothing lands by pushing

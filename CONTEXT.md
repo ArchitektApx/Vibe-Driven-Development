@@ -36,6 +36,10 @@ _Avoid_: plan, PLAN.md, design doc
 One file under `.scratch/<feature slug>/issues/`, written by the Borrowed skill `to-tickets`. A vertical slice sized for one context window with acceptance criteria; the Coder works Tickets in dependency order.
 _Avoid_: task, issue, story
 
+**Agent document**:
+A file written to be read by an agent: a skill file, an `AGENTS.md`, a `CLAUDE.md`, and any document reached by a pointer from one of those. Inside a Loop the Spec and the Tickets are Agent documents too.
+_Avoid_: prompt, instruction file, agent-facing doc
+
 **Session name**:
 `<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner`. Set by the user, never by an agent; it is how one Role addresses another with a Doorbell.
 _Avoid_: session id, title, label
@@ -51,11 +55,11 @@ _Avoid_: approval, LGTM, done
 ## Skill dependencies
 
 **Borrowed skill**:
-A skill from another collection that a Role depends on but does not ship. Currently, from Matt Pocock's collection: `setup-matt-pocock-skills`, `grill-with-docs`, `improve-codebase-architecture`, `to-spec`, `to-tickets` (all User-invoked) and `code-review` (agent-invocable).
+A skill from another collection that a Role depends on but does not ship. Currently, from Matt Pocock's collection: `setup-matt-pocock-skills`, `grill-with-docs`, `improve-codebase-architecture`, `to-spec`, `to-tickets` (all User-invoked), and `code-review` and `writing-for-agents` (both agent-invocable).
 _Avoid_: external skill, third-party skill, dependency
 
 **User-invoked**:
-A property of a skill whose author blocked agents from starting it, so only a human typing the slash command can. All Borrowed skills except `code-review` are user-invoked. In Claude Code this is `disable-model-invocation: true` in the frontmatter; in Codex, `policy.allow_implicit_invocation: false`.
+A property of a skill whose author blocked agents from starting it, so only a human typing the slash command can. All Borrowed skills except `code-review` and `writing-for-agents` are user-invoked. In Claude Code this is `disable-model-invocation: true` in the frontmatter; in Codex, `policy.allow_implicit_invocation: false`.
 _Avoid_: manual, disabled, blocked
 
 **Present**:

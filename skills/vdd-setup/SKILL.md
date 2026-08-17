@@ -13,7 +13,7 @@ particular feature; `/vdd:vdd-start-loop` handles per-loop state and writes
 
 Check, in order:
 
-1. **Borrowed skills.** The Roles depend on six skills from Matt Pocock's
+1. **Borrowed skills.** The Roles depend on seven skills from Matt Pocock's
    collection:
 
    | Borrowed skill | Invoked by | Needed by |
@@ -24,6 +24,7 @@ Check, in order:
    | `to-spec` | the user | Planner |
    | `to-tickets` | the user | Planner |
    | `code-review` | an agent | Code-Reviewer |
+   | `writing-for-agents` | an agent | Planner, Plan-Reviewer, Code-Reviewer |
 
    The five user-invoked ones have `disable-model-invocation: true` in their
    frontmatter, so they never appear in your own skill list even when correctly
@@ -43,7 +44,8 @@ Check, in order:
 
    You want `setup-matt-pocock-skills/SKILL.md`, `grill-with-docs/SKILL.md`,
    `improve-codebase-architecture/SKILL.md`, `to-spec/SKILL.md`,
-   `to-tickets/SKILL.md` and `code-review/SKILL.md`. The Claude plugin route
+   `to-tickets/SKILL.md`, `code-review/SKILL.md` and
+   `writing-for-agents/SKILL.md`. The Claude plugin route
    nests skills by category (`engineering/`, `productivity/`), so match on the
    trailing path rather than a fixed depth. The two `.claude/skills` roots are
    where the skills CLI writes when it installs for Claude Code: project scope
@@ -53,7 +55,7 @@ Check, in order:
    Use your file-search tool if you have one; otherwise:
 
    ```bash
-   for s in setup-matt-pocock-skills grill-with-docs improve-codebase-architecture to-spec to-tickets code-review; do
+   for s in setup-matt-pocock-skills grill-with-docs improve-codebase-architecture to-spec to-tickets code-review writing-for-agents; do
      find ~/.agents/skills ./.agents/skills ~/.claude/skills ./.claude/skills ~/.claude/plugins/cache \
        -name SKILL.md 2>/dev/null | grep "/$s/SKILL.md$"
    done
@@ -81,17 +83,29 @@ Check, in order:
    because the user will be running the loop in this agent.
 
    Probe your own skill list for one of the collection's skills that is *not*
-   user-invoked: `grilling`, `codebase-design`, `domain-modeling`, `tdd`,
-   `research`, `prototype`, `diagnosing-bugs`, `resolving-merge-conflicts`. A
-   hit means the collection is wired to this agent, and you are done. A miss
-   proves nothing, because these collections can be installed one skill at a
-   time. On a miss, or if you cannot inspect your own skill list, ask the user
-   to type `/grill-with-docs` and tell you whether it resolves.
+   user-invoked: `writing-for-agents`, `grilling`, `codebase-design`,
+   `domain-modeling`, `tdd`, `research`, `prototype`, `diagnosing-bugs`,
+   `resolving-merge-conflicts`. A hit means the collection is wired to this
+   agent, which answers Resolvable for the five user-invoked skills and for
+   `code-review`. A miss proves nothing, because these collections
+   can be installed one skill at a time. On a miss across the whole list, or if
+   you cannot inspect your own skill list, ask the user to type
+   `/writing-for-agents` and tell you whether it resolves. That one question
+   answers the collection and the seventh skill together, and a miss on it
+   followed by a `/grill-with-docs` hit is the collection that predates the
+   skill.
 
-   `code-review` is the collection's sixth Borrowed skill and is itself
-   agent-invocable, so it looks like the obvious probe. It is not, because
-   Claude Code ships an unrelated bundled `code-review` skill of the same bare
-   name. Read the hit before you believe it:
+   `writing-for-agents` leads that list because it is Borrowed in its own
+   right, and because Claude Code bundles nothing of that name, so a hit needs
+   no reading. That same look is its own Resolvable test: it is agent-invocable,
+   so a wired collection puts it in your skill list. A hit settles the
+   collection and the seventh skill together. A miss on it followed by a hit
+   further down the list means the collection is Resolvable and
+   `writing-for-agents` is not.
+
+   `code-review` is agent-invocable too, so it looks like a second probe. It is
+   not, because Claude Code ships an unrelated bundled `code-review` skill of
+   the same bare name. Read the hit before you believe it:
 
    - A hit on `mattpocock-skills:code-review` is the Claude Code plugin
      install. It proves the collection is Resolvable.
@@ -120,12 +134,31 @@ Check, in order:
      `npx skills@latest add mattpocock/skills` in other agents, taking the
      whole collection.
 
-   Name which Roles a failure blocks, in these words. A missing or unresolvable
-   `grill-with-docs`, `improve-codebase-architecture`, `to-spec` or
+   One shape of Not Present is an old collection rather than a missing one.
+   `writing-for-agents` shipped after the six the Roles borrowed before it, so a
+   user who installed the collection earlier has those six Present and this one
+   absent. When that is the shape in front of you, say the installed collection
+   predates the skill and give the update route for the store the six were found
+   in. Installing a collection they already have is the wrong advice:
+
+   - Found under `~/.claude/plugins/cache/`: `claude plugin marketplace update
+     <marketplace>` then `claude plugin update mattpocock-skills`.
+     `<marketplace>` is the first directory under `~/.claude/plugins/cache/` on
+     the path the six were found at, which is the marketplace name, not the
+     plugin name below it. In a Claude Code session the marketplace half is
+     `/plugin marketplace update <marketplace>`.
+   - Found under an `.agents/skills/` or `.claude/skills/` store:
+     `npx skills update`.
+
+   Name what a failure costs each Role, in these words. A missing or
+   unresolvable `grill-with-docs`, `improve-codebase-architecture`, `to-spec` or
    `to-tickets` blocks the Planner. A missing or unresolvable `code-review`
-   blocks the Code-Reviewer. The Coder and the Plan-Reviewer have no Borrowed
-   skill dependency, so a user resuming mid-workflow is not blocked by this
-   finding.
+   blocks the Code-Reviewer. A missing or unresolvable `writing-for-agents`
+   degrades the Planner, the Plan-Reviewer and the Code-Reviewer instead of
+   blocking them: each drops its writing pass, records that in the file it
+   writes, and carries on. The Coder is the only Role that borrows nothing,
+   and a user resuming mid-workflow is stopped by the `code-review` finding
+   alone.
 
 2. **Tracker configured.** `to-spec`, `to-tickets` and `code-review` all read
    `docs/agents/issue-tracker.md` to learn where specs and tickets live, and
