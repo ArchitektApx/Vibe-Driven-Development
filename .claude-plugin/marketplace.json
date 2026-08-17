@@ -10,8 +10,8 @@
     {
       "name": "vdd",
       "source": "./",
-      "description": "Vibe Driven Development role skills: planner, plan-reviewer, coder, code-reviewer. Early WIP release, not battle tested.",
-      "version": "0.2.0",
+      "description": "Vibe Driven Development role skills: start-loop, planner, plan-reviewer, coder, code-reviewer. The Planner ends in a spec and tickets a separate coder session implements. Early WIP release, not battle tested.",
+      "version": "0.3.0",
       "category": "workflow",
       "tags": [
         "workflow",
