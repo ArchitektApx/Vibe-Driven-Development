@@ -131,7 +131,7 @@ The Planner is a session that performs the following tasks:
 - Identify improvements to the codebase (refactoring, adding tests, etc.)
 - Grill you on it until you both agree what the work is
 - Hand you `/to-spec` and then `/to-tickets`, which publish the spec and the tickets under `.scratch/<slug>/`
-- Pass the published spec and every ticket through `writing-for-agents` before handing them on, so the Coder reads them the way it actually reads
+- Pass the published spec and every ticket through `writing-for-agents` before handing them on, so the Coder gets documents written for the way it reads
 
 The Planner never writes code. Its deliverables are `.scratch/<slug>/spec.md` and the ticket files in `.scratch/<slug>/issues/`.
 
