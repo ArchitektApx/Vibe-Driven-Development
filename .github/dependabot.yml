@@ -1,0 +1,16 @@
+version: 2
+
+updates:
+  # Actions are pinned to commit SHAs, which never move on their own. Without
+  # this, a pin is frozen forever and an upstream security fix never arrives.
+  # Dependabot bumps the SHA and rewrites the trailing version comment, so the
+  # pins stay pins and sha_pinning_required stays satisfied.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci

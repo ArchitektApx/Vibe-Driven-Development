@@ -1,0 +1,101 @@
+name: Verify
+
+# pull_request, never pull_request_target: this checks out and runs content
+# from the PR head, so it must not have write access or secrets.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # A broken manifest breaks install for every user, and there is no
+      # staged rollout to catch it.
+      - name: Validate JSON manifests
+        run: |
+          rc=0
+          for f in .claude-plugin/marketplace.json .claude-plugin/plugin.json; do
+            [ -f "$f" ] || { echo "missing manifest: $f"; rc=1; continue; }
+            node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$f" \
+              || { echo "invalid JSON: $f"; rc=1; }
+          done
+          exit $rc
+
+      # The marketplace entry and plugin.json describe the same plugin. If the
+      # names diverge, /plugin install resolves one and the loader reads the
+      # other. Version drift is not fatal but is always a mistake, so it fails
+      # too rather than shipping a release that lies about itself.
+      - name: Marketplace and plugin manifest agree
+        run: |
+          node -e '
+            const fs = require("fs");
+            const m = JSON.parse(fs.readFileSync(".claude-plugin/marketplace.json", "utf8"));
+            const p = JSON.parse(fs.readFileSync(".claude-plugin/plugin.json", "utf8"));
+            const entry = (m.plugins || []).find(e => e.name === p.name);
+            if (!entry) { console.error(`marketplace.json has no plugin named ${p.name}`); process.exit(1); }
+            if (entry.version !== p.version) {
+              console.error(`version drift: marketplace ${entry.version} vs plugin.json ${p.version}`);
+              process.exit(1);
+            }
+            if (entry.source !== "./") {
+              console.error(`plugin ${p.name} sources from ${JSON.stringify(entry.source)}, expected "./" (this repo)`);
+              process.exit(1);
+            }
+          '
+
+      - name: Check every skill has frontmatter
+        run: |
+          rc=0
+          while IFS= read -r f; do
+            head -n 1 "$f" | grep -qx -- '---' || { echo "missing frontmatter: $f"; rc=1; }
+            grep -qE '^name:' "$f" || { echo "missing name: $f"; rc=1; }
+            grep -qE '^description:' "$f" || { echo "missing description: $f"; rc=1; }
+          done < <(find skills -name SKILL.md)
+          exit $rc
+
+      # `npx skills add` installs flat by frontmatter name, so two skills with
+      # the same name silently clobber each other on the user's machine.
+      - name: Skill names are unique
+        run: |
+          dupes=$(grep -h '^name:' skills/*/SKILL.md | sort | uniq -d)
+          if [ -n "$dupes" ]; then
+            echo "duplicate skill names:"; echo "$dupes"; exit 1
+          fi
+
+      # This repository is prose only. Hooks, MCP servers, symlinks and
+      # executables all end up on every installer's machine and none of them
+      # is needed here. If one is ever added deliberately, edit this step in
+      # the same PR so the reviewer sees both.
+      - name: Reject executable surface
+        run: |
+          rc=0
+          while IFS= read -r entry; do
+            mode=${entry%% *}
+            case "$mode" in
+              120000) echo "symlink in distributed content: ${entry#* }"; rc=1 ;;
+              100755) echo "executable in distributed content: ${entry#* }"; rc=1 ;;
+            esac
+          done < <(git ls-files -s | awk '{print $1" "$4}')
+          for f in .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
+            if grep -qE '"(hooks|mcpServers)"' "$f"; then
+              echo "$f declares hooks or MCP servers; this plugin ships neither"; rc=1
+            fi
+          done
+          while IFS= read -r f; do
+            echo "unexpected hook or MCP config: $f"; rc=1
+          done < <(git ls-files | grep -E '(^|/)(hooks\.json|\.mcp\.json|mcp\.json)$' || true)
+          exit $rc
