@@ -9,7 +9,7 @@ knows.
 ## Considered options
 
 **Block, the way a missing `code-review` blocks the Code-Reviewer.** Rejected.
-The two Borrowed skills are not the same size. `code-review` is a whole axis of
+The two Borrowed skills carry different weight. `code-review` is a whole axis of
 the Code-Reviewer's review, and a session that cannot run it is missing most of
 its Working file. The levers are one check inside a review that has others, and a
 Loop that runs without them still produces a Spec, a diff and a sign-off. A hard
