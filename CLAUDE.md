@@ -54,8 +54,21 @@ a pull request. Branch, push the branch, open a PR, merge it yourself. To merge,
 a PR needs the `verify` check green and squash as its merge method; it needs no
 approvals.
 
+Commit subjects carry a conventional prefix: `feat`, `fix`, `docs`, `ci`,
+`chore`. The prefix names what the change does, not which file it touches. The
+skill files are this plugin's product, so a change to what a Role does is `feat`
+or `fix` even though the file is prose, and `docs` is for a change that leaves
+behaviour alone.
+
+The pull request body is where a loop's evidence goes: how many review rounds it
+took, the findings per severity, and the verification that was run. The Working
+files are gitignored, so the body is the only place any of it survives the loop.
+
 Every commit must be signed. Local commits inherit `commit.gpgsign`; an
-unsigned commit is rejected at merge, not at push.
+unsigned commit is rejected at merge, not at push. A rebase re-creates the
+commits it moves and signs them again under the same setting, so a signing
+failure leaves the rebase stopped part-way rather than producing an unsigned
+commit.
 
 Repository policy requires every action in `.github/workflows/` to be pinned to
 a full commit SHA. A tag reference does not fail review, it fails the run.

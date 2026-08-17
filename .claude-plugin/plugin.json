@@ -2,7 +2,7 @@
   "name": "vdd",
   "displayName": "Vibe Driven Development",
   "description": "Role skills for the Vibe Driven Development workflow: separate sessions that plan, adversarially review the plan, implement, and adversarially review the implementation. Start a loop with vdd-start-loop; the Planner ends in a spec and tickets a separate coder session implements.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": {
     "name": "ArchitektApx"
   },

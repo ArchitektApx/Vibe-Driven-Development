@@ -132,7 +132,9 @@ things, in this order.
 > `/vdd:vdd-coder`).
 
 On sign-off, add: "The loop is done. Open the PR from the feature branch; the
-Working files stay behind." The commits already exist, one per Ticket.
+Working files stay behind, so the PR body is the last place this loop's evidence
+can be written down." The commits already exist: one per Ticket, plus any commit
+no Ticket owned.
 
 The four Role commands, so you never have to derive one: Planner
 `/vdd:vdd-planner`, Plan-Reviewer `/vdd:vdd-plan-reviewer`, Coder
