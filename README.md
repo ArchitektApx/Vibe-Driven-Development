@@ -1,6 +1,6 @@
 # Vibe Driven Development
 
-tl;dr: make Claude Code / Codex / GitHub Copilot CLI write better code by using multiple sessions that adversarially check each other's work.
+tl;dr: an opinionated wrapper around Matt Pocock's [skills](https://github.com/mattpocock/skills). It splits planning, plan review, implementation and code review across separate Claude Code / Codex / GitHub Copilot CLI sessions that adversarially check each other's work. His collection is a hard requirement rather than an optional extra: without it the Planner stops at its first handoff.
 
 > [!WARNING]
 > This is a **work in progress** based on my experience and observations with Claude Code.
@@ -23,7 +23,7 @@ The result is a loop that converges: plan, push back, revise, sign off, implemen
 
 - A repository to work in
 - The ability to run two agent sessions side by side (two terminals is enough)
-- Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection. In Claude Code: `/plugin install mattpocock-skills` (official marketplace). The Roles borrow six of them:
+- Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection. In Claude Code: `/plugin install mattpocock-skills` (official marketplace). The Roles borrow seven of them:
 
   | Borrowed skill | Started by | Needed by |
   |----------------|-----------|-----------|
@@ -33,8 +33,9 @@ The result is a loop that converges: plan, push back, revise, sign off, implemen
   | `to-spec` | you | Planner |
   | `to-tickets` | you | Planner |
   | `code-review` | the agent | Code-Reviewer |
+  | `writing-for-agents` | the agent | Planner, Plan-Reviewer, Code-Reviewer |
 
-  All of them except `code-review` are user-invoked: their author blocked agents from starting them, so the Role will ask you to type the slash command yourself at the right moment. The Coder and the Plan-Reviewer borrow nothing.
+  All of them except `code-review` and `writing-for-agents` are user-invoked: their author blocked agents from starting them, so the Role will ask you to type the slash command yourself at the right moment. The Coder is the one Role that borrows nothing. The Plan-Reviewer borrows only `writing-for-agents`, and runs without it: a Role that cannot resolve that skill drops its writing check and says so in the file it writes.
 - `/setup-matt-pocock-skills`, run once per repository, answering **Local markdown** when it asks which issue tracker to use. That is what puts the spec and the tickets in `.scratch/<feature-slug>/`, where the Roles look for them.
 - Optional: Claude Code 2.1.224+ on macOS or Linux. That is what lets one session ring the next one's doorbell instead of you copying a line between terminals. Everything works without it; the Roles print the line for you to paste.
 
@@ -67,7 +68,7 @@ npx skills@latest add ArchitektApx/Vibe-Driven-Development
 npx skills@latest add mattpocock/skills
 ```
 
-The installer asks which skills to take and which agents to install them for. Take all six `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need six skills from it, and installing the whole set is what lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Run `/setup-matt-pocock-skills` once per repository afterwards, and pull updates later with `npx skills update`.
+The installer asks which skills to take and which agents to install them for. Take all six `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set is what lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Run `/setup-matt-pocock-skills` once per repository afterwards, and pull updates later with `npx skills update`.
 
 If your agent does not support skills at all, the skill files are ordinary Markdown: paste the body of the relevant `skills/vdd-*/SKILL.md` into your session as a prompt.
 
@@ -130,6 +131,7 @@ The Planner is a session that performs the following tasks:
 - Identify improvements to the codebase (refactoring, adding tests, etc.)
 - Grill you on it until you both agree what the work is
 - Hand you `/to-spec` and then `/to-tickets`, which publish the spec and the tickets under `.scratch/<slug>/`
+- Pass the published spec and every ticket through `writing-for-agents` before handing them on, so the Coder reads them the way it actually reads
 
 The Planner never writes code. Its deliverables are `.scratch/<slug>/spec.md` and the ticket files in `.scratch/<slug>/issues/`.
 
@@ -137,7 +139,7 @@ The Planner never writes code. Its deliverables are `.scratch/<slug>/spec.md` an
 
 #### The Plan-Reviewer
 
-The Plan-Reviewer is a session that reviews the spec and the tickets and makes sure they are complete, accurate, and grounded in the actual codebase. It documents its findings and pushbacks in `PLAN-REVIEW.md` and hands that back to the Planner to work on.
+The Plan-Reviewer is a session that reviews the spec and the tickets and makes sure they are complete, accurate, and grounded in the actual codebase. It also checks them against `writing-for-agents`, because the Planner cannot grade its own prose. It documents its findings and pushbacks in `PLAN-REVIEW.md` and hands that back to the Planner to work on.
 
 Start the session with `/vdd:vdd-plan-reviewer`.
 
@@ -153,7 +155,7 @@ Start the session with `/vdd:vdd-coder`.
 
 #### The Code-Reviewer
 
-The Code-Reviewer runs Matt Pocock's `code-review` over the branch, with the spec as its reference, and then adds the checks that skill does not make: it reruns the verification itself, distrusts `FIXES.md` and the ticked checkboxes, and looks for anything in the diff the tickets did not ask for. It documents its findings and pushbacks in `CODEREVIEW.md` and hands that back to the Coder to work on.
+The Code-Reviewer runs Matt Pocock's `code-review` over the branch, with the spec as its reference, and then adds the checks that skill does not make: it reruns the verification itself, distrusts `FIXES.md` and the ticked checkboxes, and looks for anything in the diff the tickets did not ask for. When the branch changed a skill file, an `AGENTS.md`, a `CLAUDE.md` or anything one of those points at, it checks those lines against `writing-for-agents` as well; on a branch of ordinary source code that step costs nothing. It documents its findings and pushbacks in `CODEREVIEW.md` and hands that back to the Coder to work on.
 
 Start the session with `/vdd:vdd-code-reviewer`.
 
