@@ -2,15 +2,17 @@
 
 This repository is developed with its own workflow. Use the VDD Roles on
 changes to it, the same way a user would on their own project:
-`/vdd:vdd-planner` writes `PLAN.md`, a separate session reviews it, and so on.
-Proportionality applies, a typo fix does not need four sessions; anything that
-changes how a Role behaves does.
+`/vdd:vdd-start-loop` opens the loop and writes `LOOP.md`, the Planner grills
+you and produces the Spec and Tickets under `.scratch/<feature-slug>/`, a
+separate session reviews them, the Coder implements them on the feature branch,
+and a fourth session reviews the diff. Proportionality applies, a typo fix does
+not need four sessions; anything that changes how a Role behaves does.
 
 The Planner's grilling step is what produced the two files below, and they are
 committed for the same reason any project keeps them:
 
 - `CONTEXT.md` is the glossary. Use its terms exactly when editing the skills,
-  so the five `SKILL.md` files keep one vocabulary.
+  so the six `SKILL.md` files keep one vocabulary.
 - `docs/adr/` records decisions that are hard to reverse and surprising without
   context. Read `0001` before proposing that the Roles be orchestrated
   automatically; that has been tried and rejected.
@@ -62,6 +64,22 @@ PR; preserve them through any refactor of `.github/`.
 ## Gotchas
 
 - Bump the version in both manifests in the same commit; CI fails on drift.
+- `LOOP.md` and `.scratch/` are Working files here too, gitignored like the
+  review files; a loop on this repository leaves nothing behind to commit.
 - The skills tell users, not agents, to run `npx skills@latest add
   mattpocock/skills`. That is delegated trust to a third-party repository and
   is deliberate; the Planner cannot run without it. Keep it a user instruction.
+
+## Agent skills
+
+### Issue tracker
+
+Local markdown: specs and tickets live under `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary, label strings equal role names. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
