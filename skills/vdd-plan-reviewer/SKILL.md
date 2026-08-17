@@ -38,6 +38,21 @@ That is not a finding. Whether a Coder can still find what they name is.
   blocking edges?
 - Are edge cases, error handling, and verification steps covered?
 - Would something simpler achieve the same result?
+- Are they written for the agent that reads them? Invoke `writing-for-agents`
+  and check the Spec and every Ticket against its levers. This check carries no
+  condition: the Spec and the Tickets are Agent documents in every Loop.
+
+Name the lever a finding breaks in the term `writing-for-agents` uses for it.
+The levers are not listed here; the Borrowed skill ships with the collection and
+is their single source of truth. The check covers the Planner's own prose, so
+the status line, the blocking line and the tracker template's labels stay as
+they are: a finding the Planner cannot act on costs a round and fixes nothing.
+Severity follows consequence, on the same scale as every other finding. A defect
+that leaves a step ambiguous is a major and holds up sign-off like any other
+major; sprawl that costs tokens without changing behaviour is a minor.
+
+If `writing-for-agents` does not resolve, review with what you know and record
+the miss as `Write PLAN-REVIEW.md` says.
 
 ## Write `PLAN-REVIEW.md`
 
@@ -46,10 +61,14 @@ In this order:
 1. `SIGNED OFF` as the literal first line, when no blockers or majors remain.
    Nothing else on that line.
 2. A `Round <n>` line, where `<n>` counts the reviews you have written in this
-   loop. The Planner reads its own round number from yours.
+   loop. The Planner reads its own round number from yours. When
+   `writing-for-agents` did not resolve, say so on the line directly after this
+   one, so a review with that check skipped does not read like a review that
+   passed it.
 3. A numbered list of findings. Each one carries a severity (blocker / major /
    minor), a reference (a spec section, or the Ticket number `NN`), the reason,
-   and a concrete suggestion.
+   and a concrete suggestion. Writing findings are numbered here with the rest
+   and get no section of their own.
 
 Replace a previous review rather than appending to it, and state which prior
 findings are resolved.
