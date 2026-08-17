@@ -2,13 +2,6 @@
 
 tl;dr: an opinionated wrapper around Matt Pocock's [skills](https://github.com/mattpocock/skills). It splits planning, plan review, implementation and code review across separate Claude Code / Codex / GitHub Copilot CLI sessions that adversarially check each other's work. His collection is a hard requirement rather than an optional extra: without it the Planner stops at its first handoff.
 
-> [!WARNING]
-> This is a **work in progress** based on my experience and observations with Claude Code.
-> It is not yet (battle) tested and may not work as expected.
-> Use at your own risk.
-> Feedback is welcome.
-> Please report any issues you encounter.
-
 ## Why this works
 
 A single agent session grades its own homework. It plans, implements, and reviews with the same context, the same blind spots, and the same incentive to declare itself done. Splitting the work across separate sessions fixes that:
