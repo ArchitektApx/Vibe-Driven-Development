@@ -31,12 +31,6 @@ file, and it is what lets `PR: yes` skip the question entirely.
 
 ## Consequences
 
-A new Doorbell template line exists for the case where `CODEREVIEW.md` signs
-off with minors still open and the user chooses to fix them first: `VDD
-PR-Author: CODEREVIEW.md SIGNED OFF with <p> minor open. Read it.` ADR-0002
-stays as it is, because that line carries no substance beyond which file to
-read and which round, the same bound every other Doorbell keeps.
-
 The Coder's "never push" rule and the Code-Reviewer's "never edits" rule stay
 literally true. Neither Role gained an exception; the PR-Author is a new Role
 with the one capability neither of the other two ever had.
@@ -51,3 +45,7 @@ A `LOOP.md` written by a release before this one has no `PR:` line. The
 PR-Author reads a missing line the same way it reads an unrecognised one: as
 `PR: ask at sign-off`, so an older Loop file fails safe into a question
 rather than a silent push.
+
+What ends a Loop, and what the user decides about it at Workflow start, are
+ADR-0007's subject rather than this one's. This record keeps the Role and the
+push boundary.
