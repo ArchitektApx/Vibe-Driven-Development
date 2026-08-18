@@ -17,8 +17,8 @@ Read these five files from disk on every run, fresh: `LOOP.md`,
 This is the single source of what the assembled title and body draw on. You
 carry no state between runs: the Code-Reviewer's session already holds
 `FIXES.md` and `CODEREVIEW.md` in context from its own turn, but re-read all
-five anyway, because a run after the fix round in step 5 below needs each
-file as it now stands, not as it stood on the prior run.
+five anyway, because you may run more than once on the same branch and each
+run needs the files as they now stand, not as they stood on the prior run.
 
 ## 1. Read `LOOP.md`
 
@@ -53,8 +53,9 @@ the shape of what came back: its sections, its tone, whether it links
 issues. Without history, assemble VDD's default body: a summary of the
 change from the Spec's Problem Statement and Solution, then a `## VDD loop
 evidence` section with the review rounds for each Loop (from
-`PLAN-REVIEW.md` and `CODEREVIEW.md`), the findings per severity from the
-last review of each Loop, and the verification `FIXES.md` records as run.
+`PLAN-REVIEW.md` and `CODEREVIEW.md`), the findings of the last review of
+each Loop by severity and by state, so `2 minors: 1 open, 1 accepted` is what
+it records, and the verification `FIXES.md` records as run.
 The Working files stay behind when the Loop closes, so this section is the
 last place the loop's evidence can be written down.
 
@@ -68,43 +69,22 @@ Read the `PR:` line from `LOOP.md`. A missing line, or a line whose value is
 none of the three literals below, is reported to the user as malformed where
 a line exists, and either way is read as `PR: ask at sign-off`.
 
-- **`PR: manual`.** Print the assembled body and stop. Push nothing. Neither
-  question below is asked.
-- **`PR: ask at sign-off`.** Continue to step 5, then ask the deferred
-  question in step 6.
-- **`PR: yes`.** Continue to step 5, and skip the question in step 6.
+- **`PR: manual`.** Print the assembled body and stop. Push nothing; the
+  deferred question below is not asked.
+- **`PR: ask at sign-off`.** Continue to step 5 and ask the deferred question
+  there.
+- **`PR: yes`.** Skip step 5 and continue to step 6.
 
-## 5. Open minors
-
-An open minor is a numbered entry of severity minor in the latest `##
-Findings` section of `CODEREVIEW.md` that the review does not mark resolved.
-Count it from that section alone.
-
-When the count is above zero, ask the user: fix them in one more round, or
-open the PR now.
-
-**Fix first.** Send exactly this Doorbell to the Coder's Session name from
-`LOOP.md`, and stop: `VDD PR-Author: CODEREVIEW.md SIGNED OFF with <p> minor
-open. Read it.` Send it only when `SendMessage` and `ListAgents` are
-available to you (load them first if your harness defers tool schemas, as
-Claude Code does via `ToolSearch`) and `ListAgents` lists that name.
-Otherwise print the line and ask the user to paste it into
-`<short>-<slug>-Coder` (`claude -n <short>-<slug>-Coder`, then
-`/vdd:vdd-coder`). After that fix round's next Sign-off, you run again from
-step 1.
-
-**Open the PR now.** Continue to step 6.
-
-## 6. The deferred PR question
+## 5. The deferred PR question
 
 Fires only on `PR: ask at sign-off`. Ask the user: open the PR, or leave it
 to the user.
 
 **Leave it.** Print the assembled body and stop. Push nothing.
 
-**Open it.** Continue to step 7.
+**Open it.** Continue to step 6.
 
-## 7. Capabilities and the existing-PR check
+## 6. Capabilities and the existing-PR check
 
 Two capabilities, checked independently, judged on exit codes alone; stderr
 is ignored, because `git ls-remote` has been observed printing `fatal:
@@ -124,16 +104,16 @@ Three outcomes.
 **Both present.** Before any push, run `gh pr list --head <feature branch>
 --state open --json url`. A non-empty result means a PR already exists:
 print its URL and the assembled body and stop, pushing nothing. An empty
-result continues to step 8 for confirm, push, open.
+result continues to step 7 for confirm, push, open.
 
 **Push only, open-a-PR absent.** The existing-PR check above is skipped.
-Continue to step 8: confirm the body, then ask the user once more before
+Continue to step 7: confirm the body, then ask the user once more before
 pushing.
 
 **Neither present.** The existing-PR check is skipped. Print the body, push
 nothing, and name the check that failed.
 
-## 8. Show, confirm, push, open
+## 7. Show, confirm, push, open
 
 Show the assembled title and body and wait for one confirmation before any
 push, on every path that reaches this step, `PR: yes` included. The user can
