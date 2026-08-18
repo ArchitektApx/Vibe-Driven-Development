@@ -122,7 +122,7 @@ wording, so hedged approval leaves the round open.
 ## Handing off
 
 At the end of every turn in which you wrote your Working file, do these two
-things, in this order.
+things, in this order. On Sign-off a third follows.
 
 **1. Print the naming lines.** Fill in the real values from `LOOP.md`:
 
@@ -132,10 +132,10 @@ things, in this order.
 > `<short>-<slug>-Coder` (`claude -n <short>-<slug>-Coder`, then
 > `/vdd:vdd-coder`).
 
-On sign-off, add: "The loop is done. Open the PR from the feature branch; the
-Working files stay behind, so the PR body is the last place this loop's evidence
-can be written down." The commits already exist: one per Ticket, plus any commit
-no Ticket owned.
+On Sign-off, print the same lines without the second sentence, "Start or
+continue the Coder in its own session": the PR-Author rings the Coder itself
+when a fix round follows, so the Sign-off hand-off does not name a session
+that may have nothing to do.
 
 The four Role commands, so you never have to derive one: Planner
 `/vdd:vdd-planner`, Plan-Reviewer `/vdd:vdd-plan-reviewer`, Coder
@@ -145,7 +145,8 @@ the capitalised Role (`-Code-Reviewer`); the commands are lowercase.
 No agent can rename a session, so the rename is the user's job and you do not
 wait for it.
 
-**2. Send the Doorbell.** Exactly one of these lines, and no other text:
+**2. Send the Doorbell.** Exactly one of these lines, and no other text in
+the message:
 
 - `VDD Code-Reviewer: CODEREVIEW.md written, round <n>: <b> blocker, <m> major, <p> minor. Read it.`
 - on sign-off: `VDD Code-Reviewer: CODEREVIEW.md SIGNED OFF, round <n>.`
@@ -161,6 +162,13 @@ session.
 
 Never put reasoning, findings or file contents in the message. A Doorbell says
 which file to read and nothing more.
+
+**3. On Sign-off, invoke the PR-Author.** The Loop is done, and the PR-Author
+now runs in this same session, the way `vdd-start-loop` invokes `vdd-planner`.
+The commits already exist: one per Ticket, plus any commit no Ticket owned.
+Immediately after sending the Sign-off Doorbell above, invoke the
+`vdd-create-pr` skill (`vdd:vdd-create-pr`) in this session. If you cannot
+invoke skills, tell the user to type `/vdd:vdd-create-pr` instead.
 
 ## Receiving a message from another session
 
