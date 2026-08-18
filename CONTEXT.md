@@ -33,7 +33,7 @@ The kebab-case name of one Loop's piece of work, chosen by the user when the Loo
 _Avoid_: feature name, ticket name, branch name
 
 **Loop file**:
-`LOOP.md` at the repository root. Records the Feature slug, the repository short name, the base branch, the feature branch, the tracker path, the `PR:` line and the four Session names, so every Role reads them instead of asking. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
+`LOOP.md` at the repository root. Records the Feature slug, the repository short name, the base branch, the feature branch, the tracker path, the `Minors:` line, the `PR:` line and the four Session names, so every Role reads them instead of asking. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
 _Avoid_: session file, config, manifest
 
 **Spec**:
@@ -53,12 +53,20 @@ _Avoid_: prompt, instruction file, agent-facing doc
 _Avoid_: session id, title, label
 
 **Doorbell**:
-A cross-session message from one Role to its counterpart with a fixed template and no free text: which Working file was written, which round, how many findings per severity, a count of open minors, or `SIGNED OFF`.
+A cross-session message from one Role to its counterpart with a fixed template and no free text: which Working file was written, which round, how many open findings per severity, or `SIGNED OFF`.
 _Avoid_: notification, handoff message, ping
 
 **Sign-off**:
-The literal line `SIGNED OFF` at the top of a review file. The only thing that ends a Loop; hedged approval is not sign-off.
+The literal line `SIGNED OFF` at the top of a review file. The only thing that ends a Loop, withheld while a blocker or a major is open and, on a Minors answer of `fix`, while any minor is open; hedged approval is not sign-off.
 _Avoid_: approval, LGTM, done
+
+**Minors answer**:
+The `Minors:` line in the Loop file, `fix` or `leave`, given by the user at Workflow start and read by both reviewers. It decides whether an open minor holds up Sign-off.
+_Avoid_: minors setting, strictness, thoroughness flag
+
+**Open minor**:
+A minor the latest review lists as `open`; a minor the reviewer marked `fixed` or `accepted` is closed. On a Minors answer of `fix` an open minor holds up Sign-off, and on `leave` it does not.
+_Avoid_: outstanding nit, unresolved comment, leftover
 
 **Rule inventory**:
 One entry per behavioural rule in an Agent document, taken before a writing pass over it and marked afterwards as unchanged, re-expressed or proposed for deletion. Written into the Working file of the Role that made the pass, where it is the evidence that no rule left the document.
