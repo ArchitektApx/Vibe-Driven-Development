@@ -4,9 +4,17 @@ The vocabulary of an adversarial multi-session coding workflow, and of the plugi
 
 ## The workflow
 
+**Workflow**:
+Everything from the environment check to the pull request, on one Feature slug. A repository runs one Workflow at a time.
+_Avoid_: phase, pipeline, run
+
 **Role**:
-One of the six jobs in the workflow (Planner, Plan-Reviewer, Coder, Code-Reviewer, plus Setup and Start-Loop). Each ships as one skill file; the four reviewing and producing Roles each run in their own session.
+One of the seven jobs in the workflow (Planner, Plan-Reviewer, Coder, Code-Reviewer, PR-Author, plus Setup and Start-Loop). Each ships as one skill file; the four reviewing and producing Roles each run in their own session.
 _Avoid_: agent, persona, mode
+
+**PR-Author**:
+Runs in the Code-Reviewer's session on Sign-off and is the only Role that pushes. Reads the `PR:` line in `LOOP.md` and either opens the PR or prints the assembled body for the user.
+_Avoid_: seventh session, autopilot, bot
 
 **Session**:
 A single agent conversation running one Role. Separate sessions are what make the review adversarial, because a session cannot see another's reasoning.
@@ -25,7 +33,7 @@ The kebab-case name of one Loop's piece of work, chosen by the user when the Loo
 _Avoid_: feature name, ticket name, branch name
 
 **Loop file**:
-`LOOP.md` at the repository root. Records the Feature slug, the repository short name, the base branch, the feature branch, the tracker path and the four Session names, so every Role reads them instead of asking. One Loop per repository at a time.
+`LOOP.md` at the repository root. Records the Feature slug, the repository short name, the base branch, the feature branch, the tracker path, the `PR:` line and the four Session names, so every Role reads them instead of asking. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
 _Avoid_: session file, config, manifest
 
 **Spec**:
@@ -45,7 +53,7 @@ _Avoid_: prompt, instruction file, agent-facing doc
 _Avoid_: session id, title, label
 
 **Doorbell**:
-A cross-session message from one Role to its counterpart with a fixed template and no free text: which Working file was written, which round, how many findings per severity, or `SIGNED OFF`.
+A cross-session message from one Role to its counterpart with a fixed template and no free text: which Working file was written, which round, how many findings per severity, a count of open minors, or `SIGNED OFF`.
 _Avoid_: notification, handoff message, ping
 
 **Sign-off**:
