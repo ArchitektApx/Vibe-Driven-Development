@@ -13,9 +13,9 @@ the only file you write. Findings go back to the Planner, and the edits to
 
 Read `LOOP.md` at the repository root first. It names the repository short
 name, the Feature slug, the base branch, the feature branch, the tracker path
-(`.scratch/<slug>/`) and the four Session names. If it does not exist, stop and
-tell the user to run `/vdd:vdd-start-loop` in a Planner session; do not guess a
-slug.
+(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line and the four Session
+names. If it does not exist, stop and tell the user to run
+`/vdd:vdd-start-loop` in a Planner session; do not guess a slug.
 
 ## What to read
 

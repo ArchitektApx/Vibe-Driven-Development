@@ -24,9 +24,9 @@ run needs the files as they now stand, not as they stood on the prior run.
 
 Read `LOOP.md` at the repository root first. It names the repository short
 name, the Feature slug, the base branch, the feature branch, the tracker
-path (`.scratch/<slug>/`), the `PR:` line and the four Session names. If it
-does not exist, stop and tell the user to run `/vdd:vdd-start-loop`; do not
-guess a slug.
+path (`.scratch/<slug>/`), the `Minors:` line, the `PR:` line and the four
+Session names. If it does not exist, stop and tell the user to run
+`/vdd:vdd-start-loop`; do not guess a slug.
 
 ## 2. Read `CODEREVIEW.md`
 
