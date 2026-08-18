@@ -61,7 +61,51 @@ both reviewers need the two to differ, because every review diffs
 
 The Coder creates the branch when it starts, so this step ends on the two names.
 
-## 6. Write `LOOP.md`
+## 6. The Minors question
+
+Ask the user once whether an open minor holds up Sign-off. Present these two
+answers and no other, in this order:
+
+- Leave them. Writes `Minors: leave`. A reviewer signs off with the open minors
+  listed, and the Loop ends there.
+- Fix them. Writes `Minors: fix`. Both Loops run until no minor is open,
+  however many rounds that takes.
+
+A third answer that defers the decision has no Role to defer it to. Both
+reviewers read the line this answer produces, and a reviewer that stops to ask
+the user a question stalls the Loop it is in, so this is the only place the
+question is asked.
+
+## 7. The PR question
+
+Ask the user once, now that the branches are settled, whether VDD should open
+the PR at the end of the Workflow. Present three answers, in this order, with
+the middle one as the one that defers the decision:
+
+- Open it. Writes `PR: yes`.
+- Ask at Sign-off. Writes `PR: ask at sign-off`.
+- Manual. Writes `PR: manual`.
+
+The line the user's answer produces is what the PR-Author reads later, so
+this is the only place the question is asked; on `PR: ask at sign-off` the
+PR-Author asks again at Sign-off, and on the other two answers it does not.
+
+On `PR: yes`, run these two checks now and print a warning naming any that
+failed. The two checks judge on exit code alone; stderr is ignored, because
+`git ls-remote` has been observed printing `fatal: failed to store` on a
+call that exited 0. They warn without blocking: the Workflow continues
+either way, and a broken `gh` login surfaces here instead of at Sign-off.
+
+- **Can push.** A remote is configured and `git ls-remote <remote> HEAD`
+  exits 0.
+- **Can open a PR.** `gh` is on `PATH`, the host read from `git remote
+  get-url <remote>` is a GitHub host, and `gh auth status --hostname <host>`
+  exits 0.
+
+Both checks use the same remote: the one the base branch tracks when it
+tracks one, else the single configured remote, else `origin`.
+
+## 8. Write `LOOP.md`
 
 Write it at the repository root, in this exact shape:
 
@@ -73,6 +117,8 @@ Feature: <slug>
 Base branch: <base>
 Feature branch: <branch>
 Tracker: .scratch/<slug>/
+Minors: <answer>
+PR: <answer>
 
 Sessions:
 - Planner: <short>-<slug>-Planner
@@ -83,9 +129,11 @@ Sessions:
 
 The file holds these lines and stops. Round numbers live in the review files,
 and each Role checks its own tools for cross-session messaging when it sends, so
-neither belongs here.
+neither belongs here; the `Minors:` line and the `PR:` line do belong, because
+each is a fact the user states once at Workflow start and no Role changes
+afterwards.
 
-## 7. Hand over to the Planner
+## 9. Hand over to the Planner
 
 Print this, with the real values filled in:
 

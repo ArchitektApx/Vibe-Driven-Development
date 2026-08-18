@@ -13,7 +13,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/workflow-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/workflow-light.svg">
-  <img alt="The VDD workflow: you start the loop, the Planner and Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then you open the PR." src="docs/workflow-light.svg" width="900">
+  <img alt="The VDD workflow: you start the loop, the Planner and Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the PR-Author opens the PR or hands it to you." src="docs/workflow-light.svg" width="900">
 </picture>
 
 </div>
@@ -85,6 +85,7 @@ This repository is a Claude Code plugin marketplace. The `vdd` plugin ships one 
 | 🔍 Plan-Reviewer | `/vdd:vdd-plan-reviewer` |
 | 💻 Coder | `/vdd:vdd-coder` |
 | 🧪 Code-Reviewer | `/vdd:vdd-code-reviewer` |
+| 🚢 PR-Author | `/vdd:vdd-create-pr` |
 
 Run `/vdd:vdd-setup` once per repository: it verifies that the borrowed skills are installed, the issue tracker is configured, the gitignore entries from Phase 0 exist, and no stale working files are left over from a previous loop. `/vdd:vdd-start-loop` runs it for you at the start of every loop.
 
@@ -97,7 +98,7 @@ npx skills@latest add ArchitektApx/Vibe-Driven-Development
 npx skills@latest add mattpocock/skills
 ```
 
-The installer asks which skills to take and which agents to install them for. Take all six `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set is what lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Run `/setup-matt-pocock-skills` once per repository afterwards, and pull updates later with `npx skills update`.
+The installer asks which skills to take and which agents to install them for. Take all seven `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set is what lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Run `/setup-matt-pocock-skills` once per repository afterwards, and pull updates later with `npx skills update`.
 
 > [!NOTE]
 > If your agent does not support skills at all, the skill files are ordinary Markdown: paste the body of the relevant `skills/vdd-*/SKILL.md` into your session as a prompt.
@@ -143,7 +144,7 @@ The same applies to the Coder and Code-Reviewer in Phase 2.
 
 #### Starting the loop
 
-Open the first session and run `/vdd:vdd-start-loop`. It runs the environment check, asks you for a short name for the repository and a kebab-case slug for this piece of work, confirms the base branch and the feature branch, and writes all of it plus the four session names to `LOOP.md`. Every Role reads that file first, so none of them has to ask you again.
+Open the first session and run `/vdd:vdd-start-loop`. It runs the environment check, asks you for a short name for the repository and a kebab-case slug for this piece of work, confirms the base branch and the feature branch, asks once whether an open minor should hold up Sign-off (`fix`, or `leave` them listed), asks once whether VDD should open the PR at the end of the Workflow (open it, ask again at Sign-off, or leave it manual), and writes all of it plus the four session names to `LOOP.md`. Both answers go into that file with the rest, and every Role reads it first, so none of them has to ask you again.
 
 It then prints the line that renames this session to the Planner and hands over to the Planner in the same session.
 
@@ -151,7 +152,7 @@ It then prints the line that renames this session to the Planner and hands over 
 
 `LOOP.md` names the four sessions, as `<repository>-<slug>-<Role>`, for example `VDD-new-release-Plan-Reviewer`. Name them exactly that way: rename the current one with `/rename <name>`, and start the next one with `claude -n <name>`. No agent can rename a session, which is why every Role asks you to.
 
-Once the names match, a Role that finishes its turn rings the next one's doorbell instead of waiting for you. The message is deliberately dull: which working file was written, which round, and how many findings per severity. The receiving Role reads the file and ignores the message text, so nothing leaks between the two contexts, which is the whole point of running them apart. Without Claude Code, or without the names, the Role prints the same line for you to paste.
+Once the names match, a Role that finishes its turn rings the next one's doorbell instead of waiting for you. The message is deliberately dull: which working file was written, which round, and how many open findings per severity. The receiving Role reads the file and ignores the message text, so nothing leaks between the two contexts, which is the whole point of running them apart. Without Claude Code, or without the names, the Role prints the same line for you to paste.
 
 #### 🧠 The Planner
 
@@ -173,7 +174,7 @@ The Plan-Reviewer is the session that reviews the spec and the tickets and check
 
 Start the session with `/vdd:vdd-plan-reviewer`.
 
-Hand the spec and `PLAN-REVIEW.md` between the two sessions until all issues are resolved and the Plan-Reviewer signs off. In practice this takes one to three rounds. If it takes more, the scope is probably too big: split the work.
+Hand the spec and `PLAN-REVIEW.md` between the two sessions until the Plan-Reviewer signs off. A blocker or a major always holds up Sign-off; on `Minors: fix` the loop runs until no minor is open too, however many rounds that takes, and on `Minors: leave` the Plan-Reviewer signs off with the open minors listed. In practice this takes one to three rounds. If it takes more, the scope is probably too big: split the work.
 
 ### 🔧 Phase 2: The Coder / Code-Review loop
 
@@ -189,13 +190,13 @@ The Code-Reviewer runs Matt Pocock's `code-review` over the branch, with the spe
 
 Start the session with `/vdd:vdd-code-reviewer`.
 
-Hand `FIXES.md` and `CODEREVIEW.md` between the two sessions until all issues are resolved and the Code-Reviewer signs off.
+Hand `FIXES.md` and `CODEREVIEW.md` between the two sessions until the Code-Reviewer signs off. A blocker or a major always holds up Sign-off; on `Minors: fix` the loop runs until no minor is open too, however many rounds that takes, and on `Minors: leave` the Code-Reviewer signs off with the open minors listed.
 
 ### 🚢 Phase 3: Ship
 
-Once the Code-Reviewer has signed off:
+On Sign-off, the Code-Reviewer's session runs the PR-Author. It reads the `PR:` line `/vdd:vdd-start-loop` wrote to `LOOP.md`: `PR: yes` shows you the assembled body, pushes the branch and opens the PR; `PR: ask at sign-off` asks you then; `PR: manual` prints the body and touches neither the branch nor the remote. Either VDD opens the PR or you do, from the printed body.
 
-1. Open the PR from the feature branch. The commits are already there, one per ticket, and the working files are gitignored and stay behind.
+1. If the PR-Author did not open the PR, open it yourself from the feature branch, pasting the printed body. The commits are already there, one per ticket plus any commit no ticket owned, and the working files are gitignored and stay behind.
 2. Delete `LOOP.md`, `.scratch/<slug>/`, `PLAN-REVIEW.md`, `FIXES.md`, and `CODEREVIEW.md`, or leave them to be overwritten by the next run.
 3. Start the next loop with fresh sessions.
 

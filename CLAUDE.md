@@ -12,7 +12,7 @@ The Planner's grilling step is what produced the two files below, and they are
 committed for the same reason any project keeps them:
 
 - `CONTEXT.md` is the glossary. Use its terms exactly when editing the skills,
-  so the six `SKILL.md` files keep one vocabulary.
+  so the seven `SKILL.md` files keep one vocabulary.
 - `docs/adr/` records decisions that are hard to reverse and surprising without
   context. Read `0001` before proposing that the Roles be orchestrated
   automatically; that has been tried and rejected.

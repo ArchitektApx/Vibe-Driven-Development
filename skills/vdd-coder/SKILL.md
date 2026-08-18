@@ -12,9 +12,9 @@ against the Spec, and document your work in `FIXES.md`.
 
 Read `LOOP.md` at the repository root first. It names the repository short
 name, the Feature slug, the base branch, the feature branch, the tracker path
-(`.scratch/<slug>/`) and the four Session names. If it does not exist, stop and
-tell the user to run `/vdd:vdd-start-loop` in a Planner session; do not guess a
-slug.
+(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line and the four Session
+names. If it does not exist, stop and tell the user to run
+`/vdd:vdd-start-loop` in a Planner session; do not guess a slug.
 
 ## Branch
 
@@ -95,6 +95,9 @@ round's fixes once in the repository's convention, record in `FIXES.md` that the
 fold was skipped and why, and stop here. Upstream configuration is the proxy for
 "someone may have fetched this", so a branch pushed without `-u` counts as
 unpushed. You still never push.
+
+The PR-Author pushes the branch and opens the PR, and only after Sign-off. That
+is a different Role's job in a different session.
 
 Find the commit that owns the finding's Ticket:
 
