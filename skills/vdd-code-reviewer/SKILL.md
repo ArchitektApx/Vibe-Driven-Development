@@ -74,6 +74,15 @@ Judge the implementation on:
   claim, and your run is the check.
 - Are the deviations recorded in `FIXES.md` justified?
 
+**A minor in its second round of dispute** is settled on this reading. When a
+minor is still `open`, the Coder pushed back on it in the round you are
+reviewing, and a `FIXES.md` round before that one pushed back on the same
+finding, accept the pushback or re-raise the finding as a major. `FIXES.md` is
+cumulative across the Loop, so both pushbacks are on disk and are what you judge
+this on. Two rounds of disagreement over one finding means the severity was
+wrong. The rule holds whatever the `Minors:` line says, and a major holds up
+Sign-off on either answer, as majors always have.
+
 ## Step 3: the Agent documents in the diff
 
 This step fires when the diff touches an Agent document: a skill file, an

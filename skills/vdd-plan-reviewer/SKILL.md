@@ -54,6 +54,15 @@ major; sprawl that costs tokens without changing behaviour is a minor.
 If `writing-for-agents` does not resolve, review with what you know and record
 the miss as `Write PLAN-REVIEW.md` says.
 
+**A minor in its second round of dispute** is settled on this reading. When a
+minor is still `open`, the Planner pushed back on it in the round you are
+reviewing, and a `## Comments` entry from an earlier round pushed back on the
+same finding, accept the pushback or re-raise the finding as a major. Both
+pushbacks are on disk in `spec.md`, which is what you judge this on. Two rounds
+of disagreement over one finding means the severity was wrong. The rule holds
+whatever the `Minors:` line says, and a major holds up Sign-off on either
+answer, as majors always have.
+
 ## Write `PLAN-REVIEW.md`
 
 In this order:
