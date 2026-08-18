@@ -61,7 +61,22 @@ both reviewers need the two to differ, because every review diffs
 
 The Coder creates the branch when it starts, so this step ends on the two names.
 
-## 6. The PR question
+## 6. The Minors question
+
+Ask the user once whether an open minor holds up Sign-off. Present these two
+answers and no other, in this order:
+
+- Leave them. Writes `Minors: leave`. A reviewer signs off with the open minors
+  listed, and the Loop ends there.
+- Fix them. Writes `Minors: fix`. Both Loops run until no minor is open,
+  however many rounds that takes.
+
+A third answer that defers the decision has no Role to defer it to. Both
+reviewers read the line this answer produces, and a reviewer that stops to ask
+the user a question stalls the Loop it is in, so this is the only place the
+question is asked.
+
+## 7. The PR question
 
 Ask the user once, now that the branches are settled, whether VDD should open
 the PR at the end of the Workflow. Present three answers, in this order, with
@@ -90,7 +105,7 @@ either way, and a broken `gh` login surfaces here instead of at Sign-off.
 Both checks use the same remote: the one the base branch tracks when it
 tracks one, else the single configured remote, else `origin`.
 
-## 7. Write `LOOP.md`
+## 8. Write `LOOP.md`
 
 Write it at the repository root, in this exact shape:
 
@@ -102,6 +117,7 @@ Feature: <slug>
 Base branch: <base>
 Feature branch: <branch>
 Tracker: .scratch/<slug>/
+Minors: <answer>
 PR: <answer>
 
 Sessions:
@@ -113,10 +129,11 @@ Sessions:
 
 The file holds these lines and stops. Round numbers live in the review files,
 and each Role checks its own tools for cross-session messaging when it sends, so
-neither belongs here; the `PR:` line does belong, because it is a fact the user
-states once at Workflow start and no Role changes it afterwards.
+neither belongs here; the `Minors:` line and the `PR:` line do belong, because
+each is a fact the user states once at Workflow start and no Role changes
+afterwards.
 
-## 8. Hand over to the Planner
+## 9. Hand over to the Planner
 
 Print this, with the real values filled in:
 
