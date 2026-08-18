@@ -188,11 +188,7 @@ Write all of it for a reviewer who shares none of your context.
 
 A reviewer has pushed back. Address every finding and record what you did in a
 new `FIXES.md` round. Every finding leaves the round as a fix or as written
-pushback. A `CODEREVIEW.md` whose first line is `SIGNED OFF` and whose `##
-Findings` still lists minors is a fix round like any other: work it and hand
-off to the Code-Reviewer as usual. Two Doorbells in a row naming the same file
-are one read of that file. Repeat until the reviewer signs off and no Doorbell
-brings you back.
+pushback. Repeat until the reviewer signs off.
 
 The review's `## Standards` and `## Spec` sections come from a Borrowed skill
 rather than from the reviewer's own reading. They are findings like any other.

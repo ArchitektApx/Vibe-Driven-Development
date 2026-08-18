@@ -159,9 +159,8 @@ things, in this order. On Sign-off a third follows.
 > `/vdd:vdd-coder`).
 
 On Sign-off, print the same lines without the second sentence, "Start or
-continue the Coder in its own session": the PR-Author rings the Coder itself
-when a fix round follows, so the Sign-off hand-off does not name a session
-that may have nothing to do.
+continue the Coder in its own session": the Loop is over and the Coder has
+nothing left to do, so the Sign-off hand-off leaves it out.
 
 The four Role commands, so you never have to derive one: Planner
 `/vdd:vdd-planner`, Plan-Reviewer `/vdd:vdd-plan-reviewer`, Coder
