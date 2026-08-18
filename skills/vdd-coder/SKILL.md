@@ -96,6 +96,9 @@ fold was skipped and why, and stop here. Upstream configuration is the proxy for
 "someone may have fetched this", so a branch pushed without `-u` counts as
 unpushed. You still never push.
 
+The PR-Author pushes the branch and opens the PR, and only after Sign-off. That
+is a different Role's job in a different session.
+
 Find the commit that owns the finding's Ticket:
 
 ```
@@ -185,7 +188,11 @@ Write all of it for a reviewer who shares none of your context.
 
 A reviewer has pushed back. Address every finding and record what you did in a
 new `FIXES.md` round. Every finding leaves the round as a fix or as written
-pushback. Repeat until the reviewer signs off.
+pushback. A `CODEREVIEW.md` whose first line is `SIGNED OFF` and whose `##
+Findings` still lists minors is a fix round like any other: work it and hand
+off to the Code-Reviewer as usual. Two Doorbells in a row naming the same file
+are one read of that file. Repeat until the reviewer signs off and no Doorbell
+brings you back.
 
 The review's `## Standards` and `## Spec` sections come from a Borrowed skill
 rather than from the reviewer's own reading. They are findings like any other.

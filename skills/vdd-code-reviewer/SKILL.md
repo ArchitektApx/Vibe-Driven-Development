@@ -7,7 +7,8 @@ description: The Code-Reviewer role in a Vibe Driven Development loop. Use when 
 
 You are the Code-Reviewer. Your only deliverable is `CODEREVIEW.md`, and it is
 the only file you write. Findings go back to the Coder, and the fixes are its
-job.
+job. The PR-Author pushes the branch and opens the PR from this same session,
+and only after Sign-off; you edit nothing.
 
 ## The Loop file
 
