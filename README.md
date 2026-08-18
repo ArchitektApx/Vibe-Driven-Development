@@ -13,7 +13,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/workflow-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/workflow-light.svg">
-  <img alt="The VDD workflow: you start the loop, the Planner and Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then you open the PR." src="docs/workflow-light.svg" width="900">
+  <img alt="The VDD workflow: you start the loop, the Planner and Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the PR-Author opens the PR or hands it to you." src="docs/workflow-light.svg" width="900">
 </picture>
 
 </div>
@@ -85,6 +85,7 @@ This repository is a Claude Code plugin marketplace. The `vdd` plugin ships one 
 | 🔍 Plan-Reviewer | `/vdd:vdd-plan-reviewer` |
 | 💻 Coder | `/vdd:vdd-coder` |
 | 🧪 Code-Reviewer | `/vdd:vdd-code-reviewer` |
+| 🚢 PR-Author | `/vdd:vdd-create-pr` |
 
 Run `/vdd:vdd-setup` once per repository: it verifies that the borrowed skills are installed, the issue tracker is configured, the gitignore entries from Phase 0 exist, and no stale working files are left over from a previous loop. `/vdd:vdd-start-loop` runs it for you at the start of every loop.
 
@@ -97,7 +98,7 @@ npx skills@latest add ArchitektApx/Vibe-Driven-Development
 npx skills@latest add mattpocock/skills
 ```
 
-The installer asks which skills to take and which agents to install them for. Take all six `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set is what lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Run `/setup-matt-pocock-skills` once per repository afterwards, and pull updates later with `npx skills update`.
+The installer asks which skills to take and which agents to install them for. Take all seven `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set is what lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Run `/setup-matt-pocock-skills` once per repository afterwards, and pull updates later with `npx skills update`.
 
 > [!NOTE]
 > If your agent does not support skills at all, the skill files are ordinary Markdown: paste the body of the relevant `skills/vdd-*/SKILL.md` into your session as a prompt.
@@ -143,7 +144,7 @@ The same applies to the Coder and Code-Reviewer in Phase 2.
 
 #### Starting the loop
 
-Open the first session and run `/vdd:vdd-start-loop`. It runs the environment check, asks you for a short name for the repository and a kebab-case slug for this piece of work, confirms the base branch and the feature branch, and writes all of it plus the four session names to `LOOP.md`. Every Role reads that file first, so none of them has to ask you again.
+Open the first session and run `/vdd:vdd-start-loop`. It runs the environment check, asks you for a short name for the repository and a kebab-case slug for this piece of work, confirms the base branch and the feature branch, asks once whether VDD should open the PR at the end of the Workflow (open it, ask again at Sign-off, or leave it manual), and writes all of it plus the four session names to `LOOP.md`. Every Role reads that file first, so none of them has to ask you again.
 
 It then prints the line that renames this session to the Planner and hands over to the Planner in the same session.
 
@@ -193,9 +194,9 @@ Hand `FIXES.md` and `CODEREVIEW.md` between the two sessions until all issues ar
 
 ### 🚢 Phase 3: Ship
 
-Once the Code-Reviewer has signed off:
+On Sign-off, the Code-Reviewer's session runs the PR-Author. It reads the `PR:` line `/vdd:vdd-start-loop` wrote to `LOOP.md`: `PR: yes` shows you the assembled body, pushes the branch and opens the PR; `PR: ask at sign-off` asks you then; `PR: manual` prints the body and touches neither the branch nor the remote. Either VDD opens the PR or you do, from the printed body.
 
-1. Open the PR from the feature branch. The commits are already there, one per ticket, and the working files are gitignored and stay behind.
+1. If the PR-Author did not open the PR, open it yourself from the feature branch, pasting the printed body. The commits are already there, one per ticket plus any commit no ticket owned, and the working files are gitignored and stay behind.
 2. Delete `LOOP.md`, `.scratch/<slug>/`, `PLAN-REVIEW.md`, `FIXES.md`, and `CODEREVIEW.md`, or leave them to be overwritten by the next run.
 3. Start the next loop with fresh sessions.
 
