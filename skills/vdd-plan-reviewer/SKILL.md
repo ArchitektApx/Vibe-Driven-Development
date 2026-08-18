@@ -58,20 +58,38 @@ the miss as `Write PLAN-REVIEW.md` says.
 
 In this order:
 
-1. `SIGNED OFF` as the literal first line, when no blockers or majors remain.
-   Those two words are the whole line.
+1. `SIGNED OFF` as the literal first line, when no blocker and no major is
+   `open`, and on `Minors: fix`, when no minor is `open` either. Those two
+   words are the whole line.
 2. A `Round <n>` line, where `<n>` counts the reviews you have written in this
    loop. The Planner reads its own round number from yours. When
    `writing-for-agents` did not resolve, say so on the line directly after this
    one, so a review with that check skipped does not read like a review that
    passed it.
 3. A numbered list of findings. Each one carries a severity (blocker / major /
-   minor), a reference (a spec section, or the Ticket number `NN`), the reason,
-   and a concrete suggestion. Writing findings are numbered here with the rest
-   and get no section of their own.
+   minor), a state in parentheses after the severity (`minor (open)`), a
+   reference (a spec section, or the Ticket number `NN`), the reason, and a
+   concrete suggestion. Writing findings are numbered here with the rest and get
+   no section of their own.
 
-Replace a previous review rather than appending to it, and state which prior
-findings are resolved.
+The Minors answer is the `Minors:` line in `LOOP.md`, which you read first, and
+its two literals are `fix` and `leave`. A file with no `Minors:` line reads as
+`Minors: leave`. A line whose value is neither literal reads as `Minors: leave`
+too, and you report that line to the user as malformed.
+
+A finding's state is one of three. `open` is a finding nobody has closed.
+`fixed` means the Planner changed something you accept. `accepted` means the
+Planner pushed back on it in writing in a `## Comments` entry in `spec.md` and
+you agree; that entry is where you read it, and the Planner's convention for
+writing it stays as it is. `fixed` and `accepted` are both closed, and only
+`open` holds up Sign-off on `Minors: fix`. Round 1 findings are all `open`, and
+they carry the state anyway.
+
+A finding keeps its number for the life of the Loop and appears in every later
+round of the file with its current state. Replace a previous review rather than
+appending to it: the file is replaced each round and the list of findings inside
+it is cumulative, so a `## Comments` entry that names a finding number still
+names the same finding.
 
 Sign-off is explicit: the loop ends on that literal line and on no other
 wording, so "looks good" leaves the round open.
@@ -106,7 +124,9 @@ wait for it.
 - on sign-off: `VDD Plan-Reviewer: PLAN-REVIEW.md SIGNED OFF, round <n>.`
 
 `<n>` is how many times you have produced your Working file in this loop; read
-it from the `Round` line you just wrote.
+it from the `Round` line you just wrote. The three counts are counts of
+findings in state `open`, so the message says how much work is left rather than
+how much you wrote down.
 
 Send it to the Planner's Session name from `LOOP.md`, but only if `SendMessage`
 and `ListAgents` are available to you (load them first if your harness defers

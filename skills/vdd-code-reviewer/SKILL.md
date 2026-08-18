@@ -102,19 +102,36 @@ CODEREVIEW.md` says, and carry on.
 
 In this order:
 
-1. `SIGNED OFF` as the literal first line, when no blockers or majors remain.
-   Those two words are the whole line.
+1. `SIGNED OFF` as the literal first line, when no blocker and no major is
+   `open`, and on `Minors: fix`, when no minor is `open` either. Those two
+   words are the whole line.
 2. A `Round <n>` line, where `<n>` counts the reviews you have written in this
    loop.
 3. The `## code-review` section from step 1.
 4. `## Findings`, numbered. Each one carries a severity (blocker / major /
-   minor), a `file:line` reference, and a concrete fix. Step 3's findings are
-   numbered here with the rest. When step 3 did not apply, or
-   `writing-for-agents` did not resolve, that line comes first, above finding 1,
-   so a skipped check does not read like a passed one.
+   minor), a state in parentheses after the severity (`minor (open)`), a
+   `file:line` reference, and a concrete fix. Step 3's findings are numbered
+   here with the rest. When step 3 did not apply, or `writing-for-agents` did
+   not resolve, that line comes first, above finding 1, so a skipped check does
+   not read like a passed one.
 
-Replace a previous review rather than appending to it, and state which prior
-findings are resolved.
+The Minors answer is the `Minors:` line in `LOOP.md`, which you read first, and
+its two literals are `fix` and `leave`. A file with no `Minors:` line reads as
+`Minors: leave`. A line whose value is neither literal reads as `Minors: leave`
+too, and you report that line to the user as malformed.
+
+A finding's state is one of three. `open` is a finding nobody has closed.
+`fixed` means the Coder changed something you accept. `accepted` means the
+Coder pushed back on it in writing in `FIXES.md` and you agree; that pushback is
+where you read it, and the Coder's convention for writing it stays as it is.
+`fixed` and `accepted` are both closed, and only `open` holds up Sign-off on
+`Minors: fix`. Round 1 findings are all `open`, and they carry the state anyway.
+
+A finding keeps its number for the life of the Loop and appears in every later
+round of the file with its current state. Replace a previous review rather than
+appending to it: the file is replaced each round and the list of findings inside
+it is cumulative, so a `FIXES.md` section that names a finding number still
+names the same finding.
 
 Sign-off is explicit: the loop ends on that literal line and on no other
 wording, so hedged approval leaves the round open.
@@ -152,7 +169,9 @@ the message:
 - on sign-off: `VDD Code-Reviewer: CODEREVIEW.md SIGNED OFF, round <n>.`
 
 `<n>` is how many times you have produced your Working file in this loop; read
-it from the `Round` line you just wrote.
+it from the `Round` line you just wrote. The three counts are counts of
+findings in state `open`, so the message says how much work is left rather than
+how much you wrote down.
 
 Send it to the Coder's Session name from `LOOP.md`, but only if `SendMessage`
 and `ListAgents` are available to you (load them first if your harness defers
