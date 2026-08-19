@@ -8,8 +8,9 @@ an Orchestrator session hosts the Plan-Reviewer, the Coder and the
 Code-Reviewer as subagents until Sign-off. Proportionality applies: a typo
 fix can skip the loop, and anything that changes how a Role behaves takes it.
 
-The Planner's grilling step is what produced the two files below, and they are
-committed for the same reason any project keeps them:
+The Planner's grilling step produced the glossary and the decision records
+below, and they are committed so every clone reads the same vocabulary and the
+same decisions:
 
 - `CONTEXT.md` is the glossary. Use its terms exactly when editing the skills,
   so the eight `SKILL.md` files keep one vocabulary.
@@ -40,8 +41,8 @@ This style binds work on this repository alone. In a user's project their prose
 stays theirs, in whatever style they write it.
 
 `writing-for-agents` covers the defects that change how an agent behaves. What
-it leaves behind is phrasing that reads like a machine wrote it, and these six
-tells are all of it. The list is closed at six: a seventh replaces one of these
+it leaves behind is phrasing that reads like a machine wrote it, and the six
+tells below are all of it. The list is closed: a seventh replaces one of these
 rather than joining them.
 
 1. Em dashes. Use a comma, a colon or a full stop.

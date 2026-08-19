@@ -18,7 +18,7 @@ _Avoid_: dispatcher, controller, coordinator
 
 **PR-Author**:
 Runs in the Orchestrator's session on Sign-off and is the only Role that pushes. Reads the `PR:` line in `LOOP.md` and either opens the PR or prints the assembled body for the user.
-_Avoid_: seventh session, autopilot, bot
+_Avoid_: extra session, autopilot, bot
 
 **Session**:
 One of the two conversations the user opens: the Planner's, and the Orchestrator's. A hosted Role runs as a subagent, a fresh conversation the Orchestrator spawns inside its own session, and that freshness is what still makes the review adversarial: a subagent's context begins with its Spawn prompt and holds nothing of its host's reasoning.
@@ -95,7 +95,7 @@ _Avoid_: change log, diff summary, rationale
 ## Skill dependencies
 
 **Borrowed skill**:
-A skill from another collection that a Role depends on but does not ship. Currently, from Matt Pocock's collection: `setup-matt-pocock-skills`, `grill-with-docs`, `improve-codebase-architecture`, `to-spec`, `to-tickets` (all User-invoked), and `code-review` and `writing-for-agents` (both agent-invocable).
+A skill from another collection that a Role depends on but does not ship. From Matt Pocock's collection: `setup-matt-pocock-skills`, `grill-with-docs`, `improve-codebase-architecture`, `to-spec`, `to-tickets` (all User-invoked), and `code-review` and `writing-for-agents` (both agent-invocable).
 _Avoid_: external skill, third-party skill, dependency
 
 **User-invoked**:
