@@ -48,8 +48,8 @@ change made on taste. Neither catches the other, and a pass without both is a
 pass nobody can review.
 
 The Loop that established this policy deferred the following. This list is what
-survives of it, because `FIXES.md` is a Working file and is gone when the Loop
-closes.
+survives of it, because `FIXES.md` is a Working file, gitignored, and reaches no
+clone.
 
 **Document splits the sprawl lever pointed at.** `skills/vdd-setup/SKILL.md` is
 192 lines and its Borrowed-skills check is 147 of them. The split that would
@@ -88,11 +88,13 @@ until the rule they carry has an owner elsewhere.
 **Words the pass wanted to coin.** None. Every leading word the documents
 needed was already a glossary term.
 
-**Rules proposed for deletion.** One. `vdd-setup`'s gitignore check lists
-`PLAN.md` and says it stays on the list for one release, for users holding a
-`PLAN.md` from a 0.2.0 loop; this Loop ships 0.5.0. The relevance lever found
-it, the line is stale rather than wrong, and dropping `PLAN.md` from that list
-and from the stale-working-file check is a decision for a later Loop.
+**Rules proposed for deletion.** One. `vdd-setup`'s gitignore check listed
+`PLAN.md` and said it stayed on the list for one release, for users holding a
+`PLAN.md` from a 0.2.0 loop; this Loop shipped 0.5.0. The relevance lever found
+it and the line was stale rather than wrong. The Loop that moved the review
+files into the tracker directory dropped `PLAN.md` from that list and from the
+stale-working-file check, and Setup now removes the entry from a user's
+`.gitignore`.
 
 **An ADR opening past the Borrowed format's bound.** ADR-0002's opening
 paragraph is four sentences against a bound of three. A three-sentence opening
