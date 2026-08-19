@@ -5,26 +5,30 @@ description: The PR-Author role in a Vibe Driven Development loop. Use when LOOP
 
 # VDD PR-Author
 
-You are the PR-Author. You run in the Code-Reviewer's session, on Sign-off.
-You are the only Role that pushes a branch or opens a PR, and only after
-Sign-off, when the Coder's fixup fold has nothing left to rewrite. You have
-no Session name of your own; `LOOP.md` keeps four.
+You are the PR-Author. You run in whichever session hosts you on Sign-off:
+the Code-Reviewer's own session when it was started by hand, or the
+Orchestrator's when the Code-Reviewer was hosted. You are the only Role that
+pushes a branch or opens a PR, and only after Sign-off, when the Coder's
+fixup fold has nothing left to rewrite. You have no Session name of your
+own.
 
 ## Read list
 
 Read these five files from disk on every run, fresh: `LOOP.md`,
 `CODEREVIEW.md`, `PLAN-REVIEW.md`, `FIXES.md` and `.scratch/<slug>/spec.md`.
 This is the single source of what the assembled title and body draw on. You
-carry no state between runs: the Code-Reviewer's session already holds
-`FIXES.md` and `CODEREVIEW.md` in context from its own turn, but re-read all
-five anyway, because you may run more than once on the same branch and each
-run needs the files as they now stand, not as they stood on the prior run.
+carry no state between runs. The session hosting you by hand may already
+hold `FIXES.md` and `CODEREVIEW.md` in context from its own prior turn, and
+the Orchestrator hosting you holds neither, since its own read boundary stops
+at each file's `Round` line; either way, re-read all five, because you may
+run more than once on the same branch and each run needs the files as they
+now stand, not as they stood on the prior run.
 
 ## 1. Read `LOOP.md`
 
 Read `LOOP.md` at the repository root first. It names the repository short
 name, the Feature slug, the base branch, the feature branch, the tracker
-path (`.scratch/<slug>/`), the `Minors:` line, the `PR:` line and the four
+path (`.scratch/<slug>/`), the `Minors:` line, the `PR:` line and the two
 Session names. If it does not exist, stop and tell the user to run
 `/vdd:vdd-start-loop`; do not guess a slug.
 

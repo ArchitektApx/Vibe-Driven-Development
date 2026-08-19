@@ -13,7 +13,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/workflow-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/workflow-light.svg">
-  <img alt="The VDD workflow: you start the loop, the Planner and Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the PR-Author opens the PR or hands it to you." src="docs/workflow-light.svg" width="900">
+  <img alt="The VDD workflow: you start the loop as the Planner, and an Orchestrator session hosts the rest. The Planner and its hosted Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the hosted Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the Orchestrator hosts the PR-Author, which opens the PR or hands it to you." src="docs/workflow-light.svg" width="900">
 </picture>
 
 </div>
@@ -49,7 +49,8 @@ The loop that comes out of this converges: plan, push back, revise, sign off, im
 ## 📋 Requirements
 
 - A repository to work in
-- The ability to run two agent sessions side by side (two terminals is enough)
+- The ability to run two agent sessions side by side (two terminals is enough): the Planner, in your foreground, and the Orchestrator, which hosts the rest.
+- A coding agent with subagents. Claude Code, Cursor, Codex and GitHub Copilot CLI all have the primitive the Orchestrator needs to spawn the Plan-Reviewer, the Coder and the Code-Reviewer, each in a fresh context, and to resume the same one round after round. If your host asks for approval per command, grant session approval before you start the Workflow, so you are not answering prompts through the whole run.
 - Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection. In Claude Code: `/plugin install mattpocock-skills` (official marketplace). The Roles borrow seven of them:
 
   | Borrowed skill | Started by | Needed by |
@@ -82,6 +83,7 @@ This repository is a Claude Code plugin marketplace. The `vdd` plugin ships one 
 | 🩺 Environment check | `/vdd:vdd-setup` |
 | 🚀 Start a loop | `/vdd:vdd-start-loop` |
 | 🧠 Planner | `/vdd:vdd-planner` |
+| 🧭 Orchestrator | `/vdd:vdd-orchestrator` |
 | 🔍 Plan-Reviewer | `/vdd:vdd-plan-reviewer` |
 | 💻 Coder | `/vdd:vdd-coder` |
 | 🧪 Code-Reviewer | `/vdd:vdd-code-reviewer` |
@@ -98,12 +100,12 @@ npx skills@latest add ArchitektApx/Vibe-Driven-Development
 npx skills@latest add mattpocock/skills
 ```
 
-The installer asks which skills to take and which agents to install them for. Take all seven `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set is what lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Run `/setup-matt-pocock-skills` once per repository afterwards, and pull updates later with `npx skills update`.
+The installer asks which skills to take and which agents to install them for. Take all eight `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set is what lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Run `/setup-matt-pocock-skills` once per repository afterwards, and pull updates later with `npx skills update`.
 
 > [!NOTE]
 > If your agent does not support skills at all, the skill files are ordinary Markdown: paste the body of the relevant `skills/vdd-*/SKILL.md` into your session as a prompt.
 
-This repository is developed with its own workflow; `CONTEXT.md` and `docs/adr/` are the glossary and decision records it produced. See `CLAUDE.md`.
+This repository is developed with its own workflow; `CONTEXT.md` and `docs/adr/` are the glossary and decision records it produced. See `AGENTS.md`.
 
 ## 🔁 Workflow
 
@@ -142,17 +144,23 @@ or even better:
 
 The same applies to the Coder and Code-Reviewer in Phase 2.
 
+VDD itself names no model: `vdd-orchestrator` passes one to a hosted Role
+only when it finds a choice for that Role's kind of work in your own
+user-level steering file, and otherwise lets the child inherit whatever the
+host gives it. The tables above are what to put in that file, not a setting
+inside this plugin.
+
 #### Starting the loop
 
-Open the first session and run `/vdd:vdd-start-loop`. It runs the environment check, asks you for a short name for the repository and a kebab-case slug for this piece of work, confirms the base branch and the feature branch, asks once whether an open minor should hold up Sign-off (`fix`, or `leave` them listed), asks once whether VDD should open the PR at the end of the Workflow (open it, ask again at Sign-off, or leave it manual), and writes all of it plus the four session names to `LOOP.md`. Both answers go into that file with the rest, and every Role reads it first, so none of them has to ask you again.
+Open the first session and run `/vdd:vdd-start-loop`. It runs the environment check, asks you for a short name for the repository and a kebab-case slug for this piece of work, confirms the base branch and the feature branch, asks once whether an open minor should hold up Sign-off (`fix`, or `leave` them listed), asks once whether VDD should open the PR at the end of the Workflow (open it, ask again at Sign-off, or leave it manual), and writes all of it plus the two session names to `LOOP.md`. Both answers go into that file with the rest, and every Role reads it first, so none of them has to ask you again.
 
-It then prints the line that renames this session to the Planner and hands over to the Planner in the same session.
+It then prints the line that renames this session to the Planner, previews the line that starts the Orchestrator, and hands over to the Planner in the same session.
 
 #### Sessions, names and Doorbells 🔔
 
-`LOOP.md` names the four sessions, as `<repository>-<slug>-<Role>`, for example `VDD-new-release-Plan-Reviewer`. Name them exactly that way: rename the current one with `/rename <name>`, and start the next one with `claude -n <name>`. No agent can rename a session, which is why every Role asks you to.
+`LOOP.md` names two sessions, as `<repository>-<slug>-<Role>`, for example `VDD-new-release-Orchestrator`. You rename this one to the Planner with `/rename <name>`; no agent can rename its own session, which is why the Planner asks you to. You open the Orchestrator yourself, once, with `claude -n <name>` then `/vdd:vdd-orchestrator`, when the Planner rings its first Doorbell. From there the Orchestrator hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, each in a fresh context, and later the PR-Author in its own session; none of them is a session you open.
 
-Once the names match, a Role that finishes its turn rings the next one's doorbell instead of waiting for you. The message is deliberately dull: which working file was written, which round, and how many open findings per severity. The receiving Role reads the file and ignores the message text, so nothing leaks between the two contexts, which is the whole point of running them apart. Without Claude Code, or without the names, the Role prints the same line for you to paste.
+A Role that finishes its turn rings its counterpart's doorbell instead of waiting for you: the Planner rings the Orchestrator, and the Orchestrator relays every Plan-Reviewer round back to the Planner. The message is deliberately dull: which working file was written, which round, and how many open findings per severity. The receiving end reads the file and ignores the message text, so nothing leaks between the two contexts, which is the whole point of running them apart. Without Claude Code, or before the Orchestrator session exists (always true for round 1), the same line prints for you to paste.
 
 #### 🧠 The Planner
 
@@ -166,35 +174,35 @@ The Planner is the session that:
 
 The Planner never writes code. Its deliverables are `.scratch/<slug>/spec.md` and the ticket files in `.scratch/<slug>/issues/`.
 
-`/vdd:vdd-start-loop` starts it for you. In a session that already exists, start it with `/vdd:vdd-planner`.
+`/vdd:vdd-start-loop` starts it for you, in the same session you renamed. Its own Doorbell is what starts the Orchestrator, the first time it rings.
 
 #### 🔍 The Plan-Reviewer
 
-The Plan-Reviewer is the session that reviews the spec and the tickets and checks that they are complete and that every claim in them holds against the actual codebase. It also checks them against `writing-for-agents`, because the Planner cannot grade its own prose. It documents its findings and pushbacks in `PLAN-REVIEW.md` and hands that back to the Planner to work on.
+The Plan-Reviewer reviews the spec and the tickets and checks that they are complete and that every claim in them holds against the actual codebase. It also checks them against `writing-for-agents`, because the Planner cannot grade its own prose. It documents its findings and pushbacks in `PLAN-REVIEW.md` and hands that back to the Planner to work on.
 
-Start the session with `/vdd:vdd-plan-reviewer`.
+It runs as a subagent hosted by the Orchestrator, in a fresh context, resumed round after round for the life of this loop. You never start it yourself.
 
-Hand the spec and `PLAN-REVIEW.md` between the two sessions until the Plan-Reviewer signs off. A blocker or a major always holds up Sign-off; on `Minors: fix` the loop runs until no minor is open too, however many rounds that takes, and on `Minors: leave` the Plan-Reviewer signs off with the open minors listed. In practice this takes one to three rounds. If it takes more, the scope is probably too big: split the work.
+Its Doorbells and the Planner's pass through the Orchestrator each round until the Plan-Reviewer signs off. A blocker or a major always holds up Sign-off; on `Minors: fix` the loop runs until no minor is open too, however many rounds that takes, and on `Minors: leave` the Plan-Reviewer signs off with the open minors listed. In practice this takes one to three rounds. If it takes more, the scope is probably too big: split the work.
 
 ### 🔧 Phase 2: The Coder / Code-Review loop
+
+The Orchestrator starts this phase itself, the moment `PLAN-REVIEW.md` signs off. Nothing here is a session you open.
 
 #### 💻 The Coder
 
 The Coder works on the feature branch from `LOOP.md`, which defaults to the feature slug. It takes the tickets in dependency order, implements one at a time, runs its acceptance criteria, commits it, and writes what it did to `FIXES.md` for the Code-Reviewer.
 
-Start the session with `/vdd:vdd-coder`.
+Hosted by the Orchestrator, resumed round after round. If it finds itself on neither the base branch nor the feature branch, or holds a Ticket it finds wrong or impossible, it asks; the Orchestrator relays the question to you and resumes it with your answer.
 
 #### 🧪 The Code-Reviewer
 
 The Code-Reviewer runs Matt Pocock's `code-review` over the branch, with the spec as its reference, and then adds the checks that skill does not make: it reruns the verification itself, distrusts `FIXES.md` and the ticked checkboxes, and looks for anything in the diff the tickets did not ask for. When the branch changed a skill file, an `AGENTS.md`, a `CLAUDE.md` or anything one of those points at, it checks those lines against `writing-for-agents` as well; on a branch of ordinary source code that step costs nothing. It documents its findings and pushbacks in `CODEREVIEW.md` and hands that back to the Coder to work on.
 
-Start the session with `/vdd:vdd-code-reviewer`.
-
-Hand `FIXES.md` and `CODEREVIEW.md` between the two sessions until the Code-Reviewer signs off. A blocker or a major always holds up Sign-off; on `Minors: fix` the loop runs until no minor is open too, however many rounds that takes, and on `Minors: leave` the Code-Reviewer signs off with the open minors listed.
+Hosted by the Orchestrator too, the same way. `FIXES.md` and `CODEREVIEW.md` pass between the Coder and the Code-Reviewer, inside the Orchestrator's own session, until the Code-Reviewer signs off. A blocker or a major always holds up Sign-off; on `Minors: fix` the loop runs until no minor is open too, however many rounds that takes, and on `Minors: leave` the Code-Reviewer signs off with the open minors listed.
 
 ### 🚢 Phase 3: Ship
 
-On Sign-off, the Code-Reviewer's session runs the PR-Author. It reads the `PR:` line `/vdd:vdd-start-loop` wrote to `LOOP.md`: `PR: yes` shows you the assembled body, pushes the branch and opens the PR; `PR: ask at sign-off` asks you then; `PR: manual` prints the body and touches neither the branch nor the remote. Either VDD opens the PR or you do, from the printed body.
+On Sign-off, the Orchestrator runs the PR-Author in its own session. It reads the `PR:` line `/vdd:vdd-start-loop` wrote to `LOOP.md`: `PR: yes` shows you the assembled body, pushes the branch and opens the PR; `PR: ask at sign-off` asks you then; `PR: manual` prints the body and touches neither the branch nor the remote. Either VDD opens the PR or you do, from the printed body.
 
 1. If the PR-Author did not open the PR, open it yourself from the feature branch, pasting the printed body. The commits are already there, one per ticket plus any commit no ticket owned, and the working files are gitignored and stay behind.
 2. Delete `LOOP.md`, `.scratch/<slug>/`, `PLAN-REVIEW.md`, `FIXES.md`, and `CODEREVIEW.md`, or leave them to be overwritten by the next run.
@@ -202,8 +210,8 @@ On Sign-off, the Code-Reviewer's session runs the PR-Author. It reads the `PR:` 
 
 ## 💡 Tips
 
-- **One session per Role, start to finish.** Fresh means fresh per Role, not per round. Reusing the Planner session as the Coder defeats the purpose: it will implement its own assumptions instead of the spec. But a Role keeps its own session across every round of its loop, so a reviewer holds its findings and a Coder holds the reasoning behind its deviations.
-- **Name your sessions as `LOOP.md` says**, or the Doorbells cannot find their target and you are back to copying lines between terminals.
+- **One session or subagent per Role, start to finish.** Fresh means fresh per Role, not per round. Reusing the Planner session as the Coder defeats the purpose: it will implement its own assumptions instead of the spec. But a Role keeps its own session or subagent across every round of its loop, so a reviewer holds its findings and a Coder holds the reasoning behind its deviations.
+- **Name your two sessions as `LOOP.md` says**, or the Doorbell between the Planner and the Orchestrator cannot find its target and you are back to copying a line between terminals.
 - **A Doorbell is a bell, not a letter.** Never ask a Role to explain itself across sessions; that is what the working files are for, and it is the leak the separate sessions exist to prevent.
 - **Reviewers never write code.** The moment a reviewer edits files it stops being a reviewer. Findings go in the review file, fixes go back to the other session.
 - **Sign-off is explicit.** "Looks good overall" is not sign-off. Require the literal "SIGNED OFF" line so you can tell at a glance whether a loop is done.
@@ -214,7 +222,7 @@ On Sign-off, the Code-Reviewer's session runs the PR-Author. It reads the `PR:` 
 
 <div align="center">
 
-Built with its own workflow. Glossary in [`CONTEXT.md`](CONTEXT.md), decisions in [`docs/adr/`](docs/adr/), house rules in [`CLAUDE.md`](CLAUDE.md).
+Built with its own workflow. Glossary in [`CONTEXT.md`](CONTEXT.md), decisions in [`docs/adr/`](docs/adr/), house rules in [`AGENTS.md`](AGENTS.md).
 
 MIT · [ArchitektApx](https://github.com/ArchitektApx)
 

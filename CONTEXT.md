@@ -9,15 +9,19 @@ Everything from the environment check to the pull request, on one Feature slug. 
 _Avoid_: phase, pipeline, run
 
 **Role**:
-One of the seven jobs in the workflow (Planner, Plan-Reviewer, Coder, Code-Reviewer, PR-Author, plus Setup and Start-Loop). Each ships as one skill file; the four reviewing and producing Roles each run in their own session.
+One of the eight jobs in the workflow (Planner, Orchestrator, Plan-Reviewer, Coder, Code-Reviewer, PR-Author, plus Setup and Start-Loop). Each ships as one skill file. The Planner runs in the user's session; the Orchestrator hosts the rest.
 _Avoid_: agent, persona, mode
 
+**Orchestrator**:
+The Role that hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, carries Doorbells between the Planner and the Loop it hosts, relays a Role's question to the user and resumes the same subagent with the answer, and hosts the PR-Author at Sign-off. Runs in its own session, opened when the Planner rings its first Doorbell.
+_Avoid_: dispatcher, controller, coordinator
+
 **PR-Author**:
-Runs in the Code-Reviewer's session on Sign-off and is the only Role that pushes. Reads the `PR:` line in `LOOP.md` and either opens the PR or prints the assembled body for the user.
+Runs in the Orchestrator's session on Sign-off and is the only Role that pushes. Reads the `PR:` line in `LOOP.md` and either opens the PR or prints the assembled body for the user.
 _Avoid_: seventh session, autopilot, bot
 
 **Session**:
-A single agent conversation running one Role. Separate sessions are what make the review adversarial, because a session cannot see another's reasoning.
+One of the two conversations the user opens: the Planner's, and the Orchestrator's. A hosted Role runs as a subagent, a fresh conversation the Orchestrator spawns inside its own session, and that freshness is what still makes the review adversarial: a subagent's context begins with its Spawn prompt and holds nothing of its host's reasoning.
 _Avoid_: instance, window, context
 
 **Loop**:
@@ -33,7 +37,7 @@ The kebab-case name of one Loop's piece of work, chosen by the user when the Loo
 _Avoid_: feature name, ticket name, branch name
 
 **Loop file**:
-`LOOP.md` at the repository root. Records the Feature slug, the repository short name, the base branch, the feature branch, the tracker path, the `Minors:` line, the `PR:` line and the four Session names, so every Role reads them instead of asking. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
+`LOOP.md` at the repository root. Records the Feature slug, the repository short name, the base branch, the feature branch, the tracker path, the `Minors:` line, the `PR:` line and the two Session names, so every Role reads them instead of asking. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
 _Avoid_: session file, config, manifest
 
 **Spec**:
@@ -49,11 +53,15 @@ A file written to be read by an agent: a skill file, an `AGENTS.md`, a `CLAUDE.m
 _Avoid_: prompt, instruction file, agent-facing doc
 
 **Session name**:
-`<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner`. Set by the user rather than by an agent; it is how one Role addresses another with a Doorbell.
+`<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner` or `VDD-new-release-Orchestrator`. There are two, the Planner's and the Orchestrator's. Set by the user rather than by an agent; it is how the Planner addresses the Orchestrator with a Doorbell.
 _Avoid_: session id, title, label
 
+**Spawn prompt**:
+The prompt the Orchestrator spawns a hosted Role with. Names the Working files outright, tells the Role to invoke its skill, declares that an Orchestrator hosts this Workflow, and states the three prefixed return shapes. Carries the return contract; no Role skill does.
+_Avoid_: system prompt, task prompt, instructions
+
 **Doorbell**:
-A cross-session message from one Role to its counterpart with a fixed template and no free text: which Working file was written, which round, how many open findings per severity, or `SIGNED OFF`.
+A fixed contract naming which Working file was written, which round, and the open findings per severity or `SIGNED OFF`, with no free text. Carried by whichever of three carriers the two ends have: a cross-session message from the Planner to the Orchestrator, a hosted Role's return value to the Orchestrator, or the Orchestrator's resume message waking a hosted Role.
 _Avoid_: notification, handoff message, ping
 
 **Sign-off**:

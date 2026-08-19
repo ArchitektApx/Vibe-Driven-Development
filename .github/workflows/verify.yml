@@ -76,6 +76,16 @@ jobs:
             echo "duplicate skill names:"; echo "$dupes"; exit 1
           fi
 
+      # CLAUDE.md is read by Claude Code and wins precedence over AGENTS.md,
+      # so a house rule added only to AGENTS.md would silently never reach
+      # Claude Code, and a rule added to both would be read twice.
+      - name: CLAUDE.md is a stub for AGENTS.md
+        run: |
+          if [ "$(cat CLAUDE.md)" != "@AGENTS.md" ]; then
+            echo "CLAUDE.md must contain exactly the line: @AGENTS.md"
+            exit 1
+          fi
+
       # This repository is prose only. Hooks, MCP servers, symlinks and
       # executables all end up on every installer's machine and none of them
       # is needed here. If one is ever added deliberately, edit this step in

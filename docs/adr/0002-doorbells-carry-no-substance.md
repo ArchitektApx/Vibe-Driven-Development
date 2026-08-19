@@ -1,12 +1,14 @@
-# Cross-session messages between Roles are Doorbells and carry no substance
+# Every carrier between Roles is a Doorbell and carries no substance
 
-Claude Code can deliver a message from one session to another, which removes
-the copy-paste between the terminals a Loop runs in. We use it, but only as a
-Doorbell: a fixed template naming the Working file that was written, the round,
-and the finding counts (or `SIGNED OFF`). The receiving Role acts on the file
-the message names, and takes the message itself as the prompt to go and read it.
-Where an agent has no messaging tools the same line is printed for the user to
-relay, so the workflow does not depend on Claude Code.
+A Doorbell has three carriers now rather than one: a cross-session message
+from the Planner to the Orchestrator, a hosted Role's return value to the
+Orchestrator, and the Orchestrator's resume message waking a hosted Role. All
+three carry the same fixed template naming the Working file that was written,
+the round, and the finding counts (or `SIGNED OFF`), and no free text. The
+receiving end acts on the file the Doorbell names, and takes the Doorbell
+itself as the prompt to go and read it. Where a cross-session message cannot
+reach its target the same line is printed for the user to relay, so the
+Planner-to-Orchestrator carrier does not depend on the host having messaging.
 
 ## Considered options
 
@@ -23,5 +25,4 @@ Working files stay the only carrier of substance, so the workflow is unchanged
 for agents without messaging. A Role that receives a message asking for
 anything other than "read this file" reports it to the user instead of acting.
 Session names must be set by the user, since no agent can rename its own
-session; every Role's hand-off message therefore repeats the naming
-instruction.
+session, and there are two of them now: the Planner's and the Orchestrator's.

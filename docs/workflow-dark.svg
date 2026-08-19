@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="786" viewBox="0 0 900 786" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14">
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="810" viewBox="0 0 900 810" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b949e"/>
@@ -8,82 +8,71 @@
     </marker>
   </defs>
 
-  <rect width="900" height="786" fill="#0d1117" rx="8"/>
+  <rect width="900" height="810" fill="#0d1117" rx="8"/>
 
   <!-- Title -->
-  <text x="450" y="34" text-anchor="middle" font-size="20" font-weight="600" fill="#e6edf3">Vibe Driven Development: one loop, four sessions</text>
-  <text x="450" y="56" text-anchor="middle" fill="#8b949e">Every box is its own agent session. Files carry the work; Doorbells only say a file is ready.</text>
+  <text x="450" y="34" text-anchor="middle" font-size="20" font-weight="600" fill="#e6edf3">Vibe Driven Development: one loop, two sessions</text>
+  <text x="450" y="56" text-anchor="middle" fill="#8b949e">You run the Planner. An Orchestrator hosts the rest. Files carry the work; Doorbells only say a file is ready.</text>
 
-  <!-- Phase 0 -->
-  <rect x="270" y="80" width="360" height="66" rx="8" fill="#161b22" stroke="#30363d"/>
-  <text x="450" y="104" text-anchor="middle" font-weight="600" fill="#e6edf3">Phase 0: You</text>
-  <text x="450" y="126" text-anchor="middle" fill="#c9d1d9" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">/vdd:vdd-start-loop  →  writes LOOP.md</text>
+  <!-- Planner (your session) -->
+  <rect x="210" y="80" width="480" height="150" rx="8" fill="#0f2447" stroke="#58a6ff" stroke-width="1.5"/>
+  <text x="450" y="106" text-anchor="middle" font-weight="600" font-size="16" fill="#79c0ff">Planner: your session</text>
+  <text x="450" y="126" text-anchor="middle" fill="#79c0ff" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">/vdd:vdd-start-loop  →  writes LOOP.md</text>
+  <text x="450" y="146" text-anchor="middle" fill="#c9d1d9">grills you until the work is agreed,</text>
+  <text x="450" y="164" text-anchor="middle" fill="#c9d1d9">then hands you /to-spec and /to-tickets</text>
+  <text x="450" y="190" text-anchor="middle" fill="#79c0ff" font-size="12">writes: .scratch/&lt;slug&gt;/spec.md + issues/</text>
+  <text x="450" y="206" text-anchor="middle" fill="#79c0ff" font-size="12">never writes code</text>
 
-  <line x1="450" y1="146" x2="450" y2="186" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <!-- Planner <-> Plan-Reviewer, crossing into the Orchestrator's session -->
+  <line x1="420" y1="230" x2="420" y2="282" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="408" y="260" text-anchor="end" fill="#c9d1d9" font-size="12">spec.md + issues/</text>
+  <path d="M 480 282 L 480 230" stroke="#d29922" stroke-width="1.5" fill="none" marker-end="url(#arrow-accent)"/>
+  <text x="492" y="260" text-anchor="start" fill="#e3b341" font-size="12">PLAN-REVIEW.md (findings)</text>
 
-  <!-- Phase 1 frame -->
-  <rect x="40" y="188" width="820" height="200" rx="10" fill="none" stroke="#30363d" stroke-dasharray="6 4"/>
-  <text x="56" y="212" font-weight="600" fill="#8b949e" font-size="13">PHASE 1: PLAN / PLAN-REVIEW LOOP</text>
-
-  <!-- Planner -->
-  <rect x="80" y="232" width="260" height="120" rx="8" fill="#0f2447" stroke="#58a6ff" stroke-width="1.5"/>
-  <text x="210" y="258" text-anchor="middle" font-weight="600" font-size="16" fill="#79c0ff">Planner</text>
-  <text x="210" y="280" text-anchor="middle" fill="#c9d1d9">grills you until the work is agreed,</text>
-  <text x="210" y="298" text-anchor="middle" fill="#c9d1d9">then hands you /to-spec and /to-tickets</text>
-  <text x="210" y="322" text-anchor="middle" fill="#79c0ff" font-size="12">writes: .scratch/&lt;slug&gt;/spec.md + issues/</text>
-  <text x="210" y="340" text-anchor="middle" fill="#79c0ff" font-size="12">never writes code</text>
+  <!-- Orchestrator frame -->
+  <rect x="40" y="284" width="820" height="514" rx="10" fill="none" stroke="#30363d" stroke-dasharray="6 4"/>
+  <text x="56" y="308" font-weight="600" fill="#8b949e" font-size="13">ORCHESTRATOR SESSION</text>
 
   <!-- Plan-Reviewer -->
-  <rect x="560" y="232" width="260" height="120" rx="8" fill="#2d2005" stroke="#d29922" stroke-width="1.5"/>
-  <text x="690" y="258" text-anchor="middle" font-weight="600" font-size="16" fill="#e3b341">Plan-Reviewer</text>
-  <text x="690" y="280" text-anchor="middle" fill="#c9d1d9">checks spec and tickets against</text>
-  <text x="690" y="298" text-anchor="middle" fill="#c9d1d9">the actual codebase, cold</text>
-  <text x="690" y="322" text-anchor="middle" fill="#e3b341" font-size="12">writes: PLAN-REVIEW.md</text>
-  <text x="690" y="340" text-anchor="middle" fill="#e3b341" font-size="12">never edits the spec</text>
+  <rect x="320" y="318" width="260" height="120" rx="8" fill="#2d2005" stroke="#d29922" stroke-width="1.5"/>
+  <text x="450" y="344" text-anchor="middle" font-weight="600" font-size="16" fill="#e3b341">Plan-Reviewer</text>
+  <text x="450" y="366" text-anchor="middle" fill="#c9d1d9">checks spec and tickets against</text>
+  <text x="450" y="384" text-anchor="middle" fill="#c9d1d9">the actual codebase, cold</text>
+  <text x="450" y="408" text-anchor="middle" fill="#e3b341" font-size="12">writes: PLAN-REVIEW.md</text>
+  <text x="450" y="424" text-anchor="middle" fill="#e3b341" font-size="12">never edits the spec</text>
 
-  <!-- Phase 1 arrows -->
-  <path d="M 340 268 L 558 268" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
-  <text x="450" y="262" text-anchor="middle" fill="#c9d1d9" font-size="12">spec + tickets</text>
-  <path d="M 560 316 L 342 316" stroke="#d29922" stroke-width="1.5" fill="none" marker-end="url(#arrow-accent)"/>
-  <text x="450" y="333" text-anchor="middle" fill="#e3b341" font-size="12">PLAN-REVIEW.md (findings)</text>
-  <text x="450" y="374" text-anchor="middle" fill="#8b949e" font-size="12">repeat until PLAN-REVIEW.md says SIGNED OFF, usually 1 to 3 rounds</text>
-
-  <line x1="450" y1="388" x2="450" y2="428" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="462" y="412" fill="#8b949e" font-size="12">signed-off spec and tickets</text>
-
-  <!-- Phase 2 frame -->
-  <rect x="40" y="430" width="820" height="200" rx="10" fill="none" stroke="#30363d" stroke-dasharray="6 4"/>
-  <text x="56" y="454" font-weight="600" fill="#8b949e" font-size="13">PHASE 2: CODER / CODE-REVIEW LOOP</text>
+  <line x1="450" y1="438" x2="450" y2="478" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="462" y="462" fill="#8b949e" font-size="12">PLAN-REVIEW.md signed off</text>
 
   <!-- Coder -->
-  <rect x="80" y="474" width="260" height="120" rx="8" fill="#0f2e1a" stroke="#3fb950" stroke-width="1.5"/>
-  <text x="210" y="500" text-anchor="middle" font-weight="600" font-size="16" fill="#56d364">Coder</text>
-  <text x="210" y="522" text-anchor="middle" fill="#c9d1d9">implements tickets in dependency order,</text>
-  <text x="210" y="540" text-anchor="middle" fill="#c9d1d9">one commit per ticket on the branch</text>
-  <text x="210" y="564" text-anchor="middle" fill="#56d364" font-size="12">writes: FIXES.md</text>
-  <text x="210" y="582" text-anchor="middle" fill="#56d364" font-size="12">borrows no skills</text>
+  <rect x="80" y="480" width="260" height="120" rx="8" fill="#0f2e1a" stroke="#3fb950" stroke-width="1.5"/>
+  <text x="210" y="506" text-anchor="middle" font-weight="600" font-size="16" fill="#56d364">Coder</text>
+  <text x="210" y="528" text-anchor="middle" fill="#c9d1d9">implements tickets in dependency order,</text>
+  <text x="210" y="546" text-anchor="middle" fill="#c9d1d9">one commit per ticket on the branch</text>
+  <text x="210" y="570" text-anchor="middle" fill="#56d364" font-size="12">writes: FIXES.md</text>
+  <text x="210" y="588" text-anchor="middle" fill="#56d364" font-size="12">borrows no skills</text>
 
   <!-- Code-Reviewer -->
-  <rect x="560" y="474" width="260" height="120" rx="8" fill="#2d2005" stroke="#d29922" stroke-width="1.5"/>
-  <text x="690" y="500" text-anchor="middle" font-weight="600" font-size="16" fill="#e3b341">Code-Reviewer</text>
-  <text x="690" y="522" text-anchor="middle" fill="#c9d1d9">runs code-review against the spec,</text>
-  <text x="690" y="540" text-anchor="middle" fill="#c9d1d9">reruns verification, distrusts FIXES.md</text>
-  <text x="690" y="564" text-anchor="middle" fill="#e3b341" font-size="12">writes: CODEREVIEW.md</text>
-  <text x="690" y="582" text-anchor="middle" fill="#e3b341" font-size="12">never edits code</text>
+  <rect x="560" y="480" width="260" height="120" rx="8" fill="#2d2005" stroke="#d29922" stroke-width="1.5"/>
+  <text x="690" y="506" text-anchor="middle" font-weight="600" font-size="16" fill="#e3b341">Code-Reviewer</text>
+  <text x="690" y="528" text-anchor="middle" fill="#c9d1d9">runs code-review against the spec,</text>
+  <text x="690" y="546" text-anchor="middle" fill="#c9d1d9">reruns verification, distrusts FIXES.md</text>
+  <text x="690" y="570" text-anchor="middle" fill="#e3b341" font-size="12">writes: CODEREVIEW.md</text>
+  <text x="690" y="588" text-anchor="middle" fill="#e3b341" font-size="12">never edits code</text>
 
-  <!-- Phase 2 arrows -->
-  <path d="M 340 510 L 558 510" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
-  <text x="450" y="504" text-anchor="middle" fill="#c9d1d9" font-size="12">FIXES.md + branch</text>
-  <path d="M 560 558 L 342 558" stroke="#d29922" stroke-width="1.5" fill="none" marker-end="url(#arrow-accent)"/>
-  <text x="450" y="575" text-anchor="middle" fill="#e3b341" font-size="12">CODEREVIEW.md (findings)</text>
-  <text x="450" y="616" text-anchor="middle" fill="#8b949e" font-size="12">repeat until CODEREVIEW.md says SIGNED OFF</text>
+  <!-- Coder <-> Code-Reviewer -->
+  <path d="M 340 516 L 558 516" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="450" y="510" text-anchor="middle" fill="#c9d1d9" font-size="12">FIXES.md + branch</text>
+  <path d="M 560 564 L 342 564" stroke="#d29922" stroke-width="1.5" fill="none" marker-end="url(#arrow-accent)"/>
+  <text x="450" y="581" text-anchor="middle" fill="#e3b341" font-size="12">CODEREVIEW.md (findings)</text>
+  <text x="450" y="622" text-anchor="middle" fill="#8b949e" font-size="12">repeat until CODEREVIEW.md says SIGNED OFF</text>
 
-  <line x1="450" y1="630" x2="450" y2="660" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="450" y1="636" x2="450" y2="666" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-  <!-- Phase 3 -->
-  <rect x="170" y="662" width="560" height="110" rx="8" fill="#161b22" stroke="#30363d"/>
-  <text x="450" y="686" text-anchor="middle" font-weight="600" font-size="16" fill="#e6edf3">Phase 3: PR-Author</text>
-  <text x="450" y="706" text-anchor="middle" fill="#c9d1d9" font-size="13">runs in the Code-Reviewer's session, on Sign-off</text>
-  <text x="450" y="726" text-anchor="middle" fill="#c9d1d9" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">/vdd:vdd-create-pr</text>
-  <text x="450" y="746" text-anchor="middle" fill="#8b949e" font-size="12">You or VDD open the PR</text>
+  <!-- PR-Author -->
+  <rect x="170" y="668" width="560" height="110" rx="8" fill="#161b22" stroke="#30363d"/>
+  <text x="450" y="692" text-anchor="middle" font-weight="600" font-size="16" fill="#e6edf3">PR-Author</text>
+  <text x="450" y="712" text-anchor="middle" fill="#c9d1d9" font-size="13">runs in the Orchestrator's session, on Sign-off</text>
+  <text x="450" y="732" text-anchor="middle" fill="#c9d1d9" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">/vdd:vdd-create-pr</text>
+  <text x="450" y="752" text-anchor="middle" fill="#8b949e" font-size="12">You or VDD open the PR</text>
 </svg>

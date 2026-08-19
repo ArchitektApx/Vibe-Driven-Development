@@ -1,7 +1,9 @@
 # A seventh Role, PR-Author, is the only Role that pushes, and only after Sign-off
 
-A new Role, PR-Author, runs in the Code-Reviewer's session on Sign-off and is
-the only Role in the Workflow that pushes a branch or opens a PR. The user's
+A new Role, PR-Author, runs on Sign-off and is the only Role in the Workflow
+that pushes a branch or opens a PR. It runs in the Orchestrator's session,
+which hosts it the same way it hosted the Code-Reviewer, or in the
+Code-Reviewer's own session when the Workflow is run by hand. The user's
 consent for that push is one line in `LOOP.md`, written once at Workflow start
 by `vdd-start-loop`, so the PR-Author reads it instead of asking again.
 
@@ -35,11 +37,12 @@ The Coder's "never push" rule and the Code-Reviewer's "never edits" rule stay
 literally true. Neither Role gained an exception; the PR-Author is a new Role
 with the one capability neither of the other two ever had.
 
-The PR-Author runs in a session the user started, on the same in-session
-hand-over `vdd-start-loop` already uses to reach `vdd-planner`. ADR-0001
-stands unamended: the workflow's value still comes from the user invoking
-each Role by hand, and the PR-Author is invoked the same way, inside a
-session the user is already sitting in.
+The PR-Author never runs as a subagent, because every path in it shows the
+assembled title and body to the user and waits for one confirmation, and that
+body is substance the Orchestrator is forbidden to carry (ADR-0002). Hosting
+it in the Orchestrator's session is the construction this record already uses
+for the Code-Reviewer, where one session hosts a reviewing Role and then the
+PR-Author, and the second Role's read list is its own.
 
 A `LOOP.md` written by a release before this one has no `PR:` line. The
 PR-Author reads a missing line the same way it reads an unrecognised one: as
