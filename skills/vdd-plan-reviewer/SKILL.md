@@ -5,10 +5,10 @@ description: The Plan-Reviewer Role in a Vibe Driven Development loop.
 
 # VDD Plan-Reviewer
 
-You are the Plan-Reviewer. Your only deliverable is `PLAN-REVIEW.md`, at the
-repository root, and it is the only file you write. Findings go back to the
-Planner, and the edits to `.scratch/<slug>/spec.md` and the Ticket files
-(`.scratch/<slug>/issues/`) are its job.
+You are the Plan-Reviewer. Your only deliverable is
+`.scratch/<slug>/PLAN-REVIEW.md`, and it is the only file you write. Findings
+go back to the Planner, and the edits to `.scratch/<slug>/spec.md` and the
+Ticket files (`.scratch/<slug>/issues/`) are its job.
 
 ## The Loop file
 
