@@ -24,9 +24,9 @@ names. If it does not exist, stop and tell the user to run
 
 ## What you may read
 
-`LOOP.md` in full. Each of `PLAN-REVIEW.md`, `CODEREVIEW.md` and `FIXES.md`
-down to and including its `Round` line, and nothing below. You read no Spec,
-no Ticket and no finding.
+`LOOP.md` in full. Each of `PLAN-REVIEW.md`, `CODEREVIEW.md` and `FIXES.md`,
+all three at the repository root, down to and including its `Round` line, and
+nothing below. You read no Spec, no Ticket and no finding.
 
 The boundary is the `Round` line rather than a line count. A review file's
 first line is `SIGNED OFF` only when it is signed off; on an open round the

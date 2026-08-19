@@ -43,8 +43,8 @@ markdown when it asks; it is user-invoked, so you cannot run it. Wait for that
 before you reach the Spec.
 
 Also make sure `LOOP.md`, `.scratch/`, `PLAN-REVIEW.md`, `FIXES.md` and
-`CODEREVIEW.md` are gitignored before you start. `/vdd:vdd-setup` covers this
-too.
+`CODEREVIEW.md`, the last three at the repository root, are gitignored before
+you start. `/vdd:vdd-setup` covers this too.
 
 ## Starting the session
 
