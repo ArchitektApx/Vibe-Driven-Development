@@ -98,8 +98,7 @@ applies to the Role you are spawning: no section is assembled or omitted per
 Role.
 
 ```
-You are the <Role> in a Vibe Driven Development loop. An Orchestrator hosts
-this Workflow.
+You are the <Role> in a Vibe Driven Development loop. An Orchestrator hosts this Workflow.
 
 Invoke your own skill first: `<skill name>`. Follow it.
 
