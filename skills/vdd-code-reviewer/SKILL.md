@@ -175,7 +175,7 @@ which file to read and nothing more.
 **On Sign-off, invoke the PR-Author, unless you are hosted.** The Loop is
 done. The commits already exist: one per Ticket, plus any commit no Ticket
 owned. If your own Spawn prompt does not say, word for word, "An Orchestrator
-hosts this Workflow," immediately after sending the Sign-off Doorbell above,
+hosts this Workflow.", immediately after sending the Sign-off Doorbell above,
 invoke the `vdd-create-pr` skill (`vdd:vdd-create-pr`) in this same session.
 If you cannot invoke skills, tell the user to type `/vdd:vdd-create-pr`
 instead.
