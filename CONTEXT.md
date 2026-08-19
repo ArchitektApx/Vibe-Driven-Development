@@ -13,7 +13,7 @@ One of the eight jobs in the workflow (Planner, Orchestrator, Plan-Reviewer, Cod
 _Avoid_: agent, persona, mode
 
 **Orchestrator**:
-The Role that hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, carries Doorbells between the Planner and the Loop it hosts, relays a Role's question to the user and resumes the same subagent with the answer, and hosts the PR-Author at Sign-off. Runs in its own session, opened when the Planner rings its first Doorbell.
+The Role that puts Model approval to the user before its first spawn, hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, carries Doorbells between the Planner and the Loop it hosts, relays a Role's question to the user and resumes the same subagent with the answer, and hosts the PR-Author at Sign-off. Runs in its own session, opened when the Planner rings its first Doorbell.
 _Avoid_: dispatcher, controller, coordinator
 
 **PR-Author**:
@@ -63,6 +63,10 @@ _Avoid_: session id, title, label
 **Spawn prompt**:
 The prompt the Orchestrator spawns a hosted Role with. Names the Working files outright, tells the Role to invoke its skill, declares that an Orchestrator hosts this Workflow, and states the three prefixed return shapes. Carries the return contract; no Role skill does.
 _Avoid_: system prompt, task prompt, instructions
+
+**Model approval**:
+The Orchestrator's one blocking prompt, put to the user before its first spawn in a session. It states the model and the thinking level the Orchestrator would give each of the three hosted Roles, the Plan-Reviewer, the Coder and the Code-Reviewer, and the user approves that list or adapts it. The approved selection holds for every spawn in that session.
+_Avoid_: model prompt, model config, model check
 
 **Doorbell**:
 A fixed contract naming which Working file was written, which round, and the open findings per severity or `SIGNED OFF`, with no free text. Carried by whichever of four carriers the two ends have: a cross-session message from the Planner to the Orchestrator, the Orchestrator's relay of the Plan-Reviewer's Doorbell back to the Planner, a hosted Role's return value to the Orchestrator, or the Orchestrator's resume message waking a hosted Role.
