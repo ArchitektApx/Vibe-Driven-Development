@@ -1,6 +1,6 @@
 ---
 name: vdd-code-reviewer
-description: The Code-Reviewer role in a Vibe Driven Development loop. Use when LOOP.md names this session the Code-Reviewer, when asked to review an implementation of the spec and tickets under .scratch/, or to re-review after fixes. Runs Matt Pocock's code-review, verifies the diff and FIXES.md against the code, and writes findings to CODEREVIEW.md, its only output.
+description: The Code-Reviewer Role in a Vibe Driven Development loop.
 ---
 
 # VDD Code-Reviewer

@@ -1,6 +1,6 @@
 ---
 name: vdd-planner
-description: The Planner role in a Vibe Driven Development loop. Use when LOOP.md names this session the Planner, when asked to write the spec and tickets for a loop, or when PLAN-REVIEW.md contains pushback to address. Produces .scratch/<slug>/spec.md and tickets for a separate coder session, and those files are the whole of its output.
+description: The Planner Role in a Vibe Driven Development loop.
 ---
 
 # VDD Planner

@@ -1,6 +1,7 @@
 ---
 name: vdd-orchestrator
-description: The Orchestrator role in a Vibe Driven Development loop. Use when LOOP.md names this session the Orchestrator, when asked to run the plan and code Loops as one Workflow, or to resume the Workflow after a restart. Hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, carries every Doorbell between the Planner and the Loop it hosts, relays a Role's question to the user, and hosts the PR-Author at Sign-off.
+description: The Orchestrator Role in a Vibe Driven Development loop.
+disable-model-invocation: true
 ---
 
 # VDD Orchestrator

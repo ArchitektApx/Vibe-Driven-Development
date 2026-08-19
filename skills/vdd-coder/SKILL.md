@@ -1,6 +1,6 @@
 ---
 name: vdd-coder
-description: The Coder role in a Vibe Driven Development loop. Use when LOOP.md names this session the Coder, when asked to implement the signed-off spec and tickets under .scratch/, or when CODEREVIEW.md contains findings to address. Implements the tickets exactly and documents the work in FIXES.md.
+description: The Coder Role in a Vibe Driven Development loop.
 ---
 
 # VDD Coder
