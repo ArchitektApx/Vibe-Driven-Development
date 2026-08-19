@@ -2,7 +2,7 @@
   "name": "vdd",
   "displayName": "Vibe Driven Development",
   "description": "Role skills for the Vibe Driven Development workflow: a Planner session plans, and an Orchestrator session hosts the Plan-Reviewer, the Coder and the Code-Reviewer, adversarially reviewing the plan and then the implementation. Start a loop with vdd-start-loop; the Planner ends in a spec and tickets the Orchestrator hosts a Coder to implement.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "author": {
     "name": "ArchitektApx"
   },
