@@ -178,15 +178,26 @@ Check, in order:
 3. **Git repository.** The workflow needs one. If this directory is not a repository, ask before running `git init`.
 4. **Gitignore.** The loop's working files are scratch space, and `.gitignore`
    is what keeps them out of the user's history. Ensure `.gitignore` covers
-   `LOOP.md`, `.scratch/`, `PLAN.md`, `PLAN-REVIEW.md`, `FIXES.md`, and
-   `CODEREVIEW.md`; add missing entries. `.scratch/` is the Borrowed tracker
-   directory, and VDD is what invokes it here, so it is scratch space like the
-   rest. `PLAN.md` is written by no current Role and stays on the list for one
-   release, for users who still have one from a 0.2.0 loop.
-5. **Stale working files.** If `LOOP.md`, or any of the four review files from
-   the previous check, already exists from a previous loop, ask whether to
-   delete it before starting fresh. Delete only between loops. `.scratch/` is
-   `/vdd:vdd-start-loop`'s to ask about, once the user has named the slug: from
-   here you cannot know which feature is stale.
+   `LOOP.md` and `.scratch/`; add either one that is missing. `.scratch/` is
+   the Borrowed tracker directory, and VDD is what invokes it here, so it is
+   scratch space like the rest. It is also where the three review files are
+   written, so its entry covers them.
+
+   Then remove the four entries VDD no longer maintains: `PLAN.md`,
+   `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`. A user upgrading from an
+   earlier release has them, and no file can appear at any of those paths in
+   this release. Name in your report which of the four you removed, because
+   this edits a file the user tracks.
+
+   Remove a line only when the whole line, trimmed of surrounding whitespace,
+   equals one of those four names. A line that merely contains one of them,
+   `docs/PLAN.md` or `!PLAN.md` or `PLAN.md.bak`, is the user's own and stays:
+   `PLAN.md` is a name anyone may ignore for reasons of their own.
+5. **Stale working files.** If `LOOP.md` already exists from a previous loop,
+   ask whether to delete it before starting fresh. Delete only between loops.
+   It is the one working file you can find from here: the rest live under
+   `.scratch/<slug>/`, and `/vdd:vdd-start-loop` asks about that directory once
+   the user has named the slug, because from here you cannot know which feature
+   is stale.
 
 Finish with a short status report: what passed, what you fixed, what the user still has to do.

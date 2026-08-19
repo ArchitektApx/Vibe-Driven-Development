@@ -10,7 +10,8 @@ You open a Vibe Driven Development loop. Your deliverable is `LOOP.md` at the
 repository root, the file every Role reads first. It is the only file you create
 or change: code belongs to the Coder, and the tracker directory
 `.scratch/<slug>/` is created by the Borrowed skill `to-spec` later, during the
-Planner's turn.
+Planner's turn. The one exception is step 2, where you move an existing tracker
+directory aside on the user's word.
 
 Work through the steps in order, each one on the answers the ones before it
 produced. A `LOOP.md` written before the checks pass sends three later sessions
@@ -29,9 +30,28 @@ the next session to run, so a Planner blocker blocks the loop.
 ## 2. Leftover state from an earlier loop
 
 `vdd-setup` already asked about a leftover `LOOP.md`. Once you know the slug
-(step 4), check whether `.scratch/<slug>/` exists. If it does, ask the user
-whether to delete it or keep it and continue in it. Delete it on the user's word
-alone, and keep every path you touch under `.scratch/` inside this loop's slug.
+(step 4), check whether `.scratch/<slug>/` exists. If it does, an earlier
+Workflow used this slug and its Spec, its Tickets and its review files are all
+still in there. Ask the user which of these three, saying what each does to
+those files:
+
+- **Continue the earlier Workflow.** Every file stays where it is. This is the
+  answer when that Workflow was interrupted, and only then: a signed-off
+  `.scratch/<slug>/CODEREVIEW.md` from a Workflow that already finished sends a
+  restarted Orchestrator straight to the PR-Author, and a
+  `.scratch/<slug>/PLAN-REVIEW.md` from one sends the Planner pushback on a
+  Spec it has not written.
+- **Start fresh on this slug.** Move the directory to `.scratch/<slug>-<n>/`,
+  taking the lowest `n` from 2 upwards that is not already a directory, and
+  print the name you moved it to. Do this before anything else writes under
+  `.scratch/<slug>/`.
+- **Use a different slug.** Every file stays where it is, under the slug that
+  named it. Go back to step 4 and ask for the slug again.
+
+Delete nothing on any of the three answers. The earlier Workflow's directory is
+that Workflow's record, so a wrong answer here stays recoverable. Keep every
+path you touch under `.scratch/` inside this loop's slug or the name you moved
+the old one to.
 
 ## 3. Repository short name
 
