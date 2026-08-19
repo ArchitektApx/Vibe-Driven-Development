@@ -1,6 +1,6 @@
 ---
 name: vdd-create-pr
-description: The PR-Author role in a Vibe Driven Development loop. Use when LOOP.md exists and CODEREVIEW.md is signed off, or when the user asks for the PR at the end of a Workflow. Reads the PR: line in LOOP.md, assembles a title and body from the repository's own convention, and on the two paths that may open a PR, pushes the branch and opens it with gh.
+description: The PR-Author Role in a Vibe Driven Development loop.
 ---
 
 # VDD PR-Author
@@ -15,7 +15,8 @@ own.
 ## Read list
 
 Read these five files from disk on every run, fresh: `LOOP.md`,
-`CODEREVIEW.md`, `PLAN-REVIEW.md`, `FIXES.md` and `.scratch/<slug>/spec.md`.
+`CODEREVIEW.md`, `PLAN-REVIEW.md` and `FIXES.md`, all four at the repository
+root, and `.scratch/<slug>/spec.md`.
 This is the single source of what the assembled title and body draw on. You
 carry no state between runs. The session hosting you by hand may already
 hold `FIXES.md` and `CODEREVIEW.md` in context from its own prior turn, and

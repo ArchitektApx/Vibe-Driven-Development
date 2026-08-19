@@ -53,7 +53,7 @@ A file written to be read by an agent: a skill file, an `AGENTS.md`, a `CLAUDE.m
 _Avoid_: prompt, instruction file, agent-facing doc
 
 **Session name**:
-`<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner` or `VDD-new-release-Orchestrator`. There are two, the Planner's and the Orchestrator's. Set by the user rather than by an agent; it is how the Planner addresses the Orchestrator with a Doorbell.
+`<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner` or `VDD-new-release-Orchestrator`. There are two, the Planner's and the Orchestrator's. Set by the user rather than by an agent; it is the address a Doorbell is sent to.
 _Avoid_: session id, title, label
 
 **Spawn prompt**:
@@ -61,7 +61,7 @@ The prompt the Orchestrator spawns a hosted Role with. Names the Working files o
 _Avoid_: system prompt, task prompt, instructions
 
 **Doorbell**:
-A fixed contract naming which Working file was written, which round, and the open findings per severity or `SIGNED OFF`, with no free text. Carried by whichever of three carriers the two ends have: a cross-session message from the Planner to the Orchestrator, a hosted Role's return value to the Orchestrator, or the Orchestrator's resume message waking a hosted Role.
+A fixed contract naming which Working file was written, which round, and the open findings per severity or `SIGNED OFF`, with no free text. Carried by whichever of four carriers the two ends have: a cross-session message from the Planner to the Orchestrator, the Orchestrator's relay of the Plan-Reviewer's Doorbell back to the Planner, a hosted Role's return value to the Orchestrator, or the Orchestrator's resume message waking a hosted Role.
 _Avoid_: notification, handoff message, ping
 
 **Sign-off**:

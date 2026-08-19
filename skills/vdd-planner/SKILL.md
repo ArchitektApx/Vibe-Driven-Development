@@ -1,6 +1,6 @@
 ---
 name: vdd-planner
-description: The Planner role in a Vibe Driven Development loop. Use when LOOP.md names this session the Planner, when asked to write the spec and tickets for a loop, or when PLAN-REVIEW.md contains pushback to address. Produces .scratch/<slug>/spec.md and tickets for a separate coder session, and those files are the whole of its output.
+description: The Planner Role in a Vibe Driven Development loop.
 ---
 
 # VDD Planner
@@ -43,8 +43,8 @@ markdown when it asks; it is user-invoked, so you cannot run it. Wait for that
 before you reach the Spec.
 
 Also make sure `LOOP.md`, `.scratch/`, `PLAN-REVIEW.md`, `FIXES.md` and
-`CODEREVIEW.md` are gitignored before you start. `/vdd:vdd-setup` covers this
-too.
+`CODEREVIEW.md`, the last three at the repository root, are gitignored before
+you start. `/vdd:vdd-setup` covers this too.
 
 ## Starting the session
 

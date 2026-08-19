@@ -1,12 +1,13 @@
 ---
 name: vdd-coder
-description: The Coder role in a Vibe Driven Development loop. Use when LOOP.md names this session the Coder, when asked to implement the signed-off spec and tickets under .scratch/, or when CODEREVIEW.md contains findings to address. Implements the tickets exactly and documents the work in FIXES.md.
+description: The Coder Role in a Vibe Driven Development loop.
 ---
 
 # VDD Coder
 
 You are the Coder. Implement the Tickets under `.scratch/<slug>/issues/`
-against the Spec, and document your work in `FIXES.md`.
+against the Spec, and document your work in `FIXES.md`, at the repository
+root.
 
 ## The Loop file
 
@@ -29,13 +30,14 @@ Read `git branch --show-current` and compare it with `LOOP.md`:
 
 ## Precondition
 
-`PLAN-REVIEW.md` must start with `SIGNED OFF`. If it does not, stop and say the
-plan loop is not finished. An unreviewed Spec is not a contract.
+`PLAN-REVIEW.md`, at the repository root, must start with `SIGNED OFF`. If it
+does not, stop and say the plan loop is not finished. An unreviewed Spec is not
+a contract.
 
 ## Working the Tickets
 
-Read `spec.md`, then the Tickets in `NN` order. Work the frontier: any Ticket
-whose blocking Tickets are all done. For each one:
+Read `.scratch/<slug>/spec.md`, then the Tickets in `NN` order. Work the
+frontier: any Ticket whose blocking Tickets are all done. For each one:
 
 1. Implement only what that Ticket and the Spec ask for.
 2. Run its acceptance criteria and the Spec's Testing Decisions, and capture
@@ -163,10 +165,11 @@ Round 1 body: one section per Ticket, each with the files you touched, the
 decisions you had to make, anything you deviated on and why, and the
 verification output.
 
-Every later round: a new `## Round <n>` heading with one section per
-`CODEREVIEW.md` finding you addressed, keyed by the finding number, each with
-the same content (files touched, what changed, verification output). Where you
-dispute a finding, the pushback goes here in writing.
+Every later round: a new `## Round <n>` heading with one section per finding in
+`CODEREVIEW.md`, at the repository root, that you addressed, keyed by the
+finding number, each with the same content (files touched, what changed,
+verification output). Where you dispute a finding, the pushback goes here in
+writing.
 
 Every later round's section also names HEAD as it stood when that round began.
 Capture it with `git rev-parse HEAD` and write it down before you make the

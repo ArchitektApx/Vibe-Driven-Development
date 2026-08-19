@@ -1,14 +1,15 @@
 # Every carrier between Roles is a Doorbell and carries no substance
 
-A Doorbell has three carriers now rather than one: a cross-session message
-from the Planner to the Orchestrator, a hosted Role's return value to the
-Orchestrator, and the Orchestrator's resume message waking a hosted Role. All
-three carry the same fixed template naming the Working file that was written,
-the round, and the finding counts (or `SIGNED OFF`), and no free text. The
-receiving end acts on the file the Doorbell names, and takes the Doorbell
-itself as the prompt to go and read it. Where a cross-session message cannot
-reach its target the same line is printed for the user to relay, so the
-Planner-to-Orchestrator carrier does not depend on the host having messaging.
+A Doorbell has four carriers: a cross-session message from the Planner to the
+Orchestrator, the Orchestrator's relay of the Plan-Reviewer's Doorbell back to
+the Planner, a hosted Role's return value to the Orchestrator, and the
+Orchestrator's resume message waking a hosted Role. All four carry the same
+fixed template naming the Working file that was written, the round, and the
+finding counts (or `SIGNED OFF`), and no free text. The receiving end acts on
+the file the Doorbell names, and takes the Doorbell itself as the prompt to go
+and read it. Where a cross-session message cannot reach its target the same
+line is printed for the user to relay, on either cross-session carrier, so
+neither depends on the host having messaging.
 
 ## Considered options
 

@@ -1,6 +1,7 @@
 ---
 name: vdd-orchestrator
-description: The Orchestrator role in a Vibe Driven Development loop. Use when LOOP.md names this session the Orchestrator, when asked to run the plan and code Loops as one Workflow, or to resume the Workflow after a restart. Hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, carries every Doorbell between the Planner and the Loop it hosts, relays a Role's question to the user, and hosts the PR-Author at Sign-off.
+description: The Orchestrator Role in a Vibe Driven Development loop.
+disable-model-invocation: true
 ---
 
 # VDD Orchestrator
@@ -24,9 +25,9 @@ names. If it does not exist, stop and tell the user to run
 
 ## What you may read
 
-`LOOP.md` in full. Each of `PLAN-REVIEW.md`, `CODEREVIEW.md` and `FIXES.md`
-down to and including its `Round` line, and nothing below. You read no Spec,
-no Ticket and no finding.
+`LOOP.md` in full. Each of `PLAN-REVIEW.md`, `CODEREVIEW.md` and `FIXES.md`,
+all three at the repository root, down to and including its `Round` line, and
+nothing below. You read no Spec, no Ticket and no finding.
 
 The boundary is the `Round` line rather than a line count. A review file's
 first line is `SIGNED OFF` only when it is signed off; on an open round the
@@ -87,46 +88,67 @@ runs; the host's own subagent view is where the user watches a Role work.
 
 ### The Spawn prompt
 
-Spawn every hosted Role with a prompt that:
+Spawn every hosted Role with this literal template, filled in by
+substitution alone. The only things that change are the Role, its skill name
+(`vdd-plan-reviewer`, `vdd-coder` or `vdd-code-reviewer`, namespaced for the
+host, `vdd:vdd-coder` in Claude Code), the round number, and that Role's
+Working files, named with their paths, which its own skill states on the
+first mention of each. Every other line is fixed text, sent whether or not it
+applies to the Role you are spawning: no section is assembled or omitted per
+Role.
 
-- Names the Working files it reads and writes outright.
-- Tells it to invoke its own skill (`vdd-plan-reviewer`, `vdd-coder` or
-  `vdd-code-reviewer`).
-- States, word for word: "An Orchestrator hosts this Workflow."
-- States the three return shapes below.
-- Tells it to read the repository's instructions file, `AGENTS.md` (or
-  `CLAUDE.md` where the host reads that name instead), before it changes
-  anything.
+```
+You are the <Role> in a Vibe Driven Development loop. An Orchestrator hosts this Workflow.
 
-Every Spawn prompt names the three cases that return a `QUESTION`, and no
-others: the Coder finding itself on neither the base branch nor the feature
-branch, the Code-Reviewer finding the tracker file missing, and the Coder
-holding a Ticket it finds wrong or impossible. The third is named explicitly
-because `vdd-coder`'s own rule is to record that Ticket in `FIXES.md` and
-carry on rather than to stop, so no conversion rule reaches it on its own,
-and because this carve-out is on the hosted Coder alone (ADR-0001,
-ADR-0007). For that case the Spawn prompt also says what the answer that
-resumes the Coder carries, one of revised, dropped or stands, and tells the
-Coder to re-read the Ticket before acting on it.
+Invoke your own skill first: `<skill name>`. Follow it.
 
-### The three return shapes
+Working files:
+- Read: <the Working files that Role's own skill says it reads, each with
+  its path>
+- Write: <the Working files that Role's own skill says it writes, each with
+  its path>
 
-A hosted Role ends its turn with one line in one of three shapes:
+This is round <n>.
 
-- `DOORBELL: <the line>` for a finished turn.
-- `QUESTION: <text>` where the Role's own instructions tell it to ask the
-  user or to stop and wait for one.
+End your turn with exactly one line in one of these three shapes, and
+nothing after it:
+- `DOORBELL: <the line>` for a finished turn (the Doorbell line your skill
+  tells you to send, naming the Working file just written, the round, and
+  the open findings per severity or `SIGNED OFF`).
+- `QUESTION: <text>` where your own instructions tell you to ask the user or
+  to stop and wait for one.
 - `BLOCKED: <what stopped it>` for a turn that ended without finishing for
   any other reason.
 
+Return a `QUESTION` only in these three cases, and no others:
+1. You are the Coder and find yourself on neither the base branch nor the
+   feature branch.
+2. You are the Code-Reviewer and the tracker file is missing.
+3. You are the Coder holding a Ticket you find wrong or impossible. This
+   overrides your own skill's rule to record it in `FIXES.md` and carry on:
+   stop and ask instead. The answer that resumes you carries one of
+   `revised`, `dropped` or `stands`. Re-read the Ticket before you act on
+   that answer.
+
+Anything else you resolve yourself or report as `BLOCKED`.
+```
+
+The third case is named explicitly because `vdd-coder`'s own rule is to
+record that Ticket in `FIXES.md` and carry on rather than to stop, so no
+conversion rule reaches it on its own, and because this carve-out is on the
+hosted Coder alone (ADR-0001, ADR-0007). The template still states all three
+cases to every Role: substitution alone, with no wording left to your
+judgement, is what keeps the Coder's carve-out from being dropped the way the
+severity counts were.
+
 ### Parsing the return
 
-Match the return against the three prefixes above, and also against the
-Doorbell's own template, the `VDD <Role>: <file> written, round <n>` line and
-its `SIGNED OFF` form, which every Role already prints when its messaging
-tools cannot reach a target. A line matching that template with no prefix
-still counts as a `DOORBELL`. Discard everything else in the return,
-including prose wrapped around a line that matched.
+Match the return against the three prefixes the template states above, and
+also against the Doorbell's own template, the `VDD <Role>: <file> written,
+round <n>` line and its `SIGNED OFF` form, which every Role already prints
+when its messaging tools cannot reach a target. A line matching that template
+with no prefix still counts as a `DOORBELL`. Discard everything else in the
+return, including prose wrapped around a line that matched.
 
 A hosted Role takes the print path by construction: it sends a Doorbell only
 when both its messaging tools are available and the target is listed in

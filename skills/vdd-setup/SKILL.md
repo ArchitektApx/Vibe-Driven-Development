@@ -1,6 +1,6 @@
 ---
 name: vdd-setup
-description: Environment check for the Vibe Driven Development workflow. Use before starting a VDD loop in a repository for the first time, or when asked to verify the VDD setup. Checks the Borrowed skills, the tracker configuration and the gitignore entries, and fixes what it can.
+description: Environment check for the Vibe Driven Development workflow.
 ---
 
 # VDD Setup

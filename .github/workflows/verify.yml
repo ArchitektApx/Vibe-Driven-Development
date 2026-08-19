@@ -76,6 +76,34 @@ jobs:
             echo "duplicate skill names:"; echo "$dupes"; exit 1
           fi
 
+      # A hosted Code-Reviewer compares its own Spawn prompt against this
+      # sentence word for word to decide whether to invoke the PR-Author, so
+      # the copy in the Orchestrator skill's Spawn prompt template and the
+      # copy in the Code-Reviewer's own test must read identically. The
+      # `canonical` string below is the enforcing authority: change the
+      # sentence in a skill and this step fails until the same change lands
+      # here too.
+      - name: Orchestrator and Code-Reviewer agree on the canonical sentence
+        run: |
+          node -e '
+            const fs = require("fs");
+            const canonical = "An Orchestrator hosts this Workflow.";
+            const files = [
+              "skills/vdd-orchestrator/SKILL.md",
+              "skills/vdd-code-reviewer/SKILL.md",
+            ];
+            let rc = 0;
+            for (const f of files) {
+              const raw = fs.readFileSync(f, "utf8");
+              const count = raw.split(canonical).length - 1;
+              if (count !== 1) {
+                console.error(`${f}: expected exactly one occurrence of "${canonical}", found ${count}`);
+                rc = 1;
+              }
+            }
+            process.exit(rc);
+          '
+
       # CLAUDE.md is read by Claude Code and wins precedence over AGENTS.md,
       # so a house rule added only to AGENTS.md would silently never reach
       # Claude Code, and a rule added to both would be read twice.

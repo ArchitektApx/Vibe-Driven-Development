@@ -1,6 +1,7 @@
 ---
 name: vdd-start-loop
-description: Entry point of a Vibe Driven Development loop. Use when asked to start a VDD loop, or to set up a new feature for the VDD Roles. Runs the setup checks, writes LOOP.md, then hands over to the Planner.
+description: Entry point of a Vibe Driven Development loop.
+disable-model-invocation: true
 ---
 
 # VDD Start-Loop
