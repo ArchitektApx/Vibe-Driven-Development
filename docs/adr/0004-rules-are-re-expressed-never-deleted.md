@@ -20,7 +20,7 @@ arrived in two large commits.
 
 Vocabulary comes from the glossary. A word a pass reaches for is a term
 `CONTEXT.md` defines, so a word coined in one skill file and unknown to the
-other five never enters; a new word is a proposal, and the glossary is where it
+others never enters; a new word is a proposal, and the glossary is where it
 lands if it is accepted.
 
 ## Considered options
@@ -51,11 +51,12 @@ The Loop that established this policy deferred the following. This list is what
 survives of it, because `FIXES.md` is a Working file, gitignored, and reaches no
 clone.
 
-**Document splits the sprawl lever pointed at.** `skills/vdd-setup/SKILL.md` is
-192 lines and its Borrowed-skills check is 147 of them. The split that would
-earn it moves the search roots, the `find` loop and its rationale, the
-Resolvable probe list and the three-way `code-review` reading into a sibling
-reference file, leaving the three states and the per-Role costs in `SKILL.md`.
+**Document splits the sprawl lever pointed at.** The Borrowed-skills check is
+most of `skills/vdd-setup/SKILL.md`, from the top of the numbered list down to
+the tracker check. The split that would earn it moves the search roots, the
+`find` loop and its rationale, the Resolvable probe list and the three-way
+`code-review` reading into a sibling reference file, leaving the three states
+and the per-Role costs in `SKILL.md`.
 What blocks it is packaging: the plugin ships one file per skill, `npx skills`
 installs flat, and `verify.yml` reads `SKILL.md` alone, so the sibling would
 ship unchecked.
@@ -100,7 +101,7 @@ stale-working-file check, and Setup now removes the entry from a user's
 paragraph is four sentences against a bound of three. A three-sentence opening
 that keeps every claim is recorded in that Loop's `FIXES.md` under Ticket 10.
 The bound is structure rather than prose, so the pass left the paragraph alone.
-The other two ADRs meet the bound at three sentences each, which corrects the
+ADR-0001 and ADR-0003 meet the bound at three sentences each, which corrects the
 Spec that drove the Loop.
 
 Three of the moves that Loop closed off are deferred work rather than policy,

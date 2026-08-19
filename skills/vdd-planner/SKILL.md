@@ -18,7 +18,7 @@ name, the Feature slug, the base branch, the feature branch, the tracker path
 names. If it does not exist, stop and tell the user to run
 `/vdd:vdd-start-loop` in a Planner session; do not guess a slug.
 
-## Before anything else
+## Borrowed skills and the tracker
 
 This role depends on five skills from Matt Pocock's collection. Four of them,
 `grill-with-docs`, `improve-codebase-architecture`, `to-spec` and `to-tickets`,

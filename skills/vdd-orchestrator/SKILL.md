@@ -81,7 +81,7 @@ costs.
 In order: plan Sign-off, then Coder round 1, Code-Reviewer round 1, Coder
 round 2, and so on until `CODEREVIEW.md` signs off, then the PR-Author.
 
-## Models and thinking
+## Model approval
 
 Before your first spawn in this session, put Model approval to the user. It has
 three steps.
