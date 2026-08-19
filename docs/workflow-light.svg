@@ -12,7 +12,7 @@
 
   <!-- Title -->
   <text x="450" y="34" text-anchor="middle" font-size="20" font-weight="600" fill="#111827">Vibe Driven Development: one loop, two sessions</text>
-  <text x="450" y="56" text-anchor="middle" fill="#6b7280">You run the Planner. An Orchestrator hosts the rest. Files carry the work; Doorbells only say a file is ready.</text>
+  <text x="450" y="56" text-anchor="middle" fill="#6b7280">You run the Planner. An Orchestrator hosts the rest. Files carry the work.</text>
 
   <!-- Planner (your session) -->
   <rect x="210" y="80" width="480" height="150" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
@@ -30,7 +30,7 @@
   <text x="492" y="260" text-anchor="start" fill="#92400e" font-size="12">PLAN-REVIEW.md (findings)</text>
 
   <!-- Orchestrator frame -->
-  <rect x="40" y="284" width="820" height="514" rx="10" fill="none" stroke="#d1d5db" stroke-dasharray="6 4"/>
+  <rect x="40" y="284" width="820" height="514" rx="10" fill="none" stroke="#9ca3af" stroke-dasharray="6 4"/>
   <text x="56" y="308" font-weight="600" fill="#6b7280" font-size="13">ORCHESTRATOR SESSION</text>
 
   <!-- Plan-Reviewer -->
@@ -47,16 +47,16 @@
   <!-- Coder -->
   <rect x="80" y="480" width="260" height="120" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
   <text x="210" y="506" text-anchor="middle" font-weight="600" font-size="16" fill="#14532d">Coder</text>
-  <text x="210" y="528" text-anchor="middle" fill="#1f2937">implements tickets in dependency order,</text>
-  <text x="210" y="546" text-anchor="middle" fill="#1f2937">one commit per ticket on the branch</text>
+  <text x="210" y="528" text-anchor="middle" fill="#1f2937" font-size="12">implements tickets in dependency order,</text>
+  <text x="210" y="546" text-anchor="middle" fill="#1f2937" font-size="12">one commit per ticket on the branch</text>
   <text x="210" y="570" text-anchor="middle" fill="#166534" font-size="12">writes: FIXES.md</text>
   <text x="210" y="588" text-anchor="middle" fill="#166534" font-size="12">borrows no skills</text>
 
   <!-- Code-Reviewer -->
   <rect x="560" y="480" width="260" height="120" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
   <text x="690" y="506" text-anchor="middle" font-weight="600" font-size="16" fill="#78350f">Code-Reviewer</text>
-  <text x="690" y="528" text-anchor="middle" fill="#1f2937">runs code-review against the spec,</text>
-  <text x="690" y="546" text-anchor="middle" fill="#1f2937">reruns verification, distrusts FIXES.md</text>
+  <text x="690" y="528" text-anchor="middle" fill="#1f2937" font-size="12">runs code-review against the spec,</text>
+  <text x="690" y="546" text-anchor="middle" fill="#1f2937" font-size="12">reruns verification, distrusts FIXES.md</text>
   <text x="690" y="570" text-anchor="middle" fill="#92400e" font-size="12">writes: CODEREVIEW.md</text>
   <text x="690" y="588" text-anchor="middle" fill="#92400e" font-size="12">never edits code</text>
 

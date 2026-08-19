@@ -12,7 +12,7 @@
 
   <!-- Title -->
   <text x="450" y="34" text-anchor="middle" font-size="20" font-weight="600" fill="#e6edf3">Vibe Driven Development: one loop, two sessions</text>
-  <text x="450" y="56" text-anchor="middle" fill="#8b949e">You run the Planner. An Orchestrator hosts the rest. Files carry the work; Doorbells only say a file is ready.</text>
+  <text x="450" y="56" text-anchor="middle" fill="#8b949e">You run the Planner. An Orchestrator hosts the rest. Files carry the work.</text>
 
   <!-- Planner (your session) -->
   <rect x="210" y="80" width="480" height="150" rx="8" fill="#0f2447" stroke="#58a6ff" stroke-width="1.5"/>
@@ -47,16 +47,16 @@
   <!-- Coder -->
   <rect x="80" y="480" width="260" height="120" rx="8" fill="#0f2e1a" stroke="#3fb950" stroke-width="1.5"/>
   <text x="210" y="506" text-anchor="middle" font-weight="600" font-size="16" fill="#56d364">Coder</text>
-  <text x="210" y="528" text-anchor="middle" fill="#c9d1d9">implements tickets in dependency order,</text>
-  <text x="210" y="546" text-anchor="middle" fill="#c9d1d9">one commit per ticket on the branch</text>
+  <text x="210" y="528" text-anchor="middle" fill="#c9d1d9" font-size="12">implements tickets in dependency order,</text>
+  <text x="210" y="546" text-anchor="middle" fill="#c9d1d9" font-size="12">one commit per ticket on the branch</text>
   <text x="210" y="570" text-anchor="middle" fill="#56d364" font-size="12">writes: FIXES.md</text>
   <text x="210" y="588" text-anchor="middle" fill="#56d364" font-size="12">borrows no skills</text>
 
   <!-- Code-Reviewer -->
   <rect x="560" y="480" width="260" height="120" rx="8" fill="#2d2005" stroke="#d29922" stroke-width="1.5"/>
   <text x="690" y="506" text-anchor="middle" font-weight="600" font-size="16" fill="#e3b341">Code-Reviewer</text>
-  <text x="690" y="528" text-anchor="middle" fill="#c9d1d9">runs code-review against the spec,</text>
-  <text x="690" y="546" text-anchor="middle" fill="#c9d1d9">reruns verification, distrusts FIXES.md</text>
+  <text x="690" y="528" text-anchor="middle" fill="#c9d1d9" font-size="12">runs code-review against the spec,</text>
+  <text x="690" y="546" text-anchor="middle" fill="#c9d1d9" font-size="12">reruns verification, distrusts FIXES.md</text>
   <text x="690" y="570" text-anchor="middle" fill="#e3b341" font-size="12">writes: CODEREVIEW.md</text>
   <text x="690" y="588" text-anchor="middle" fill="#e3b341" font-size="12">never edits code</text>
 
