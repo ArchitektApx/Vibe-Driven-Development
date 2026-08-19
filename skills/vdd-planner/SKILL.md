@@ -42,9 +42,8 @@ ask the user to type `/setup-matt-pocock-skills` and to recommend Local
 markdown when it asks; it is user-invoked, so you cannot run it. Wait for that
 before you reach the Spec.
 
-Also make sure `LOOP.md`, `.scratch/`, `PLAN-REVIEW.md`, `FIXES.md` and
-`CODEREVIEW.md`, the last three at the repository root, are gitignored before
-you start. `/vdd:vdd-setup` covers this too.
+Also make sure `LOOP.md` and `.scratch/` are gitignored before you start.
+`/vdd:vdd-setup` covers this too.
 
 ## Starting the session
 
@@ -142,7 +141,8 @@ in:
 
 `<n>` is how many times you have produced your Working files in this loop. You
 keep no round line of your own, so read it from the `Round` line of
-`PLAN-REVIEW.md` and add one, or use 1 when that file does not exist.
+`.scratch/<slug>/PLAN-REVIEW.md` and add one, or use 1 when that file does not
+exist.
 
 Send it to the Orchestrator's Session name from `LOOP.md`, but only if
 `SendMessage` and `ListAgents` are available to you (load them first if your

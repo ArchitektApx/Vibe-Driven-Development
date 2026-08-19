@@ -13,7 +13,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/workflow-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/workflow-light.svg">
-  <img alt="The VDD workflow: you start the loop as the Planner, and an Orchestrator session hosts the rest. The Planner and its hosted Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the hosted Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the Orchestrator hosts the PR-Author, which opens the PR or hands it to you." src="docs/workflow-light.svg" width="900">
+  <img alt="The VDD workflow: you start the loop as the Planner, and an Orchestrator session hosts the rest. The Planner and its hosted Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the hosted Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the Orchestrator hosts the PR-Author, which opens the PR or hands it to you. Every file named here lives in the tracker directory .scratch/&lt;slug&gt;/, beside the spec and the tickets; only LOOP.md sits at the repository root." src="docs/workflow-light.svg" width="900">
 </picture>
 
 </div>
@@ -30,7 +30,6 @@
 - [🔌 Install (Claude Code)](#-install-claude-code)
 - [🧰 Install (Cursor, GitHub Copilot CLI, Codex, other agents)](#-install-cursor-github-copilot-cli-codex-other-agents)
 - [🔁 Workflow](#-workflow)
-  - [🧹 Phase 0: Prepare the environment](#-phase-0-prepare-the-environment)
   - [📐 Phase 1: The Plan / Plan-Review loop](#-phase-1-the-plan--plan-review-loop)
   - [🔧 Phase 2: The Coder / Code-Review loop](#-phase-2-the-coder--code-review-loop)
   - [🚢 Phase 3: Ship](#-phase-3-ship)
@@ -55,7 +54,7 @@ The loop that comes out of this converges: plan, push back, revise, sign off, im
 
   | Borrowed skill | Started by | Needed by |
   |----------------|-----------|-----------|
-  | `setup-matt-pocock-skills` | 🧑 you | once per repository, see Phase 0 |
+  | `setup-matt-pocock-skills` | 🧑 you | once per repository |
   | `grill-with-docs` | 🧑 you | Planner |
   | `improve-codebase-architecture` | 🧑 you | Planner |
   | `to-spec` | 🧑 you | Planner |
@@ -89,7 +88,7 @@ This repository is a Claude Code plugin marketplace. The `vdd` plugin ships one 
 | 🧪 Code-Reviewer | `/vdd:vdd-code-reviewer` |
 | 🚢 PR-Author | `/vdd:vdd-create-pr` |
 
-Run `/vdd:vdd-setup` once per repository: it verifies that the borrowed skills are installed, the issue tracker is configured, the gitignore entries from Phase 0 exist, and no stale working files are left over from a previous loop. `/vdd:vdd-start-loop` runs it for you at the start of every loop.
+Run `/vdd:vdd-setup` once per repository: it verifies that the borrowed skills are installed, the issue tracker is configured, the gitignore entries for `LOOP.md` and `.scratch/` exist, and no stale `LOOP.md` is left over from a previous loop. `/vdd:vdd-start-loop` runs it for you at the start of every loop.
 
 ## 🧰 Install (Cursor, GitHub Copilot CLI, Codex, other agents)
 
@@ -108,21 +107,6 @@ The installer asks which skills to take and which agents to install them for. Ta
 This repository is developed with its own workflow; `CONTEXT.md` and `docs/adr/` are the glossary and decision records it produced. See `AGENTS.md`.
 
 ## 🔁 Workflow
-
-### 🧹 Phase 0: Prepare the environment
-
-`.gitignore` the working files the loops below will create. They are scratch space for the sessions, not part of your project.
-
-```gitignore
-LOOP.md
-.scratch/
-PLAN.md
-PLAN-REVIEW.md
-FIXES.md
-CODEREVIEW.md
-```
-
-With the plugin installed, `/vdd:vdd-setup` handles this phase for you. Then run `/setup-matt-pocock-skills` yourself if it asks you to, and choose Local markdown.
 
 ### 📐 Phase 1: The Plan / Plan-Review loop
 
@@ -205,7 +189,7 @@ Hosted by the Orchestrator too, the same way. `FIXES.md` and `CODEREVIEW.md` pas
 On Sign-off, the Orchestrator runs the PR-Author in its own session. It reads the `PR:` line `/vdd:vdd-start-loop` wrote to `LOOP.md`: `PR: yes` shows you the assembled body, pushes the branch and opens the PR; `PR: ask at sign-off` asks you then; `PR: manual` prints the body and touches neither the branch nor the remote. Either VDD opens the PR or you do, from the printed body.
 
 1. If the PR-Author did not open the PR, open it yourself from the feature branch, pasting the printed body. The commits are already there, one per ticket plus any commit no ticket owned, and the working files are gitignored and stay behind.
-2. Delete `LOOP.md`, `.scratch/<slug>/`, `PLAN-REVIEW.md`, `FIXES.md`, and `CODEREVIEW.md`, or leave them to be overwritten by the next run.
+2. Delete `LOOP.md`. Keep `.scratch/<slug>/`: the spec, the tickets and the three review files are in there, and they are that loop's record. It is gitignored, so it survives on this machine and reaches no clone; your teammates cannot see it.
 3. Start the next loop with fresh sessions.
 
 ## 💡 Tips

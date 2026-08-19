@@ -71,7 +71,9 @@ behaviour alone.
 
 The pull request body is where a loop's evidence goes: how many review rounds it
 took, the findings per severity, and the verification that was run. The Working
-files are gitignored, so the body is the only place any of it survives the loop.
+files are gitignored, so the body is the only place any of it reaches history.
+The tracker directory keeps its own copy, on the machine that ran the loop and
+in no clone.
 
 Every commit must be signed. Local commits inherit `commit.gpgsign`; an
 unsigned commit is rejected at merge, not at push. A rebase re-creates the
@@ -115,8 +117,9 @@ PR; preserve them through any refactor of `.github/`.
 ## Gotchas
 
 - Bump the version in both manifests in the same commit; CI fails on drift.
-- `LOOP.md` and `.scratch/` are Working files here too, gitignored like the
-  review files; a loop on this repository leaves nothing behind to commit.
+- `LOOP.md` and `.scratch/` are Working files here too, and the review files
+  are inside `.scratch/<feature-slug>/`; both are gitignored, so a loop on this
+  repository leaves nothing behind to commit.
 - The skills tell users, not agents, to run `npx skills@latest add
   mattpocock/skills`. That is delegated trust to a third-party repository and
   is deliberate; the Planner cannot run without it. Keep it a user instruction.

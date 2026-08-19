@@ -6,8 +6,7 @@ description: The Coder Role in a Vibe Driven Development loop.
 # VDD Coder
 
 You are the Coder. Implement the Tickets under `.scratch/<slug>/issues/`
-against the Spec, and document your work in `FIXES.md`, at the repository
-root.
+against the Spec, and document your work in `.scratch/<slug>/FIXES.md`.
 
 ## The Loop file
 
@@ -30,9 +29,9 @@ Read `git branch --show-current` and compare it with `LOOP.md`:
 
 ## Precondition
 
-`PLAN-REVIEW.md`, at the repository root, must start with `SIGNED OFF`. If it
-does not, stop and say the plan loop is not finished. An unreviewed Spec is not
-a contract.
+`.scratch/<slug>/PLAN-REVIEW.md` must start with `SIGNED OFF`. If it does not,
+stop and say the plan loop is not finished. An unreviewed Spec is not a
+contract.
 
 ## Working the Tickets
 
@@ -166,9 +165,9 @@ decisions you had to make, anything you deviated on and why, and the
 verification output.
 
 Every later round: a new `## Round <n>` heading with one section per finding in
-`CODEREVIEW.md`, at the repository root, that you addressed, keyed by the
-finding number, each with the same content (files touched, what changed,
-verification output). Where you dispute a finding, the pushback goes here in
+`.scratch/<slug>/CODEREVIEW.md` that you addressed, keyed by the finding
+number, each with the same content (files touched, what changed, verification
+output). Where you dispute a finding, the pushback goes here in
 writing.
 
 Every later round's section also names HEAD as it stood when that round began.
