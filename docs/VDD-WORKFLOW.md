@@ -21,27 +21,37 @@ A loop runs in three phases. Installation and requirements are in the [README](.
 
 ### Model selection
 
-The Planner burns the most tokens on context: it reads and explores the codebase, then drafts. It can run on a lower grade model or thinking level. The Plan-Reviewer reads far less but needs sharper judgment, so give it a higher grade model or thinking level than the Planner.
+Token cost bears hardest on the Planner and the Coder: both read and explore the codebase before they write anything. The Plan-Reviewer and the Code-Reviewer read far less and want judgement over throughput. A Planner or a Coder whose work is complex is one you may want to buy judgement for too.
 
-| Session | Model | Thinking Level |
-|---------|-------|----------------|
+| Role | Model |
+|------|-------|
+| 🧠 Planner | Claude Sonnet 5 |
+| 🔍 Plan-Reviewer | Claude Fable 5 |
+
+| Role | Model | Thinking Level |
+|------|-------|----------------|
 | 🧠 Planner | Claude Opus 5 | High |
 | 🔍 Plan-Reviewer | Claude Opus 5 | X-High |
 
-or even better:
-
-| Session | Model | Thinking Level |
-|---------|-------|----------------|
-| 🧠 Planner | Claude Opus 5 | High |
-| 🔍 Plan-Reviewer | Claude Fable 5 | X-High |
+The first table varies the model, the second varies the thinking level with the model held constant across both rows. Where a reviewer runs a fast tier, the thinking level buys its judgement, which is what the second table's X-High row shows.
 
 The same applies to the Coder and Code-Reviewer in Phase 2.
 
-VDD itself names no model: `vdd-orchestrator` passes one to a hosted Role
-only when it finds a choice for that Role's kind of work in your own
-user-level steering file, and otherwise lets the child inherit whatever the
-host gives it. The tables above are what to put in that file, not a setting
-inside this plugin.
+You open the Planner session yourself, so its row is a choice you make at launch. The Plan-Reviewer runs as a subagent you never launch, and its row is what you approve at Model approval, the prompt the Orchestrator prints before its first spawn.
+
+An example, `~/.claude/AGENT_SELECTION.md`:
+
+```markdown
+# Agent Model Selection
+
+Default subagents to haiku. Upgrade only when task requires judgment:
+- haiku (claude-haiku-4-5-20251001): file reading, data gathering, counting, scanning, search, formatting
+- sonnet (claude-sonnet-5): analysis, writing, simple coding tasks, moderate reasoning
+- opus (claude-opus-5): architecture decisions, complex coding work including vdd-coder, novel debugging, cross-cutting synthesis
+- fable (claude-fable-5): fast-output tier, vdd-plan-reviewer and vdd-code-reviewer
+```
+
+Put it where your harness reads its instructions, in the way your harness reads it; the path above is a Claude Code one. A user-level configuration is the durable place, and a repository-level one suits a quick change at the cost of a `.gitignore` entry and a change to a tracked file.
 
 ### Starting the loop
 
