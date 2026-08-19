@@ -4,9 +4,13 @@ This repository is developed with its own workflow. Use the VDD Roles on
 changes to it, the same way a user would on their own project:
 `/vdd:vdd-start-loop` opens the loop and writes `LOOP.md`, the Planner grills
 you and produces the Spec and Tickets under `.scratch/<feature-slug>/`, then
-an Orchestrator session hosts the Plan-Reviewer, the Coder and the
-Code-Reviewer as subagents until Sign-off. Proportionality applies: a typo
-fix can skip the loop, and anything that changes how a Role behaves takes it.
+an Orchestrator session, opened with `claude -n <name>` and
+`/vdd:vdd-orchestrator` when the Planner rings its first Doorbell, hosts the
+Plan-Reviewer, the Coder and the Code-Reviewer as subagents until Sign-off,
+then hosts the PR-Author, which opens the pull request. Proportionality
+applies: a typo fix can skip the loop, and anything that changes how a Role
+behaves takes it.
+`docs/VDD-WORKFLOW.md` walks the same loop from the user's side.
 
 The Planner's grilling step produced the glossary and the decision records
 below, and they are committed so every clone reads the same vocabulary and the
@@ -27,9 +31,9 @@ accumulates. A record states the decision that holds now: an ordinal or a
 count that reads as a claim about the present is dropped rather than updated,
 and a number that records a measurement stays.
 
-The repository is prose only. There is no build and no tests. Verification
-means reading the skill files as an agent would read them cold; CI only checks
-that what ships is well formed (see Invariants).
+The repository is prose only. There is no build and no tests;
+`docs/agents/VERIFICATION.md` is what verification means here, and CI only
+checks that what ships is well formed (see Invariants).
 
 ## House style
 
@@ -40,22 +44,8 @@ needs it.
 This style binds work on this repository alone. In a user's project their prose
 stays theirs, in whatever style they write it.
 
-`writing-for-agents` covers the defects that change how an agent behaves. What
-it leaves behind is phrasing that reads like a machine wrote it, and the six
-tells below are all of it. The list is closed: a seventh replaces one of these
-rather than joining them.
-
-1. Em dashes. Use a comma, a colon or a full stop.
-2. The "not just X, but Y" cadence, and its relatives ("it is not only A, it is
-   also B"). State the half you mean.
-3. Triads of adjectives or verbs used for rhythm. Keep the one word that
-   carries the meaning.
-4. Openers that restate the heading or the question. Answer in the first
-   sentence.
-5. Hedging modifiers: simply, just, basically, really, actually. State the
-   claim plainly.
-6. Closing paragraphs that summarise the section above them. End on the last
-   point.
+The six tells of machine prose, a closed list, are in
+`docs/agents/VERIFICATION.md`, beside the other checks a reviewer applies.
 
 ## Landing a change
 
@@ -70,26 +60,8 @@ skill files are this plugin's product, so a change to what a Role does is `feat`
 or `fix` even though the file is prose, and `docs` is for a change that leaves
 behaviour alone.
 
-The pull request body is where a loop's evidence goes: how many review rounds it
-took, the findings per severity, and the verification that was run. The Working
-files are gitignored, so the body is the only place any of it reaches history.
-The tracker directory keeps its own copy, on the machine that ran the loop and
-in no clone.
-
-Every commit must be signed. Local commits inherit `commit.gpgsign`; an
-unsigned commit is rejected at merge, not at push. A rebase re-creates the
-commits it moves and signs them again under the same setting, so a signing
-failure leaves the rebase stopped part-way rather than producing an unsigned
-commit.
-
-Repository policy requires every action in `.github/workflows/` to be pinned to
-a full commit SHA. A tag reference does not fail review, it fails the run.
-Dependabot owns action versions and bumps them in one grouped PR monthly;
-bumping a SHA by hand only creates a conflict with the next one.
-
-A workflow file registers with GitHub only when a push modifies it. A workflow
-added in a repository's first push stays invisible, absent from the Actions
-list, until some later commit touches the file.
+What the PR body must carry, commit signing, SHA pinning and the
+workflow-registration quirk are in `docs/agents/LANDING-A-CHANGE.md`.
 
 ## Invariants
 
@@ -110,7 +82,16 @@ PR; preserve them through any refactor of `.github/`.
   `source: "./"`. A broken manifest breaks install for every user; there is no
   staged rollout.
 - **Skill names are unique.** `npx skills` installs flat by frontmatter `name`,
-  so a second skill with the same name silently clobbers the first.
+  so a second skill with the same name silently clobbers the first. Every
+  `SKILL.md` opens with frontmatter that carries `name` and `description`.
+- **The canonical sentence appears once in each of two skills.**
+  `An Orchestrator hosts this Workflow.` occurs exactly once in
+  `skills/vdd-orchestrator/SKILL.md`, in the Spawn prompt template, and once
+  in `skills/vdd-code-reviewer/SKILL.md`, in its own test. A hosted
+  Code-Reviewer compares its Spawn prompt against that sentence word for word
+  to decide whether to invoke the PR-Author. The `canonical` string in
+  `verify.yml` is the authority: change the sentence in a skill and CI fails
+  until the same change lands there too.
 - **`CLAUDE.md` is the one line `@AGENTS.md`.** Claude Code reads `CLAUDE.md`
   and wins precedence over `AGENTS.md`; the stub is what makes the rules in
   `AGENTS.md` reach it exactly once.
