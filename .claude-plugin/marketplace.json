@@ -11,7 +11,7 @@
       "name": "vdd",
       "source": "./",
       "description": "Vibe Driven Development role skills: start-loop, planner, orchestrator, plan-reviewer, coder, code-reviewer, create-pr. The Planner ends in a spec and tickets the Orchestrator hosts a Coder to implement.",
-      "version": "0.9.0",
+      "version": "0.9.1",
       "category": "workflow",
       "tags": [
         "workflow",
