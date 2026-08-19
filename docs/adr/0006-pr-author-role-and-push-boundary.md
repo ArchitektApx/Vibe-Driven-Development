@@ -1,4 +1,4 @@
-# A seventh Role, PR-Author, is the only Role that pushes, and only after Sign-off
+# PR-Author is the only Role that pushes, and only after Sign-off
 
 A new Role, PR-Author, runs on Sign-off and is the only Role in the Workflow
 that pushes a branch or opens a PR. It runs in the Orchestrator's session,

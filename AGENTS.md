@@ -22,7 +22,9 @@ record that owns it in place to state the decision that holds now. A reversal
 appears as one line under `## Considered options`, written as the correction
 rather than as the discarded claim, so the false claim is never stated in its
 own voice. No stubs, no `Status:` lines, no `Superseded by` lines: nothing
-accumulates.
+accumulates. A record states the decision that holds now: an ordinal or a
+count that reads as a claim about the present is dropped rather than updated,
+and a number that records a measurement stays.
 
 The repository is prose only. There is no build and no tests. Verification
 means reading the skill files as an agent would read them cold; CI only checks

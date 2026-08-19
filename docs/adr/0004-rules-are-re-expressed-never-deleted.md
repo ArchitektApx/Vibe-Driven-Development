@@ -1,6 +1,6 @@
 # Rules in this repository's Agent documents are re-expressed, never deleted
 
-The eleven Agent documents this repository ships were passed through
+The Agent documents this repository ships were passed through
 `writing-for-agents` in one Loop, and that pass was allowed to reword a rule and
 never to drop one. A rule leaving these files is a design decision, made in its
 own Loop with a reviewer who saw it go. Three rules govern any later pass: a
@@ -85,7 +85,7 @@ Claude Code and Codex invocation keys, of which `vdd-setup` owns only the Claude
 Code one. Both are over the Borrowed format's two-sentence limit and both stay
 until the rule they carry has an owner elsewhere.
 
-**Words the pass wanted to coin.** None. Every leading word the eleven documents
+**Words the pass wanted to coin.** None. Every leading word the documents
 needed was already a glossary term.
 
 **Rules proposed for deletion.** One. `vdd-setup`'s gitignore check lists
