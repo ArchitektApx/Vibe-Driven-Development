@@ -72,6 +72,12 @@ duplication by the lever's own definition and deliberate by construction, since
 a skill file loads alone and pointing several at one paragraph means shipping
 another file.
 
+The Orchestrator Loop took up two of the seven: the four Role commands
+paragraph and the sentence that no agent can rename a session both left the
+Plan-Reviewer, the Coder and the Code-Reviewer, because the mechanism they
+described, a session the user starts and renames by hand, is gone from those
+three Roles under a hosted Workflow. The other five stand as they were.
+
 **Glossary sentences kept because nothing else owns them.** `CONTEXT.md`'s Loop
 file entry runs to three sentences to keep `One Loop per repository at a time`,
 which no skill file states. Its User-invoked entry runs to three to keep the
