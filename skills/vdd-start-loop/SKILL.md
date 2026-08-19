@@ -44,7 +44,7 @@ the `@` typeahead painful.
 Ask the user for one kebab-case Feature slug, matching
 `[a-z0-9]+(-[a-z0-9]+)*`. Reject anything else, say why, and ask again. The
 slug comes from the user and from nowhere else: it names the tracker directory
-and sits in the middle of all four Session names, so the user owns it.
+and sits in the middle of both Session names, so the user owns it.
 
 ## 5. Branches
 
@@ -122,9 +122,7 @@ PR: <answer>
 
 Sessions:
 - Planner: <short>-<slug>-Planner
-- Plan-Reviewer: <short>-<slug>-Plan-Reviewer
-- Coder: <short>-<slug>-Coder
-- Code-Reviewer: <short>-<slug>-Code-Reviewer
+- Orchestrator: <short>-<slug>-Orchestrator
 ```
 
 The file holds these lines and stops. Round numbers live in the review files,
@@ -138,9 +136,10 @@ afterwards.
 Print this, with the real values filled in:
 
 > This session is the Planner. Run `/rename <short>-<slug>-Planner` now (Claude
-> Code only; skip this line in other agents). The other three sessions are
-> listed in `LOOP.md`; start each one with `claude -n <name>` when its turn
-> comes.
+> Code only; skip this line in other agents). The Orchestrator is the other
+> session this Workflow uses. It has nothing to do until a Spec exists, so you
+> open it when this Planner rings its first Doorbell: `claude -n
+> <short>-<slug>-Orchestrator`, then `/vdd:vdd-orchestrator`.
 
 No agent can rename its own session, so this is the user's job and you carry
 straight on. Immediately invoke the Planner skill (`vdd:vdd-planner`) in this

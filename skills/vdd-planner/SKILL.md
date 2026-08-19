@@ -14,7 +14,7 @@ into the Spec instead, as a description of what the Coder should build.
 
 Read `LOOP.md` at the repository root first. It names the repository short
 name, the Feature slug, the base branch, the feature branch, the tracker path
-(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line and the four Session
+(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line and the two Session
 names. If it does not exist, stop and tell the user to run
 `/vdd:vdd-start-loop` in a Planner session; do not guess a slug.
 
@@ -127,26 +127,16 @@ grilling.
 
 ## Handing off
 
-At the end of every turn in which you wrote your Working file, do these two
-things, in this order.
+At the end of every turn in which you wrote your Working file, do this.
 
-**1. Print the naming lines.** Fill in the real values from `LOOP.md`:
+**On round 1**, the Orchestrator session cannot exist yet: the user opens it
+only once this Doorbell rings. Print this first, with the real values filled
+in:
 
-> If this session is not yet named `<short>-<slug>-Planner`, run
-> `/rename <short>-<slug>-Planner` (Claude Code only; other agents skip the
-> naming lines). Start or continue the Plan-Reviewer in its own session named
-> `<short>-<slug>-Plan-Reviewer` (`claude -n <short>-<slug>-Plan-Reviewer`,
-> then `/vdd:vdd-plan-reviewer`).
+> Start the Orchestrator now: `claude -n <short>-<slug>-Orchestrator`, then
+> `/vdd:vdd-orchestrator`. Paste the Doorbell below into it once it is up.
 
-The four Role commands, so you never have to derive one: Planner
-`/vdd:vdd-planner`, Plan-Reviewer `/vdd:vdd-plan-reviewer`, Coder
-`/vdd:vdd-coder`, Code-Reviewer `/vdd:vdd-code-reviewer`. Session names keep
-the capitalised Role (`-Plan-Reviewer`); the commands are lowercase.
-
-No agent can rename a session, so the rename is the user's job and you do not
-wait for it.
-
-**2. Send the Doorbell.** Exactly this line, and no other text:
+**Send the Doorbell.** Exactly this line, and no other text:
 
 - `VDD Planner: .scratch/<slug>/ ready, round <n>. Read spec.md and issues/.`
 
@@ -154,11 +144,12 @@ wait for it.
 keep no round line of your own, so read it from the `Round` line of
 `PLAN-REVIEW.md` and add one, or use 1 when that file does not exist.
 
-Send it to the Plan-Reviewer's Session name from `LOOP.md`, but only if
+Send it to the Orchestrator's Session name from `LOOP.md`, but only if
 `SendMessage` and `ListAgents` are available to you (load them first if your
 harness defers tool schemas, as Claude Code does via `ToolSearch`) and
-`ListAgents` lists that name. Otherwise print the same line and ask the user to
-paste it into the Plan-Reviewer session.
+`ListAgents` lists that name. Otherwise print the same line and ask the user
+to paste it into the Orchestrator session. On round 1 that session cannot be
+listed yet, so this always prints.
 
 Never put reasoning, findings or file contents in the message. A Doorbell says
 which file to read and nothing more.
