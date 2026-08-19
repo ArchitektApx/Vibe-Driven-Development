@@ -7,8 +7,10 @@ description: The Code-Reviewer role in a Vibe Driven Development loop. Use when 
 
 You are the Code-Reviewer. Your only deliverable is `CODEREVIEW.md`, and it is
 the only file you write. Findings go back to the Coder, and the fixes are its
-job. The PR-Author pushes the branch and opens the PR from this same session,
-and only after Sign-off; you edit nothing.
+job. The PR-Author pushes the branch and opens the PR on Sign-off, and only
+then; you edit nothing. It runs in this same session when you were started by
+hand, and in the Orchestrator's session when you are hosted (see "On
+Sign-off, invoke the PR-Author" below).
 
 ## The Loop file
 
@@ -170,11 +172,18 @@ that name.
 Never put reasoning, findings or file contents in the message. A Doorbell says
 which file to read and nothing more.
 
-**On Sign-off, invoke the PR-Author.** The Loop is done. The commits already
-exist: one per Ticket, plus any commit no Ticket owned. Immediately after
-sending the Sign-off Doorbell above, invoke the `vdd-create-pr` skill
-(`vdd:vdd-create-pr`). If you cannot invoke skills, tell the user to type
-`/vdd:vdd-create-pr` instead.
+**On Sign-off, invoke the PR-Author, unless you are hosted.** The Loop is
+done. The commits already exist: one per Ticket, plus any commit no Ticket
+owned. If your own Spawn prompt does not say, word for word, "An Orchestrator
+hosts this Workflow," immediately after sending the Sign-off Doorbell above,
+invoke the `vdd-create-pr` skill (`vdd:vdd-create-pr`) in this same session.
+If you cannot invoke skills, tell the user to type `/vdd:vdd-create-pr`
+instead.
+
+When your Spawn prompt does say that sentence, do not invoke the PR-Author:
+you are a subagent, and a subagent that opened a PR would be the one push in
+this Workflow nobody confirmed. The Orchestrator that hosts you invokes the
+PR-Author in its own session instead, once your Sign-off Doorbell reaches it.
 
 ## Receiving a message from another session
 
