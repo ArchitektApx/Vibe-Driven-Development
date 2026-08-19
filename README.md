@@ -103,7 +103,7 @@ The installer asks which skills to take and which agents to install them for. Ta
 > [!NOTE]
 > If your agent does not support skills at all, the skill files are ordinary Markdown: paste the body of the relevant `skills/vdd-*/SKILL.md` into your session as a prompt.
 
-This repository is developed with its own workflow; `CONTEXT.md` and `docs/adr/` are the glossary and decision records it produced. See `CLAUDE.md`.
+This repository is developed with its own workflow; `CONTEXT.md` and `docs/adr/` are the glossary and decision records it produced. See `AGENTS.md`.
 
 ## 🔁 Workflow
 
@@ -214,7 +214,7 @@ On Sign-off, the Code-Reviewer's session runs the PR-Author. It reads the `PR:` 
 
 <div align="center">
 
-Built with its own workflow. Glossary in [`CONTEXT.md`](CONTEXT.md), decisions in [`docs/adr/`](docs/adr/), house rules in [`CLAUDE.md`](CLAUDE.md).
+Built with its own workflow. Glossary in [`CONTEXT.md`](CONTEXT.md), decisions in [`docs/adr/`](docs/adr/), house rules in [`AGENTS.md`](AGENTS.md).
 
 MIT · [ArchitektApx](https://github.com/ArchitektApx)
 
