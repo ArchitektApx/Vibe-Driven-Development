@@ -10,7 +10,7 @@
 
 # 🔁 The Vibe Driven Development Workflow
 
-A loop runs in three phases. Installation and requirements are in the [README](../README.md); this page is the walk through the loop itself.
+A loop runs in three phases. Installation and requirements are in the [README](../README.md); this page walks through the loop itself.
 
 - [📐 Phase 1: The Plan / Plan-Review loop](#-phase-1-the-plan--plan-review-loop)
 - [🔧 Phase 2: The Coder / Code-Review loop](#-phase-2-the-coder--code-review-loop)
@@ -21,7 +21,7 @@ A loop runs in three phases. Installation and requirements are in the [README](.
 
 ### Model selection
 
-Token cost bears hardest on the Planner and the Coder: both read and explore the codebase before they write anything. The Plan-Reviewer and the Code-Reviewer read far less and want judgement over throughput. A Planner or a Coder whose work is complex is one you may want to buy judgement for too.
+Token cost bears hardest on the Planner and the Coder: both read and explore the codebase before they write anything. The Plan-Reviewer and the Code-Reviewer read far less and want judgement over throughput. When the Planner's or the Coder's work is complex, you may want to buy judgement there too.
 
 | Role | Model |
 |------|-------|
@@ -33,11 +33,11 @@ Token cost bears hardest on the Planner and the Coder: both read and explore the
 | 🧠 Planner | Claude Opus 5 | High |
 | 🔍 Plan-Reviewer | Claude Opus 5 | X-High |
 
-The first table varies the model, the second varies the thinking level with the model held constant across both rows. Where a reviewer runs a fast tier, the thinking level buys its judgement, which is what the second table's X-High row shows.
+The first table varies the model, the second varies the thinking level with the model held constant across both rows. Where a reviewer runs a fast tier, the thinking level buys its judgement, as the second table's X-High row shows.
 
 The same applies to the Coder and Code-Reviewer in Phase 2.
 
-You open the Planner session yourself, so its row is a choice you make at launch. The Plan-Reviewer runs as a subagent you never launch, and its row is what you approve at Model approval, the prompt the Orchestrator prints before its first spawn.
+You open the Planner session yourself, so its row is a choice you make at launch. The Plan-Reviewer runs as a subagent you never launch, and you approve its row at Model approval, the prompt the Orchestrator prints before its first spawn.
 
 An example, `~/.claude/AGENT_SELECTION.md`:
 
@@ -55,7 +55,7 @@ Put it where your harness reads its instructions, in the way your harness reads 
 
 ### Starting the loop
 
-Open the first session and run `/vdd:vdd-start-loop`. It runs the environment check, asks you for a short name for the repository and a kebab-case slug for this piece of work, confirms the base branch and the feature branch, asks once whether an open minor should hold up Sign-off (`fix`, or `leave` them listed), asks once whether VDD should open the PR at the end of the Workflow (open it, ask again at Sign-off, or leave it manual), and writes all of it plus the two session names to `LOOP.md`. Both answers go into that file with the rest, and every Role reads it first, so none of them has to ask you again.
+Open the first session and run `/vdd:vdd-start-loop`. It runs the environment check, asks you for a short name for the repository and a kebab-case slug for this piece of work, confirms the base branch and the feature branch, asks once whether an open minor should hold up Sign-off (`fix`, or `leave` them listed), asks once whether VDD should open the PR at the end of the Workflow (open it, ask again at Sign-off, or leave it manual), and writes all of it plus the two session names to `LOOP.md`. Every Role reads that file first, so none of them has to ask you again.
 
 It then prints the line that renames this session to the Planner, previews the line that starts the Orchestrator, and hands over to the Planner in the same session.
 
@@ -63,7 +63,7 @@ It then prints the line that renames this session to the Planner, previews the l
 
 `LOOP.md` names two sessions, as `<repository>-<slug>-<Role>`, for example `VDD-new-release-Orchestrator`. You rename this one to the Planner with `/rename <name>`; no agent can rename its own session, which is why the Planner asks you to. You open the Orchestrator yourself, once, with `claude -n <name>` then `/vdd:vdd-orchestrator`, when the Planner rings its first Doorbell. From there the Orchestrator hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, each in a fresh context, and later the PR-Author in its own session; none of them is a session you open.
 
-A Role that finishes its turn rings its counterpart's doorbell instead of waiting for you: the Planner rings the Orchestrator, and the Orchestrator relays every Plan-Reviewer round back to the Planner. The message is deliberately dull: which working file was written, which round, and how many open findings per severity. The receiving end reads the file and ignores the message text, so nothing leaks between the two contexts, which is the whole point of running them apart. Without Claude Code, or before the Orchestrator session exists (always true for round 1), the same line prints for you to paste.
+A Role that finishes its turn rings its counterpart's doorbell instead of waiting for you: the Planner rings the Orchestrator, and the Orchestrator relays every Plan-Reviewer round back to the Planner. The message is deliberately dull: which working file was written, which round, and how many open findings per severity. The receiving end reads the file and ignores the message text, so nothing leaks between the two contexts, which is why they run apart. Without Claude Code, or before the Orchestrator session exists (always true for round 1), the same line prints for you to paste.
 
 ### 🧠 The Planner
 
@@ -77,7 +77,7 @@ The Planner is the session that:
 
 The Planner never writes code. Its deliverables are `.scratch/<slug>/spec.md` and the ticket files in `.scratch/<slug>/issues/`.
 
-`/vdd:vdd-start-loop` starts it for you, in the same session you renamed. Its own Doorbell is what starts the Orchestrator, the first time it rings.
+`/vdd:vdd-start-loop` starts it for you, in the same session you renamed. Its own Doorbell starts the Orchestrator, the first time it rings.
 
 ### 🔍 The Plan-Reviewer
 
@@ -108,14 +108,14 @@ Hosted by the Orchestrator too, the same way. `FIXES.md` and `CODEREVIEW.md` pas
 On Sign-off, the Orchestrator runs the PR-Author in its own session. It reads the `PR:` line `/vdd:vdd-start-loop` wrote to `LOOP.md`: `PR: yes` shows you the assembled body, pushes the branch and opens the PR; `PR: ask at sign-off` asks you then; `PR: manual` prints the body and touches neither the branch nor the remote. Either VDD opens the PR or you do, from the printed body.
 
 1. If the PR-Author did not open the PR, open it yourself from the feature branch, pasting the printed body. The commits are already there, one per ticket plus any commit no ticket owned, and the working files are gitignored and stay behind.
-2. Delete `LOOP.md`. Keep `.scratch/<slug>/`: the spec, the tickets and the three review files are in there, and they are that loop's record. It is gitignored, so it survives on this machine and reaches no clone; your teammates cannot see it.
+2. Delete `LOOP.md`. Keep `.scratch/<slug>/`: the spec, the tickets and the three review files are in there, and they are that loop's record. It is gitignored, so it stays on this machine and reaches no clone.
 3. Start the next loop with fresh sessions.
 
 ## 💡 Tips
 
 - **One session or subagent per Role, start to finish.** Fresh means fresh per Role, not per round. Reusing the Planner session as the Coder defeats the purpose: it will implement its own assumptions instead of the spec. But a Role keeps its own session or subagent across every round of its loop, so a reviewer holds its findings and a Coder holds the reasoning behind its deviations.
 - **Name your two sessions as `LOOP.md` says**, or the Doorbell between the Planner and the Orchestrator cannot find its target and you are back to copying a line between terminals.
-- **A Doorbell is a bell, not a letter.** Never ask a Role to explain itself across sessions; that is what the working files are for, and it is the leak the separate sessions exist to prevent.
+- **A Doorbell is a bell, not a letter.** Never ask a Role to explain itself across sessions; the working files are for that, and it is the leak the separate sessions exist to prevent.
 - **Reviewers never write code.** The moment a reviewer edits files it stops being a reviewer. Findings go in the review file, fixes go back to the other session.
 - **Sign-off is explicit.** "Looks good overall" is not sign-off. Require the literal "SIGNED OFF" line so you can tell at a glance whether a loop is done.
 - **Keep loops small.** One bug or one refactoring per loop. Loops that do not converge within a few rounds are a sign the work should be split.

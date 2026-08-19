@@ -2,7 +2,7 @@
 
 # Vibe Driven Development
 
-**Separate agent sessions that plan, review the plan, implement, and review the code. Each one grades the other's homework, never its own.**
+**Separate agent sessions that plan, review the plan, implement, and review the code. Each one grades the other's homework and never its own work.**
 
 [![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FArchitektApx%2FVibe-Driven-Development%2Fmaster%2F.claude-plugin%2Fplugin.json&query=%24.version&prefix=v&label=plugin&color=blue)](.claude-plugin/plugin.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -33,7 +33,7 @@
 
 ## 🎯 Why this works
 
-A single agent session grades its own homework. It plans, implements, and reviews with the same context, the same blind spots, and the same incentive to declare itself done. Splitting the work across separate sessions fixes that:
+A single agent session grades its own homework. It plans, implements and reviews with the same context and the same incentive to declare itself done. Splitting the work across separate sessions fixes that:
 
 - **🧊 Fresh context.** The reviewer has not seen the planner's reasoning, so it has to verify claims against the actual codebase instead of nodding along.
 - **🥊 Adversarial framing.** A session prompted to find problems finds problems. A session prompted to "implement and review" finds excuses.
@@ -59,10 +59,10 @@ The loop that comes out of this converges: plan, push back, revise, sign off, im
   | `writing-for-agents` | 🤖 the agent | Planner, Plan-Reviewer, Code-Reviewer |
 
   All of them except `code-review` and `writing-for-agents` are user-invoked: their author blocked agents from starting them, so the Role will ask you to type the slash command yourself at the right moment. The Coder is the one Role that borrows nothing. The Plan-Reviewer borrows only `writing-for-agents`, and runs without it: a Role that cannot resolve that skill drops its writing check and says so in the file it writes.
-- `/setup-matt-pocock-skills`, run once per repository, answering **Local markdown** when it asks which issue tracker to use. That is what puts the spec and the tickets in `.scratch/<feature-slug>/`, where the Roles look for them.
+- `/setup-matt-pocock-skills`, run once per repository, answering **Local markdown** when it asks which issue tracker to use. That answer puts the spec and the tickets in `.scratch/<feature-slug>/`, where the Roles look for them.
 
 > [!TIP]
-> **Optional:** Claude Code 2.1.224+ on macOS or Linux. That is what lets one session ring the next one's doorbell instead of you copying a line between terminals. Everything works without it; the Roles print the line for you to paste.
+> **Optional:** Claude Code 2.1.224+ on macOS or Linux. It lets one session ring the next one's doorbell instead of you copying a line between terminals. Everything works without it; the Roles print the line for you to paste.
 
 ## 🔌 Install (Claude Code)
 
@@ -95,7 +95,7 @@ npx skills@latest add ArchitektApx/Vibe-Driven-Development
 npx skills@latest add mattpocock/skills
 ```
 
-The installer asks which skills to take and which agents to install them for. Take all eight `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set is what lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Run `/setup-matt-pocock-skills` once per repository afterwards, and pull updates later with `npx skills update`.
+The installer asks which skills to take and which agents to install them for. Take all eight `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Run `/setup-matt-pocock-skills` once per repository afterwards, and pull updates later with `npx skills update`.
 
 > [!NOTE]
 > If your agent does not support skills at all, the skill files are ordinary Markdown: paste the body of the relevant `skills/vdd-*/SKILL.md` into your session as a prompt.
@@ -104,7 +104,7 @@ This repository is developed with its own workflow; `CONTEXT.md` and `docs/adr/`
 
 ## 🔁 Workflow
 
-The loop runs in three phases: the Planner and the Plan-Reviewer argue the spec into shape, the Coder and the Code-Reviewer do the same with the code, and the PR-Author ships it. Curious how a loop actually runs, round by round, and what each Role reads, writes and rings? The full walkthrough, with model recommendations and the tips that keep loops converging, is in [**docs/VDD-WORKFLOW.md**](docs/VDD-WORKFLOW.md).
+The loop runs in three phases: the Planner and the Plan-Reviewer argue the spec into shape, the Coder and the Code-Reviewer do the same with the code, and the PR-Author ships it. [**docs/VDD-WORKFLOW.md**](docs/VDD-WORKFLOW.md) walks a loop round by round, names what each Role reads, writes and rings, and carries the model recommendations and the tips that keep loops converging.
 
 ---
 
