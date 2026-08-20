@@ -42,6 +42,8 @@ The same applies to the Coder and Code-Reviewer in Phase 2.
 
 You open the Planner session yourself, so its row is a choice you make at launch. The Plan-Reviewer runs as a subagent you never launch, and you approve its row at Model approval, the prompt the Orchestrator prints before its first spawn.
 
+The Orchestrator itself does no in-depth work: it spawns the hosted Roles, relays Doorbells and tracks rounds, so a mid-tier model like Claude Sonnet 5 is enough there. Its model does not limit the Roles it hosts: at Model approval it reads what your environment says about models, a file like the `AGENT_SELECTION.md` below for instance, fills the per-Role list from that, and shows you the list to approve or correct before it spawns the first one. What you approve holds for every spawn in the session.
+
 An example, `~/.claude/AGENT_SELECTION.md`:
 
 ```markdown
