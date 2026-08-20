@@ -30,23 +30,18 @@ the next session to run, so a Planner blocker blocks the loop.
 ## 2. Leftover state from an earlier loop
 
 `vdd-setup` already asked about a leftover `LOOP.md`. Once you know the slug
-(step 4), check whether `.scratch/<slug>/` exists. If it does, an earlier
-Workflow used this slug and its Spec, its Tickets and its review files are all
-still in there. Ask the user which of these three, saying what each does to
-those files:
+(step 4), check whether `.scratch/<slug>/` exists. If it does not, carry on.
 
-- **Continue the earlier Workflow.** Every file stays where it is. This is the
-  answer when that Workflow was interrupted, and only then: a signed-off
-  `.scratch/<slug>/CODEREVIEW.md` from a Workflow that already finished sends a
-  restarted Orchestrator straight to the PR-Author, and a
-  `.scratch/<slug>/PLAN-REVIEW.md` from one sends the Planner pushback on a
-  Spec it has not written.
-- **Start fresh on this slug.** Move the directory to `.scratch/<slug>-<n>/`,
-  taking the lowest `n` from 2 upwards that is not already a directory, and
-  print the name you moved it to. Do this before anything else writes under
-  `.scratch/<slug>/`.
-- **Use a different slug.** Every file stays where it is, under the slug that
-  named it. Go back to step 4 and ask for the slug again.
+If it does, an earlier Workflow used this slug and its Spec, its Tickets and
+its review files are all still in there. Put three answers to the user:
+continue that Workflow, start fresh on this slug, or use a different slug.
+Continue is the answer when that Workflow was interrupted, and only then.
+Starting fresh moves the directory aside, and the move happens before anything
+else writes under `.scratch/<slug>/`.
+
+Before you put the question, read
+[what each answer does to those files](references/leftover-tracker.md); the
+user chooses on that.
 
 Delete nothing on any of the three answers. The earlier Workflow's directory is
 that Workflow's record, so a wrong answer here stays recoverable. Keep every
@@ -111,20 +106,14 @@ The line the user's answer produces is what the PR-Author reads later, so
 this is the only place the question is asked; on `PR: ask at sign-off` the
 PR-Author asks again at Sign-off, and on the other two answers it does not.
 
-On `PR: yes`, run these two checks now and print a warning naming any that
-failed. The two checks judge on exit code alone; stderr is ignored, because
-`git ls-remote` has been observed printing `fatal: failed to store` on a
-call that exited 0. They warn without blocking: the Workflow continues
-either way, and a broken `gh` login surfaces here instead of at Sign-off.
+On `PR: yes`, run two checks now, one that a push would work and one that `gh`
+could open a PR, and print a warning naming any that failed. Judge each on its
+exit code alone and ignore stderr. They warn without blocking: the Workflow
+continues either way, and a broken `gh` login surfaces here instead of at
+Sign-off.
 
-- **Can push.** A remote is configured and `git ls-remote <remote> HEAD`
-  exits 0.
-- **Can open a PR.** `gh` is on `PATH`, the host read from `git remote
-  get-url <remote>` is a GitHub host, and `gh auth status --hostname <host>`
-  exits 0.
-
-Both checks use the same remote: the one the base branch tracks when it
-tracks one, else the single configured remote, else `origin`.
+Before you run them, read [the two checks](references/pr-preflight.md) for the
+commands, the remote they share and why stderr lies here.
 
 ## 8. Write `LOOP.md`
 
@@ -166,3 +155,12 @@ No agent can rename its own session, so this is the user's job and you carry
 straight on. Immediately invoke the Planner skill (`vdd:vdd-planner`) in this
 same session. If you cannot invoke skills, tell the user to type
 `/vdd:vdd-planner` instead.
+
+## Reference files
+
+- [`references/leftover-tracker.md`](references/leftover-tracker.md): what
+  continuing, starting fresh and changing the slug each do to an existing
+  `.scratch/<slug>/`.
+- [`references/pr-preflight.md`](references/pr-preflight.md): the two commands
+  behind the `PR: yes` checks, the remote they share, and why their stderr is
+  ignored.
