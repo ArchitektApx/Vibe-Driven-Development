@@ -45,12 +45,8 @@ Check, in order:
    You want `setup-matt-pocock-skills/SKILL.md`, `grill-with-docs/SKILL.md`,
    `improve-codebase-architecture/SKILL.md`, `to-spec/SKILL.md`,
    `to-tickets/SKILL.md`, `code-review/SKILL.md` and
-   `writing-for-agents/SKILL.md`. The Claude plugin route
-   nests skills by category (`engineering/`, `productivity/`), so match on the
-   trailing path rather than a fixed depth. The two `.claude/skills` roots are
-   where the skills CLI writes when it installs for Claude Code: project scope
-   lands in `./.claude/skills/<name>/`, global scope stores the files in
-   `~/.agents/skills/<name>/` and symlinks `~/.claude/skills/<name>` at them.
+   `writing-for-agents/SKILL.md`. Match on the trailing path rather than a
+   fixed depth.
 
    Use your file-search tool if you have one; otherwise:
 
@@ -61,21 +57,12 @@ Check, in order:
    done
    ```
 
-   Filter with `grep`, not with `-path`. Agent environments commonly replace
-   `find` with a shell function around a bundled `bfs`, or route it through a
-   command-rewriting proxy, and several of those answer `-path` with
-   `unknown flag '-path', ignored` and then print everything under the roots,
-   or nothing at all. `-name` survives both. One skill per invocation,
-   also deliberately: a single `find` with compound predicates is correct POSIX
-   and works in a plain shell, but the same proxies reject compound predicates
-   outright. The loop is immune and costs nothing.
-
+   Filter with `grep`, not with `-path`, and search one skill per invocation.
    Missing search roots are normal here, so their errors go to `/dev/null` and
-   a non-zero exit means nothing.
-
-   A dangling symlink still reads as absent with this loop, for the same reason
-   it did with `-path`: without `-L`, `find` does not descend into a symlinked
-   directory whose target is gone, so no `SKILL.md` is ever listed under it.
+   a non-zero exit means nothing. When your `find` rejects a predicate, or
+   prints everything under the roots, or returns nothing for a skill you have
+   reason to think is there, read
+   [why the search is shaped this way](references/present-search.md).
 
    **Resolvable.** Present only means the file exists somewhere; it does not
    mean this agent can run it. Answer this one from your own skill list alone,
@@ -83,72 +70,37 @@ Check, in order:
    your own resolution matters, because the user will be running the loop in
    this agent.
 
-   Probe your own skill list for one of the collection's skills that is *not*
-   user-invoked: `writing-for-agents`, `grilling`, `codebase-design`,
-   `domain-modeling`, `tdd`, `research`, `prototype`, `diagnosing-bugs`,
-   `resolving-merge-conflicts`. A hit means the collection is wired to this
-   agent, which answers Resolvable for the five user-invoked skills and for
-   `code-review`. A miss proves nothing, because these collections
-   can be installed one skill at a time. On a miss across the whole list, or if
-   you cannot inspect your own skill list, ask the user to type
-   `/writing-for-agents` and tell you whether it resolves. That one question
-   answers the collection and the seventh skill together, and a miss on it
-   followed by a `/grill-with-docs` hit is the collection that predates the
-   skill.
+   Probe your own skill list for `writing-for-agents`. It is Borrowed in its
+   own right and agent-invocable, so a wired collection puts it in your skill
+   list, and Claude Code bundles nothing of that name, so a hit needs no
+   reading. A hit answers Resolvable for the five user-invoked skills, for
+   `code-review` and for `writing-for-agents` itself.
 
-   `writing-for-agents` leads that list because it is Borrowed in its own
-   right, and because Claude Code bundles nothing of that name, so a hit needs
-   no reading. That same look is its own Resolvable test: it is agent-invocable,
-   so a wired collection puts it in your skill list. A miss on it followed by a
-   hit further down the list means the collection is Resolvable and
-   `writing-for-agents` is not.
-
-   `code-review` is agent-invocable too, so it looks like a second probe. It is
-   not, because Claude Code ships an unrelated bundled `code-review` skill of
-   the same bare name. Read the hit before you believe it:
-
-   - A hit on `mattpocock-skills:code-review` is the Claude Code plugin
-     install. It proves the collection is Resolvable.
-   - A bare `code-review` whose description names the two axes "Standards" and
-     "Spec" is a skills-CLI install, where the collection is the only source of
-     that name, and in Claude Code a project or personal skill of that name
-     replaces the bundled one. It proves the collection is Resolvable too.
-   - A bare `code-review` with any other description is Claude Code's bundled
-     `code-review` skill. It proves nothing. Ignore it and fall through to the
-     sibling names above.
+   A miss proves nothing, because these collections can be installed one skill
+   at a time. `code-review` is agent-invocable too, so it looks like a second
+   probe; it is not, because Claude Code ships an unrelated bundled
+   `code-review` skill of the same bare name, and a bare hit proves nothing
+   until you have read its description. When `writing-for-agents` misses, read
+   [the rest of the probe list](references/resolvable-probes.md) before you
+   answer Resolvable for anything.
 
    Report the result as one of three states:
 
    - **Present and Resolvable.** Passed, say nothing further.
    - **Present but not Resolvable.** Installed, but not wired to this agent.
-     The install already happened, so the repair is wiring. Key it on where you
-     found the file: a hit under `~/.claude/plugins/cache/` came from the Claude
-     Code plugin, so the repair belongs on the plugin side (reinstall or
-     re-enable `mattpocock-skills`); a hit under an `.agents/skills/` or
-     `.claude/skills/` store came from the skills CLI, so tell them to re-run
-     `npx skills@latest add mattpocock/skills` and select this agent. Keep each
-     repair on the store its files came from: the npx route offered for a
-     plugin-route install creates a second, parallel copy of the collection.
-   - **Not Present.** Tell the user to install it: `/plugin install
-     mattpocock-skills` in Claude Code's official marketplace, or
-     `npx skills@latest add mattpocock/skills` in other agents, taking the
-     whole collection.
+     The install already happened, so the repair is wiring, and where you found
+     the file decides which repair. Keep each repair on the store its files
+     came from: the npx route offered for a plugin-route install creates a
+     second, parallel copy of the collection.
+   - **Not Present.** Tell the user to install the whole collection.
 
-   One shape of Not Present is an old collection rather than a missing one.
-   `writing-for-agents` shipped after the six the Roles borrowed before it, so a
-   user who installed the collection earlier has those six Present and this one
-   absent. When that is the shape in front of you, say the installed collection
-   predates the skill and give the update route for the store the six were found
-   in. Installing a collection they already have is the wrong advice:
+   Not Present for `writing-for-agents` alone, with the other six Present, is
+   an old collection rather than a missing one, and telling that user to
+   install a collection they already have is the wrong advice.
 
-   - Found under `~/.claude/plugins/cache/`: `claude plugin marketplace update
-     <marketplace>` then `claude plugin update mattpocock-skills`.
-     `<marketplace>` is the first directory under `~/.claude/plugins/cache/` on
-     the path the six were found at, which is the marketplace name, not the
-     plugin name below it. In a Claude Code session the marketplace half is
-     `/plugin marketplace update <marketplace>`.
-   - Found under an `.agents/skills/` or `.claude/skills/` store:
-     `npx skills update`.
+   In either failing state, and on that old-collection shape, read
+   [the repair for the store the files came from](references/repairs.md) and
+   give the user the commands it names.
 
    Name what a failure costs each Role, in these words. A missing or
    unresolvable `grill-with-docs`, `improve-codebase-architecture`, `to-spec` or
@@ -201,3 +153,15 @@ Check, in order:
    is stale.
 
 Finish with a short status report: what passed, what you fixed, what the user still has to do.
+
+## Reference files
+
+- [`references/present-search.md`](references/present-search.md): the search
+  roots, and why the Present search filters with `grep` and takes one skill per
+  invocation.
+- [`references/resolvable-probes.md`](references/resolvable-probes.md): the
+  sibling names to probe after `writing-for-agents` misses, how to read a bare
+  `code-review` hit, and the question to put to the user when nothing hits.
+- [`references/repairs.md`](references/repairs.md): the repair for each failing
+  state, keyed on the store the files were found in, and the update route for a
+  collection that predates `writing-for-agents`.

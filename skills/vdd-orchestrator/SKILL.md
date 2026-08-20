@@ -47,34 +47,18 @@ A Role's own children may deliver their reports to you. The Borrowed
 `code-review` skill spawns subagents of its own, and you are awake when they
 finish. Discard those reports unread.
 
-## Starting or restarting
+## Starting
 
-You hold no state that is not on disk. No host lets a restarted session
-reattach to a child, so on every start read `LOOP.md`, then each review file
-down to its `Round` line, and act on what you find:
+You hold no state that is not on disk, and no host lets a restarted session
+reattach to a child. On every start read `LOOP.md`, then look for
+`.scratch/<slug>/PLAN-REVIEW.md` and `.scratch/<slug>/CODEREVIEW.md`.
 
-- **No review file on disk.** The Workflow has not reached a review yet. Wait
-  for the Planner's Doorbell and do nothing else.
-- **`PLAN-REVIEW.md` present and not signed off.** The plan Loop is open.
-  Relay `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>. Read it.` to
-  the Planner and wait; the Planner owns the next move. This is what the read
-  boundary lets you say: the counts of open findings per severity live below
-  the `Round` line, which you may not read, so a restarted relay carries the
-  file and the round and asks the Planner to read the findings itself, rather
-  than a count you cannot see.
-- **`PLAN-REVIEW.md` signed off, no `CODEREVIEW.md`.** The code Loop has not
-  started. Spawn the Coder.
-- **`CODEREVIEW.md` present and not signed off.** Compare its `Round` line
-  with `FIXES.md`'s. The same round means the Coder owes the answer: spawn
-  the Coder. `FIXES.md` one round above `CODEREVIEW.md` means the
-  Code-Reviewer owes the review: spawn the Code-Reviewer. `FIXES.md` below
-  `CODEREVIEW.md` cannot happen in a live Loop.
-- **`CODEREVIEW.md` signed off.** The Loop is over. Invoke the PR-Author in
-  your own session.
+Neither on disk is the ordinary opening: the Workflow has not reached a review
+yet, so wait for the Planner's Doorbell and do nothing else.
 
-A restart costs the Role that was in flight the context it accumulated
-across earlier rounds: the round after a crash costs what a first round
-costs.
+Either one on disk is a Workflow already under way, and you are restarting into
+it. Read [how to place it](references/restart.md) and act on the state you
+find, before you spawn or relay anything.
 
 ## The live sequence
 
@@ -191,15 +175,11 @@ when its messaging tools cannot reach a target. A line matching that template
 with no prefix still counts as a `DOORBELL`. Discard everything else in the
 return, including prose wrapped around a line that matched.
 
-A hosted Role takes the print path by construction: it sends a Doorbell only
-when both its messaging tools are available and the target is listed in
-`LOOP.md`, and a subagent fails that test. So the line it prints unprompted
-is already a valid `DOORBELL`, and a prefix is what a cooperative Role adds
-rather than what you depend on.
-
-On no match, resume the same subagent once with the contract restated (the
-three shapes above). On a second miss, raise the return to the user as a
-`BLOCKED`, quoting it, and wait.
+On no match, resume the same subagent once with the contract restated, the
+three shapes above. On a second miss, raise the return to the user as a
+`BLOCKED`, quoting it, and wait. Before you resume, read
+[what an unmatched return means](references/unmatched-return.md); it says why
+one resume rather than several.
 
 ## Acting on a `DOORBELL`
 
@@ -214,13 +194,17 @@ the line where the host has no messaging, or where `ListAgents` does not
 list the Planner's name. On open findings, wait for the Planner's next
 Doorbell: the Planner owns the next move. On `SIGNED OFF`, the plan Loop is
 over and there is no next Planner Doorbell to wait for: spawn the Coder, as
-"The live sequence" and "Starting or restarting" both say.
+"The live sequence" says.
 
-**From the Coder or the Code-Reviewer.** No relay: act on the state machine
-in "Starting or restarting" above, spawning or resuming whichever Role's
-turn it is next. Both are resumed round after round, for the life of the
-code Loop, so each keeps the context it accumulated across its own rounds;
-only a crash costs that context.
+**From the Coder.** No relay: spawn the Code-Reviewer, or resume the existing
+one when the code Loop has already had a round.
+
+**From the Code-Reviewer.** No relay. On open findings, resume the Coder. On
+`SIGNED OFF`, invoke the PR-Author in your own session.
+
+The Coder and the Code-Reviewer are both resumed round after round, for the
+life of the code Loop, so each keeps the context it accumulated across its own
+rounds; only a crash costs that context.
 
 ## Acting on a `QUESTION`
 
@@ -240,3 +224,12 @@ Once `CODEREVIEW.md` signs off, invoke the `vdd-create-pr` skill
 (`vdd:vdd-create-pr`) in your own session, never as a subagent. Every path in
 it shows the user the assembled title and body and waits for one
 confirmation, and that body is substance you are forbidden to carry.
+
+## Reference files
+
+- [`references/restart.md`](references/restart.md): the five states a Workflow
+  already under way can be in, read off the review files, and what each one
+  asks of you.
+- [`references/unmatched-return.md`](references/unmatched-return.md): why one
+  resume answers a return that matches neither the three prefixes nor the
+  Doorbell template, and why a bare Doorbell line is the ordinary case.
