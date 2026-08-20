@@ -56,6 +56,10 @@ _Avoid_: task, issue, story
 A file written to be read by an agent: a skill file, an `AGENTS.md`, a `CLAUDE.md`, and any document reached by a pointer from one of those. Inside a Loop the Spec and the Tickets are Agent documents too.
 _Avoid_: prompt, instruction file, agent-facing doc
 
+**Reference file**:
+A file under a Role skill's `references/` directory, read when a pointer in that skill's `SKILL.md` names the situation at hand. It ships inside the skill directory on every install route, so it is an Agent document like the skill file that points at it.
+_Avoid_: resource file, sibling file, appendix
+
 **Session name**:
 `<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner` or `VDD-new-release-Orchestrator`. There are two, the Planner's and the Orchestrator's. Set by the user rather than by an agent; it is the address a Doorbell is sent to.
 _Avoid_: session id, title, label

@@ -25,6 +25,11 @@ lands if it is accepted.
 
 ## Considered options
 
+**Packaging carries a Reference file beside its skill file, so the split this
+record left open is the one ADR-0010 owns.** The skills CLI copies a skill
+directory recursively, the plugin ships the whole repository, and `verify.yml`
+now checks every markdown file under the skills tree.
+
 **A pass applying every lever as written, including no-op pruning and negation
 removal.** Rejected. `writing-for-agents` is written for an author holding one
 document and able to run it afterwards, and its no-op test is explicitly
@@ -53,13 +58,11 @@ clone.
 
 **Document splits the sprawl lever pointed at.** The Borrowed-skills check is
 most of `skills/vdd-setup/SKILL.md`, from the top of the numbered list down to
-the tracker check. The split that would earn it moves the search roots, the
-`find` loop and its rationale, the Resolvable probe list and the three-way
-`code-review` reading into a sibling reference file, leaving the three states
-and the per-Role costs in `SKILL.md`.
-What blocks it is packaging: the plugin ships one file per skill, `npx skills`
-installs flat, and `verify.yml` reads `SKILL.md` alone, so the sibling would
-ship unchecked.
+the tracker check. The split that earns it moves the search roots, the `find`
+loop and its rationale, the Resolvable probe list and the three-way
+`code-review` reading into a Reference file, leaving the three states and the
+per-Role costs in `SKILL.md`. ADR-0010 owns that layout, the criterion that
+decides each move and the boundary the move may not cross.
 
 **Passages repeated across the Role skill files.** Five passages appear
 identically in four skill files each: the `LOOP.md` reading paragraph, the four
@@ -104,9 +107,10 @@ The bound is structure rather than prose, so the pass left the paragraph alone.
 ADR-0001 and ADR-0003 meet the bound at three sentences each, which corrects the
 Spec that drove the Loop.
 
-Three of the moves that Loop closed off are deferred work rather than policy,
-and a later Loop can take them up: adding a file, writing across documents, and
-freezing the repeated passages. They are consequences of running twelve disjoint
+The moves that Loop closed off are deferred work rather than policy, and a
+later Loop can take them up. Adding a file is the one ADR-0010 took up; writing
+across documents and freezing the repeated passages are still open. They are
+consequences of running twelve disjoint
 Tickets at once, where each Ticket owns one document and copies of one paragraph
 would otherwise drift apart in ways nobody chose. Freezing those passages
 permanently is the opposite of why they were frozen.
