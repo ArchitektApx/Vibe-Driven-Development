@@ -12,6 +12,9 @@
 
 A loop runs in three phases. Installation and requirements are in the [README](../README.md); this page walks through the loop itself.
 
+> [!NOTE]
+> You do not have to drive any of this by hand. `/vdd:vdd-start-loop` starts the loop, and from there each Role tells you the one thing it needs from you at the moment it needs it. Everything below is the detailed walkthrough of what the Roles do, for when you want to know what is happening and why.
+
 - [📐 Phase 1: The Plan / Plan-Review loop](#-phase-1-the-plan--plan-review-loop)
 - [🔧 Phase 2: The Coder / Code-Review loop](#-phase-2-the-coder--code-review-loop)
 - [🚢 Phase 3: Ship](#-phase-3-ship)

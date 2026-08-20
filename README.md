@@ -26,6 +26,7 @@
 ## 📚 Contents
 
 - [🎯 Why this works](#-why-this-works)
+- [⚡️ Quickstart](#-quickstart)
 - [📋 Requirements](#-requirements)
 - [🔌 Install (Claude Code)](#-install-claude-code)
 - [🧰 Install (Cursor, GitHub Copilot CLI, Codex, other agents)](#-install-cursor-github-copilot-cli-codex-other-agents)
@@ -40,6 +41,16 @@ A single agent session grades its own homework. It plans, implements and reviews
 - **📄 Written handoffs.** Forcing the spec, the implementation notes, and the review into files makes every claim checkable and keeps each session's context small.
 
 The loop that comes out of this converges: plan, push back, revise, sign off, implement, push back, fix, sign off.
+
+## ⚡️ Quickstart
+
+Install the plugin and Matt Pocock's skills (see [Install](#-install-claude-code) and [Requirements](#-requirements)), then open a session in your repository and type:
+
+```
+/vdd:vdd-start-loop
+```
+
+That one command runs the environment check, walks you through anything the check finds missing, and starts the loop with you and the Planner.
 
 ## 📋 Requirements
 
@@ -59,7 +70,6 @@ The loop that comes out of this converges: plan, push back, revise, sign off, im
   | `writing-for-agents` | 🤖 the agent | Planner, Plan-Reviewer, Code-Reviewer |
 
   All of them except `code-review` and `writing-for-agents` are user-invoked: their author blocked agents from starting them, so the Role will ask you to type the slash command yourself at the right moment. The Coder is the one Role that borrows nothing. The Plan-Reviewer borrows only `writing-for-agents`, and runs without it: a Role that cannot resolve that skill drops its writing check and says so in the file it writes.
-- `/setup-matt-pocock-skills`, run once per repository, answering **Local markdown** when it asks which issue tracker to use. That answer puts the spec and the tickets in `.scratch/<feature-slug>/`, where the Roles look for them.
 
 > [!TIP]
 > **Optional:** Claude Code 2.1.224+ on macOS or Linux. It lets one session ring the next one's doorbell instead of you copying a line between terminals. Everything works without it; the Roles print the line for you to paste.
@@ -95,7 +105,7 @@ npx skills@latest add ArchitektApx/Vibe-Driven-Development
 npx skills@latest add mattpocock/skills
 ```
 
-The installer asks which skills to take and which agents to install them for. Take all eight `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Run `/setup-matt-pocock-skills` once per repository afterwards, and pull updates later with `npx skills update`.
+The installer asks which skills to take and which agents to install them for. Take all eight `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Pull updates later with `npx skills update`.
 
 > [!NOTE]
 > If your agent does not support skills at all, the skill files are ordinary Markdown: paste the body of the relevant `skills/vdd-*/SKILL.md` into your session as a prompt.
