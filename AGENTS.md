@@ -84,6 +84,13 @@ PR; preserve them through any refactor of `.github/`.
 - **Skill names are unique.** `npx skills` installs flat by frontmatter `name`,
   so a second skill with the same name silently clobbers the first. Every
   `SKILL.md` opens with frontmatter that carries `name` and `description`.
+- **Every relative link under `skills/` resolves.** A pointer in a `SKILL.md`
+  or in a Reference file names a file that ships, so a rename or a deletion
+  cannot strand a reader who follows it.
+- **Every file under a skill directory is linked from its `SKILL.md`.** A
+  Reference file no skill file points at is one no reader can be sent to. The
+  index section each split skill carries is what makes the direct link enough,
+  so the check does not follow links between Reference files.
 - **The canonical sentence appears once in each of two skills.**
   `An Orchestrator hosts this Workflow.` occurs exactly once in
   `skills/vdd-orchestrator/SKILL.md`, in the Spawn prompt template, and once

@@ -76,6 +76,76 @@ jobs:
             echo "duplicate skill names:"; echo "$dupes"; exit 1
           fi
 
+      # A pointer that names a file which does not ship is invisible until a
+      # reader follows it and finds nothing. Skill files and Reference files
+      # are checked alike, because a dangling link inside a Reference file
+      # strands its reader the same way.
+      - name: Relative links under skills resolve
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+            const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+              const p = path.join(dir, e.name);
+              return e.isDirectory() ? walk(p) : [p];
+            });
+            const external = (t) => /^[a-z][a-z0-9+.-]*:/i.test(t) || t.startsWith("/") || t.startsWith("#");
+            let rc = 0;
+            for (const f of walk("skills").filter((p) => p.endsWith(".md"))) {
+              const raw = fs.readFileSync(f, "utf8");
+              for (const m of raw.matchAll(/\[[^\]]*\]\(([^)\s]+)/g)) {
+                const target = decodeURIComponent(m[1].trim().split(/[#?]/)[0]);
+                if (!target || external(target)) continue;
+                if (!fs.existsSync(path.join(path.dirname(f), target))) {
+                  console.error(`${f}: link resolves to nothing: ${target}`);
+                  rc = 1;
+                }
+              }
+            }
+            process.exit(rc);
+          '
+
+      # A file under a skill directory that its skill file does not link is a
+      # file no reader can be sent to. The index section every split skill
+      # carries is what makes a direct link enough, so this needs no
+      # transitive crawl.
+      - name: Every file under a skill is linked from its skill file
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+            const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+              const p = path.join(dir, e.name);
+              return e.isDirectory() ? walk(p) : [p];
+            });
+            const external = (t) => /^[a-z][a-z0-9+.-]*:/i.test(t) || t.startsWith("/") || t.startsWith("#");
+            let rc = 0;
+            for (const entry of fs.readdirSync("skills", { withFileTypes: true })) {
+              if (!entry.isDirectory()) continue;
+              const root = path.join("skills", entry.name);
+              const skill = path.join(root, "SKILL.md");
+              if (!fs.existsSync(skill)) {
+                console.error(`${root}: no SKILL.md`);
+                rc = 1;
+                continue;
+              }
+              const linked = new Set();
+              for (const m of fs.readFileSync(skill, "utf8").matchAll(/\[[^\]]*\]\(([^)\s]+)/g)) {
+                const target = decodeURIComponent(m[1].trim().split(/[#?]/)[0]);
+                if (!target || external(target)) continue;
+                linked.add(path.normalize(path.join(root, target)));
+              }
+              for (const f of walk(root)) {
+                if (path.normalize(f) === path.normalize(skill)) continue;
+                if (!linked.has(path.normalize(f))) {
+                  console.error(`${f}: no direct link from ${skill}`);
+                  rc = 1;
+                }
+              }
+            }
+            process.exit(rc);
+          '
+
       # A hosted Code-Reviewer compares its own Spawn prompt against this
       # sentence word for word to decide whether to invoke the PR-Author, so
       # the copy in the Orchestrator skill's Spawn prompt template and the
