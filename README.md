@@ -94,7 +94,7 @@ This repository is a Claude Code plugin marketplace. The `vdd` plugin ships one 
 | 🧪 Code-Reviewer | `/vdd:vdd-code-reviewer` |
 | 🚢 PR-Author | `/vdd:vdd-create-pr` |
 
-Run `/vdd:vdd-setup` once per repository: it verifies that the borrowed skills are installed, the issue tracker is configured, the gitignore entries for `LOOP.md` and `.scratch/` exist, and no stale `LOOP.md` is left over from a previous loop. `/vdd:vdd-start-loop` runs it for you at the start of every loop.
+Run `/vdd:vdd-setup` once per repository: it verifies that the borrowed skills are installed, the issue tracker is configured, the gitignore entries for `LOOP.md` and `.scratch/` exist, no stale `LOOP.md` is left over from a previous loop, and it asks you once per repository whether the Agent configuration and the Domain docs a workflow leaves in your project should stay tracked in git or be ignored. Each question leads with tracked, so accepting it keeps today's behaviour. `/vdd:vdd-start-loop` runs it for you at the start of every loop.
 
 ## 🧰 Install (Cursor, GitHub Copilot CLI, Codex, other agents)
 
