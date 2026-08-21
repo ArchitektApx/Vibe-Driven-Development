@@ -4,13 +4,6 @@
 the `verify` check green and squash as its merge method. This file holds what
 sits behind that rule and bites only when it is not known.
 
-## The pull request body is the loop's evidence
-
-The body carries how many review rounds the loop took, the findings per
-severity, and the verification that was run. The Working files are gitignored,
-so the body is the only place any of it reaches history. The tracker directory
-keeps its own copy, on the machine that ran the loop and in no clone.
-
 ## Every commit is signed
 
 Local commits inherit `commit.gpgsign`; an unsigned commit is rejected at

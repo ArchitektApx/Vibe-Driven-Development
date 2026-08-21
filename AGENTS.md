@@ -60,8 +60,8 @@ skill files are this plugin's product, so a change to what a Role does is `feat`
 or `fix` even though the file is prose, and `docs` is for a change that leaves
 behaviour alone.
 
-What the PR body must carry, commit signing, SHA pinning and the
-workflow-registration quirk are in `docs/agents/LANDING-A-CHANGE.md`.
+Commit signing, SHA pinning and the workflow-registration quirk are in
+`docs/agents/LANDING-A-CHANGE.md`.
 
 ## Invariants
 
