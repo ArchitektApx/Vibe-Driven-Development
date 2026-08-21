@@ -145,6 +145,132 @@ Check, in order:
    equals one of those four names. A line that merely contains one of them,
    `docs/PLAN.md` or `!PLAN.md` or `PLAN.md.bak`, is the user's own and stays:
    `PLAN.md` is a name anyone may ignore for reasons of their own.
+
+   **The induced files.** A Workflow also leaves two groups of files in the
+   user's project that no Role writes and nobody asked for. Ask, once per
+   repository, whether each group belongs in their history:
+
+   | Group | Paths |
+   |-------|-------|
+   | Agent configuration | `docs/agents/issue-tracker.md`, `docs/agents/domain.md`, `docs/agents/triage-labels.md`, and the instructions file |
+   | Domain docs | `CONTEXT.md`, `docs/adr/` |
+
+   The instructions file is whichever of `AGENTS.md` and `CLAUDE.md` at the
+   repository root carries an `## Agent skills` heading, and it counts toward
+   Agent configuration only in a run where it exists. The block and the files it
+   points at answer to one question, because a committed block pointing at
+   ignored files is the one outcome nobody wants on purpose.
+
+   Two groups rather than one, because the two have different value. Agent
+   configuration is tooling that means nothing in a clone with no skills
+   installed, and a team that hides it may still want its glossary and its
+   records in history. `setup-matt-pocock-skills` writes the three files under
+   `docs/agents/` and the block; the glossary and the records are written later,
+   by the Planner's grilling.
+
+   **Is it tracked.** Ask git, one path at a time:
+
+   ```bash
+   git ls-files --error-unmatch -- <path> >/dev/null 2>&1
+   ```
+
+   Exit zero means git tracks that path, and for `docs/adr/` it means git tracks
+   at least one file under it. A path has three states, and only the first is
+   out of the set:
+
+   - **Tracked.** Out. It predates VDD or was committed on purpose, and an
+     ignore line would not hide it anyway.
+   - **Untracked and present.** In.
+   - **Absent.** In. Writing an ignore line for a path that does not exist yet
+     is the **blind write**, and it is what makes these questions answerable at
+     all. Most of these paths are absent when you run: the three files under
+     `docs/agents/` wait on `setup-matt-pocock-skills`, and the glossary and the
+     records wait on the grilling, which runs during the Planner's turn after
+     you have finished. A question that waited for the files to exist would
+     first fire on the Workflow after the one that created them.
+
+   The instructions file is the exception to the blind write. Write its line
+   only when it exists and git does not track it. You cannot know which of the
+   two names `setup-matt-pocock-skills` will create, and writing both would
+   ignore an instructions file the user may write by hand later for reasons of
+   their own.
+
+   **The marker.** A group carries one line in `.gitignore` once it has been
+   answered, and that line is what makes the answer durable. One of these four:
+
+   ```
+   # vdd: agent configuration tracked
+   # vdd: agent configuration ignored
+   # vdd: domain docs tracked
+   # vdd: domain docs ignored
+   ```
+
+   It is a comment, so it is inert to git. No Role reads it; you read it to stay
+   quiet. A group carrying one of its two marker lines is **spent**.
+
+   **Which question fires.** Per group:
+
+   - **Spent.** Ask nothing.
+   - **Not spent, and at least one of its paths is not tracked.** Ask.
+   - **Not spent, and every one of its paths is tracked.** Ask nothing, because
+     the answer would change nothing. Write the tracked marker.
+
+   Each question leads with tracked, so a user who wants today's behaviour
+   accepts it in a word and a user who wants VDD out of their history says so
+   once. Name the group's paths in the question; name the ones that do not exist
+   yet as files the Workflow will create, because that is what they are.
+
+   **What each answer writes.** Tracked writes the marker alone and no path
+   line. Ignore writes the marker and the group's paths, the three files under
+   `docs/agents/` by name rather than their directory, so a repository with its
+   own files there keeps them. Write no line for a path git already tracks.
+
+   A root-level path's line is written anchored, with a leading slash:
+   `/CONTEXT.md` for the glossary, and `/AGENTS.md` or `/CLAUDE.md` for the
+   instructions file, whichever run writes it. A `.gitignore` pattern with no
+   slash in it matches at every depth, so a bare `CONTEXT.md` would ignore
+   `packages/x/CONTEXT.md` and a bare `AGENTS.md` would ignore every nested
+   instructions file in a monorepo. The three `docs/agents/` paths and
+   `docs/adr/` contain a slash already, which anchors them, so they are written
+   as they stand.
+
+   **The deferred line.** When Agent configuration's marker records ignore and
+   the instructions file exists untracked with no line of its own, write its
+   line and say so in the report. Ask nothing: the group is spent, and this is
+   that same answer reaching the one path that was not there to receive it.
+
+   Your report gains two sentences.
+
+   **The untrack sentence**, in a run where you wrote a marker and at least one
+   of five paths is tracked. The five are `docs/agents/issue-tracker.md`,
+   `docs/agents/domain.md`, `docs/agents/triage-labels.md`, `CONTEXT.md` and
+   `docs/adr/`. Name every one of the five that git tracks, and give the command
+   that untracks exactly those:
+
+   ```bash
+   git rm -r --cached <the paths you named>
+   ```
+
+   Print that command and never run it. It stages a deletion, and a committed
+   deletion removes the files from every clone, which is further than an
+   environment check reaches. Run nothing else that stages anything either.
+
+   The sentence appears in the run that writes a group's marker and in no run
+   after it, so a repository that tracks these files on purpose reads the advice
+   once and a settled choice stops being raised. It is the only channel to a
+   user whose files were committed before VDD asked.
+
+   Name neither `AGENTS.md` nor `CLAUDE.md` in it, under any circumstances. That
+   file is overwhelmingly the user's own prose, and what to remove from history
+   is not something an environment check tells anyone about it. The block
+   warning is that file's only surface in your report.
+
+   **The block warning**, whenever Agent configuration's marker records ignore
+   and the instructions file is tracked: the committed `## Agent skills` block
+   now points at files that reach no clone. This one recurs on every later run,
+   because it describes a live inconsistency rather than a settled preference,
+   and it stops the moment the user resolves it either way. Offer no rewrite of
+   the block, which belongs to `setup-matt-pocock-skills`.
 5. **Stale working files.** If `LOOP.md` already exists from a previous loop,
    ask whether to delete it before starting fresh. Delete only between loops.
    It is the one working file you can find from here: the rest live under

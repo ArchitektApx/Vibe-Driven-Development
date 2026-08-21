@@ -40,14 +40,15 @@ edits `.gitignore` and prints advice cannot look like data loss, which is what
 lets it run unattended at the start of every Workflow.
 
 The ignore lines for paths that do not exist yet are written blind, because
-most of these paths are absent when the check runs: the agent docs wait on the
-collection setup, and the glossary and the records wait on the grilling, which
-runs during the Planner's turn after the check has already finished. A question
-that waited for the files to exist would first fire on the Workflow after the
-one that created them, which is one Workflow too late to be worth asking.
+most of these paths are absent when the check runs: the three files under
+`docs/agents/` wait on `setup-matt-pocock-skills`, and the glossary and the
+records wait on the grilling, which runs during the Planner's turn after the
+check has already finished. A question that waited for the files to exist would
+first fire on the Workflow after the one that created them, which is one
+Workflow too late to be worth asking.
 
 The instructions file is the one path the blind write cannot cover, because VDD
-cannot know which of the two names the collection setup will create and writing
-both would ignore a file the user may write by hand later. Its line is deferred
-to the first run that finds it present and untracked with the group's marker
-recording ignore.
+cannot know which of the two names `setup-matt-pocock-skills` will create, and
+writing both would ignore a file the user may write by hand later. Its line is
+deferred to the first run that finds it present and untracked with the group's
+marker recording ignore.
