@@ -52,6 +52,8 @@ Install the plugin and Matt Pocock's skills (see [Install](#-install-claude-code
 
 That one command runs the environment check, walks you through anything the check finds missing, and starts the loop with you and the Planner.
 
+VDD and the Matt Pocock skills create multiple working files along the way that are not gitignored by default (`docs/agents/`, `docs/adr/`, `CONTEXT.md`, appending to `AGENTS.md`/`CLAUDE.md`). If you'd rather keep them out of your history, you just can safely add them to `.gitignore` and/or prune the additions to your `AGENTS.md`/`CLAUDE.md`.
+
 ## 📋 Requirements
 
 - A repository to work in

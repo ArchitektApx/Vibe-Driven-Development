@@ -44,26 +44,35 @@ Loop is not finished: an unsigned review has no PR to open yet.
 Assemble the title and body now, before the `PR:` branch in step 4, so every
 path below that prints or shows the body already has it in hand.
 
+The body describes the change and reports nothing about the Workflow that
+produced it. Add no section of your own carrying review rounds, findings by
+severity or the verification that ran. That record stays in the Tracker
+directory, on the machine that ran the Workflow, and a reviewer reads a
+description of the change instead.
+
+Two of the three paths below answer to something other than this rule, and
+each says so where it is written. A template's own sections are the template's,
+and a body imitating merged history is governed by what came back.
+
 **Template lookup.** Stop at the first hit, in this order:
 `PULL_REQUEST_TEMPLATE.md` or `pull_request_template.md` at the repository
 root, in `.github/`, or in `docs/`. Six paths, checked in that order. The
 directory form, `.github/PULL_REQUEST_TEMPLATE/`, is out of scope.
 
 **Template found.** The template alone is the body. Fill its sections from
-the read list; append nothing past what it asks for.
+the read list; append nothing past what it asks for. A section asking for
+testing or review evidence is filled from `PLAN-REVIEW.md`, `CODEREVIEW.md`
+and `FIXES.md`, which is what keeps all three in the read list.
 
 **No template.** Run `gh pr list --state merged --limit 10 --json
 title,body`. An empty result, or a call that exits non-zero because `gh` is
 absent or unauthenticated, is what "no PR history" means. On history, match
 the shape of what came back: its sections, its tone, whether it links
-issues. Without history, assemble VDD's default body: a summary of the
-change from the Spec's Problem Statement and Solution, then a `## VDD loop
-evidence` section with the review rounds for each Loop (from
-`PLAN-REVIEW.md` and `CODEREVIEW.md`), the findings of the last review of
-each Loop by severity and by state, so `2 minors: 1 open, 1 accepted` is what
-it records, and the verification `FIXES.md` records as run.
-The Working files stay behind when the Loop closes, so this section is the
-last place the loop's evidence can be written down.
+issues. Matching governs here whole. Where the bodies that came back carry a
+section reporting the Workflow, reproduce it like any other section of theirs;
+the rule above bars a section you added, not one the history you were told to
+imitate already has. Without history, VDD's default body is the Spec's Problem
+Statement and Solution and nothing else.
 
 **Title.** Follow the convention of the titles in that same `gh pr list`
 result when there is history: a conventional prefix, a ticket reference, a
