@@ -27,9 +27,10 @@ ADR showing the sentence was added for a reason settles it as a guardrail.
 
 The evidence is the Rule inventory and the Lever log, both defined in
 `CONTEXT.md`: the inventory catches a deleted rule, the log catches a change
-made on taste. They are written into the Working file of the Role that made the
-pass and summarised in the pull request body, which is where they reach
-history.
+made on taste. Both are written into the Working file of the Role that made the
+pass and stop there. A pull request body here carries nothing about the
+Workflow that produced it, which ADR 0012 decided, so no pass routes them
+onward into one.
 
 ## Tells
 

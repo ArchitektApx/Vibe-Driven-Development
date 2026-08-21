@@ -55,8 +55,8 @@ A finding keeps its number for the life of the Loop and appears in every later
 round of the file with its current state. The file is replaced each round and
 the list inside it is cumulative, which is what lets a `FIXES.md` section name
 a finding number, lets the standoff rule compare a round against the one
-before it, and lets the pull request body report `2 minors: 1 open, 1
-accepted`.
+before it, and lets the review file in the Tracker directory close a Loop
+reading `2 minors: 1 open, 1 accepted`, which is where that count lives.
 
 Both reviewers' Doorbells count findings in state `open` alone, so the message
 says how much work is left rather than how much the reviewer wrote down. On
