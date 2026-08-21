@@ -29,8 +29,16 @@ A Role and its reviewer exchanging a working file until sign-off. The workflow h
 _Avoid_: cycle, iteration, phase
 
 **Working file**:
-Scratch space for handoff between sessions, gitignored, never part of the user's project. The Loop file sits at the repository root; every other Working file sits in the tracker directory, the Spec and the Tickets alongside `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`. Matt Pocock's local-markdown issue tracker counts as a Working file because VDD is what invokes it.
+Scratch space for handoff between sessions, gitignored, never part of the user's project. The Loop file sits at the repository root; every other Working file sits in the Tracker directory, the Spec and the Tickets alongside `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`. What Matt Pocock's local-markdown issue tracker writes into the Tracker directory counts as a Working file because VDD is what invokes it. Neither Agent configuration nor Domain docs is a Working file: both can be tracked, and a Working file never is.
 _Avoid_: artifact, output, deliverable
+
+**Agent configuration**:
+The tooling a Workflow induces in the user's project: the issue tracker configuration file `docs/agents/issue-tracker.md`, the domain docs file `docs/agents/domain.md` and the triage labels file `docs/agents/triage-labels.md`, which the Borrowed skill `setup-matt-pocock-skills` writes, together with the `## Agent skills` block it puts into whichever instructions file the repository has. Two of those three names carry a second meaning elsewhere, so each is written with its path: the issue tracker configuration file is not the specs and tickets it points at, and the domain docs file is not Domain docs below. The block and the files it points at are one thing, because a committed block pointing at ignored files is what nobody wants on purpose. It means nothing in a clone with no skills installed.
+_Avoid_: agent docs, tooling files, setup files
+
+**Domain docs**:
+The project's own vocabulary and decisions: the glossary `CONTEXT.md` and the decision records directory `docs/adr/`. The name is the heading of the `setup-matt-pocock-skills` section that configures them, which settles the layout; the glossary and the records themselves are written later, by the grilling. Unlike Agent configuration they outlive VDD, which is why they answer to their own question.
+_Avoid_: project docs, context files, ADRs
 
 **Feature slug**:
 The kebab-case name of one Loop's piece of work, chosen by the user when the Loop starts. It names the tracker directory and sits in the middle of every Session name.
