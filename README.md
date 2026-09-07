@@ -30,6 +30,7 @@
 - [📋 Requirements](#-requirements)
 - [🔌 Install (Claude Code)](#-install-claude-code)
 - [🧰 Install (Cursor, GitHub Copilot CLI, Codex, other agents)](#-install-cursor-github-copilot-cli-codex-other-agents)
+- [🧪 Beta channel](#-beta-channel)
 - [🔁 Workflow](#-workflow)
 
 ## 🎯 Why this works
@@ -59,7 +60,7 @@ VDD and the Matt Pocock skills create multiple working files along the way that 
 - A repository to work in
 - The ability to run two agent sessions side by side (two terminals is enough): the Planner, in your foreground, and the Orchestrator, which hosts the rest.
 - A coding agent with subagents. Claude Code, Cursor, Codex and GitHub Copilot CLI all have the primitive the Orchestrator needs to spawn the Plan-Reviewer, the Coder and the Code-Reviewer, each in a fresh context, and to resume the same one round after round. If your host asks for approval per command, grant session approval before you start the Workflow, so you are not answering prompts through the whole run.
-- Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection. In Claude Code: `/plugin install mattpocock-skills` (official marketplace). The Roles borrow seven of them:
+- Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection. In Claude Code: `/plugin install mattpocock-skills` (official marketplace). The Roles borrow these:
 
   | Borrowed skill | Started by | Needed by |
   |----------------|-----------|-----------|
@@ -107,10 +108,22 @@ npx skills@latest add ArchitektApx/Vibe-Driven-Development
 npx skills@latest add mattpocock/skills
 ```
 
-The installer asks which skills to take and which agents to install them for. Take all eight `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Pull updates later with `npx skills update`.
+The installer asks which skills to take and which agents to install them for. Take every `vdd-*` skill, and take all of Matt Pocock's collection: the Roles borrow from it, and installing the whole set lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Pull updates later with `npx skills update`.
 
 > [!NOTE]
 > If your agent does not support skills at all, the skill files are ordinary Markdown: paste the body of the relevant `skills/vdd-*/SKILL.md` into your session as a prompt.
+
+## 🧪 Beta channel
+
+Want the most recent Roles and changes before they land on `master`? Install the [`beta` branch](https://github.com/ArchitektApx/Vibe-Driven-Development/tree/beta) instead. It carries the next release while it is tried on real loops, so a Role may still change there.
+
+```
+/plugin marketplace remove vibe-driven-development
+/plugin marketplace add ArchitektApx/Vibe-Driven-Development@beta
+/plugin install vdd@vibe-driven-development
+```
+
+Back to the release: run the same three commands without `@beta`. `/plugin marketplace update` pulls the latest beta.
 
 This repository is developed with its own workflow; `CONTEXT.md` and `docs/adr/` are the glossary and decision records it produced. See `AGENTS.md`.
 
