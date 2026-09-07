@@ -59,7 +59,7 @@ VDD and the Matt Pocock skills create multiple working files along the way that 
 - A repository to work in
 - The ability to run two agent sessions side by side (two terminals is enough): the Planner, in your foreground, and the Orchestrator, which hosts the rest.
 - A coding agent with subagents. Claude Code, Cursor, Codex and GitHub Copilot CLI all have the primitive the Orchestrator needs to spawn the Plan-Reviewer, the Coder and the Code-Reviewer, each in a fresh context, and to resume the same one round after round. If your host asks for approval per command, grant session approval before you start the Workflow, so you are not answering prompts through the whole run.
-- Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection. In Claude Code: `/plugin install mattpocock-skills` (official marketplace). The Roles borrow seven of them:
+- Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection. In Claude Code: `/plugin install mattpocock-skills` (official marketplace). The Roles borrow nine of them:
 
   | Borrowed skill | Started by | Needed by |
   |----------------|-----------|-----------|
@@ -68,10 +68,12 @@ VDD and the Matt Pocock skills create multiple working files along the way that 
   | `improve-codebase-architecture` | 🧑 you | Planner |
   | `to-spec` | 🧑 you | Planner |
   | `to-tickets` | 🧑 you | Planner |
+  | `wayfinder` | 🧑 you | Wayfinder |
   | `code-review` | 🤖 the agent | Code-Reviewer |
   | `writing-for-agents` | 🤖 the agent | Planner, Plan-Reviewer, Code-Reviewer |
+  | `grilling` | 🤖 the agent | Brainstormer |
 
-  All of them except `code-review` and `writing-for-agents` are user-invoked: their author blocked agents from starting them, so the Role will ask you to type the slash command yourself at the right moment. The Coder is the one Role that borrows nothing. The Plan-Reviewer borrows only `writing-for-agents`, and runs without it: a Role that cannot resolve that skill drops its writing check and says so in the file it writes.
+  All of them except `code-review`, `writing-for-agents` and `grilling` are user-invoked: their author blocked agents from starting them, so the Role will ask you to type the slash command yourself at the right moment. The Coder is the one Role that borrows nothing. The Plan-Reviewer borrows only `writing-for-agents`, and runs without it: a Role that cannot resolve that skill drops its writing check and says so in the file it writes.
 
 > [!TIP]
 > **Optional:** Claude Code 2.1.224+ on macOS or Linux. It lets one session ring the next one's doorbell instead of you copying a line between terminals. Everything works without it; the Roles print the line for you to paste.
@@ -88,6 +90,8 @@ This repository is a Claude Code plugin marketplace. The `vdd` plugin ships one 
 | Role | Skill |
 |------|-------|
 | 🩺 Environment check | `/vdd:vdd-setup` |
+| 💡 Brainstormer | `/vdd:vdd-brainstormer` |
+| 🗺 Wayfinder | `/vdd:vdd-wayfinder` |
 | 🚀 Start a loop | `/vdd:vdd-start-loop` |
 | 🧠 Planner | `/vdd:vdd-planner` |
 | 🧭 Orchestrator | `/vdd:vdd-orchestrator` |
@@ -107,7 +111,7 @@ npx skills@latest add ArchitektApx/Vibe-Driven-Development
 npx skills@latest add mattpocock/skills
 ```
 
-The installer asks which skills to take and which agents to install them for. Take all eight `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Pull updates later with `npx skills update`.
+The installer asks which skills to take and which agents to install them for. Take all ten `vdd-*` skills, and take all of Matt Pocock's collection: the Roles need seven skills from it, and installing the whole set lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Pull updates later with `npx skills update`.
 
 > [!NOTE]
 > If your agent does not support skills at all, the skill files are ordinary Markdown: paste the body of the relevant `skills/vdd-*/SKILL.md` into your session as a prompt.

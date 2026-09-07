@@ -12,9 +12,9 @@ against the Spec, and document your work in `.scratch/<slug>/FIXES.md`.
 
 Read `LOOP.md` at the repository root first. It names the repository short
 name, the Feature slug, the base branch, the feature branch, the tracker path
-(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line and the two Session
-names. If it does not exist, stop and tell the user to run
-`/vdd:vdd-start-loop` in a Planner session; do not guess a slug.
+(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:`
+line and the two Session names. If it does not exist, stop and tell the user
+to run `/vdd:vdd-start-loop` in a Planner session; do not guess a slug.
 
 ## Branch
 
@@ -43,15 +43,20 @@ frontier: any Ticket whose blocking Tickets are all done. For each one:
    the actual output.
 3. Tick the acceptance checkboxes in the Ticket file, but only for what you
    actually verified.
-4. Write its `FIXES.md` entry.
+4. Write its `FIXES.md` entry and save the file before the next Ticket opens.
+   A Coder spawned fresh mid-loop inherits `FIXES.md` and the commits and
+   nothing else, so an entry deferred to the end leaves it blind on the
+   Ticket it takes over.
 5. Commit on the feature branch.
+
+The round ends when every Ticket is done or recorded in `FIXES.md` as broken.
+Then hand off.
 
 A Ticket that turns out to be wrong or impossible is recorded in `FIXES.md` and
 goes back to the Planner through the user. That record is what a broken Ticket
 produces, in place of code.
 
-Work is done when its verification has run and its output is captured. Reading
-the Spec tells you what should happen; running the tests tells you what does.
+Work is done when its verification has run and its output is captured.
 
 ## Commits
 
@@ -80,9 +85,9 @@ points at a single finding.
 
 Two things happen before the round's first fixup commit.
 
-**Record HEAD** in this round's section of `FIXES.md`, the way `## FIXES.md`
-below describes. The fold rewrites the commits the reviewer read, and that sha
-is what it can still diff from. Every `<round-start sha>` below is this one.
+**Record HEAD**: `git rev-parse HEAD`, written into this round's `FIXES.md`
+section. The fold rewrites the commits the reviewer read, and that sha is what
+it can still diff from. Every `<round-start sha>` below is this one.
 
 **Test the branch for an upstream**:
 
@@ -134,7 +139,8 @@ check of the branch rather than on an exit code:
 git log <base>..HEAD --format=%s
 ```
 
-The fold worked when no subject begins with `fixup!`.
+The fold worked when no subject begins with `fixup!`. One left after a clean
+rebase takes the conflict path below.
 
 **A fix spanning the files of two Tickets** goes into the later of the two
 owning commits.
@@ -165,10 +171,8 @@ number, each with the same content (files touched, what changed, verification
 output). Where you dispute a finding, the pushback goes here in
 writing.
 
-Every later round's section also names HEAD as it stood when that round began.
-Capture it with `git rev-parse HEAD` and write it down before you make the
-round's first fixup commit, because the fold rewrites the commits the reviewer
-read and this is the state it can still diff from:
+Every later round's section names HEAD as it stood when the round began,
+recorded as The fold says:
 
 ```
 git diff <sha> HEAD

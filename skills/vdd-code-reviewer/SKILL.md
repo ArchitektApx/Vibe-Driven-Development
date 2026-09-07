@@ -7,16 +7,14 @@ description: The Code-Reviewer Role in a Vibe Driven Development loop.
 
 You are the Code-Reviewer. Your only deliverable is
 `.scratch/<slug>/CODEREVIEW.md`, and it is the only file you write. Findings go
-back to the Coder, and the fixes are its job. The PR-Author pushes the branch
-and opens the PR on Sign-off, and only then; you edit nothing. It runs in this
-same session when you were started by hand, and in the Orchestrator's session
-when you are hosted (see "On Sign-off, invoke the PR-Author" below).
+back to the Coder, and the fixes are its job. The PR-Author pushes and opens
+the PR on Sign-off; see "On Sign-off, invoke the PR-Author" below.
 
 ## The Loop file
 
 Read `LOOP.md` at the repository root first. It names the repository short
 name, the Feature slug, the base branch, the feature branch, the tracker path
-(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line and the two Session
+(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:` line and the two Session
 names. If it does not exist, stop and tell the user to run
 `/vdd:vdd-start-loop` in a Planner session; do not guess a slug.
 
@@ -28,8 +26,16 @@ it. Then stop and wait.
 
 ## Step 1: the Borrowed review
 
-Run Matt Pocock's `code-review` skill, with the base branch from `LOOP.md` as
-the fixed point and `.scratch/<slug>/spec.md` as the spec path.
+Confirm `git log <base>..HEAD --oneline` lists at least one commit. An empty
+list means the Coder has yet to commit: a blocker finding on its own; stop,
+write it, hand back. Then run Matt Pocock's `code-review` skill, with the base
+branch from `LOOP.md` as the fixed point and `.scratch/<slug>/spec.md` as the
+spec path.
+
+When its step 3 collects the standards sources, add the repository's `AGENTS.md`
+or `CLAUDE.md`. The skill names `CODING_STANDARDS.md` and `CONTRIBUTING.md`;
+most repositories keep their rules in the file the agent reads, and a rule
+missing from that list is taste to the Standards sub-agent, not a finding.
 
 Resolve the name in this order, because Claude Code ships a bundled
 `code-review` skill of its own:
@@ -44,10 +50,6 @@ Resolve the name in this order, because Claude Code ships a bundled
 3. A bare `code-review` with any other description is the bundled `code-review`
    skill, which reviews against something else. Leave it where it is, treat the
    Borrowed skill as not Resolvable, and take the by-hand route below.
-
-Before you invoke it, confirm `git log <base>..HEAD --oneline` lists at least
-one commit. An empty list means the Coder has yet to commit. That is a blocker
-finding on its own: stop, write it, and hand back.
 
 Paste the skill's `## Standards` and `## Spec` output verbatim into
 `CODEREVIEW.md`, under a `## code-review` heading.
@@ -76,15 +78,6 @@ Judge the implementation on:
   claim, and your run is the check.
 - Are the deviations recorded in `FIXES.md` justified?
 
-**A minor in its second round of dispute** is settled on this reading. When a
-minor is still `open`, the Coder pushed back on it in the round you are
-reviewing, and a `FIXES.md` round before that one pushed back on the same
-finding, accept the pushback or re-raise the finding as a major. `FIXES.md` is
-cumulative across the Loop, so both pushbacks are on disk and are what you judge
-this on. Two rounds of disagreement over one finding means the severity was
-wrong. The rule holds whatever the `Minors:` line says, and a major holds up
-Sign-off on either answer, as majors always have.
-
 ## Step 3: the Agent documents in the diff
 
 This step fires when the diff touches an Agent document: a skill file, an
@@ -104,10 +97,9 @@ for the levers, so read them there. Severity follows consequence, on the same
 scale as every other finding: a defect that leaves a step ambiguous is a major,
 sprawl that costs tokens without changing behaviour is a minor.
 
-Two outcomes leave the step with nothing to say, and both are recorded rather
-than passed over: a diff that touches no Agent document, and a
-`writing-for-agents` that does not resolve. Write either one as `Write
-CODEREVIEW.md` says, and carry on.
+Two outcomes leave the step with nothing to say, and each is one line above
+finding 1: `Step 3: no Agent document in the diff.` or
+`Step 3: writing-for-agents did not resolve.`
 
 ## Write `CODEREVIEW.md`
 
@@ -122,9 +114,8 @@ In this order:
 4. `## Findings`, numbered. Each one carries a severity (blocker / major /
    minor), a state in parentheses after the severity (`minor (open)`), a
    `file:line` reference, and a concrete fix. Step 3's findings are numbered
-   here with the rest. When step 3 did not apply, or `writing-for-agents` did
-   not resolve, that line comes first, above finding 1, so a skipped check does
-   not read like a passed one.
+   here with the rest. Step 3's line, when it has one, comes first, above
+   finding 1.
 
 The Minors answer is the `Minors:` line in `LOOP.md`, which you read first, and
 its two literals are `fix` and `leave`. A file with no `Minors:` line reads as
@@ -138,14 +129,19 @@ where you read it, and the Coder's convention for writing it stays as it is.
 `fixed` and `accepted` are both closed, and only `open` holds up Sign-off on
 `Minors: fix`. Round 1 findings are all `open`, and they carry the state anyway.
 
+**A minor in its second round of dispute** is settled on this reading. When a
+minor is still `open`, the Coder pushed back on it in the round you are
+reviewing, and a `FIXES.md` round before that one pushed back on the same
+finding, accept the pushback, unless the code as it stands is wrong or leaves
+the Spec unmet; then re-raise it as a major. `FIXES.md` is cumulative across
+the Loop, so both pushbacks are on disk and are what you judge this on. Two
+rounds of disagreement over one finding means the severity was wrong.
+
 A finding keeps its number for the life of the Loop and appears in every later
 round of the file with its current state. Replace a previous review rather than
 appending to it: the file is replaced each round and the list of findings inside
 it is cumulative, so a `FIXES.md` section that names a finding number still
 names the same finding.
-
-Sign-off is explicit: the loop ends on that literal line and on no other
-wording, so hedged approval leaves the round open.
 
 ## Handing off
 

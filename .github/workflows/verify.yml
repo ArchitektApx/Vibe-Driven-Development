@@ -89,7 +89,9 @@ jobs:
               const p = path.join(dir, e.name);
               return e.isDirectory() ? walk(p) : [p];
             });
-            const external = (t) => /^[a-z][a-z0-9+.-]*:/i.test(t) || t.startsWith("/") || t.startsWith("#");
+            // A target carrying <angle brackets> is a template placeholder the
+            // reader fills in, not a file that ships.
+            const external = (t) => /^[a-z][a-z0-9+.-]*:/i.test(t) || t.startsWith("/") || t.startsWith("#") || /<[^>]*>/.test(t);
             let rc = 0;
             for (const f of walk("skills").filter((p) => p.endsWith(".md"))) {
               const raw = fs.readFileSync(f, "utf8");
@@ -118,7 +120,9 @@ jobs:
               const p = path.join(dir, e.name);
               return e.isDirectory() ? walk(p) : [p];
             });
-            const external = (t) => /^[a-z][a-z0-9+.-]*:/i.test(t) || t.startsWith("/") || t.startsWith("#");
+            // A target carrying <angle brackets> is a template placeholder the
+            // reader fills in, not a file that ships.
+            const external = (t) => /^[a-z][a-z0-9+.-]*:/i.test(t) || t.startsWith("/") || t.startsWith("#") || /<[^>]*>/.test(t);
             let rc = 0;
             for (const entry of fs.readdirSync("skills", { withFileTypes: true })) {
               if (!entry.isDirectory()) continue;

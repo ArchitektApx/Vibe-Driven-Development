@@ -14,7 +14,7 @@ Ticket files (`.scratch/<slug>/issues/`) are its job.
 
 Read `LOOP.md` at the repository root first. It names the repository short
 name, the Feature slug, the base branch, the feature branch, the tracker path
-(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line and the two Session
+(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:` line and the two Session
 names. If it does not exist, stop and tell the user to run
 `/vdd:vdd-start-loop` in a Planner session; do not guess a slug.
 
@@ -55,15 +55,6 @@ major; sprawl that costs tokens without changing behaviour is a minor.
 If `writing-for-agents` does not resolve, review with what you know and record
 the miss as `Write PLAN-REVIEW.md` says.
 
-**A minor in its second round of dispute** is settled on this reading. When a
-minor is still `open`, the Planner pushed back on it in the round you are
-reviewing, and a `## Comments` entry from an earlier round pushed back on the
-same finding, accept the pushback or re-raise the finding as a major. Both
-pushbacks are on disk in `spec.md`, which is what you judge this on. Two rounds
-of disagreement over one finding means the severity was wrong. The rule holds
-whatever the `Minors:` line says, and a major holds up Sign-off on either
-answer, as majors always have.
-
 ## Write `PLAN-REVIEW.md`
 
 In this order:
@@ -95,14 +86,19 @@ writing it stays as it is. `fixed` and `accepted` are both closed, and only
 `open` holds up Sign-off on `Minors: fix`. Round 1 findings are all `open`, and
 they carry the state anyway.
 
+**A minor in its second round of dispute** is settled on this reading. When a
+minor is still `open`, the Planner pushed back on it in the round you are
+reviewing, and a `## Comments` entry from an earlier round pushed back on the
+same finding, accept the pushback, unless the Spec as it stands leaves a Coder
+step ambiguous; then re-raise it as a major. Both pushbacks are on disk in
+`spec.md`, which is what you judge this on. Two rounds of disagreement over one
+finding means the severity was wrong.
+
 A finding keeps its number for the life of the Loop and appears in every later
 round of the file with its current state. Replace a previous review rather than
 appending to it: the file is replaced each round and the list of findings inside
 it is cumulative, so a `## Comments` entry that names a finding number still
 names the same finding.
-
-Sign-off is explicit: the loop ends on that literal line and on no other
-wording, so "looks good" leaves the round open.
 
 ## Handing off
 

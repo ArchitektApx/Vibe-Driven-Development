@@ -1,5 +1,20 @@
 # Where the Borrowed skills sit, and why the search is shaped this way
 
+## The find loop
+
+```bash
+for s in setup-matt-pocock-skills grill-with-docs improve-codebase-architecture to-spec to-tickets wayfinder code-review writing-for-agents grilling; do
+  find ~/.agents/skills ./.agents/skills ~/.claude/skills ./.claude/skills ~/.claude/plugins/cache \
+    -name SKILL.md 2>/dev/null | grep "/$s/SKILL.md$"
+done
+```
+
+Filter with `grep`, not with `-path`, and search one skill per invocation.
+Missing search roots are normal here, so their errors go to `/dev/null` and a
+non-zero exit means nothing. The sections below say why the loop has this shape,
+for when your `find` rejects a predicate, prints everything under the roots, or
+returns nothing for a skill you have reason to think is there.
+
 ## The roots
 
 The Claude plugin route nests skills by category (`engineering/`,
