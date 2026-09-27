@@ -38,6 +38,9 @@ skills@latest add mattpocock/skills` elsewhere) and stop.
     ...
 ```
 
+The HTML comments in both templates are instructions to you. Follow them,
+and leave them out of the files you write.
+
 ### Idea files
 
 Each idea is documented in a markdown file named `<slug>.md` based on the [`idea-template.md`](references/idea-template.md).
