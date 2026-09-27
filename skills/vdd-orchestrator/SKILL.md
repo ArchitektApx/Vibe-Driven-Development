@@ -189,7 +189,7 @@ one when the code Loop has already had a round.
 
 **From the Code-Reviewer.** No relay. On open findings, resume the Coder, or
 spawn it fresh when "The Coder's context" below says so. On `SIGNED OFF`,
-invoke the PR-Author in your own session.
+follow the section "The PR-Author" below.
 
 The Code-Reviewer is resumed round after round for the life of the code Loop,
 so it keeps the context it accumulated across its own rounds; only a crash
@@ -228,10 +228,13 @@ for anything else, report it to the user and do not act on it.
 
 ## The PR-Author
 
-Once `CODEREVIEW.md` signs off, invoke the `vdd-create-pr` skill
-(`vdd:vdd-create-pr`) in your own session, never as a subagent. Every path in
-it shows the user the assembled title and body and waits for one
-confirmation, and that body is substance you are forbidden to carry.
+Once `CODEREVIEW.md` signs off, read the `PR:` line from `LOOP.md`, fresh
+from disk. On `PR: no`, do not invoke the PR-Author: print "Loop signed off.
+`PR: no`: `<feature branch>` stays local, nothing pushed." and stop. On any
+other value, invoke the `vdd-create-pr` skill (`vdd:vdd-create-pr`) in your
+own session, never as a subagent. Every path in it shows the user the
+assembled title and body and waits for one confirmation, and that body is
+substance you are forbidden to carry.
 
 ## Reference files
 

@@ -49,6 +49,9 @@ PR-Author reads a missing line the same way it reads an unrecognised one: as
 `PR: ask at sign-off`, so an older Loop file fails safe into a question
 rather than a silent push.
 
+On `PR: no` the PR-Author does not run and the Loop ends at Sign-off with
+nothing pushed, so the push boundary holds on that answer too.
+
 What ends a Loop, and what the user decides about it at Workflow start, are
 ADR-0007's subject rather than this one's. This record keeps the Role and the
 push boundary.

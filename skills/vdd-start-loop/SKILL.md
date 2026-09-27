@@ -95,16 +95,18 @@ question is asked.
 ## 7. The PR question
 
 Ask the user once, now that the branches are settled, whether VDD should open
-the PR at the end of the Workflow. Present three answers, in this order, with
-the middle one as the one that defers the decision:
+the PR at the end of the Workflow. Present four answers, in this order, with
+the second as the one that defers the decision:
 
 - Open it. Writes `PR: yes`.
 - Ask at Sign-off. Writes `PR: ask at sign-off`.
-- Manual. Writes `PR: manual`.
+- Manual. Writes `PR: manual`; VDD prints the body and you open the PR.
+- No PR. Writes `PR: no`; the branch stays local and no body is printed.
 
-The line the user's answer produces is what the PR-Author reads later, so
-this is the only place the question is asked; on `PR: ask at sign-off` the
-PR-Author asks again at Sign-off, and on the other two answers it does not.
+The line the user's answer produces is what the Orchestrator and the
+PR-Author read later, so this is the only place the question is asked; on
+`PR: ask at sign-off` the PR-Author asks again at Sign-off, and on the other
+three answers it does not.
 
 On `PR: yes`, read [the two checks](references/pr-preflight.md) and run them
 now, one that a push would work and one that `gh` could open a PR, and print

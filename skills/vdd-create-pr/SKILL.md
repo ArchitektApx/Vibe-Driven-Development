@@ -19,6 +19,8 @@ name, the Feature slug, the base branch, the feature branch, the tracker
 path (`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:` line and the two
 Session names. If it does not exist, stop and tell the user to run
 `/vdd:vdd-start-loop`; do not guess a slug.
+On `PR: no`, print "Loop signed off. `PR: no`: `<feature branch>` stays
+local, nothing pushed." and stop before step 2.
 
 ## 2. Read `CODEREVIEW.md`
 

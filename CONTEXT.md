@@ -17,7 +17,7 @@ The Role that puts Model approval to the user before its first spawn, hosts the 
 _Avoid_: dispatcher, controller, coordinator
 
 **PR-Author**:
-Runs in the Orchestrator's session on Sign-off and is the only Role that pushes. Reads the `PR:` line in `LOOP.md` and either opens the PR or prints the assembled body for the user.
+Runs in the Orchestrator's session on Sign-off and is the only Role that pushes. Reads the `PR:` line in `LOOP.md` and either opens the PR or prints the assembled body for the user. On `PR: no` it does not run.
 _Avoid_: extra session, autopilot, bot
 
 **Brainstormer**:
