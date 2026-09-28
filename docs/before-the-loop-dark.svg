@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="340" viewBox="0 0 900 340" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b949e"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="340" fill="#0d1117" rx="8"/>
+
+  <!-- Title -->
+  <text x="450" y="34" text-anchor="middle" font-size="20" font-weight="600" fill="#e6edf3">Before the loop: ideas and big changes</text>
+  <text x="450" y="56" text-anchor="middle" fill="#8b949e">Optional Roles in your own session. They end in files a loop reads.</text>
+
+  <!-- Brainstormer straight to the loop, over the Wayfinder -->
+  <path d="M 155 120 L 155 92 L 745 92 L 745 118" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="450" y="86" text-anchor="middle" fill="#c9d1d9" font-size="12">a decided idea that fits one loop</text>
+
+  <!-- Brainstormer -->
+  <rect x="40" y="120" width="230" height="150" rx="8" fill="#0f2447" stroke="#58a6ff" stroke-width="1.5"/>
+  <text x="155" y="146" text-anchor="middle" font-weight="600" font-size="16" fill="#79c0ff">Brainstormer</text>
+  <text x="155" y="166" text-anchor="middle" fill="#79c0ff" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">/vdd:vdd-brainstormer</text>
+  <text x="155" y="190" text-anchor="middle" fill="#c9d1d9" font-size="12">keeps one file per idea and</text>
+  <text x="155" y="208" text-anchor="middle" fill="#c9d1d9" font-size="12">takes each to decided or dropped</text>
+  <text x="155" y="236" text-anchor="middle" fill="#79c0ff" font-size="12">writes: .scratch/_brainstorming/</text>
+  <text x="155" y="252" text-anchor="middle" fill="#79c0ff" font-size="12">never writes code</text>
+
+  <!-- Brainstormer -> Wayfinder -->
+  <path d="M 270 195 L 333 195" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="302" y="187" text-anchor="middle" fill="#c9d1d9" font-size="12">too big</text>
+
+  <!-- Wayfinder -->
+  <rect x="335" y="120" width="230" height="150" rx="8" fill="#0f2447" stroke="#58a6ff" stroke-width="1.5"/>
+  <text x="450" y="146" text-anchor="middle" font-weight="600" font-size="16" fill="#79c0ff">Wayfinder</text>
+  <text x="450" y="166" text-anchor="middle" fill="#79c0ff" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">/vdd:vdd-wayfinder</text>
+  <text x="450" y="190" text-anchor="middle" fill="#c9d1d9" font-size="12">charts a change too big for one</text>
+  <text x="450" y="208" text-anchor="middle" fill="#c9d1d9" font-size="12">loop into a series of loops</text>
+  <text x="450" y="236" text-anchor="middle" fill="#79c0ff" font-size="12">writes: .scratch/&lt;effort&gt;/handoffs/</text>
+  <text x="450" y="252" text-anchor="middle" fill="#79c0ff" font-size="12">never writes code</text>
+
+  <!-- Wayfinder -> the loop -->
+  <path d="M 565 195 L 628 195" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="597" y="187" text-anchor="middle" fill="#c9d1d9" font-size="12">handoff</text>
+  <text x="597" y="211" text-anchor="middle" fill="#c9d1d9" font-size="12">per loop</text>
+
+  <!-- The loop -->
+  <rect x="630" y="120" width="230" height="150" rx="8" fill="#161b22" stroke="#30363d"/>
+  <text x="745" y="146" text-anchor="middle" font-weight="600" font-size="16" fill="#e6edf3">The loop</text>
+  <text x="745" y="166" text-anchor="middle" fill="#c9d1d9" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">/vdd:vdd-start-loop</text>
+  <text x="745" y="190" text-anchor="middle" fill="#c9d1d9" font-size="12">Planner and Orchestrator plan,</text>
+  <text x="745" y="208" text-anchor="middle" fill="#c9d1d9" font-size="12">build and review one change</text>
+  <text x="745" y="236" text-anchor="middle" fill="#c9d1d9" font-size="12">writes: .scratch/&lt;slug&gt;/</text>
+  <text x="745" y="252" text-anchor="middle" fill="#c9d1d9" font-size="12">see the workflow diagram</text>
+
+  <!-- Where you start -->
+  <line x1="155" y1="302" x2="155" y2="272" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="155" y="322" text-anchor="middle" fill="#8b949e" font-size="12">start here with rough ideas</text>
+  <line x1="450" y1="302" x2="450" y2="272" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="450" y="322" text-anchor="middle" fill="#8b949e" font-size="12">or with a big change</text>
+  <line x1="745" y1="302" x2="745" y2="272" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="745" y="322" text-anchor="middle" fill="#8b949e" font-size="12">or with one clear change</text>
+</svg>
