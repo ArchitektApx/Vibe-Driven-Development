@@ -19,9 +19,9 @@ severity or `SIGNED OFF`.
 
 Read `LOOP.md` at the repository root first. It names the repository short
 name, the Feature slug, the base branch, the feature branch, the tracker path
-(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line and the two Session
-names. If it does not exist, stop and tell the user to run
-`/vdd:vdd-start-loop` in a Planner session; do not guess a slug.
+(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:`
+line and the two Session names. If it does not exist, stop and tell the user
+to run `/vdd:vdd-start-loop` in a Planner session; do not guess a slug.
 
 ## What you may read
 
@@ -29,9 +29,6 @@ names. If it does not exist, stop and tell the user to run
 `.scratch/<slug>/CODEREVIEW.md` and `.scratch/<slug>/FIXES.md` down to and
 including its `Round` line, and nothing below. You read no Spec, no Ticket and
 no finding.
-
-`.scratch/<slug>/` also holds the Spec and the Tickets. Neither is in your read
-list.
 
 The boundary is the `Round` line rather than a line count. A review file's
 first line is `SIGNED OFF` only when it is signed off; on an open round the
@@ -98,18 +95,18 @@ list names for it, and the thinking level where your harness's spawn primitive
 takes one. A field approved as `inherited` is passed as nothing, and the child
 inherits what the host gives it.
 
-`LOOP.md` gains no model line. A model line would freeze a selection across the
-restart where the user most wants to change it, and the derivation above reads
-the same context on either side of a restart.
-
 ## Spawning a hosted Role
 
 Spawn and resume are your harness's own subagent primitives: in Claude Code,
 the Agent tool spawns a fresh subagent, and `SendMessage` addressed to that
 subagent's name resumes it. Before every spawn, print one line naming the
 Role, the model and the round: `Spawning <Role>, <model>, round <n>.` Where
-you pass no model, the line says `inherited`. Say nothing else while a child
-runs; the host's own subagent view is where the user watches a Role work.
+you pass no model, the line says `inherited`. A Coder spawned fresh under the
+`Fresh Coder:` line ends the line with the size that sent it there:
+`Spawning Coder, <model>, round <n>, fresh at <size>.`, or `fresh on request`
+when the user asked for it. Say nothing else while
+a child runs; the host's own subagent view is where the user watches a Role
+work.
 
 ### The Spawn prompt
 
@@ -158,14 +155,6 @@ Return a `QUESTION` only in these three cases, and no others:
 Anything else you resolve yourself or report as `BLOCKED`.
 ```
 
-The third case is named explicitly because `vdd-coder`'s own rule is to
-record that Ticket in `FIXES.md` and carry on rather than to stop, so no
-conversion rule reaches it on its own, and because this carve-out is on the
-hosted Coder alone (ADR-0001, ADR-0007). The template still states all three
-cases to every Role: substitution alone, with no wording left to your
-judgement, is what keeps the Coder's carve-out from being dropped the way the
-severity counts were.
-
 ### Parsing the return
 
 Match the return against the three prefixes the template states above, and
@@ -177,9 +166,8 @@ return, including prose wrapped around a line that matched.
 
 On no match, resume the same subagent once with the contract restated, the
 three shapes above. On a second miss, raise the return to the user as a
-`BLOCKED`, quoting it, and wait. Before you resume, read
-[what an unmatched return means](references/unmatched-return.md); it says why
-one resume rather than several.
+`BLOCKED`, quoting it, and wait. Why one resume and not several:
+[what an unmatched return means](references/unmatched-return.md).
 
 ## Acting on a `DOORBELL`
 
@@ -199,18 +187,38 @@ over and there is no next Planner Doorbell to wait for: spawn the Coder, as
 **From the Coder.** No relay: spawn the Code-Reviewer, or resume the existing
 one when the code Loop has already had a round.
 
-**From the Code-Reviewer.** No relay. On open findings, resume the Coder. On
-`SIGNED OFF`, invoke the PR-Author in your own session.
+**From the Code-Reviewer.** No relay. On open findings, resume the Coder, or
+spawn it fresh when "The Coder's context" below says so. On `SIGNED OFF`,
+follow the section "The PR-Author" below.
 
-The Coder and the Code-Reviewer are both resumed round after round, for the
-life of the code Loop, so each keeps the context it accumulated across its own
-rounds; only a crash costs that context.
+The Code-Reviewer is resumed round after round for the life of the code Loop,
+so it keeps the context it accumulated across its own rounds; only a crash
+costs that context.
+
+## The Coder's context
+
+`Fresh Coder: never`: resume the Coder every round.
+
+`Fresh Coder: over <n>`: on every Coder return, read the context size your
+harness reports for the finished subagent; in Claude Code it sits in the
+trailer under the Agent tool's result. Under the limit, resume. Over it, the
+next Coder round is a fresh spawn, with the same Spawn prompt and that
+round's number; the Coder's state is on disk as `FIXES.md` and the commits.
+Round 1 has no earlier return to read a size from, so it gets no check.
+
+With no size readable, tell the user once that the check cannot run and that
+they can ask for a fresh Coder at any round. Resume as usual until they do.
 
 ## Acting on a `QUESTION`
 
 Put it to the user in your own session, verbatim. When they answer, resume
 the same subagent with the answer as the resume message. The subagent's
 context is intact; it did not restart.
+
+## Acting on a `BLOCKED`
+
+Put it to the user in your own session, verbatim, and wait. Resume or fresh
+spawn is their call, and their answer is the resume message.
 
 ## Receiving a message from the Planner
 
@@ -220,10 +228,13 @@ for anything else, report it to the user and do not act on it.
 
 ## The PR-Author
 
-Once `CODEREVIEW.md` signs off, invoke the `vdd-create-pr` skill
-(`vdd:vdd-create-pr`) in your own session, never as a subagent. Every path in
-it shows the user the assembled title and body and waits for one
-confirmation, and that body is substance you are forbidden to carry.
+Once `CODEREVIEW.md` signs off, read the `PR:` line from `LOOP.md`, fresh
+from disk. On `PR: no`, do not invoke the PR-Author: print "Loop signed off.
+`PR: no`: `<feature branch>` stays local, nothing pushed." and stop. On any
+other value, invoke the `vdd-create-pr` skill (`vdd:vdd-create-pr`) in your
+own session, never as a subagent. Every path in it shows the user the
+assembled title and body and waits for one confirmation, and that body is
+substance you are forbidden to carry.
 
 ## Reference files
 

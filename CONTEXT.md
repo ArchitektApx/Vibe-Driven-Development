@@ -9,7 +9,7 @@ Everything from the environment check to the pull request, on one Feature slug. 
 _Avoid_: phase, pipeline, run
 
 **Role**:
-One of the eight jobs in the workflow (Planner, Orchestrator, Plan-Reviewer, Coder, Code-Reviewer, PR-Author, plus Setup and Start-Loop). Each ships as one skill file. The Planner runs in the user's session; the Orchestrator hosts the rest.
+One of the ten jobs the plugin ships (Planner, Orchestrator, Plan-Reviewer, Coder, Code-Reviewer, PR-Author, plus Setup and Start-Loop inside the Workflow; Brainstormer and Wayfinder before it). Each ships as one skill file. The Planner, the Brainstormer and the Wayfinder run in the user's session; the Orchestrator hosts the rest.
 _Avoid_: agent, persona, mode
 
 **Orchestrator**:
@@ -17,8 +17,24 @@ The Role that puts Model approval to the user before its first spawn, hosts the 
 _Avoid_: dispatcher, controller, coordinator
 
 **PR-Author**:
-Runs in the Orchestrator's session on Sign-off and is the only Role that pushes. Reads the `PR:` line in `LOOP.md` and either opens the PR or prints the assembled body for the user.
+Runs in the Orchestrator's session on Sign-off and is the only Role that pushes. Reads the `PR:` line in `LOOP.md` and either opens the PR or prints the assembled body for the user. On `PR: no` it does not run.
 _Avoid_: extra session, autopilot, bot
+
+**Brainstormer**:
+The Role that keeps a project's ideas in `.scratch/_brainstorming/`, one Idea file each plus an index, and talks or grills each idea to `decided` or `dropped`. Runs in the user's session, outside any Workflow, and names no next stage; the user carries a decided Idea file to a Planner or a Wayfinder by hand.
+_Avoid_: ideation, backlog, discovery
+
+**Idea file**:
+`.scratch/_brainstorming/<slug>.md`, written from the Brainstormer's template: frontmatter with status, importance, size, fog and typed relations, then Key Metrics, Summary, Proposal, Pro, Con, Open Questions, Evidence, Prior Art, Related Ideas, Decision and Next Steps. With the index, the Brainstormer's deliverables.
+_Avoid_: proposal, RFC, note
+
+**Wayfinder**:
+The Role that opens a change too large for one loop. Briefs Matt Pocock's `wayfinder` skill on VDD once, fixes the Handoffs as the map's destination, and hands the user to that skill. Runs in the user's session, outside any Workflow.
+_Avoid_: architect, epic planner, pre-planner
+
+**Handoff**:
+One file per loop of a wayfinding effort under `.scratch/<effort>/handoffs/`, `00-overview.md` for the series and `NN-<slug>.md` per loop, in the shape the Wayfinder's handoff contract fixes. The user gives each loop's Planner its Handoff with the prompt the overview carries.
+_Avoid_: brief, epic, chunk
 
 **Session**:
 One of the two conversations the user opens: the Planner's, and the Orchestrator's. A hosted Role runs as a subagent, a fresh conversation the Orchestrator spawns inside its own session, and that freshness is what still makes the review adversarial: a subagent's context begins with its Spawn prompt and holds nothing of its host's reasoning.
@@ -41,7 +57,7 @@ _Avoid_: feature name, ticket name, branch name
 _Avoid_: scratch dir, feature folder, workspace
 
 **Loop file**:
-`LOOP.md` at the repository root. Records the Feature slug, the repository short name, the base branch, the feature branch, the tracker path, the `Minors:` line, the `PR:` line and the two Session names, so every Role reads them instead of asking. It is the one Working file outside the tracker directory, because every Role reads it before it knows a Feature slug and no tracker path resolves until it has. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
+`LOOP.md` at the repository root. Records the Feature slug, the repository short name, the base branch, the feature branch, the tracker path, the `Minors:` line, the `PR:` line, the `Fresh Coder:` line and the two Session names, so every Role reads them instead of asking. It is the one Working file outside the tracker directory, because every Role reads it before it knows a Feature slug and no tracker path resolves until it has. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
 _Avoid_: session file, config, manifest
 
 **Spec**:
@@ -84,6 +100,10 @@ _Avoid_: approval, LGTM, done
 The `Minors:` line in the Loop file, `fix` or `leave`, given by the user at Workflow start and read by both reviewers. It decides whether an open minor holds up Sign-off.
 _Avoid_: minors setting, strictness, thoroughness flag
 
+**Fresh Coder line**:
+The `Fresh Coder:` line in the Loop file, `over <n>` or `never`, given by the user at Workflow start and read by the Orchestrator on every Coder return. On `over <n>` a Coder whose reported context size passed `<n>`, or reported none, is spawned fresh for its next round with `FIXES.md` and the commits as its state; the reviewers are resumed regardless.
+_Avoid_: restart rule, context limit, respawn flag
+
 **Open minor**:
 A minor the latest review lists as `open`; a minor the reviewer marked `fixed` or `accepted` is closed. On a Minors answer of `fix` an open minor holds up Sign-off, and on `leave` it does not.
 _Avoid_: outstanding nit, unresolved comment, leftover
@@ -99,11 +119,11 @@ _Avoid_: change log, diff summary, rationale
 ## Skill dependencies
 
 **Borrowed skill**:
-A skill from another collection that a Role depends on but does not ship. From Matt Pocock's collection: `setup-matt-pocock-skills`, `grill-with-docs`, `improve-codebase-architecture`, `to-spec`, `to-tickets` (all User-invoked), and `code-review` and `writing-for-agents` (both agent-invocable).
+A skill from another collection that a Role depends on but does not ship. From Matt Pocock's collection: `setup-matt-pocock-skills`, `grill-with-docs`, `improve-codebase-architecture`, `to-spec`, `to-tickets`, `wayfinder` (all User-invoked), and `code-review`, `writing-for-agents` and `grilling` (agent-invocable).
 _Avoid_: external skill, third-party skill, dependency
 
 **User-invoked**:
-A property of a skill whose author blocked agents from starting it, so only a human typing the slash command can. All Borrowed skills except `code-review` and `writing-for-agents` are user-invoked. In Claude Code this is `disable-model-invocation: true` in the frontmatter; in Codex, `policy.allow_implicit_invocation: false`.
+A property of a skill whose author blocked agents from starting it, so only a human typing the slash command can. All Borrowed skills except `code-review`, `writing-for-agents` and `grilling` are user-invoked. In Claude Code this is `disable-model-invocation: true` in the frontmatter; in Codex, `policy.allow_implicit_invocation: false`.
 _Avoid_: manual, disabled, blocked
 
 **Present**:

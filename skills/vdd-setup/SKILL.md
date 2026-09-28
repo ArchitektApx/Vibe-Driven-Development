@@ -13,7 +13,7 @@ particular feature; `/vdd:vdd-start-loop` handles per-loop state and writes
 
 Check, in order:
 
-1. **Borrowed skills.** The Roles depend on seven skills from Matt Pocock's
+1. **Borrowed skills.** The Roles depend on nine skills from Matt Pocock's
    collection:
 
    | Borrowed skill | Invoked by | Needed by |
@@ -23,13 +23,14 @@ Check, in order:
    | `improve-codebase-architecture` | the user | Planner |
    | `to-spec` | the user | Planner |
    | `to-tickets` | the user | Planner |
+   | `wayfinder` | the user | Wayfinder |
    | `code-review` | an agent | Code-Reviewer |
    | `writing-for-agents` | an agent | Planner, Plan-Reviewer, Code-Reviewer |
+   | `grilling` | an agent | Brainstormer |
 
-   The five user-invoked ones have `disable-model-invocation: true` in their
+   The six user-invoked ones have `disable-model-invocation: true` in their
    frontmatter, so they never appear in your own skill list even when correctly
-   installed. Your skill list is silent about those five by design, so answer
-   for them on the two separate conditions below.
+   installed. Answer for them on the two separate conditions below.
 
    **Present.** Search for the files, not the directories, so that a dangling
    symlink reads as absent:
@@ -42,27 +43,10 @@ Check, in order:
    ~/.claude/plugins/cache/*/mattpocock-skills/*/skills/**/SKILL.md
    ```
 
-   You want `setup-matt-pocock-skills/SKILL.md`, `grill-with-docs/SKILL.md`,
-   `improve-codebase-architecture/SKILL.md`, `to-spec/SKILL.md`,
-   `to-tickets/SKILL.md`, `code-review/SKILL.md` and
-   `writing-for-agents/SKILL.md`. Match on the trailing path rather than a
-   fixed depth.
+   Match on the trailing path `<skill>/SKILL.md` rather than a fixed depth.
 
-   Use your file-search tool if you have one; otherwise:
-
-   ```bash
-   for s in setup-matt-pocock-skills grill-with-docs improve-codebase-architecture to-spec to-tickets code-review writing-for-agents; do
-     find ~/.agents/skills ./.agents/skills ~/.claude/skills ./.claude/skills ~/.claude/plugins/cache \
-       -name SKILL.md 2>/dev/null | grep "/$s/SKILL.md$"
-   done
-   ```
-
-   Filter with `grep`, not with `-path`, and search one skill per invocation.
-   Missing search roots are normal here, so their errors go to `/dev/null` and
-   a non-zero exit means nothing. When your `find` rejects a predicate, or
-   prints everything under the roots, or returns nothing for a skill you have
-   reason to think is there, read
-   [why the search is shaped this way](references/present-search.md).
+   Use your file-search tool if you have one; otherwise run
+   [the find loop](references/present-search.md).
 
    **Resolvable.** Present only means the file exists somewhere; it does not
    mean this agent can run it. Answer this one from your own skill list alone,
@@ -73,8 +57,7 @@ Check, in order:
    Probe your own skill list for `writing-for-agents`. It is Borrowed in its
    own right and agent-invocable, so a wired collection puts it in your skill
    list, and Claude Code bundles nothing of that name, so a hit needs no
-   reading. A hit answers Resolvable for the five user-invoked skills, for
-   `code-review` and for `writing-for-agents` itself.
+   reading. A hit answers Resolvable for all nine.
 
    A miss proves nothing, because these collections can be installed one skill
    at a time. `code-review` is agent-invocable too, so it looks like a second
@@ -87,14 +70,10 @@ Check, in order:
    Report the result as one of three states:
 
    - **Present and Resolvable.** Passed, say nothing further.
-   - **Present but not Resolvable.** Installed, but not wired to this agent.
-     The install already happened, so the repair is wiring, and where you found
-     the file decides which repair. Keep each repair on the store its files
-     came from: the npx route offered for a plugin-route install creates a
-     second, parallel copy of the collection.
+   - **Present but not Resolvable.** Installed, not wired to this agent.
    - **Not Present.** Tell the user to install the whole collection.
 
-   Not Present for `writing-for-agents` alone, with the other six Present, is
+   Not Present for `writing-for-agents` alone, with the other eight Present, is
    an old collection rather than a missing one, and telling that user to
    install a collection they already have is the wrong advice.
 
@@ -105,12 +84,16 @@ Check, in order:
    Name what a failure costs each Role, in these words. A missing or
    unresolvable `grill-with-docs`, `improve-codebase-architecture`, `to-spec` or
    `to-tickets` blocks the Planner. A missing or unresolvable `code-review`
-   blocks the Code-Reviewer. A missing or unresolvable `writing-for-agents`
-   degrades the Planner, the Plan-Reviewer and the Code-Reviewer instead of
-   blocking them: each drops its writing pass, records that in the file it
-   writes, and carries on. The Coder is the only Role that borrows nothing,
-   and a user resuming mid-workflow is stopped by the `code-review` finding
-   alone.
+   blocks the Code-Reviewer. A missing or unresolvable `wayfinder` blocks the Wayfinder. A
+   missing or unresolvable `writing-for-agents` degrades the Planner, the
+   Plan-Reviewer and the Code-Reviewer instead of blocking them: each drops
+   its writing pass, records that in the file it writes, and carries on. A
+   missing or unresolvable `grilling` degrades the Brainstormer the same way:
+   it talks the idea through without grilling. The Brainstormer and the
+   Wayfinder check their own Borrowed skill when they start, so each of those
+   two failures surfaces again at the Role. The Coder is the only Role that
+   borrows nothing, and a user resuming mid-workflow is stopped by the
+   `code-review` finding alone.
 
 2. **Tracker configured.** `to-spec`, `to-tickets` and `code-review` all read
    `docs/agents/issue-tracker.md` to learn where specs and tickets live, and

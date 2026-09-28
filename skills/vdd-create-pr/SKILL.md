@@ -12,47 +12,35 @@ pushes a branch or opens a PR, and only after Sign-off, when the Coder's
 fixup fold has nothing left to rewrite. You have no Session name of your
 own.
 
-## Read list
-
-Read these five files from disk on every run, fresh: `LOOP.md` at the
-repository root, `.scratch/<slug>/CODEREVIEW.md`,
-`.scratch/<slug>/PLAN-REVIEW.md` and `.scratch/<slug>/FIXES.md`, and
-`.scratch/<slug>/spec.md`.
-This is the single source of what the assembled title and body draw on. You
-carry no state between runs. The session hosting you by hand may already
-hold `FIXES.md` and `CODEREVIEW.md` in context from its own prior turn, and
-the Orchestrator hosting you holds neither, since its own read boundary stops
-at each file's `Round` line; either way, re-read all five, because you may
-run more than once on the same branch and each run needs the files as they
-now stand, not as they stood on the prior run.
-
 ## 1. Read `LOOP.md`
 
-Read `LOOP.md` at the repository root first. It names the repository short
+Read `LOOP.md` at the repository root, fresh from disk. It names the repository short
 name, the Feature slug, the base branch, the feature branch, the tracker
-path (`.scratch/<slug>/`), the `Minors:` line, the `PR:` line and the two
+path (`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:` line and the two
 Session names. If it does not exist, stop and tell the user to run
 `/vdd:vdd-start-loop`; do not guess a slug.
+On `PR: no`, print "Loop signed off. `PR: no`: `<feature branch>` stays
+local, nothing pushed." and stop before step 2.
 
 ## 2. Read `CODEREVIEW.md`
 
-Read `CODEREVIEW.md`. If its first line is not `SIGNED OFF`, stop and say the
-Loop is not finished: an unsigned review has no PR to open yet.
+Read `.scratch/<slug>/CODEREVIEW.md` from disk. If its first line is not
+`SIGNED OFF`, stop and say the Loop is not finished: an unsigned review has no
+PR to open yet.
 
 ## 3. Assemble the title and body
+
+Read `.scratch/<slug>/PLAN-REVIEW.md`, `.scratch/<slug>/FIXES.md` and
+`.scratch/<slug>/spec.md` from disk. The session hosting you may hold older
+copies in context, and you carry no state between runs, so every run reads the
+files as they now stand.
 
 Assemble the title and body now, before the `PR:` branch in step 4, so every
 path below that prints or shows the body already has it in hand.
 
-The body describes the change and reports nothing about the Workflow that
-produced it. Add no section of your own carrying review rounds, findings by
-severity or the verification that ran. That record stays in the Tracker
-directory, on the machine that ran the Workflow, and a reviewer reads a
-description of the change instead.
-
-Two of the three paths below answer to something other than this rule, and
-each says so where it is written. A template's own sections are the template's,
-and a body imitating merged history is governed by what came back.
+The body describes the change. Review rounds, findings and verification stay
+in the Tracker directory on the machine that ran the Workflow; a reviewer reads
+what changed and why.
 
 **Template lookup.** Stop at the first hit, in this order:
 `PULL_REQUEST_TEMPLATE.md` or `pull_request_template.md` at the repository
@@ -122,11 +110,10 @@ print its URL and the assembled body and stop, pushing nothing. An empty
 result continues to step 7 for confirm, push, open.
 
 **Push only, open-a-PR absent.** The existing-PR check above is skipped.
-Continue to step 7: confirm the body, then ask the user once more before
-pushing.
+Continue to step 7.
 
-**Neither present.** The existing-PR check is skipped. Print the body, push
-nothing, and name the check that failed.
+**Neither present.** Print the body, push nothing, and name the check that
+failed.
 
 ## 7. Show, confirm, push, open
 

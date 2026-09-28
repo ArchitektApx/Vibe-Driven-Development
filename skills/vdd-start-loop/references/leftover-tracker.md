@@ -13,4 +13,4 @@ chooses on the consequence rather than on the label.
   taking the lowest `n` from 2 upwards that is not already a directory, and
   print the name you moved it to.
 - **Use a different slug.** Every file stays where it is, under the slug that
-  named it. Go back to step 4 and ask for the slug again.
+  named it. Go back to step 3 and ask for the slug again.

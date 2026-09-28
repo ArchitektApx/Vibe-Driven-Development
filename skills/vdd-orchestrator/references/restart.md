@@ -17,8 +17,8 @@ five states holds:
   the Coder. `FIXES.md` one round above `CODEREVIEW.md` means the
   Code-Reviewer owes the review: spawn the Code-Reviewer. `FIXES.md` below
   `CODEREVIEW.md` cannot happen in a live Loop.
-- **`CODEREVIEW.md` signed off.** The Loop is over. Invoke the PR-Author in
-  your own session.
+- **`CODEREVIEW.md` signed off.** The Loop is over. Follow the section
+  "The PR-Author" in `SKILL.md`.
 
 The relay in the second state is what the read boundary lets you say. The
 counts of open findings per severity live below the `Round` line, which you may

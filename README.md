@@ -32,6 +32,7 @@
 - [🧰 Install (Cursor, GitHub Copilot CLI, Codex, other agents)](#-install-cursor-github-copilot-cli-codex-other-agents)
 - [🧪 Beta channel](#-beta-channel)
 - [🔁 Workflow](#-workflow)
+- [🧭 Before the loop](#-before-the-loop)
 
 ## 🎯 Why this works
 
@@ -69,10 +70,12 @@ VDD and the Matt Pocock skills create multiple working files along the way that 
   | `improve-codebase-architecture` | 🧑 you | Planner |
   | `to-spec` | 🧑 you | Planner |
   | `to-tickets` | 🧑 you | Planner |
+  | `wayfinder` | 🧑 you | Wayfinder |
   | `code-review` | 🤖 the agent | Code-Reviewer |
   | `writing-for-agents` | 🤖 the agent | Planner, Plan-Reviewer, Code-Reviewer |
+  | `grilling` | 🤖 the agent | Brainstormer |
 
-  All of them except `code-review` and `writing-for-agents` are user-invoked: their author blocked agents from starting them, so the Role will ask you to type the slash command yourself at the right moment. The Coder is the one Role that borrows nothing. The Plan-Reviewer borrows only `writing-for-agents`, and runs without it: a Role that cannot resolve that skill drops its writing check and says so in the file it writes.
+  All of them except `code-review`, `writing-for-agents` and `grilling` are user-invoked: their author blocked agents from starting them, so the Role will ask you to type the slash command yourself at the right moment. The Coder is the one Role that borrows nothing. The Plan-Reviewer borrows only `writing-for-agents`, and runs without it: a Role that cannot resolve that skill drops its writing check and says so in the file it writes.
 
 > [!TIP]
 > **Optional:** Claude Code 2.1.224+ on macOS or Linux. It lets one session ring the next one's doorbell instead of you copying a line between terminals. Everything works without it; the Roles print the line for you to paste.
@@ -89,6 +92,8 @@ This repository is a Claude Code plugin marketplace. The `vdd` plugin ships one 
 | Role | Skill |
 |------|-------|
 | 🩺 Environment check | `/vdd:vdd-setup` |
+| 💡 Brainstormer | `/vdd:vdd-brainstormer` |
+| 🗺 Wayfinder | `/vdd:vdd-wayfinder` |
 | 🚀 Start a loop | `/vdd:vdd-start-loop` |
 | 🧠 Planner | `/vdd:vdd-planner` |
 | 🧭 Orchestrator | `/vdd:vdd-orchestrator` |
@@ -130,6 +135,27 @@ This repository is developed with its own workflow; `CONTEXT.md` and `docs/adr/`
 ## 🔁 Workflow
 
 The loop runs in three phases: the Planner and the Plan-Reviewer argue the spec into shape, the Coder and the Code-Reviewer do the same with the code, and the PR-Author ships it. [**docs/VDD-WORKFLOW.md**](docs/VDD-WORKFLOW.md) walks a loop round by round, names what each Role reads, writes and rings, and carries the model recommendations and the tips that keep loops converging.
+
+## 🧭 Before the loop
+
+Two optional Roles come before the loop. Both run in your own session, outside any loop, and end in files, never in code. For one change you already understand, skip both and run `/vdd:vdd-start-loop`.
+
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/before-the-loop-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/before-the-loop-light.svg">
+  <img alt="Before the loop: the Brainstormer takes rough ideas to decided or dropped in .scratch/_brainstorming/. A decided idea that fits one loop goes to /vdd:vdd-start-loop; one too big for a loop goes to the Wayfinder, which charts it into a series of loops and writes one handoff per loop under .scratch/&lt;effort&gt;/handoffs/. You can start at any of the three." src="docs/before-the-loop-light.svg" width="900">
+</picture>
+
+</div>
+
+| Role | Use it when | It leaves you with |
+|------|-------------|--------------------|
+| 💡 Brainstormer | you have more ideas than you can judge, or one you are unsure of | `.scratch/_brainstorming/`: one file per idea and an index, each idea talked through, tested or grilled until it is `decided` or `dropped` |
+| 🗺 Wayfinder | a change is too big or too foggy for one loop | `.scratch/<effort>/handoffs/`: an overview and one handoff per loop, which that loop's Planner plans from |
+
+Neither Role starts the next one. You carry a decided idea file to `/vdd:vdd-start-loop` or `/vdd:vdd-wayfinder` yourself, and the Wayfinder's `00-overview.md` ends with the prompt that starts each loop. [**docs/VDD-WORKFLOW.md**](docs/VDD-WORKFLOW.md#-before-the-loop) has the details.
 
 ---
 

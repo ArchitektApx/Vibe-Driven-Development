@@ -14,7 +14,7 @@ into the Spec instead, as a description of what the Coder should build.
 
 Read `LOOP.md` at the repository root first. It names the repository short
 name, the Feature slug, the base branch, the feature branch, the tracker path
-(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line and the two Session
+(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:` line and the two Session
 names. If it does not exist, stop and tell the user to run
 `/vdd:vdd-start-loop` in a Planner session; do not guess a slug.
 
@@ -42,8 +42,8 @@ ask the user to type `/setup-matt-pocock-skills` and to recommend Local
 markdown when it asks; it is user-invoked, so you cannot run it. Wait for that
 before you reach the Spec.
 
-Also make sure `LOOP.md` and `.scratch/` are gitignored before you start.
-`/vdd:vdd-setup` covers this too.
+Read `.gitignore`. If `LOOP.md` or `.scratch/` is missing from it, stop and
+ask the user to run `/vdd:vdd-setup`, which writes the entries.
 
 ## Starting the session
 
@@ -55,7 +55,8 @@ The user either arrives with a problem or they do not.
    root cause, the files involved. Read the code for each of the three. The
    solution starts once that definition holds.
 2. Summarise what you found and what is still open, then hand off to
-   `/grill-with-docs`.
+   `/grill-with-docs` as [Handing off to the grilling](#handing-off-to-the-grilling)
+   says.
 
 **They described nothing yet:**
 
@@ -64,9 +65,29 @@ The user either arrives with a problem or they do not.
    codebase (refactoring, architecture, tests).
 2. If they name a problem, follow the stated-problem sequence above.
 3. If they want a general improvement, hand off to
-   `/improve-codebase-architecture`. That skill finds and selects the
-   highest-value improvement and ends in a grilling of its own, so that one
-   command covers this branch's grilling too.
+   `/improve-codebase-architecture` as
+   [Handing off to the grilling](#handing-off-to-the-grilling) says. That
+   skill finds and selects the highest-value improvement and ends in a
+   grilling of its own, so that one command covers this branch's grilling too.
+
+## Settling facts
+
+A question that neither you nor the user can answer from knowledge or from the
+repository is settled before it is decided, not assumed. Propose the smallest
+thing that answers it and let the user say run or skip:
+
+- a research pass, when the fact exists somewhere: documentation, source, a
+  past loop's Working files
+- a minimal proof of concept, when a behaviour or a mechanism has to be seen
+  working before the plan can rely on it
+- a throwaway prototype, when a design has to be felt before it can be argued
+- a measurement script, when the answer is a number
+
+This holds in the summary you give before the grilling, for every assumption
+listed there, and during the grilling, whenever a question stalls. Write each
+finding to `.scratch/<slug>/research/<question>.md`, scripts and data beside
+it, and see that the Spec cites the file. A loop whose questions all have
+answers pays nothing for this.
 
 ## Handing off to the grilling
 
@@ -84,19 +105,9 @@ confirmation is the grilling's own terminal condition, not a convention of
 ours: the grilling skill forbids acting until the user gives it. Reaching for
 the Spec early breaks the borrowed skill's contract as well as this one.
 
-Two things hold the step open until the grilling has run:
-
-- The grilling skill runs the interview, once the user types the command. Your
-  own questions to the user are a conversation with them, and the step stays
-  open until that command has run.
-- The Spec comes out of the grilling, however complete your investigation
-  feels.
-
 ## Writing the Spec and Tickets
 
-When the user confirms shared understanding, resume as Planner. Both remaining
-skills are user-invoked, so you ask and the user types, exactly as with the
-grilling.
+When the user confirms shared understanding, resume as Planner.
 
 1. Ask the user to type `/to-spec`. Say in that message that the spec belongs
    under `.scratch/<slug>/` with the slug from `LOOP.md`. `to-spec` takes no

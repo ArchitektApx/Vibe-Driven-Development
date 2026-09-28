@@ -18,6 +18,7 @@ A loop runs in three phases. Installation and requirements are in the [README](.
 - [📐 Phase 1: The Plan / Plan-Review loop](#-phase-1-the-plan--plan-review-loop)
 - [🔧 Phase 2: The Coder / Code-Review loop](#-phase-2-the-coder--code-review-loop)
 - [🚢 Phase 3: Ship](#-phase-3-ship)
+- [🧭 Before the loop](#-before-the-loop)
 - [💡 Tips](#-tips)
 
 ## 📐 Phase 1: The Plan / Plan-Review loop
@@ -110,11 +111,37 @@ Hosted by the Orchestrator too, the same way. `FIXES.md` and `CODEREVIEW.md` pas
 
 ## 🚢 Phase 3: Ship
 
-On Sign-off, the Orchestrator runs the PR-Author in its own session. It reads the `PR:` line `/vdd:vdd-start-loop` wrote to `LOOP.md`: `PR: yes` shows you the assembled body, pushes the branch and opens the PR; `PR: ask at sign-off` asks you then; `PR: manual` prints the body and touches neither the branch nor the remote. Either VDD opens the PR or you do, from the printed body.
+On Sign-off, the Orchestrator runs the PR-Author in its own session. It reads the `PR:` line `/vdd:vdd-start-loop` wrote to `LOOP.md`: `PR: yes` shows you the assembled body, pushes the branch and opens the PR; `PR: ask at sign-off` asks you then; `PR: manual` prints the body and touches neither the branch nor the remote. `PR: no` skips the PR-Author: the branch stays local and no body is printed. Either VDD opens the PR or you do, from the printed body.
 
 1. If the PR-Author did not open the PR, open it yourself from the feature branch, pasting the printed body. The commits are already there, one per ticket plus any commit no ticket owned, and the working files are gitignored and stay behind.
 2. Delete `LOOP.md`. Keep `.scratch/<slug>/`: the spec, the tickets and the three review files are in there, and they are that loop's record. It is gitignored, so it stays on this machine and reaches no clone.
 3. Start the next loop with fresh sessions.
+
+## 🧭 Before the loop
+
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="before-the-loop-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="before-the-loop-light.svg">
+  <img alt="Before the loop: the Brainstormer takes rough ideas to decided or dropped in .scratch/_brainstorming/. A decided idea that fits one loop goes to /vdd:vdd-start-loop; one too big for a loop goes to the Wayfinder, which charts it into a series of loops and writes one handoff per loop under .scratch/&lt;effort&gt;/handoffs/. You can start at any of the three." src="before-the-loop-light.svg" width="900">
+</picture>
+
+</div>
+
+Two optional Roles run before a loop, in your own session. Neither is part of the loop, and neither starts the next Role: you carry what they write to the next one yourself.
+
+### 💡 The Brainstormer
+
+`/vdd:vdd-brainstormer` keeps a project's ideas in `.scratch/_brainstorming/`: one file per idea, an `index.md` that lists them with their status, and a `research/` directory for anything worth keeping from a test. Each idea file rates its importance, its size and its fog, the unknowns between you and knowing whether it works. Asked for an overview, the Brainstormer uses those ratings to suggest what to work on next.
+
+In a session you capture a new idea or move an existing one. The Brainstormer talks an idea through, clears fog with the cheapest test that answers the question, and grills you with Matt Pocock's `grilling` skill once you can decide. An idea ends `decided` or `dropped`, with the date and the reason. A dropped idea also records the condition under which it is worth reopening, so it is not argued twice. Give a decided idea file to `/vdd:vdd-start-loop` as the problem statement, or to the Wayfinder when it is too big for one loop.
+
+### 🗺 The Wayfinder
+
+`/vdd:vdd-wayfinder` is for a change no single loop holds, or one whose goal is still unclear. It asks for the effort's name and what the effort is, then prints a briefing on VDD and hands you to Matt Pocock's `wayfinder` skill, which charts the effort in `.scratch/<effort>/map.md` over as many sessions as it needs.
+
+The map is done when `.scratch/<effort>/handoffs/` holds `00-overview.md` and one `NN-<slug>.md` per loop. The overview names the destination, the loops in order, the gate each loop must pass before the next one starts, and the rules every loop inherits. It ends with the prompt for each loop: run `/vdd:vdd-start-loop`, fill in the loop number and the handoff, and paste the prompt as the problem statement. The Planner then reads the overview and its handoff and grills you on that one loop.
 
 ## 💡 Tips
 

@@ -17,7 +17,7 @@ below, and they are committed so every clone reads the same vocabulary and the
 same decisions:
 
 - `CONTEXT.md` is the glossary. Use its terms exactly when editing the skills,
-  so the eight `SKILL.md` files keep one vocabulary.
+  so the ten `SKILL.md` files keep one vocabulary.
 - `docs/adr/` records decisions that are hard to reverse and surprising without
   context. Read `0001` before proposing that a Role run outside the
   Orchestrator, or that the Planner be hosted too; both were decided there.
@@ -86,7 +86,8 @@ PR; preserve them through any refactor of `.github/`.
   `SKILL.md` opens with frontmatter that carries `name` and `description`.
 - **Every relative link under `skills/` resolves.** A pointer in a `SKILL.md`
   or in a Reference file names a file that ships, so a rename or a deletion
-  cannot strand a reader who follows it.
+  cannot strand a reader who follows it. A target carrying `<angle brackets>`
+  is a template placeholder and is skipped.
 - **Every file under a skill directory is linked from its `SKILL.md`.** A
   Reference file no skill file points at is one no reader can be sent to. The
   index section each split skill carries is what makes the direct link enough,
