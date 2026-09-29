@@ -211,10 +211,13 @@ review rounds, split it.
 
 - Claude Code: [`references/harness-claude-code.md`](references/harness-claude-code.md)
 - Codex: [`references/harness-codex.md`](references/harness-codex.md)
+- Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
 
 ## Reference files
 
-- [`references/harness-claude-code.md`](references/harness-claude-code.md) and
-  [`references/harness-codex.md`](references/harness-codex.md): the typed skill
-  names, the `code-review` reading, the Orchestrator launch, and how a
-  Doorbell is confirmed and delivered on each Harness.
+- [`references/harness-claude-code.md`](references/harness-claude-code.md),
+  [`references/harness-codex.md`](references/harness-codex.md) and
+  [`references/harness-cursor.md`](references/harness-cursor.md): the typed
+  skill names, the `code-review` reading, the Orchestrator launch, and how a
+  Doorbell is confirmed and delivered on each Harness, or that it is printed
+  where the Harness delivers none.

@@ -147,6 +147,7 @@ Finish with a short status report: what passed, what you fixed, what the user st
 
 - Claude Code: [`references/harness-claude-code.md`](references/harness-claude-code.md)
 - Codex: [`references/harness-codex.md`](references/harness-codex.md)
+- Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
 
 ## Reference files
 
@@ -159,7 +160,8 @@ Finish with a short status report: what passed, what you fixed, what the user st
 - [`references/repairs.md`](references/repairs.md): the repair for each failing
   state, keyed on the store the files were found in and on the Harness, and the
   update route for a collection that predates `writing-for-agents`.
-- [`references/harness-claude-code.md`](references/harness-claude-code.md) and
-  [`references/harness-codex.md`](references/harness-codex.md): the typed skill
-  names, what each Harness lists under the name `code-review`, and on Codex the
-  restart a new skill needs.
+- [`references/harness-claude-code.md`](references/harness-claude-code.md),
+  [`references/harness-codex.md`](references/harness-codex.md) and
+  [`references/harness-cursor.md`](references/harness-cursor.md): the typed
+  skill names, what each Harness lists under the name `code-review`, and on
+  Codex the restart a new skill needs.

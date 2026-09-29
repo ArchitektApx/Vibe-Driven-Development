@@ -175,9 +175,11 @@ you report to the user and do not act on.
 
 - Claude Code: [`references/harness-claude-code.md`](references/harness-claude-code.md)
 - Codex: none: the inline text is complete
+- Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
 
 ## Reference files
 
-- [`references/harness-claude-code.md`](references/harness-claude-code.md): the
-  plugin name to try first for `code-review`, the bundled skill of the same
-  name, and the typed skill names on Claude Code.
+- [`references/harness-claude-code.md`](references/harness-claude-code.md) and
+  [`references/harness-cursor.md`](references/harness-cursor.md): which
+  `code-review` to use and the other skills that share its name, and the typed
+  skill names, on each Harness.

@@ -254,6 +254,7 @@ substance you are forbidden to carry.
 
 - Claude Code: [`references/harness-claude-code.md`](references/harness-claude-code.md)
 - Codex: [`references/harness-codex.md`](references/harness-codex.md)
+- Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
 
 ## Reference files
 
@@ -263,8 +264,10 @@ substance you are forbidden to carry.
 - [`references/unmatched-return.md`](references/unmatched-return.md): why one
   resume answers a return that matches neither the three prefixes nor the
   Doorbell template, and why a bare Doorbell line is the ordinary case.
-- [`references/harness-claude-code.md`](references/harness-claude-code.md) and
-  [`references/harness-codex.md`](references/harness-codex.md): the spawn and
-  resume primitives, the Spawn prompt's skill name, where a context size
-  sits, and how the relay to the Planner is confirmed and
-  delivered on each Harness.
+- [`references/harness-claude-code.md`](references/harness-claude-code.md),
+  [`references/harness-codex.md`](references/harness-codex.md) and
+  [`references/harness-cursor.md`](references/harness-cursor.md): the spawn
+  and resume primitives, the Spawn prompt's skill name, where a context size
+  sits or that none is reported, and how the relay to the Planner is
+  confirmed and delivered on each Harness, or that it is printed where the
+  Harness delivers none.
