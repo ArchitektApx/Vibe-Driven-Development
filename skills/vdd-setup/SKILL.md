@@ -11,6 +11,10 @@ This check is machine-level and repository-level. It knows nothing about a
 particular feature; `vdd-start-loop` handles per-loop state and writes
 `LOOP.md`.
 
+Name the Harness this Session runs in. If the user named one, use theirs. If
+this skill's Harnesses index links a file for it, read it now, once. Any other
+Harness is Generic, and the inline text is complete.
+
 Check, in order:
 
 1. **Borrowed skills.** The Roles depend on nine skills from Matt Pocock's
@@ -28,8 +32,8 @@ Check, in order:
    | `writing-for-agents` | an agent | Planner, Plan-Reviewer, Code-Reviewer |
    | `grilling` | an agent | Brainstormer |
 
-   The six user-invoked ones have `disable-model-invocation: true` in their
-   frontmatter, so they never appear in your own skill list even when correctly
+   The six user-invoked ones were blocked from model invocation by their
+   author, so they never appear in your own skill list even when correctly
    installed. Answer for them on the two separate conditions below.
 
    **Present.** Search for the files, not the directories, so that a dangling
@@ -41,9 +45,11 @@ Check, in order:
    ~/.claude/skills/*/SKILL.md
    ./.claude/skills/*/SKILL.md
    ~/.claude/plugins/cache/*/mattpocock-skills/*/skills/**/SKILL.md
+   ~/.codex/plugins/cache/**/SKILL.md
    ```
 
-   Match on the trailing path `<skill>/SKILL.md` rather than a fixed depth.
+   Search every root on every Harness, and match on the trailing path
+   `<skill>/SKILL.md` rather than a fixed depth.
 
    Use your file-search tool if you have one; otherwise run
    [the find loop](references/present-search.md).
@@ -56,14 +62,13 @@ Check, in order:
 
    Probe your own skill list for `writing-for-agents`. It is Borrowed in its
    own right and agent-invocable, so a wired collection puts it in your skill
-   list, and Claude Code bundles nothing of that name, so a hit needs no
-   reading. A hit answers Resolvable for all nine.
+   list, and the name is the collection's alone, so a hit needs no reading. A
+   hit answers Resolvable for all nine.
 
    A miss proves nothing, because these collections can be installed one skill
-   at a time. `code-review` is agent-invocable too, so it looks like a second
-   probe; it is not, because Claude Code ships an unrelated bundled
-   `code-review` skill of the same bare name, and a bare hit proves nothing
-   until you have read its description. When `writing-for-agents` misses, read
+   at a time. `code-review` is agent-invocable too, but a hit on it counts only
+   when its description names the two axes "Standards" and "Spec": another
+   skill can carry the same bare name. When `writing-for-agents` misses, read
    [the rest of the probe list](references/resolvable-probes.md) before you
    answer Resolvable for anything.
 
@@ -78,8 +83,9 @@ Check, in order:
    install a collection they already have is the wrong advice.
 
    In either failing state, and on that old-collection shape, read
-   [the repair for the store the files came from](references/repairs.md) and
-   give the user the commands it names.
+   [the repair for the store the files came from](references/repairs.md),
+   in the section for your Harness where the route differs, and give the user
+   the commands it names.
 
    Name what a failure costs each Role, in these words. A missing or
    unresolvable `grill-with-docs`, `improve-codebase-architecture`, `to-spec` or
@@ -137,6 +143,11 @@ Check, in order:
 
 Finish with a short status report: what passed, what you fixed, what the user still has to do.
 
+## Harnesses
+
+- Claude Code: [`references/harness-claude-code.md`](references/harness-claude-code.md)
+- Codex: [`references/harness-codex.md`](references/harness-codex.md)
+
 ## Reference files
 
 - [`references/present-search.md`](references/present-search.md): the search
@@ -146,5 +157,9 @@ Finish with a short status report: what passed, what you fixed, what the user st
   sibling names to probe after `writing-for-agents` misses, how to read a bare
   `code-review` hit, and the question to put to the user when nothing hits.
 - [`references/repairs.md`](references/repairs.md): the repair for each failing
-  state, keyed on the store the files were found in, and the update route for a
-  collection that predates `writing-for-agents`.
+  state, keyed on the store the files were found in and on the Harness, and the
+  update route for a collection that predates `writing-for-agents`.
+- [`references/harness-claude-code.md`](references/harness-claude-code.md) and
+  [`references/harness-codex.md`](references/harness-codex.md): the typed skill
+  names, what each Harness lists under the name `code-review`, and on Codex the
+  restart a new skill needs.

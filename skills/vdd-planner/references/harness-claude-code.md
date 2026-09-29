@@ -5,10 +5,9 @@
   or `/to-tickets .scratch/<slug>/spec.md`, and `/vdd:vdd-<role>` for a VDD
   skill, such as `/vdd:vdd-setup`.
 - **The `code-review` reading.** In the wiring check, a hit on
-  `mattpocock-skills:code-review` counts: it is the plugin install. A bare
-  `code-review` counts only when its description names the two axes
-  "Standards" and "Spec", because Claude Code ships a bundled `code-review`
-  skill of the same name that reviews against something else.
+  `mattpocock-skills:code-review` counts: it is the plugin install. Claude
+  Code ships a bundled `code-review` skill of the same name that reviews
+  against something else, which is why a bare hit needs its description read.
 - **The Orchestrator launch.** `claude -n <short>-<slug>-Orchestrator` in a
   terminal in this repository, then `/vdd:vdd-orchestrator` in that Session.
 - **Delivering a Doorbell.** The tools are `SendMessage` and `ListAgents`.

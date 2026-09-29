@@ -11,9 +11,7 @@
   is the return to parse.
 - **The context size.** Codex reports none for a subagent, in any field of the
   spawn, wait, follow-up or completion results. The no-size path of "The
-  Coder's context" applies from the first Coder return: tell the user once
-  that the check cannot run and that they can ask for a fresh Coder at any
-  round.
+  Coder's context" applies from the first Coder return.
 - **Relaying to the Planner.** Run
   `codex queue --thread <Planner Session name> --message '<Doorbell>'` with
   escalated permissions, outside the sandbox: the default sandbox makes
