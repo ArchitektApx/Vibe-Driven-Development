@@ -197,6 +197,7 @@ invoke skills, tell the user to invoke `vdd-planner` instead.
 - Claude Code: [`references/harness-claude-code.md`](references/harness-claude-code.md)
 - Codex: [`references/harness-codex.md`](references/harness-codex.md)
 - Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
+- Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
 
 ## Reference files
 
@@ -207,8 +208,9 @@ invoke skills, tell the user to invoke `vdd-planner` instead.
   behind the `PR: yes` checks, the remote they share, and why their stderr is
   ignored.
 - [`references/harness-claude-code.md`](references/harness-claude-code.md),
-  [`references/harness-codex.md`](references/harness-codex.md) and
-  [`references/harness-cursor.md`](references/harness-cursor.md): the typed
-  skill names, the Fresh Coder offer, the rename command or the statement that
-  the Harness delivers no Doorbell, and the Orchestrator launch on each
-  Harness.
+  [`references/harness-codex.md`](references/harness-codex.md),
+  [`references/harness-cursor.md`](references/harness-cursor.md) and
+  [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
+  typed skill names, the Fresh Coder offer, the rename command or the
+  statement that the Harness delivers no Doorbell, and the Orchestrator launch
+  on each Harness.

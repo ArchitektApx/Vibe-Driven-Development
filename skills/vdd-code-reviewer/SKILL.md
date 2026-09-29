@@ -176,10 +176,12 @@ you report to the user and do not act on.
 - Claude Code: [`references/harness-claude-code.md`](references/harness-claude-code.md)
 - Codex: none: the inline text is complete
 - Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
+- Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
 
 ## Reference files
 
-- [`references/harness-claude-code.md`](references/harness-claude-code.md) and
-  [`references/harness-cursor.md`](references/harness-cursor.md): which
-  `code-review` to use and the other skills that share its name, and the typed
-  skill names, on each Harness.
+- [`references/harness-claude-code.md`](references/harness-claude-code.md),
+  [`references/harness-cursor.md`](references/harness-cursor.md) and
+  [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md):
+  which `code-review` to use and the other skills that share its name, and the
+  typed skill names, on each Harness.

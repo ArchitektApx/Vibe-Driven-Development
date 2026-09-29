@@ -212,12 +212,14 @@ review rounds, split it.
 - Claude Code: [`references/harness-claude-code.md`](references/harness-claude-code.md)
 - Codex: [`references/harness-codex.md`](references/harness-codex.md)
 - Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
+- Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
 
 ## Reference files
 
 - [`references/harness-claude-code.md`](references/harness-claude-code.md),
-  [`references/harness-codex.md`](references/harness-codex.md) and
-  [`references/harness-cursor.md`](references/harness-cursor.md): the typed
-  skill names, the `code-review` reading, the Orchestrator launch, and how a
-  Doorbell is confirmed and delivered on each Harness, or that it is printed
-  where the Harness delivers none.
+  [`references/harness-codex.md`](references/harness-codex.md),
+  [`references/harness-cursor.md`](references/harness-cursor.md) and
+  [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
+  typed skill names, the `code-review` reading, the Orchestrator launch, and
+  how a Doorbell is confirmed and delivered on each Harness, or that it is
+  printed where the Harness delivers none.
