@@ -131,10 +131,9 @@ npx skills@latest add ArchitektApx/Vibe-Driven-Development
 npx skills@latest add mattpocock/skills
 ```
 
-The installer asks which skills to take and which agents to install them for. Take every `vdd-*` skill, and take all of Matt Pocock's collection: the Roles borrow from it, and installing the whole set lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Pull updates later with `npx skills update`.
+The agent must be able to spawn subagents, because the Orchestrator runs the Plan-Reviewer, the Coder and the Code-Reviewer as subagents of its own session.
 
-> [!NOTE]
-> If your agent does not support skills at all, the skill files are ordinary Markdown: paste the body of the relevant `skills/vdd-*/SKILL.md` into your session as a prompt.
+The installer asks which skills to take and which agents to install them for. Take every `vdd-*` skill, and take all of Matt Pocock's collection: the Roles borrow from it, and installing the whole set lets `/vdd:vdd-setup` verify your install without asking you to test it by hand. Pull updates later with `npx skills update`.
 
 ## 🧪 Beta channel
 
