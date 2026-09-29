@@ -24,6 +24,12 @@ line, the `Harness:` line and the two Session names. If it does not exist,
 stop and tell the user to invoke `vdd-start-loop` in a Planner Session; do not
 guess a slug.
 
+Read the `Harness:` line of the Loop file. If this skill's Harnesses index
+links a file for that Harness, read it now, once. Otherwise the inline text is
+complete. Take the Harness from the Loop file only, and do not choose it again
+from what this Session shows. A Loop file with no `Harness:` line is Generic,
+and you leave the file as it is.
+
 ## What you may read
 
 `LOOP.md` in full. Each of `.scratch/<slug>/PLAN-REVIEW.md`,
@@ -98,10 +104,11 @@ inherits what the Harness gives it.
 
 ## Spawning a hosted Role
 
-Spawn and resume are your Harness's own subagent primitives: in Claude Code,
-the Agent tool spawns a fresh subagent, and `SendMessage` addressed to that
-subagent's name resumes it. Before every spawn, print one line naming the
-Role, the model and the round: `Spawning <Role>, <model>, round <n>.` Where
+Spawn and resume are your Harness's own subagent primitives, named in your
+Harness file: one spawns a fresh subagent, the other resumes that same
+subagent with a message, its context intact. Before every spawn, print one
+line naming the Role, the model and the round:
+`Spawning <Role>, <model>, round <n>.` Where
 you pass no model, the line says `inherited`. A Coder spawned fresh under the
 `Fresh Coder:` line ends the line with the size that sent it there:
 `Spawning Coder, <model>, round <n>, fresh at <size>.`, or `fresh on request`
@@ -113,8 +120,8 @@ work.
 
 Spawn every hosted Role with this literal template, filled in by
 substitution alone. The only things that change are the Role, its skill name
-(`vdd-plan-reviewer`, `vdd-coder` or `vdd-code-reviewer`, namespaced for the
-Harness, `vdd:vdd-coder` in Claude Code), the round number, and that Role's
+(`vdd-plan-reviewer`, `vdd-coder` or `vdd-code-reviewer`, in the form your
+Harness file gives, and bare on Generic), the round number, and that Role's
 Working files, named with their paths, which its own skill states on the
 first mention of each. Every other line is fixed text, sent whether or not it
 applies to the Role you are spawning: no section is assembled or omitted per
@@ -177,10 +184,14 @@ is one, carrying the Planner's Doorbell as the resume message. When there is
 none, round 1 or the first round after a restart, spawn the Plan-Reviewer
 fresh, with the Spawn prompt above.
 
-**From the Plan-Reviewer.** Relay every one to the Planner's Session name
-from `LOOP.md`, the rounds with open findings as well as the Sign-off. Print
-the line where the Harness has no messaging, or where `ListAgents` does not
-list the Planner's name. On open findings, wait for the Planner's next
+**From the Plan-Reviewer.** Relay every one, the rounds with open findings as
+well as the Sign-off. Deliver it to the Planner's Session name from `LOOP.md`
+and to no other Session, as the Doorbell line and nothing else. First confirm
+that Session is reachable, by the means your Harness file names, then deliver
+it through your Harness file's delivery mechanics. When reachability cannot be
+confirmed, or delivery fails, print the exact Doorbell and ask the user to
+paste it into the Planner's Session. On Generic there are no delivery
+mechanics, so you print. On open findings, wait for the Planner's next
 Doorbell: the Planner owns the next move. On `SIGNED OFF`, the plan Loop is
 over and there is no next Planner Doorbell to wait for: spawn the Coder, as
 "The live sequence" says.
@@ -201,8 +212,8 @@ costs that context.
 `Fresh Coder: never`: resume the Coder every round.
 
 `Fresh Coder: over <n>`: on every Coder return, read the context size your
-Harness reports for the finished subagent; in Claude Code it sits in the
-trailer under the Agent tool's result. Under the limit, resume. Over it, the
+Harness reports for the finished subagent, where your Harness file says it
+sits. Under the limit, resume. Over it, the
 next Coder round is a fresh spawn, with the same Spawn prompt and that
 round's number; the Coder's state is on disk as `FIXES.md` and the commits.
 Round 1 has no earlier return to read a size from, so it gets no check.
@@ -239,6 +250,11 @@ subagent. Every path in it shows the user the
 assembled title and body and waits for one confirmation, and that body is
 substance you are forbidden to carry.
 
+## Harnesses
+
+- Claude Code: [`references/harness-claude-code.md`](references/harness-claude-code.md)
+- Codex: [`references/harness-codex.md`](references/harness-codex.md)
+
 ## Reference files
 
 - [`references/restart.md`](references/restart.md): the five states a Workflow
@@ -247,3 +263,8 @@ substance you are forbidden to carry.
 - [`references/unmatched-return.md`](references/unmatched-return.md): why one
   resume answers a return that matches neither the three prefixes nor the
   Doorbell template, and why a bare Doorbell line is the ordinary case.
+- [`references/harness-claude-code.md`](references/harness-claude-code.md) and
+  [`references/harness-codex.md`](references/harness-codex.md): the spawn and
+  resume primitives, the Spawn prompt's skill name, where a context size
+  sits, and how the relay to the Planner is confirmed and
+  delivered on each Harness.

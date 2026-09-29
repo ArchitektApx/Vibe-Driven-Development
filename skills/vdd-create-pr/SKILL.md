@@ -96,9 +96,9 @@ failed to store` on a call that exited 0.
 
 - **Can push.** A remote is configured and `git ls-remote <remote> HEAD`
   exits 0.
-- **Can open a PR.** `gh` is on `PATH`, the hostname read from `git
-  remote get-url <remote>` is a GitHub host, and `gh auth status --hostname <host>`
-  exits 0.
+- **Can open a PR.** `gh` is on `PATH`, the hostname read from
+  `git remote get-url <remote>` is a GitHub host, and
+  `gh auth status --hostname <host>` exits 0.
 
 The remote is the one the base branch tracks when it tracks one, else the
 single configured remote, else `origin`.

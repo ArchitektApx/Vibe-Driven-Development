@@ -61,7 +61,8 @@ Ask the user for the effort slug, then look for `.scratch/<effort>/map.md`.
 
 1. The map exists: read its `## Notes`. If the three briefing points are
    missing, print the briefing below first. Then tell the user to invoke
-   `wayfinder` with the path to the map. Once the user has done that, you are done.
+   `wayfinder` with the path to the map. Once the user has done that, you are
+   done.
 2. No map: ask what the effort is, a loose idea in text, a goals file, or a
    `decided` idea file from the Brainstormer. Read what they name, then
    continue with [Briefing the wayfinder](#briefing-the-wayfinder).
