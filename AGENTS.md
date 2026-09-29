@@ -7,7 +7,7 @@ you and produces the Spec and Tickets under `.scratch/<feature-slug>/`, then
 an Orchestrator session, opened with `claude -n <name>` and
 `/vdd:vdd-orchestrator` when the Planner rings its first Doorbell, hosts the
 Plan-Reviewer, the Coder and the Code-Reviewer as subagents until Sign-off,
-then hosts the PR-Author, which opens the pull request. Proportionality
+then invokes the PR-Author, which opens the pull request. Proportionality
 applies: a typo fix can skip the loop, and anything that changes how a Role
 behaves takes it.
 `docs/VDD-WORKFLOW.md` walks the same loop from the user's side.
