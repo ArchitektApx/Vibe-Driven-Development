@@ -4,7 +4,7 @@
 
 ```bash
 for s in setup-matt-pocock-skills grill-with-docs improve-codebase-architecture to-spec to-tickets wayfinder code-review writing-for-agents grilling; do
-  find ~/.agents/skills ./.agents/skills ~/.claude/skills ./.claude/skills ~/.claude/plugins/cache \
+  find ~/.agents/skills ./.agents/skills ~/.claude/skills ./.claude/skills ~/.claude/plugins/cache ~/.codex/plugins/cache \
     -name SKILL.md 2>/dev/null | grep "/$s/SKILL.md$"
 done
 ```
@@ -23,10 +23,14 @@ than a fixed depth. The two `.claude/skills` roots are where the skills CLI
 writes when it installs for Claude Code: project scope lands in
 `./.claude/skills/<name>/`, global scope stores the files in
 `~/.agents/skills/<name>/` and symlinks `~/.claude/skills/<name>` at them.
+`~/.codex/plugins/cache/` is where Codex installs a plugin, one directory per
+marketplace, plugin and version. Every root is searched on every Harness,
+because a skill Present in another Harness's store answers Present and points
+the repair at that store.
 
 ## Why `grep` and not `-path`
 
-Agent environments commonly replace `find` with a shell function around a
+Harnesses commonly replace `find` with a shell function around a
 bundled `bfs`, or route it through a command-rewriting proxy, and several of
 those answer `-path` with `unknown flag '-path', ignored` and then print
 everything under the roots, or nothing at all. `-name` survives both.

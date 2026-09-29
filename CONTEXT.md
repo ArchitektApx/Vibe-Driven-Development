@@ -40,6 +40,14 @@ _Avoid_: brief, epic, chunk
 One of the two conversations the user opens: the Planner's, and the Orchestrator's. A hosted Role runs as a subagent, a fresh conversation the Orchestrator spawns inside its own session, and that freshness is what still makes the review adversarial: a subagent's context begins with its Spawn prompt and holds nothing of its host's reasoning.
 _Avoid_: instance, window, context
 
+**Harness**:
+The program a Session runs in, which decides how a Role invokes skills, spawns subagents and delivers Doorbells: Claude Code, Codex, or Generic for any other. Selected once per Workflow and recorded in the Loop file. Changes mechanics, never the Workflow.
+_Avoid_: host, platform, runtime, client, agent, model, provider
+
+**Harness file**:
+`references/harness-<slug>.md` in a Role skill, the Reference file that holds what the skill does differently on one Harness; the slug is the Harness lowercased with spaces as hyphens. A Role reads the one for its Harness once, at the start, through the skill's Harnesses index: the `## Harnesses` section, which names every Harness that has a file in any skill, with a link to this skill's file or the line `none: the inline text is complete`. Every Harness file ends on the drift line, "Trust your live tools over this file when they disagree." Generic has none.
+_Avoid_: adapter, platform file, harness reference
+
 **Loop**:
 A Role and its reviewer exchanging a working file until sign-off. The workflow has two: Plan/Plan-Review and Coder/Code-Review.
 _Avoid_: cycle, iteration, phase
@@ -57,7 +65,7 @@ _Avoid_: feature name, ticket name, branch name
 _Avoid_: scratch dir, feature folder, workspace
 
 **Loop file**:
-`LOOP.md` at the repository root. Records the Feature slug, the repository short name, the base branch, the feature branch, the tracker path, the `Minors:` line, the `PR:` line, the `Fresh Coder:` line and the two Session names, so every Role reads them instead of asking. It is the one Working file outside the tracker directory, because every Role reads it before it knows a Feature slug and no tracker path resolves until it has. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
+`LOOP.md` at the repository root. Records the Feature slug, the repository short name, the base branch, the feature branch, the tracker path, the `Minors:` line, the `PR:` line, the `Fresh Coder:` line, the Harness and the two Session names, so every Role reads them instead of asking. It is the one Working file outside the tracker directory, because every Role reads it before it knows a Feature slug and no tracker path resolves until it has. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
 _Avoid_: session file, config, manifest
 
 **Spec**:
@@ -127,13 +135,13 @@ A property of a skill whose author blocked agents from starting it, so only a hu
 _Avoid_: manual, disabled, blocked
 
 **Present**:
-A Borrowed skill's `SKILL.md` exists in a known store on this machine. Says nothing about whether any agent can run it.
+A Borrowed skill's `SKILL.md` exists in a known store on this machine. Says nothing about whether any Harness can run it.
 _Avoid_: installed, downloaded
 
 **Resolvable**:
-The agent running right now can run a Borrowed skill. Present is necessary but not sufficient: a Borrowed skill sitting in a store this agent was never wired to is Present and not Resolvable.
+The Harness this Session runs in can run a Borrowed skill. Present is necessary but not sufficient: a Borrowed skill sitting in a store this Harness was never wired to is Present and not Resolvable.
 _Avoid_: available, wired, active, visible
 
 **Sibling probe**:
-Testing Resolvable by looking for one of the Borrowed skills' collection-mates that is not User-invoked, and therefore does appear in an agent's own skill list. A hit proves the collection is wired to this agent; a miss proves nothing, because collections can be installed one skill at a time.
+Testing Resolvable by looking for one of the Borrowed skills' collection-mates that is not User-invoked, and therefore does appear in a Harness's own skill list. A hit proves the collection is wired to this Harness; a miss proves nothing, because collections can be installed one skill at a time.
 _Avoid_: skill check, availability check

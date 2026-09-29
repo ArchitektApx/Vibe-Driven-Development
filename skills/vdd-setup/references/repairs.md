@@ -8,15 +8,25 @@ file names the route:
 - Found under `~/.claude/plugins/cache/`: the Claude Code plugin put it there,
   so the repair belongs on the plugin side. Tell the user to reinstall or
   re-enable `mattpocock-skills`.
+- Found under `~/.codex/plugins/cache/`: a Codex plugin put it there, so the
+  repair belongs on the Codex plugin side. Tell the user to reinstall or
+  re-enable that plugin in Codex, then start a new Codex Session.
 - Found under an `.agents/skills/` or `.claude/skills/` store: the skills CLI
   put it there. Tell the user to re-run `npx skills@latest add
   mattpocock/skills` and to select this agent.
 
 ## Not Present
 
-Tell the user to install it, taking the whole collection: `/plugin install
-mattpocock-skills` in Claude Code's official marketplace, or
-`npx skills@latest add mattpocock/skills` in other agents.
+Tell the user to install it, taking the whole collection. The route depends on
+the Harness:
+
+- **Claude Code.** `/plugin install mattpocock-skills` from Claude Code's
+  official marketplace.
+- **Codex.** `npx skills@latest add mattpocock/skills`, selecting Codex when
+  the installer asks which agents to install for, then start a new Codex
+  Session: a skill added while a Session runs appears only in a new one.
+- **Generic.** `npx skills@latest add mattpocock/skills`, selecting their
+  agent when the installer asks.
 
 ## A collection that predates `writing-for-agents`
 

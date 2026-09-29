@@ -7,7 +7,7 @@
 [![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FArchitektApx%2FVibe-Driven-Development%2Fmaster%2F.claude-plugin%2Fplugin.json&query=%24.version&prefix=v&label=plugin&color=blue)](.claude-plugin/plugin.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757)](#-install-claude-code)
-[![Works with npx skills](https://img.shields.io/badge/npx_skills-compatible-000)](#-install-cursor-github-copilot-cli-codex-other-agents)
+[![Works with npx skills](https://img.shields.io/badge/npx_skills-compatible-000)](#-install-cursor-github-copilot-cli-other-agents)
 [![Built on mattpocock/skills](https://img.shields.io/badge/built_on-mattpocock%2Fskills-8250df)](https://github.com/mattpocock/skills)
 
 <picture>
@@ -29,7 +29,8 @@
 - [⚡️ Quickstart](#-quickstart)
 - [📋 Requirements](#-requirements)
 - [🔌 Install (Claude Code)](#-install-claude-code)
-- [🧰 Install (Cursor, GitHub Copilot CLI, Codex, other agents)](#-install-cursor-github-copilot-cli-codex-other-agents)
+- [🧩 Install (Codex)](#-install-codex)
+- [🧰 Install (Cursor, GitHub Copilot CLI, other agents)](#-install-cursor-github-copilot-cli-other-agents)
 - [🧪 Beta channel](#-beta-channel)
 - [🔁 Workflow](#-workflow)
 - [🧭 Before the loop](#-before-the-loop)
@@ -51,6 +52,8 @@ Install the plugin and Matt Pocock's skills (see [Install](#-install-claude-code
 ```
 /vdd:vdd-start-loop
 ```
+
+In Codex, type `$vdd:vdd-start-loop` instead.
 
 That one command runs the environment check, walks you through anything the check finds missing, and starts the loop with you and the Planner.
 
@@ -78,7 +81,7 @@ VDD and the Matt Pocock skills create multiple working files along the way that 
   All of them except `code-review`, `writing-for-agents` and `grilling` are user-invoked: their author blocked agents from starting them, so the Role will ask you to type the slash command yourself at the right moment. The Coder is the one Role that borrows nothing. The Plan-Reviewer borrows only `writing-for-agents`, and runs without it: a Role that cannot resolve that skill drops its writing check and says so in the file it writes.
 
 > [!TIP]
-> **Optional:** Claude Code 2.1.224+ on macOS or Linux. It lets one session ring the next one's doorbell instead of you copying a line between terminals. Everything works without it; the Roles print the line for you to paste.
+> **Optional:** Claude Code 2.1.224+ on macOS or Linux. It lets one session ring the next one's doorbell instead of you copying a line between terminals. Codex rings the next session through `codex queue`. Everything works without it; the Roles print the line for you to paste.
 
 ## 🔌 Install (Claude Code)
 
@@ -89,22 +92,37 @@ This repository is a Claude Code plugin marketplace. The `vdd` plugin ships one 
 /plugin install vdd@vibe-driven-development
 ```
 
-| Role | Skill |
-|------|-------|
-| 🩺 Environment check | `/vdd:vdd-setup` |
-| 💡 Brainstormer | `/vdd:vdd-brainstormer` |
-| 🗺 Wayfinder | `/vdd:vdd-wayfinder` |
-| 🚀 Start a loop | `/vdd:vdd-start-loop` |
-| 🧠 Planner | `/vdd:vdd-planner` |
-| 🧭 Orchestrator | `/vdd:vdd-orchestrator` |
-| 🔍 Plan-Reviewer | `/vdd:vdd-plan-reviewer` |
-| 💻 Coder | `/vdd:vdd-coder` |
-| 🧪 Code-Reviewer | `/vdd:vdd-code-reviewer` |
-| 🚢 PR-Author | `/vdd:vdd-create-pr` |
+| Role | Claude Code | Codex |
+|------|-------------|-------|
+| 🩺 Environment check | `/vdd:vdd-setup` | `$vdd:vdd-setup` |
+| 💡 Brainstormer | `/vdd:vdd-brainstormer` | `$vdd:vdd-brainstormer` |
+| 🗺 Wayfinder | `/vdd:vdd-wayfinder` | `$vdd:vdd-wayfinder` |
+| 🚀 Start a loop | `/vdd:vdd-start-loop` | `$vdd:vdd-start-loop` |
+| 🧠 Planner | `/vdd:vdd-planner` | `$vdd:vdd-planner` |
+| 🧭 Orchestrator | `/vdd:vdd-orchestrator` | `$vdd:vdd-orchestrator` |
+| 🔍 Plan-Reviewer | `/vdd:vdd-plan-reviewer` | `$vdd:vdd-plan-reviewer` |
+| 💻 Coder | `/vdd:vdd-coder` | `$vdd:vdd-coder` |
+| 🧪 Code-Reviewer | `/vdd:vdd-code-reviewer` | `$vdd:vdd-code-reviewer` |
+| 🚢 PR-Author | `/vdd:vdd-create-pr` | `$vdd:vdd-create-pr` |
 
 Run `/vdd:vdd-setup` once per repository: it verifies that the borrowed skills are installed, the issue tracker is configured, the gitignore entries for `LOOP.md` and `.scratch/` exist, and no stale `LOOP.md` is left over from a previous loop. `/vdd:vdd-start-loop` runs it for you at the start of every loop.
 
-## 🧰 Install (Cursor, GitHub Copilot CLI, Codex, other agents)
+## 🧩 Install (Codex)
+
+Codex installs the same plugin from this repository's marketplace:
+
+```
+codex plugin marketplace add ArchitektApx/Vibe-Driven-Development
+codex plugin add vdd@vibe-driven-development
+```
+
+Start a new Codex session in your repository, so it picks up the plugin, and type `$vdd:vdd-setup`. The Role table above gives every Role's Codex command. Matt Pocock's plugin is Claude Code only, so install his collection with the skills CLI and select Codex when it asks which agents to install for:
+
+```bash
+npx skills@latest add mattpocock/skills
+```
+
+## 🧰 Install (Cursor, GitHub Copilot CLI, other agents)
 
 Other agents can use the same skills via the [skills CLI](https://github.com/vercel-labs/skills), which writes them into your repo as ordinary files you own:
 
@@ -129,6 +147,16 @@ Want the most recent Roles and changes before they land on `master`? Install the
 ```
 
 Back to the release: run the same three commands without `@beta`. `/plugin marketplace update` pulls the latest beta.
+
+In Codex:
+
+```
+codex plugin marketplace remove vibe-driven-development
+codex plugin marketplace add ArchitektApx/Vibe-Driven-Development --ref beta
+codex plugin add vdd@vibe-driven-development
+```
+
+Back to the release: the same three commands without `--ref beta`.
 
 This repository is developed with its own workflow; `CONTEXT.md` and `docs/adr/` are the glossary and decision records it produced. See `AGENTS.md`.
 

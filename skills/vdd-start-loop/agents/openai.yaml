@@ -1,0 +1,5 @@
+interface:
+  display_name: "VDD Start-Loop"
+  short_description: "Open a VDD loop and write LOOP.md"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,5 @@
+interface:
+  display_name: "VDD Orchestrator"
+  short_description: "Host the reviewers and the Coder of a VDD loop"
+policy:
+  allow_implicit_invocation: false
