@@ -1,0 +1,5 @@
+interface:
+  display_name: "VDD Brainstormer"
+  short_description: "Capture, research and decide a project's ideas"
+policy:
+  allow_implicit_invocation: false

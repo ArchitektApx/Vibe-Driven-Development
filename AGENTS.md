@@ -74,6 +74,11 @@ PR; preserve them through any refactor of `.github/`.
   executable files. The plugin ships prose and nothing else. Adding one of
   these is a deliberate decision: edit the `Reject executable surface` step in
   the same PR so the reviewer sees both.
+- **A Codex policy file carries policy only.** Every `agents/openai.yaml`
+  under `skills/` has the top-level keys `interface` and `policy` and no
+  other, because a `dependencies` key there can declare tools, MCP servers
+  among them. The `Reject executable surface` step checks it, finding the
+  files with `find` so a plain copy of the tree is checked like a checkout.
 - **`verify.yml` triggers on `pull_request`.** It runs PR-head content, so
   `pull_request_target` would hand fork PRs write access and secrets. Its
   `permissions` stay `contents: read`.
@@ -88,10 +93,19 @@ PR; preserve them through any refactor of `.github/`.
   or in a Reference file names a file that ships, so a rename or a deletion
   cannot strand a reader who follows it. A target carrying `<angle brackets>`
   is a template placeholder and is skipped.
+- **A user-invoked skill is user-invoked on both Harnesses.** A skill's
+  frontmatter carries `disable-model-invocation: true`, which Claude Code
+  honours, exactly when its `agents/openai.yaml` sets
+  `policy.allow_implicit_invocation: false`, which Codex honours. Each Harness
+  ignores the other's half, so a skill carrying one alone is model-invocable
+  on the other Harness.
 - **Every file under a skill directory is linked from its `SKILL.md`.** A
   Reference file no skill file points at is one no reader can be sent to. The
   index section each split skill carries is what makes the direct link enough,
   so the check does not follow links between Reference files.
+  `agents/openai.yaml` directly inside a skill directory is the one exemption:
+  Codex reads it as the skill's policy file, and no reader reaches it by a
+  link.
 - **The canonical sentence appears once in each of two skills.**
   `An Orchestrator hosts this Workflow.` occurs exactly once in
   `skills/vdd-orchestrator/SKILL.md`, in the Spawn prompt template, and once
