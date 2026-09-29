@@ -7,7 +7,7 @@ you and produces the Spec and Tickets under `.scratch/<feature-slug>/`, then
 an Orchestrator session, opened with `claude -n <name>` and
 `/vdd:vdd-orchestrator` when the Planner rings its first Doorbell, hosts the
 Plan-Reviewer, the Coder and the Code-Reviewer as subagents until Sign-off,
-then hosts the PR-Author, which opens the pull request. Proportionality
+then invokes the PR-Author, which opens the pull request. Proportionality
 applies: a typo fix can skip the loop, and anything that changes how a Role
 behaves takes it.
 `docs/VDD-WORKFLOW.md` walks the same loop from the user's side.
@@ -113,14 +113,6 @@ PR; preserve them through any refactor of `.github/`.
   text `none: the inline text is complete`. A Role reads the Harness file that
   section sends it to, so a Harness missing from it is a Harness whose reader
   gets sent nowhere.
-- **The canonical sentence appears once in each of two skills.**
-  `An Orchestrator hosts this Workflow.` occurs exactly once in
-  `skills/vdd-orchestrator/SKILL.md`, in the Spawn prompt template, and once
-  in `skills/vdd-code-reviewer/SKILL.md`, in its own test. A hosted
-  Code-Reviewer compares its Spawn prompt against that sentence word for word
-  to decide whether to invoke the PR-Author. The `canonical` string in
-  `verify.yml` is the authority: change the sentence in a skill and CI fails
-  until the same change lands there too.
 - **`CLAUDE.md` is the one line `@AGENTS.md`.** Claude Code reads `CLAUDE.md`
   and wins precedence over `AGENTS.md`; the stub is what makes the rules in
   `AGENTS.md` reach it exactly once.

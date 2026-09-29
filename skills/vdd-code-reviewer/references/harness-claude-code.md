@@ -11,6 +11,6 @@
   own, which reviews against something else. A bare `code-review` with any
   other description is that one.
 - **Typed skill names.** Where you ask the user to invoke a skill, give the
-  form they type: `/setup-matt-pocock-skills`, `/vdd:vdd-create-pr`.
+  form they type: `/setup-matt-pocock-skills`, `/vdd:vdd-start-loop`.
 
 Trust your live tools over this file when they disagree.
