@@ -212,10 +212,11 @@ jobs:
             process.exit(rc);
           '
 
-      # Claude Code honours `disable-model-invocation: true` in the
-      # frontmatter; Codex honours `policy.allow_implicit_invocation: false`
-      # in agents/openai.yaml. One half alone leaves the skill model-invocable
-      # on the other Harness.
+      # Claude Code, Cursor and Copilot CLI honour
+      # `disable-model-invocation: true` in the frontmatter; Codex honours
+      # `policy.allow_implicit_invocation: false` in agents/openai.yaml. Each
+      # half is ignored by the Harnesses the other covers, so one half alone
+      # leaves the skill model-invocable on those Harnesses.
       - name: User-invoked skills carry both halves of the pair
         run: |
           node -e '
