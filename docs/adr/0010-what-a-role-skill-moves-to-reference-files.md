@@ -76,8 +76,9 @@ the skill file.
 CLI, checked at 1.5.22, copies a skill directory recursively and excludes only
 its metadata file, `.git` and the Python cache directories; an offline install
 against this repository's exact layout delivered a `references/` directory
-intact. The Claude Code plugin ships the whole repository, and Codex installs
-the plugin's committed files from the same marketplace file into its own cache.
+intact. The Claude Code plugin ships the whole repository, and Codex, Cursor
+and Copilot CLI install the plugin's committed files from the same marketplace
+file into their own caches.
 The invoking agent receives the skill's base directory, so a relative link
 resolves on every route.
 
