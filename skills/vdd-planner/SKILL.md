@@ -152,8 +152,7 @@ in:
 > below into it once it is up.
 
 Your Harness file gives the Orchestrator launch. On Generic it is: open a
-second Session in the same Harness, name it `<short>-<slug>-Orchestrator` if
-the Harness can name Sessions, and invoke `vdd-orchestrator` there.
+second Session in the same Harness and invoke `vdd-orchestrator` there.
 
 **Send the Doorbell.** Exactly this line, and no other text:
 

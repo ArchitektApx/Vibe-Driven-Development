@@ -33,10 +33,11 @@ this skill's Harnesses index links a file for it, read it now, once. Any other
 Harness is Generic, and the inline text is complete. Write it to the Loop
 file's `Harness:` line.
 
-The line takes one of three values: `Claude Code`, `Codex` or `Generic`. Name
-the Harness from what this Session knows of itself, never from environment
-variables, binaries on `PATH`, or model and provider names: a wrapper can set
-any of those without offering the Harness's mechanics.
+The line takes one of five values: `Claude Code`, `Codex`, `Cursor`,
+`Copilot CLI` or `Generic`. Name the Harness from what this Session knows of
+itself, never from environment variables, binaries on `PATH`, or model and
+provider names: a wrapper can set any of those without offering the Harness's
+mechanics.
 
 ## 3. Repository short name
 
@@ -152,7 +153,7 @@ Tracker: .scratch/<slug>/
 Minors: <answer>
 PR: <answer>
 Fresh Coder: <answer>
-Harness: <Claude Code, Codex or Generic>
+Harness: <Claude Code, Codex, Cursor, Copilot CLI or Generic>
 
 Sessions:
 - Planner: <short>-<slug>-Planner
@@ -179,13 +180,17 @@ End the summary with this, the real values filled in:
 > Doorbell: <the Orchestrator launch>.
 
 Your Harness file gives the rename command and the Orchestrator launch. On
-Generic the launch is: open a second Session in the same Harness, name it
-`<short>-<slug>-Orchestrator` if the Harness can name Sessions, and invoke
+Generic the launch is: open a second Session in the same Harness and invoke
 `vdd-orchestrator` there.
 
-No agent can rename its own Session, so this is the user's job and you carry
-straight on. Immediately invoke the `vdd-planner` skill in this same Session.
-If you cannot invoke skills, tell the user to invoke `vdd-planner` instead.
+Where your Harness file says the Harness delivers no Doorbell, and on Generic,
+leave the rename sentence out of the closing quote, because nothing is sent to
+a Session name there; `LOOP.md` still records both Session names.
+
+No agent can rename its own Session, so where the closing quote asks for the
+rename, the rename is the user's job. Either way, carry straight on:
+immediately invoke the `vdd-planner` skill in this same Session. If you cannot
+invoke skills, tell the user to invoke `vdd-planner` instead.
 
 ## Harnesses
 
