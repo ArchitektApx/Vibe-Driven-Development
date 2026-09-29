@@ -2,8 +2,8 @@
 
 - **Can push.** A remote is configured and `git ls-remote <remote> HEAD` exits
   0.
-- **Can open a PR.** `gh` is on `PATH`, the host read from
-  `git remote get-url <remote>` is a GitHub host, and
+- **Can open a PR.** `gh` is on `PATH`, the hostname read
+  from `git remote get-url <remote>` is a GitHub host, and
   `gh auth status --hostname <host>` exits 0.
 
 Both checks use the same remote: the one the base branch tracks when it tracks

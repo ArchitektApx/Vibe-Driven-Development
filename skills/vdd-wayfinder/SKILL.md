@@ -20,8 +20,9 @@ belong to that loop's Roles.
 You need the `wayfinder` skill from Matt Pocock's skills collection. It is
 user-invoked, so it never appears in your skill list; look for
 `wayfinder/SKILL.md` under `~/.agents/skills`, `./.agents/skills`,
-`~/.claude/skills`, `./.claude/skills` or `~/.claude/plugins/cache`. If it is
-missing, tell the user to run `/vdd:vdd-setup` to install it.
+`~/.claude/skills`, `./.claude/skills`, `~/.claude/plugins/cache` or
+`~/.codex/plugins/cache`, all of them on every Harness. If it is missing,
+tell the user to invoke `vdd-setup` to install it.
 
 ## Wayfinding Directory
 
@@ -60,8 +61,9 @@ from `01` in the order they run.
 Ask the user for the effort slug, then look for `.scratch/<effort>/map.md`.
 
 1. The map exists: read its `## Notes`. If the three briefing points are
-   missing, print the briefing below first. Then tell the user to type
-   `/wayfinder <path to map>`. Once the user has done that, you are done.
+   missing, print the briefing below first. Then tell the user to invoke
+   `wayfinder` with the path to the map. Once the user has done that, you are
+   done.
 2. No map: ask what the effort is, a loose idea in text, a goals file, or a
    `decided` idea file from the Brainstormer. Read what they name, then
    continue with [Briefing the wayfinder](#briefing-the-wayfinder).
@@ -70,8 +72,8 @@ Ask the user for the effort slug, then look for `.scratch/<effort>/map.md`.
 
 `wayfinder` runs in this session and reads what you print. Fill `<effort>`
 and the two template paths with the absolute paths under this skill's base
-directory, the one your harness reports when the skill loads, and confirm
-both files exist. Print the briefing, then tell the user to type `/wayfinder`
+directory, the one your Harness reports when the skill loads, and confirm
+both files exist. Print the briefing, then tell the user to invoke `wayfinder`
 with the idea or file you read. You are done; the upstream skill charts the map and
 works its tickets over as many sessions as the effort needs.
 

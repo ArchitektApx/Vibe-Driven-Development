@@ -34,7 +34,7 @@ loop's PR is merged and its acceptance criteria passed.>
 
 ## Starting a loop
 
-Give this to the loop's Planner, after `/vdd:vdd-start-loop`, with N and the
+Give this to the loop's Planner, after `vdd-start-loop`, with N and the
 handoff filled in:
 
 ```plaintext

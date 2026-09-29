@@ -1,0 +1,5 @@
+interface:
+  display_name: "VDD Wayfinder"
+  short_description: "Plan a change too large for one VDD loop"
+policy:
+  allow_implicit_invocation: false
