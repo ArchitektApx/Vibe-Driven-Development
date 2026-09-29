@@ -153,19 +153,76 @@ jobs:
             process.exit(rc);
           '
 
-      # Claude Code keeps a skill out of the model's reach with
-      # `disable-model-invocation: true` in its frontmatter, and ignores
-      # agents/openai.yaml; Codex honours `policy.allow_implicit_invocation:
-      # false` in agents/openai.yaml, and ignores the frontmatter key. A skill
-      # carrying one half of the pair is user-invoked on one Harness and
-      # model-invocable on the other. The files are enumerated with `find`, so
-      # the step runs on a plain copy of the tree as well as on a checkout.
+      # A Role reads the Harness file its `## Harnesses` section links. A
+      # skill that ships one and leaves a Harness out of the section sends
+      # that reader nowhere.
+      - name: Every skill with a Harness file indexes every Harness
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+            const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+              const p = path.join(dir, e.name);
+              return e.isDirectory() ? walk(p) : [p];
+            });
+            const NONE = "none: the inline text is complete";
+            const slugOf = (name) => name.trim().toLowerCase().replace(/\s+/g, "-");
+            const skills = fs.readdirSync("skills", { withFileTypes: true })
+              .filter((e) => e.isDirectory() && fs.existsSync(path.join("skills", e.name, "SKILL.md")))
+              .map((e) => path.join("skills", e.name));
+            const shipped = new Map();
+            for (const root of skills) {
+              const slugs = walk(root)
+                .map((f) => path.basename(f).match(/^harness-(.+)\.md$/))
+                .filter(Boolean)
+                .map((m) => m[1]);
+              if (slugs.length) shipped.set(root, slugs);
+            }
+            const all = [...new Set([...shipped.values()].flat())].sort();
+            let rc = 0;
+            for (const root of shipped.keys()) {
+              const skill = path.join(root, "SKILL.md");
+              const lines = fs.readFileSync(skill, "utf8").split("\n");
+              const start = lines.findIndex((l) => l.trim() === "## Harnesses");
+              if (start < 0) {
+                console.error(`${skill}: ships a Harness file and has no ## Harnesses section`);
+                rc = 1;
+                continue;
+              }
+              let end = lines.findIndex((l, i) => i > start && /^#{1,2} /.test(l));
+              if (end < 0) end = lines.length;
+              const section = lines.slice(start + 1, end);
+              const linked = new Set();
+              const none = new Set();
+              for (const line of section) {
+                for (const m of line.matchAll(/\]\(([^)\s]+)\)/g)) {
+                  linked.add(path.normalize(m[1].split(/[#?]/)[0]));
+                }
+                const b = line.match(/^\s*-\s+([^:`]+):\s*(.*?)\s*$/);
+                if (b && b[2] === NONE) none.add(slugOf(b[1]));
+              }
+              for (const slug of all) {
+                const own = path.normalize(`references/harness-${slug}.md`);
+                if (!linked.has(own) && !none.has(slug)) {
+                  console.error(`${skill}: ## Harnesses has no entry for ${slug} (a link to ${own}, or "${NONE}")`);
+                  rc = 1;
+                }
+              }
+            }
+            process.exit(rc);
+          '
+
+      # Claude Code honours `disable-model-invocation: true` in the
+      # frontmatter; Codex honours `policy.allow_implicit_invocation: false`
+      # in agents/openai.yaml. One half alone leaves the skill model-invocable
+      # on the other Harness.
       - name: User-invoked skills carry both halves of the pair
         run: |
           node -e '
             const fs = require("fs");
             const path = require("path");
             const { execFileSync } = require("child_process");
+            // find, not git ls-files, so a plain copy of the tree is checked too.
             const find = (...args) => execFileSync("find", ["skills", ...args], { encoding: "utf8" })
               .split("\n").filter(Boolean).map((p) => path.normalize(p));
             const frontmatter = (f) => {
@@ -272,11 +329,8 @@ jobs:
           while IFS= read -r f; do
             echo "unexpected hook or MCP config: $f"; rc=1
           done < <(git ls-files | grep -E '(^|/)(hooks\.json|\.mcp\.json|mcp\.json)$' || true)
-          # Codex reads more than policy from agents/openai.yaml: a
-          # `dependencies` key there can declare tools, MCP servers among them.
-          # These files carry `interface` and `policy` and nothing else. They
-          # are enumerated with `find`, so a plain copy of the tree is checked
-          # the same way as a checkout.
+          # A `dependencies` key in agents/openai.yaml can declare tools and
+          # MCP servers: `interface` and `policy` are the only keys allowed.
           while IFS= read -r f; do
             first=$(grep -vE '^([[:space:]]*#|[[:space:]]*$|---$)' "$f" | head -1)
             case "$first" in

@@ -106,6 +106,13 @@ PR; preserve them through any refactor of `.github/`.
   `agents/openai.yaml` directly inside a skill directory is the one exemption:
   Codex reads it as the skill's policy file, and no reader reaches it by a
   link.
+- **Every skill with a Harness file indexes every Harness.** A skill that
+  ships a `references/harness-<slug>.md` has a `## Harnesses` section with an
+  entry for every slug that has a Harness file in any skill: a link to its own
+  `references/harness-<slug>.md`, or a bullet naming that Harness with the
+  text `none: the inline text is complete`. A Role reads the Harness file that
+  section sends it to, so a Harness missing from it is a Harness whose reader
+  gets sent nowhere.
 - **The canonical sentence appears once in each of two skills.**
   `An Orchestrator hosts this Workflow.` occurs exactly once in
   `skills/vdd-orchestrator/SKILL.md`, in the Spawn prompt template, and once
