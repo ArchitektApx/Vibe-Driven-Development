@@ -8,7 +8,7 @@ description: Environment check for the Vibe Driven Development workflow.
 Verify this repository and session are ready for a Vibe Driven Development loop, fix what you can, and report the rest.
 
 This check is machine-level and repository-level. It knows nothing about a
-particular feature; `/vdd:vdd-start-loop` handles per-loop state and writes
+particular feature; `vdd-start-loop` handles per-loop state and writes
 `LOOP.md`.
 
 Check, in order:
@@ -49,10 +49,10 @@ Check, in order:
    [the find loop](references/present-search.md).
 
    **Resolvable.** Present only means the file exists somewhere; it does not
-   mean this agent can run it. Answer this one from your own skill list alone,
-   leaving symlink targets and other agents' directories where they are. Only
-   your own resolution matters, because the user will be running the loop in
-   this agent.
+   mean this Harness can run it. Answer this one from your own skill list
+   alone, leaving symlink targets and other Harnesses' directories where they
+   are. Only your own resolution matters, because the user will be running the
+   loop in this Harness.
 
    Probe your own skill list for `writing-for-agents`. It is Borrowed in its
    own right and agent-invocable, so a wired collection puts it in your skill
@@ -70,7 +70,7 @@ Check, in order:
    Report the result as one of three states:
 
    - **Present and Resolvable.** Passed, say nothing further.
-   - **Present but not Resolvable.** Installed, not wired to this agent.
+   - **Present but not Resolvable.** Installed, not wired to this Harness.
    - **Not Present.** Tell the user to install the whole collection.
 
    Not Present for `writing-for-agents` alone, with the other eight Present, is
@@ -97,10 +97,10 @@ Check, in order:
 
 2. **Tracker configured.** `to-spec`, `to-tickets` and `code-review` all read
    `docs/agents/issue-tracker.md` to learn where specs and tickets live, and
-   point at `/setup-matt-pocock-skills` when it is missing. Check that the file
+   point at `setup-matt-pocock-skills` when it is missing. Check that the file
    exists at the repository root.
 
-   If it is missing, tell the user to type `/setup-matt-pocock-skills` and to
+   If it is missing, tell the user to invoke `setup-matt-pocock-skills` and to
    recommend Local markdown when it asks which tracker to use. You cannot run
    it yourself: it is user-invoked, like the rest of the collection. Say that
    this blocks the Planner (`to-spec`, `to-tickets`) and the Code-Reviewer
@@ -131,7 +131,7 @@ Check, in order:
 5. **Stale working files.** If `LOOP.md` already exists from a previous loop,
    ask whether to delete it before starting fresh. Delete only between loops.
    It is the one working file you can find from here: the rest live under
-   `.scratch/<slug>/`, and `/vdd:vdd-start-loop` asks about that directory once
+   `.scratch/<slug>/`, and `vdd-start-loop` asks about that directory once
    the user has named the slug, because from here you cannot know which feature
    is stale.
 

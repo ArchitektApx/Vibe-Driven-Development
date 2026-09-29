@@ -26,7 +26,7 @@ writes when it installs for Claude Code: project scope lands in
 
 ## Why `grep` and not `-path`
 
-Agent environments commonly replace `find` with a shell function around a
+Harnesses commonly replace `find` with a shell function around a
 bundled `bfs`, or route it through a command-rewriting proxy, and several of
 those answer `-path` with `unknown flag '-path', ignored` and then print
 everything under the roots, or nothing at all. `-name` survives both.

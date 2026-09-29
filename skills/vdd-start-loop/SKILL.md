@@ -19,9 +19,8 @@ broken path.
 
 ## 1. Run the setup checks
 
-Invoke the `vdd-setup` skill (`/vdd:vdd-setup` in Claude Code, `vdd-setup`
-elsewhere). If you cannot invoke skills at all, work through its checks by
-hand.
+Invoke the `vdd-setup` skill. If you cannot invoke skills at all, work through
+its checks by hand.
 
 If it reports anything that blocks the Planner, stop and report that to the
 user. `LOOP.md` is written once the checks pass and not before. The Planner is
@@ -31,8 +30,8 @@ the next session to run, so a Planner blocker blocks the loop.
 
 Propose the basename of `git rev-parse --show-toplevel`. The user confirms it
 or gives a shorter one. Ask once. This name prefixes every Session name, so it
-keeps names unique across the projects on this machine, and a long one makes
-the `@` typeahead painful.
+keeps names unique across the projects on this machine, and a long one is
+longer to type.
 
 ## 3. Feature slug
 

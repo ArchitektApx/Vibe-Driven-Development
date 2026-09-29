@@ -14,11 +14,12 @@ own.
 
 ## 1. Read `LOOP.md`
 
-Read `LOOP.md` at the repository root, fresh from disk. It names the repository short
-name, the Feature slug, the base branch, the feature branch, the tracker
-path (`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:` line and the two
-Session names. If it does not exist, stop and tell the user to run
-`/vdd:vdd-start-loop`; do not guess a slug.
+Read `LOOP.md` at the repository root, fresh from disk. It names the
+repository short name, the Feature slug, the base branch, the feature branch,
+the tracker path (`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the
+`Fresh Coder:` line, the `Harness:` line and the two Session names. If it does
+not exist, stop and tell the user to invoke `vdd-start-loop` in a Planner
+Session; do not guess a slug.
 On `PR: no`, print "Loop signed off. `PR: no`: `<feature branch>` stays
 local, nothing pushed." and stop before step 2.
 
@@ -95,8 +96,8 @@ failed to store` on a call that exited 0.
 
 - **Can push.** A remote is configured and `git ls-remote <remote> HEAD`
   exits 0.
-- **Can open a PR.** `gh` is on `PATH`, the host read from `git remote
-  get-url <remote>` is a GitHub host, and `gh auth status --hostname <host>`
+- **Can open a PR.** `gh` is on `PATH`, the hostname read from `git
+  remote get-url <remote>` is a GitHub host, and `gh auth status --hostname <host>`
   exits 0.
 
 The remote is the one the base branch tracks when it tracks one, else the

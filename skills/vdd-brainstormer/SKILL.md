@@ -17,8 +17,7 @@ belongs to the other VDD Roles once an idea is `decided`.
 
 You need the `grilling` skill from Matt Pocock's skills collection. Look
 for it in your skill list at session start. If it is missing, tell the user
-to install it (`/plugin install mattpocock-skills` in Claude Code, `npx
-skills@latest add mattpocock/skills` elsewhere) and stop.
+to run `vdd-setup`, which names the install for their Harness, and stop.
 
 ## Brainstorming Directory
 
