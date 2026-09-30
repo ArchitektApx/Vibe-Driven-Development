@@ -9,11 +9,11 @@ Everything from the environment check to the pull request, on one Feature slug. 
 _Avoid_: phase, pipeline, run
 
 **Role**:
-One of the ten jobs the plugin ships (Planner, Orchestrator, Plan-Reviewer, Coder, Code-Reviewer, PR-Author, plus Setup and Start-Loop inside the Workflow; Brainstormer and Wayfinder before it). Each ships as one skill file. The Planner, the Brainstormer and the Wayfinder run in the user's session; the Orchestrator hosts the rest.
+One of the ten jobs the plugin ships (Planner, Orchestrator, Plan-Reviewer, Coder, Code-Reviewer, PR-Author, plus Setup and Start-Loop inside the Workflow; Brainstormer and Wayfinder before it). Each ships as one skill file. The Planner, the Brainstormer and the Wayfinder run in the user's session; the Orchestrator hosts the Plan-Reviewer, the Coder and the Code-Reviewer and invokes the PR-Author.
 _Avoid_: agent, persona, mode
 
 **Orchestrator**:
-The Role that puts Model approval to the user before its first spawn, hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, carries Doorbells between the Planner and the Loop it hosts, relays a Role's question to the user and resumes the same subagent with the answer, and hosts the PR-Author at Sign-off. Runs in its own session, opened when the Planner rings its first Doorbell.
+The Role that puts Model approval to the user before its first spawn, hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, carries Doorbells between the Planner and the Loop it hosts, relays a Role's question to the user and resumes the same subagent with the answer, and invokes the PR-Author in its own session at Sign-off. Runs in its own session, opened when the Planner rings its first Doorbell.
 _Avoid_: dispatcher, controller, coordinator
 
 **PR-Author**:
@@ -41,7 +41,7 @@ One of the two conversations the user opens: the Planner's, and the Orchestrator
 _Avoid_: instance, window, context
 
 **Harness**:
-The program a Session runs in, which decides how a Role invokes skills, spawns subagents and delivers Doorbells: Claude Code, Codex, or Generic for any other. Selected once per Workflow and recorded in the Loop file. Changes mechanics, never the Workflow.
+The program a Session runs in, which decides how a Role invokes skills, spawns subagents and delivers Doorbells: Claude Code, Codex, Cursor (its IDE Agent or its CLI), Copilot CLI, or Generic for any other. Selected once per Workflow and recorded in the Loop file. Changes mechanics, never the Workflow.
 _Avoid_: host, platform, runtime, client, agent, model, provider
 
 **Harness file**:
@@ -85,7 +85,7 @@ A file under a Role skill's `references/` directory, read when a pointer in that
 _Avoid_: resource file, sibling file, appendix
 
 **Session name**:
-`<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner` or `VDD-new-release-Orchestrator`. There are two, the Planner's and the Orchestrator's. Set by the user rather than by an agent; it is the address a Doorbell is sent to.
+`<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner` or `VDD-new-release-Orchestrator`. There are two, the Planner's and the Orchestrator's. Set by the user rather than by an agent; it is the address a Doorbell is sent to. On a Harness that delivers no Doorbell the name is still recorded in the Loop file, and nothing is sent to it.
 _Avoid_: session id, title, label
 
 **Spawn prompt**:
@@ -131,7 +131,7 @@ A skill from another collection that a Role depends on but does not ship. From M
 _Avoid_: external skill, third-party skill, dependency
 
 **User-invoked**:
-A property of a skill whose author blocked agents from starting it, so only a human typing the slash command can. All Borrowed skills except `code-review`, `writing-for-agents` and `grilling` are user-invoked. In Claude Code this is `disable-model-invocation: true` in the frontmatter; in Codex, `policy.allow_implicit_invocation: false`.
+A property of a skill whose author blocked agents from starting it, so only a human typing the slash command can. All Borrowed skills except `code-review`, `writing-for-agents` and `grilling` are user-invoked. In Claude Code, Cursor and Copilot CLI this is `disable-model-invocation: true` in the frontmatter; in Codex, `policy.allow_implicit_invocation: false`.
 _Avoid_: manual, disabled, blocked
 
 **Present**:

@@ -1,19 +1,24 @@
 # PR-Author is the only Role that pushes, and only after Sign-off
 
 A new Role, PR-Author, runs on Sign-off and is the only Role in the Workflow
-that pushes a branch or opens a PR. It runs in the Orchestrator's session,
-which hosts it the same way it hosted the Code-Reviewer, or in the
-Code-Reviewer's own session when the Workflow is run by hand. The user's
-consent for that push is one line in `LOOP.md`, written once at Workflow start
-by `vdd-start-loop`, so the PR-Author reads it instead of asking again.
+that pushes a branch or opens a PR. It runs in the Orchestrator's own session:
+on Sign-off the Orchestrator invokes its skill there, the way Start-Loop
+invokes Setup and the Planner, rather than spawning it as a subagent the way
+it hosts the Code-Reviewer. The user's consent for that push is one line in
+`LOOP.md`, written once at Workflow start by `vdd-start-loop`, so the
+PR-Author reads it instead of asking again.
 
 ## Considered options
+
+**The Orchestrator's session is the one session the PR-Author runs in.** Every
+supported Harness spawns subagents, so no Workflow runs the Code-Reviewer in a
+session of its own that could run the PR-Author.
 
 **A fifth Session for the PR-Author.** Rejected. A fifth Session name would
 mean a fifth terminal the user opens by hand at the exact point the Workflow
 is closest to finished and the user is closest to walking away. The
 PR-Author's read list, `LOOP.md`, `CODEREVIEW.md`, `PLAN-REVIEW.md`,
-`FIXES.md` and the Spec, is exactly what the Code-Reviewer's session already
+`FIXES.md` and the Spec, is exactly what the Orchestrator's session already
 holds or can read fresh, so a new session would buy no independence a
 reviewer needs, only a copy-paste step a Doorbell already removes elsewhere.
 
@@ -39,10 +44,10 @@ with the one capability neither of the other two ever had.
 
 The PR-Author never runs as a subagent, because every path in it shows the
 assembled title and body to the user and waits for one confirmation, and that
-body is substance the Orchestrator is forbidden to carry (ADR-0002). Hosting
-it in the Orchestrator's session is the construction this record already uses
-for the Code-Reviewer, where one session hosts a reviewing Role and then the
-PR-Author, and the second Role's read list is its own.
+body is substance the Orchestrator is forbidden to carry (ADR-0002). Invoking
+it in the Orchestrator's session follows the construction Start-Loop uses for
+Setup and the Planner: one session runs one skill and then the next, and the
+second skill's read list is its own.
 
 A `LOOP.md` written by a release before this one has no `PR:` line. The
 PR-Author reads a missing line the same way it reads an unrecognised one: as
