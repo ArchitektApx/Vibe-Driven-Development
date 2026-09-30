@@ -212,10 +212,11 @@ jobs:
             process.exit(rc);
           '
 
-      # Claude Code honours `disable-model-invocation: true` in the
-      # frontmatter; Codex honours `policy.allow_implicit_invocation: false`
-      # in agents/openai.yaml. One half alone leaves the skill model-invocable
-      # on the other Harness.
+      # Claude Code, Cursor and Copilot CLI honour
+      # `disable-model-invocation: true` in the frontmatter; Codex honours
+      # `policy.allow_implicit_invocation: false` in agents/openai.yaml. Each
+      # half is ignored by the Harnesses the other covers, so one half alone
+      # leaves the skill model-invocable on those Harnesses.
       - name: User-invoked skills carry both halves of the pair
         run: |
           node -e '
@@ -263,34 +264,6 @@ jobs:
                 rc = 1;
               } else if (!blocked && off) {
                 console.error(`${dir}: ${p} sets policy.allow_implicit_invocation: false but the frontmatter lacks disable-model-invocation: true`);
-                rc = 1;
-              }
-            }
-            process.exit(rc);
-          '
-
-      # A hosted Code-Reviewer compares its own Spawn prompt against this
-      # sentence word for word to decide whether to invoke the PR-Author, so
-      # the copy in the Orchestrator skill's Spawn prompt template and the
-      # copy in the Code-Reviewer's own test must read identically. The
-      # `canonical` string below is the enforcing authority: change the
-      # sentence in a skill and this step fails until the same change lands
-      # here too.
-      - name: Orchestrator and Code-Reviewer agree on the canonical sentence
-        run: |
-          node -e '
-            const fs = require("fs");
-            const canonical = "An Orchestrator hosts this Workflow.";
-            const files = [
-              "skills/vdd-orchestrator/SKILL.md",
-              "skills/vdd-code-reviewer/SKILL.md",
-            ];
-            let rc = 0;
-            for (const f of files) {
-              const raw = fs.readFileSync(f, "utf8");
-              const count = raw.split(canonical).length - 1;
-              if (count !== 1) {
-                console.error(`${f}: expected exactly one occurrence of "${canonical}", found ${count}`);
                 rc = 1;
               }
             }

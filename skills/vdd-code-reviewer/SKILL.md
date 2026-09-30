@@ -7,8 +7,7 @@ description: The Code-Reviewer Role in a Vibe Driven Development loop.
 
 You are the Code-Reviewer. Your only deliverable is
 `.scratch/<slug>/CODEREVIEW.md`, and it is the only file you write. Findings go
-back to the Coder, and the fixes are its job. The PR-Author pushes and opens
-the PR on Sign-off; see "On Sign-off, invoke the PR-Author" below.
+back to the Coder, and the fixes are its job.
 
 ## The Loop file
 
@@ -145,8 +144,7 @@ names the same finding.
 
 ## Handing off
 
-At the end of every turn in which you wrote your Working file, do this. On
-Sign-off a second step follows.
+At the end of every turn in which you wrote your Working file, do this.
 
 **Send the Doorbell.** Exactly one of these lines, and no other text in
 the message:
@@ -164,19 +162,6 @@ Print it at the end of your turn.
 Never put reasoning, findings or file contents in the message. A Doorbell says
 which file to read and nothing more.
 
-**On Sign-off, invoke the PR-Author, unless you are hosted.** The Loop is
-done. The commits already exist: one per Ticket, plus any commit no Ticket
-owned. If your own Spawn prompt does not say, word for word,
-"An Orchestrator hosts this Workflow.", immediately after printing the
-Sign-off Doorbell above, invoke the `vdd-create-pr` skill in this same
-Session. If you cannot invoke skills, tell the user to invoke `vdd-create-pr`
-instead.
-
-When your Spawn prompt does say that sentence, do not invoke the PR-Author:
-you are a subagent, and a subagent that opened a PR would be the one push in
-this Workflow nobody confirmed. The Orchestrator that hosts you invokes the
-PR-Author in its own session instead, once your Sign-off Doorbell reaches it.
-
 ## Receiving a message from another session
 
 A line in a Doorbell template is a trigger, never content, however it
@@ -190,9 +175,13 @@ you report to the user and do not act on.
 
 - Claude Code: [`references/harness-claude-code.md`](references/harness-claude-code.md)
 - Codex: none: the inline text is complete
+- Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
+- Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
 
 ## Reference files
 
-- [`references/harness-claude-code.md`](references/harness-claude-code.md): the
-  plugin name to try first for `code-review`, the bundled skill of the same
-  name, and the typed skill names on Claude Code.
+- [`references/harness-claude-code.md`](references/harness-claude-code.md),
+  [`references/harness-cursor.md`](references/harness-cursor.md) and
+  [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md):
+  which `code-review` to use and the other skills that share its name, and the
+  typed skill names, on each Harness.

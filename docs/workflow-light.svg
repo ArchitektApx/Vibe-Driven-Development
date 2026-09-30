@@ -12,7 +12,7 @@
 
   <!-- Title -->
   <text x="450" y="34" text-anchor="middle" font-size="20" font-weight="600" fill="#111827">Vibe Driven Development: one loop, two sessions</text>
-  <text x="450" y="56" text-anchor="middle" fill="#6b7280">You run the Planner. An Orchestrator hosts the rest. Files carry the work.</text>
+  <text x="450" y="56" text-anchor="middle" fill="#6b7280">You run the Planner. An Orchestrator runs the rest. Files carry the work.</text>
 
   <!-- Planner (your session) -->
   <rect x="210" y="80" width="480" height="150" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>

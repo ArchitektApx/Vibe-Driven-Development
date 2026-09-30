@@ -152,8 +152,7 @@ in:
 > below into it once it is up.
 
 Your Harness file gives the Orchestrator launch. On Generic it is: open a
-second Session in the same Harness, name it `<short>-<slug>-Orchestrator` if
-the Harness can name Sessions, and invoke `vdd-orchestrator` there.
+second Session in the same Harness and invoke `vdd-orchestrator` there.
 
 **Send the Doorbell.** Exactly this line, and no other text:
 
@@ -212,10 +211,15 @@ review rounds, split it.
 
 - Claude Code: [`references/harness-claude-code.md`](references/harness-claude-code.md)
 - Codex: [`references/harness-codex.md`](references/harness-codex.md)
+- Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
+- Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
 
 ## Reference files
 
-- [`references/harness-claude-code.md`](references/harness-claude-code.md) and
-  [`references/harness-codex.md`](references/harness-codex.md): the typed skill
-  names, the `code-review` reading, the Orchestrator launch, and how a
-  Doorbell is confirmed and delivered on each Harness.
+- [`references/harness-claude-code.md`](references/harness-claude-code.md),
+  [`references/harness-codex.md`](references/harness-codex.md),
+  [`references/harness-cursor.md`](references/harness-cursor.md) and
+  [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
+  typed skill names, the `code-review` reading, the Orchestrator launch, and
+  how a Doorbell is confirmed and delivered on each Harness, or that it is
+  printed where the Harness delivers none.

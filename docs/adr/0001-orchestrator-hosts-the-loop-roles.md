@@ -20,7 +20,11 @@ context begins with its Spawn prompt and holds nothing of its parent's
 conversation, probed on four hosts on 2026-08-18. A subagent can end its turn
 with a question, its parent can put that question to the user, and the same
 subagent resumes with the answer, its context intact, measured end to end
-during this Workflow's grilling.
+during this Workflow's grilling. Probed again on 2026-09-29 on the Cursor IDE
+Agent, the Cursor CLI and Copilot CLI: a child starts from its Spawn prompt,
+resumes with its context intact under a model its parent chose, and ends its
+turn with a question the parent puts to the user; none of the three gives a
+child an ask tool.
 
 ## Consequences
 

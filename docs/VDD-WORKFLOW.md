@@ -1,52 +1,57 @@
+# Vibe Driven Development - Workflow and Skills
+
+Install and requirements are in the [README](../README.md). You do not drive the loop by hand: `/vdd:vdd-start-loop` starts it, and each Role asks for what it needs when it needs it. This page explains what happens and why.
+
+## 📚 Contents
+
+- [🧩 Harnesses](#-harnesses)
+- [🔁 The Vibe Driven Development Workflow](#-the-vibe-driven-development-workflow)
+  - [📐 Phase 1: The Plan / Plan-Review loop](#-phase-1-the-plan--plan-review-loop)
+  - [🔧 Phase 2: The Coder / Code-Review loop](#-phase-2-the-coder--code-review-loop)
+  - [🚢 Phase 3: Ship](#-phase-3-ship)
+- [🧭 Before the loop](#-before-the-loop)
+  - [💡 The Brainstormer](#-the-brainstormer)
+  - [🗺 The Wayfinder](#-the-wayfinder)
+- [💡 Tips](#-tips)
+
+## 🧩 Harnesses
+
+The commands on this page are Claude Code's. On the other Harnesses:
+
+| | Claude Code | Codex | Cursor | Copilot CLI |
+|-|-------------|-------|--------|-------------|
+| Skill | `/vdd:vdd-start-loop` | `$vdd:vdd-start-loop` | `/vdd-start-loop` | `/vdd:vdd-start-loop` |
+| Open a named session | `claude -n <name>` | `codex`, then `/rename <name>` | a new chat, or `agent`; no name needed | `copilot`; no name needed |
+| Doorbell | delivered on 2.1.224+ (macOS, Linux) | delivered through `codex queue`; under default approvals you approve each one | printed for you to paste | printed for you to paste |
+
+## 🔁 The Vibe Driven Development Workflow
+
 <div align="center">
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="workflow-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="workflow-light.svg">
-  <img alt="The VDD workflow: you start the loop as the Planner, and an Orchestrator session hosts the rest. The Planner and its hosted Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the hosted Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the Orchestrator hosts the PR-Author, which opens the PR or hands it to you. Every file named here lives in the tracker directory .scratch/&lt;slug&gt;/, beside the spec and the tickets; only LOOP.md sits at the repository root." src="workflow-light.svg" width="900">
+  <img alt="The VDD workflow: you start the loop as the Planner, and an Orchestrator session runs the rest. The Planner and its hosted Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the hosted Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the Orchestrator invokes the PR-Author, which opens the PR or hands it to you. Every file named here lives in the tracker directory .scratch/&lt;slug&gt;/, beside the spec and the tickets; only LOOP.md sits at the repository root." src="workflow-light.svg" width="900">
 </picture>
 
 </div>
 
-# 🔁 The Vibe Driven Development Workflow
+A loop runs in three phases.
 
-A loop runs in three phases. Installation and requirements are in the [README](../README.md); this page walks through the loop itself.
+### 📐 Phase 1: The Plan / Plan-Review loop
 
-> [!NOTE]
-> You do not have to drive any of this by hand. `/vdd:vdd-start-loop` starts the loop, and from there each Role tells you the one thing it needs from you at the moment it needs it. Everything below is the detailed walkthrough of what the Roles do, for when you want to know what is happening and why.
+#### 🤖 Model selection
 
-> [!TIP]
-> **On Codex.** The commands on this page are Claude Code's, and each has a Codex equivalent. A skill takes `$` where Claude Code takes `/`, as in `$vdd:vdd-start-loop`. You open a session with `codex` and name it with `/rename <name>` inside it, where Claude Code does both with `claude -n <name>`. A Doorbell travels through `codex queue`, which the sending session runs with escalated permissions, so under default approvals you approve it once per Doorbell.
+The Planner and the Coder explore the codebase before they write, so token cost bears hardest on them. The reviewers read less and need judgement. Two ways to split it:
 
-- [📐 Phase 1: The Plan / Plan-Review loop](#-phase-1-the-plan--plan-review-loop)
-- [🔧 Phase 2: The Coder / Code-Review loop](#-phase-2-the-coder--code-review-loop)
-- [🚢 Phase 3: Ship](#-phase-3-ship)
-- [🧭 Before the loop](#-before-the-loop)
-- [💡 Tips](#-tips)
+| Role | Vary the model | Vary the thinking level |
+|------|----------------|-------------------------|
+| 🧠 Planner, 💻 Coder | Claude Sonnet 5 | Claude Opus 5, High |
+| 🔍 Plan-Reviewer, 🧪 Code-Reviewer | Claude Fable 5 | Claude Opus 5, X-High |
 
-## 📐 Phase 1: The Plan / Plan-Review loop
+When the Planner's or the Coder's work is complex, buy judgement there too.
 
-### Model selection
-
-Token cost bears hardest on the Planner and the Coder: both read and explore the codebase before they write anything. The Plan-Reviewer and the Code-Reviewer read far less and want judgement over throughput. When the Planner's or the Coder's work is complex, you may want to buy judgement there too.
-
-| Role | Model |
-|------|-------|
-| 🧠 Planner | Claude Sonnet 5 |
-| 🔍 Plan-Reviewer | Claude Fable 5 |
-
-| Role | Model | Thinking Level |
-|------|-------|----------------|
-| 🧠 Planner | Claude Opus 5 | High |
-| 🔍 Plan-Reviewer | Claude Opus 5 | X-High |
-
-The first table varies the model, the second varies the thinking level with the model held constant across both rows. Where a reviewer runs a fast tier, the thinking level buys its judgement, as the second table's X-High row shows.
-
-The same applies to the Coder and Code-Reviewer in Phase 2.
-
-You open the Planner session yourself, so its row is a choice you make at launch. The Plan-Reviewer runs as a subagent you never launch, and you approve its row at Model approval, the prompt the Orchestrator prints before its first spawn.
-
-The Orchestrator itself does no in-depth work: it spawns the hosted Roles, relays Doorbells and tracks rounds, so a mid-tier model like Claude Sonnet 5 is enough there. Its model does not limit the Roles it hosts: at Model approval it reads what your environment says about models, a file like the `AGENT_SELECTION.md` below for instance, fills the per-Role list from that, and shows you the list to approve or correct before it spawns the first one. What you approve holds for every spawn in the session.
+You pick the Planner's model when you open its session. The Orchestrator only spawns Roles, relays Doorbells and counts rounds, so a mid-tier model like Claude Sonnet 5 is enough for it. Before its first spawn it prints Model approval: a model per hosted Role, filled from what your environment says about models, such as the file below. You approve or correct the list once, and it holds for every spawn in the session.
 
 An example, `~/.claude/AGENT_SELECTION.md`:
 
@@ -60,64 +65,60 @@ Default subagents to haiku. Upgrade only when task requires judgment:
 - fable (claude-fable-5): fast-output tier, vdd-plan-reviewer and vdd-code-reviewer
 ```
 
-Put it where your harness reads its instructions, in the way your harness reads it; the path above is a Claude Code one. A user-level configuration is the durable place, and a repository-level one suits a quick change at the cost of a `.gitignore` entry and a change to a tracked file.
+Put it where your Harness reads its instructions; the path above is Claude Code's. User-level configuration lasts. Repository-level configuration costs a `.gitignore` entry or a change to a tracked file.
 
-### Starting the loop
+#### 🚀 Starting the loop
 
-Open the first session and run `/vdd:vdd-start-loop`. It runs the environment check, asks you for a short name for the repository and a kebab-case slug for this piece of work, confirms the base branch and the feature branch, asks once whether an open minor should hold up Sign-off (`fix`, or `leave` them listed), asks once whether VDD should open the PR at the end of the Workflow (open it, ask again at Sign-off, or leave it manual), and writes all of it plus the two session names to `LOOP.md`. Every Role reads that file first, so none of them has to ask you again.
+`/vdd:vdd-start-loop` runs the environment check, then asks for:
 
-It then prints the line that renames this session to the Planner, previews the line that starts the Orchestrator, and hands over to the Planner in the same session.
+- a short name for the repository and a kebab-case slug for the work
+- the base branch and the feature branch
+- whether an open minor holds up Sign-off (`fix`, or `leave` it listed)
+- whether VDD opens the PR at the end (yes, ask at Sign-off, or manual)
 
-### Sessions, names and Doorbells 🔔
+It writes the answers and the two session names to `LOOP.md`, which every Role reads first, so none asks again. It then prints the line that renames this session to the Planner, previews the line that starts the Orchestrator, and hands over to the Planner.
 
-`LOOP.md` names two sessions, as `<repository>-<slug>-<Role>`, for example `VDD-new-release-Orchestrator`. You rename this one to the Planner with `/rename <name>`; no agent can rename its own session, which is why the Planner asks you to. You open the Orchestrator yourself, once, with `claude -n <name>` then `/vdd:vdd-orchestrator`, when the Planner rings its first Doorbell. From there the Orchestrator hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, each in a fresh context, and later the PR-Author in its own session; none of them is a session you open.
+#### 🔔 Sessions, names and Doorbells
 
-A Role that finishes its turn rings its counterpart's doorbell instead of waiting for you: the Planner rings the Orchestrator, and the Orchestrator relays every Plan-Reviewer round back to the Planner. The message is deliberately dull: which working file was written, which round, and how many open findings per severity. The receiving end reads the file and ignores the message text, so nothing leaks between the two contexts, which is why they run apart. Without Claude Code or Codex, or before the Orchestrator session exists (always true for round 1), the same line prints for you to paste.
+`LOOP.md` names two sessions as `<repository>-<slug>-<Role>`, for example `VDD-new-release-Orchestrator`. Rename the current session to the Planner with `/rename <name>`; no agent can rename its own session. When the Planner rings its first Doorbell, open the Orchestrator with `claude -n <name>` and `/vdd:vdd-orchestrator`. It hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, each in a fresh context, and invokes the PR-Author at the end. You open no other session.
 
-### 🧠 The Planner
+A Role that finishes its turn rings its counterpart instead of waiting for you. The Planner rings the Orchestrator, and the Orchestrator relays each Plan-Reviewer round back. The message names only the working file, the round and the open findings per severity. The receiver reads the file and ignores the message, so nothing leaks between the two contexts. Where no Doorbell can be delivered, the line prints for you to paste: on Cursor, Copilot CLI and other agents, and in round 1, before the Orchestrator exists.
 
-The Planner is the session that:
+#### 🧠 The Planner
 
-- Identifies an issue described by the user, or
-- Identifies improvements to the codebase (refactoring, adding tests, etc.)
-- Grills you on it until you both agree what the work is
-- Hands you `/to-spec` and then `/to-tickets`, which publish the spec and the tickets under `.scratch/<slug>/`
-- Passes the published spec and every ticket through `writing-for-agents` before handing them on, so the Coder gets documents written for the way it reads
+The Planner takes a problem you bring, or an improvement it finds in the codebase, and grills you until you agree what the work is. It then hands you `/to-spec` and `/to-tickets`, which publish `.scratch/<slug>/spec.md` and the tickets in `.scratch/<slug>/issues/`. It passes both through `writing-for-agents`, so the Coder gets documents written for the way it reads. The Planner never writes code.
 
-The Planner never writes code. Its deliverables are `.scratch/<slug>/spec.md` and the ticket files in `.scratch/<slug>/issues/`.
+#### 🔍 The Plan-Reviewer
 
-`/vdd:vdd-start-loop` starts it for you, in the same session you renamed. Its own Doorbell starts the Orchestrator, the first time it rings.
+The Plan-Reviewer checks that the spec and the tickets are complete and that every claim in them holds against the codebase. It checks their prose against `writing-for-agents`, because the Planner cannot grade its own. Its findings go to `PLAN-REVIEW.md`, and rounds pass through the Orchestrator until it signs off.
 
-### 🔍 The Plan-Reviewer
+A blocker or a major always holds up Sign-off. On `Minors: fix` the loop runs until no minor is open; on `Minors: leave` the reviewer signs off with the open minors listed. One to three rounds is normal. More means the scope is too big: split the work.
 
-The Plan-Reviewer reviews the spec and the tickets and checks that they are complete and that every claim in them holds against the actual codebase. It also checks them against `writing-for-agents`, because the Planner cannot grade its own prose. It documents its findings and pushbacks in `PLAN-REVIEW.md` and hands that back to the Planner to work on.
+### 🔧 Phase 2: The Coder / Code-Review loop
 
-It runs as a subagent hosted by the Orchestrator, in a fresh context, resumed round after round for the life of this loop. You never start it yourself.
+The Orchestrator starts this phase when `PLAN-REVIEW.md` signs off. You open nothing.
 
-Its Doorbells and the Planner's pass through the Orchestrator each round until the Plan-Reviewer signs off. A blocker or a major always holds up Sign-off; on `Minors: fix` the loop runs until no minor is open too, however many rounds that takes, and on `Minors: leave` the Plan-Reviewer signs off with the open minors listed. In practice this takes one to three rounds. If it takes more, the scope is probably too big: split the work.
+#### 💻 The Coder
 
-## 🔧 Phase 2: The Coder / Code-Review loop
+The Coder works on the feature branch from `LOOP.md`, which defaults to the slug. It takes the tickets in dependency order: implements one, runs its acceptance criteria, commits it, and writes what it did to `FIXES.md`. If it is on neither the base nor the feature branch, or holds a Ticket it finds wrong or impossible, it asks; the Orchestrator relays the question to you and your answer back.
 
-The Orchestrator starts this phase itself, the moment `PLAN-REVIEW.md` signs off. Nothing here is a session you open.
+#### 🧪 The Code-Reviewer
 
-### 💻 The Coder
+The Code-Reviewer runs Matt Pocock's `code-review` over the branch against the spec, then adds what that skill does not do: it reruns the verification itself, distrusts `FIXES.md` and the ticked checkboxes, and flags anything in the diff no ticket asked for. When the branch changes a skill file, an `AGENTS.md`, a `CLAUDE.md` or a file one of those points at, it checks those lines against `writing-for-agents`. Its findings go to `CODEREVIEW.md`, and rounds run until Sign-off under the same rule as Phase 1.
 
-The Coder works on the feature branch from `LOOP.md`, which defaults to the feature slug. It takes the tickets in dependency order, implements one at a time, runs its acceptance criteria, commits it, and writes what it did to `FIXES.md` for the Code-Reviewer.
+### 🚢 Phase 3: Ship
 
-Hosted by the Orchestrator, resumed round after round. If it finds itself on neither the base branch nor the feature branch, or holds a Ticket it finds wrong or impossible, it asks; the Orchestrator relays the question to you and resumes it with your answer.
+On Sign-off the Orchestrator runs the PR-Author in its own session, which follows the `PR:` line in `LOOP.md`:
 
-### 🧪 The Code-Reviewer
+- `PR: yes` shows you the body, pushes the branch and opens the PR.
+- `PR: ask at sign-off` asks you then.
+- `PR: manual` prints the body and touches neither the branch nor the remote.
+- `PR: no` skips the PR-Author. The branch stays local and no body is printed.
 
-The Code-Reviewer runs Matt Pocock's `code-review` over the branch, with the spec as its reference, and then adds the checks that skill does not make: it reruns the verification itself, distrusts `FIXES.md` and the ticked checkboxes, and looks for anything in the diff the tickets did not ask for. When the branch changed a skill file, an `AGENTS.md`, a `CLAUDE.md` or anything one of those points at, it checks those lines against `writing-for-agents` as well; on a branch of ordinary source code that step costs nothing. It documents its findings and pushbacks in `CODEREVIEW.md` and hands that back to the Coder to work on.
+Then:
 
-Hosted by the Orchestrator too, the same way. `FIXES.md` and `CODEREVIEW.md` pass between the Coder and the Code-Reviewer, inside the Orchestrator's own session, until the Code-Reviewer signs off. A blocker or a major always holds up Sign-off; on `Minors: fix` the loop runs until no minor is open too, however many rounds that takes, and on `Minors: leave` the Code-Reviewer signs off with the open minors listed.
-
-## 🚢 Phase 3: Ship
-
-On Sign-off, the Orchestrator runs the PR-Author in its own session. It reads the `PR:` line `/vdd:vdd-start-loop` wrote to `LOOP.md`: `PR: yes` shows you the assembled body, pushes the branch and opens the PR; `PR: ask at sign-off` asks you then; `PR: manual` prints the body and touches neither the branch nor the remote. `PR: no` skips the PR-Author: the branch stays local and no body is printed. Either VDD opens the PR or you do, from the printed body.
-
-1. If the PR-Author did not open the PR, open it yourself from the feature branch, pasting the printed body. The commits are already there, one per ticket plus any commit no ticket owned, and the working files are gitignored and stay behind.
-2. Delete `LOOP.md`. Keep `.scratch/<slug>/`: the spec, the tickets and the three review files are in there, and they are that loop's record. It is gitignored, so it stays on this machine and reaches no clone.
+1. If the PR is not open, open it from the feature branch with the printed body. The commits are there, one per ticket plus any no ticket owned. The working files are gitignored and stay behind.
+2. Delete `LOOP.md`. Keep `.scratch/<slug>/`, which holds the spec, the tickets and the three review files as the loop's record. It is gitignored, so it stays on this machine.
 3. Start the next loop with fresh sessions.
 
 ## 🧭 Before the loop
@@ -132,26 +133,22 @@ On Sign-off, the Orchestrator runs the PR-Author in its own session. It reads th
 
 </div>
 
-Two optional Roles run before a loop, in your own session. Neither is part of the loop, and neither starts the next Role: you carry what they write to the next one yourself.
+Two optional Roles run in your own session before a loop. Neither starts the next Role: you carry what they write forward yourself.
 
 ### 💡 The Brainstormer
 
-`/vdd:vdd-brainstormer` keeps a project's ideas in `.scratch/_brainstorming/`: one file per idea, an `index.md` that lists them with their status, and a `research/` directory for anything worth keeping from a test. Each idea file rates its importance, its size and its fog, the unknowns between you and knowing whether it works. Asked for an overview, the Brainstormer uses those ratings to suggest what to work on next.
+`/vdd:vdd-brainstormer` keeps ideas in `.scratch/_brainstorming/`: one file per idea, an `index.md` listing each with its status, and `research/` for test results worth keeping. Each idea is rated for importance, size and fog, the unknowns between you and knowing whether it works. Ask for an overview and it suggests what to work on next.
 
-In a session you capture a new idea or move an existing one. The Brainstormer talks an idea through, clears fog with the cheapest test that answers the question, and grills you with Matt Pocock's `grilling` skill once you can decide. An idea ends `decided` or `dropped`, with the date and the reason. A dropped idea also records the condition under which it is worth reopening, so it is not argued twice. Give a decided idea file to `/vdd:vdd-start-loop` as the problem statement, or to the Wayfinder when it is too big for one loop.
+It talks an idea through, clears fog with the cheapest test that answers the question, and grills you with Matt Pocock's `grilling` once you can decide. An idea ends `decided` or `dropped`, with the date and the reason. A dropped idea records when it is worth reopening, so it is not argued twice. Give a decided idea to `/vdd:vdd-start-loop` as the problem statement, or to the Wayfinder if it is too big for one loop.
 
 ### 🗺 The Wayfinder
 
-`/vdd:vdd-wayfinder` is for a change no single loop holds, or one whose goal is still unclear. It asks for the effort's name and what the effort is, then prints a briefing on VDD and hands you to Matt Pocock's `wayfinder` skill, which charts the effort in `.scratch/<effort>/map.md` over as many sessions as it needs.
+`/vdd:vdd-wayfinder` is for a change too big for one loop, or one whose goal is unclear. It asks for the effort's name and what it is, prints a briefing on VDD, and hands you to Matt Pocock's `wayfinder`, which charts the effort in `.scratch/<effort>/map.md` over as many sessions as it needs.
 
-The map is done when `.scratch/<effort>/handoffs/` holds `00-overview.md` and one `NN-<slug>.md` per loop. The overview names the destination, the loops in order, the gate each loop must pass before the next one starts, and the rules every loop inherits. It ends with the prompt for each loop: run `/vdd:vdd-start-loop`, fill in the loop number and the handoff, and paste the prompt as the problem statement. The Planner then reads the overview and its handoff and grills you on that one loop.
+The map is done when `.scratch/<effort>/handoffs/` holds `00-overview.md` and one `NN-<slug>.md` per loop. The overview names the destination, the loops in order, the gate each loop must pass, and the rules every loop inherits. It ends with a prompt per loop: run `/vdd:vdd-start-loop`, fill in the loop number and the handoff, and paste the prompt as the problem statement. That loop's Planner reads the overview and its handoff and grills you on that loop alone.
 
 ## 💡 Tips
 
-- **One session or subagent per Role, start to finish.** Fresh means fresh per Role, not per round. Reusing the Planner session as the Coder defeats the purpose: it will implement its own assumptions instead of the spec. But a Role keeps its own session or subagent across every round of its loop, so a reviewer holds its findings and a Coder holds the reasoning behind its deviations.
-- **Name your two sessions as `LOOP.md` says**, or the Doorbell between the Planner and the Orchestrator cannot find its target and you are back to copying a line between terminals.
-- **A Doorbell is a bell, not a letter.** Never ask a Role to explain itself across sessions; the working files are for that, and it is the leak the separate sessions exist to prevent.
-- **Reviewers never write code.** The moment a reviewer edits files it stops being a reviewer. Findings go in the review file, fixes go back to the other session.
-- **Sign-off is explicit.** "Looks good overall" is not sign-off. Require the literal "SIGNED OFF" line so you can tell at a glance whether a loop is done.
-- **Keep loops small.** One bug or one refactoring per loop. Loops that do not converge within a few rounds are a sign the work should be split.
-- **Mix vendors if you can.** A Claude planner reviewed by a different model family (or the reverse) catches blind spots that two sessions of the same model share.
+- **Name your two sessions as `LOOP.md` says**, or the Doorbell cannot find its target.
+- **Keep loops small.** One bug or one refactoring per loop. A loop that does not converge in a few rounds should be split.
+- **Mix vendors if you can.** A reviewer from a different model family catches blind spots two sessions of one model share.

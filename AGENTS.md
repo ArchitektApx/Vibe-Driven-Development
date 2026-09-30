@@ -7,7 +7,7 @@ you and produces the Spec and Tickets under `.scratch/<feature-slug>/`, then
 an Orchestrator session, opened with `claude -n <name>` and
 `/vdd:vdd-orchestrator` when the Planner rings its first Doorbell, hosts the
 Plan-Reviewer, the Coder and the Code-Reviewer as subagents until Sign-off,
-then hosts the PR-Author, which opens the pull request. Proportionality
+then invokes the PR-Author, which opens the pull request. Proportionality
 applies: a typo fix can skip the loop, and anything that changes how a Role
 behaves takes it.
 `docs/VDD-WORKFLOW.md` walks the same loop from the user's side.
@@ -93,12 +93,12 @@ PR; preserve them through any refactor of `.github/`.
   or in a Reference file names a file that ships, so a rename or a deletion
   cannot strand a reader who follows it. A target carrying `<angle brackets>`
   is a template placeholder and is skipped.
-- **A user-invoked skill is user-invoked on both Harnesses.** A skill's
-  frontmatter carries `disable-model-invocation: true`, which Claude Code
-  honours, exactly when its `agents/openai.yaml` sets
-  `policy.allow_implicit_invocation: false`, which Codex honours. Each Harness
-  ignores the other's half, so a skill carrying one alone is model-invocable
-  on the other Harness.
+- **A user-invoked skill is user-invoked on every Harness.** A skill's
+  frontmatter carries `disable-model-invocation: true`, which Claude Code,
+  Cursor and Copilot CLI honour, exactly when its `agents/openai.yaml` sets
+  `policy.allow_implicit_invocation: false`, which Codex honours. Each half is
+  ignored by the Harnesses the other covers, so a skill carrying one alone is
+  model-invocable on those Harnesses.
 - **Every file under a skill directory is linked from its `SKILL.md`.** A
   Reference file no skill file points at is one no reader can be sent to. The
   index section each split skill carries is what makes the direct link enough,
@@ -113,14 +113,6 @@ PR; preserve them through any refactor of `.github/`.
   text `none: the inline text is complete`. A Role reads the Harness file that
   section sends it to, so a Harness missing from it is a Harness whose reader
   gets sent nowhere.
-- **The canonical sentence appears once in each of two skills.**
-  `An Orchestrator hosts this Workflow.` occurs exactly once in
-  `skills/vdd-orchestrator/SKILL.md`, in the Spawn prompt template, and once
-  in `skills/vdd-code-reviewer/SKILL.md`, in its own test. A hosted
-  Code-Reviewer compares its Spawn prompt against that sentence word for word
-  to decide whether to invoke the PR-Author. The `canonical` string in
-  `verify.yml` is the authority: change the sentence in a skill and CI fails
-  until the same change lands there too.
 - **`CLAUDE.md` is the one line `@AGENTS.md`.** Claude Code reads `CLAUDE.md`
   and wins precedence over `AGENTS.md`; the stub is what makes the rules in
   `AGENTS.md` reach it exactly once.
