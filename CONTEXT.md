@@ -88,6 +88,10 @@ _Avoid_: resource file, sibling file, appendix
 `<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner` or `VDD-new-release-Orchestrator`. There are two, the Planner's and the Orchestrator's. Set by the user rather than by an agent; it is the address a Doorbell is sent to. On a Harness that delivers no Doorbell the name is still recorded in the Loop file, and nothing is sent to it.
 _Avoid_: session id, title, label
 
+**Session-name hook**:
+The `UserPromptSubmit` hook Setup installs on Claude Code that gives a Session its Planner or Orchestrator name from the Loop file. It names the Session that ran Start-Loop after the Planner and the Session that ran the Orchestrator after the Orchestrator, restores a lost name, and does nothing in a project whose Loop file names another Harness.
+_Avoid_: rename hook, title hook
+
 **Spawn prompt**:
 The prompt the Orchestrator spawns a hosted Role with. Names the Working files outright, tells the Role to invoke its skill, declares that an Orchestrator hosts this Workflow, and states the three prefixed return shapes. Carries the return contract; no Role skill does.
 _Avoid_: system prompt, task prompt, instructions

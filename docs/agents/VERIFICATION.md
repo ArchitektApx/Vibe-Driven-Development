@@ -1,9 +1,12 @@
 # Verifying a change to this repository
 
-There is no build and no tests. A change is verified by reading, and these are
-the checks a reviewer applies, in this order. A change to a shipped script is
-also verified by running it as a Role would, against a scratch Doorbell file. CI
-adds only the well-formedness checks listed under Invariants in `AGENTS.md`.
+There is no build, and one test: the fixture test for the Session-name hook. A
+change is verified by reading, and these are the checks a reviewer applies, in
+this order. A change to a shipped script is also verified by running it: the
+Doorbell wait as a Role would, against a scratch Doorbell file, and the
+Session-name hook with `sh tests/vdd-session-name.test.sh`, which must print no
+`FAIL` line and exit 0. The test runs by hand, never in CI. CI adds only the
+well-formedness checks listed under Invariants in `AGENTS.md`.
 
 ## Cold read
 

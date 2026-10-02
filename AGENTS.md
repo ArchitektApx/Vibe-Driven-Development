@@ -31,9 +31,11 @@ accumulates. A record states the decision that holds now: an ordinal or a
 count that reads as a claim about the present is dropped rather than updated,
 and a number that records a measurement stays.
 
-The repository is prose plus the shell scripts the Roles run, with no build and
-no tests; `docs/agents/VERIFICATION.md` is what verification means here, and CI
-only checks that what ships is well formed (see Invariants).
+The repository is prose plus the shell scripts the Roles run, with no build.
+Its one test is the fixture test for the Session-name hook,
+`tests/vdd-session-name.test.sh`, run by hand and not in CI.
+`docs/agents/VERIFICATION.md` is what verification means here, and CI only
+checks that what ships is well formed (see Invariants).
 
 ## House style
 
