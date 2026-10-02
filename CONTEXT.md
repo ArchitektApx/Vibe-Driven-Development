@@ -85,7 +85,7 @@ A file under a Role skill's `references/` directory, read when a pointer in that
 _Avoid_: resource file, sibling file, appendix
 
 **Session name**:
-`<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner` or `VDD-new-release-Orchestrator`. There are two, the Planner's and the Orchestrator's. Set by the user rather than by an agent; it is the address a Doorbell is sent to. On a Harness that delivers no Doorbell the name is still recorded in the Loop file, and nothing is sent to it.
+`<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner` or `VDD-new-release-Orchestrator`. There are two, the Planner's and the Orchestrator's, and each is the address a cross-session Doorbell is sent to. On Claude Code the Session-name hook sets the Planner's and `claude -n` the Orchestrator's; on Codex each Role names its own Session; where that fails, the user sets the name by hand with `/rename`. On Cursor, Copilot CLI and Generic, which deliver no Doorbell by Session name, the name is still recorded in the Loop file, and nothing is sent to it.
 _Avoid_: session id, title, label
 
 **Session-name hook**:

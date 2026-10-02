@@ -64,7 +64,7 @@ loop and its rationale, the Resolvable probe list and the three-way
 per-Role costs in `SKILL.md`. ADR-0010 owns that layout, the criterion that
 decides each move and the boundary the move may not cross.
 
-**Passages repeated across the Role skill files.** Five passages appear
+**Passages repeated across the Role skill files.** Five passages appeared
 identically in four skill files each: the `LOOP.md` reading paragraph, the four
 Role commands paragraph, the `Receiving a message from another session` section,
 the sentence that no agent can rename a session, and the sentence that a
@@ -80,7 +80,10 @@ The Orchestrator Loop took up two of the seven: the four Role commands
 paragraph and the sentence that no agent can rename a session both left the
 Plan-Reviewer, the Coder and the Code-Reviewer, because the mechanism they
 described, a session the user starts and renames by hand, is gone from those
-three Roles under a hosted Workflow. The other five stand as they were.
+three Roles under a hosted Workflow. The rename sentence has now left every
+Role skill file: Start-Loop re-expresses it as the instruction to name its
+own Session, and ADR 0002 owns how Session names are set. The other five
+stand as they were.
 
 **Glossary sentences kept because nothing else owns them.** `CONTEXT.md`'s Loop
 file entry runs to three sentences to keep `One Loop per repository at a time`,
