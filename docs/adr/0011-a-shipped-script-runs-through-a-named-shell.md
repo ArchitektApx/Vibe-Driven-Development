@@ -18,8 +18,10 @@ shipped script describes nothing: it is the means, reviewed and released with
 the skill that calls it. When it cannot run, because a hook blocks it, it is
 missing or it exits non-zero, the Role says so and falls back to the path that
 needs no script, which for the Doorbell wait is hand relay: the user pastes the
-Doorbell line the other Session printed. The Role never writes, edits, copies or
-`chmod`s a script, and never runs the script's work as inline shell. A model
+Doorbell line the other Session printed. The Role never writes, edits or
+`chmod`s a script, never copies one except for Setup's install copy of the
+Session-name hook, which ADR 0012 owns, and never runs the script's work as
+inline shell. A model
 that has written a script for itself keeps using it for every later call, and
 that script is code nobody reviewed, running in the user's shell.
 

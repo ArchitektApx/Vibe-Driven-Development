@@ -140,6 +140,11 @@ Check, in order:
    `.scratch/<slug>/`, and `vdd-start-loop` asks about that directory once
    the user has named the slug, because from here you cannot know which feature
    is stale.
+6. **Session-name hook.** Where your Harness file says this check applies,
+   read [the Session-name hook Reference](references/session-name-hook.md)
+   and follow it, and where it says to skip the check, do what it says.
+   Where your Harness file says nothing about it, and on Generic, skip it
+   silently.
 
 Finish with a short status report: what passed, what you fixed, what the user still has to do.
 
@@ -165,5 +170,14 @@ Finish with a short status report: what passed, what you fixed, what the user st
   [`references/harness-codex.md`](references/harness-codex.md),
   [`references/harness-cursor.md`](references/harness-cursor.md) and
   [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
-  typed skill names, what each Harness lists under the name `code-review`, and
-  on Codex the restart a new skill needs.
+  typed skill names, what each Harness lists under the name `code-review`, on
+  Codex the restart a new skill needs, and on Claude Code where the
+  Session-name hook check applies.
+- [`references/session-name-hook.md`](references/session-name-hook.md): what
+  the Session-name hook does, its `jq` requirement and minimum Claude Code
+  version, the check, the install or update and its consent step, a denied
+  write, whether it names this Session, removal, and its line in the status
+  report.
+- [`references/vdd-session-name.sh`](references/vdd-session-name.sh): the
+  Session-name hook script that check copies to `~/.claude/hooks/` with `cp`,
+  never read and written out with a file tool.

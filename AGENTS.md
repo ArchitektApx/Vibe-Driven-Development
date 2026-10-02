@@ -74,7 +74,10 @@ PR; preserve them through any refactor of `.github/`.
 
 - **No executable surface.** No hooks, no MCP servers, no symlinks, no
   executable files. The plugin ships prose and shell scripts at mode 644 that
-  a Role runs with `sh`, never with an executable bit. Adding one of the four
+  a Role runs with `sh`, never with an executable bit. One of those scripts,
+  the Session-name hook, Setup copies to `~/.claude/hooks/` and the user's
+  settings run with `sh`, so the plugin still executes nothing itself.
+  Adding one of the four
   is a deliberate decision: edit the `Reject executable surface` step in
   the same PR so the reviewer sees both.
 - **A Codex policy file carries policy only.** Every `agents/openai.yaml`

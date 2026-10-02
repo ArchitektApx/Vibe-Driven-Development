@@ -11,6 +11,10 @@
 - **Relaying to the Planner.** Reachability is confirmed when `ListAgents`
   lists the Planner's Session name; then send the Doorbell line with
   `SendMessage` addressed to that name. Either tool missing, or the name not
-  listed, is a reachability you cannot confirm: print.
+  listed, is a reachability you cannot confirm: print. When `ListAgents` runs
+  and does not list the Planner's Session name, print the Doorbell together
+  with the line `/rename <Planner Session name>`, the real name filled in,
+  for the user to type in the Planner Session: one rename there lets every
+  later relay reach it.
 
 Trust your live tools over this file when they disagree.
