@@ -6,7 +6,8 @@ running in. Two kinds of text leave the skill file for Reference files under a
 `references/` directory inside its own skill directory: cold paths, read on a
 failure or a rare branch, and Harness mechanics, the wording one Harness needs
 and another does not. Everything else stays, the guardrails included, so a Role
-on the happy path reads the skill file and at most one Harness file.
+on the happy path reads the skill file, at most one Harness file, and any
+Reference file that Harness file sends it to.
 
 **The cold-path criterion decides a cold move.** A section moves when it is read
 on a failure or on a rare branch, and stays otherwise. Length decides nothing:
@@ -42,12 +43,13 @@ needs a guardrail is the one who believes the situation does not apply to them,
 and that reader follows no pointer. A guardrail about a Harness mechanic splits
 in two: the obligation stays inline in neutral words, and the mechanics move.
 For a cross-Session Doorbell the obligations are to deliver only to the Session
-name the Loop file records, to send the Doorbell line and nothing else, to
-confirm the recipient is reachable by the means the Harness file names, and to
-print the exact Doorbell for the user to paste when that cannot be confirmed or
-delivery fails. The tool, the command and their preconditions are what move.
-Moving any sentence is re-expression rather than deletion, so the Rule
-inventory records each moved sentence with its destination.
+name the Loop file records, where the Harness addresses a Doorbell by Session
+name; to send the Doorbell line and nothing else; to confirm the recipient is
+reachable by the means the Harness file names; and to print the exact Doorbell
+for the user to paste when that cannot be confirmed or delivery fails. The
+tool, the command and their preconditions are what move. Moving any sentence is
+re-expression rather than deletion, so the Rule inventory records each moved
+sentence with its destination.
 
 **Every Harness file ends on the drift line**, exactly: "Trust your live tools
 over this file when they disagree." A Harness changes between this
