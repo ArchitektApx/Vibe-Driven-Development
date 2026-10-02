@@ -3,8 +3,10 @@
 Say what each answer does to those files when you put the question, so the user
 chooses on the consequence rather than on the label.
 
-- **Continue the earlier Workflow.** Every file stays where it is. The reason
-  this is the interrupted-Workflow answer and no other: a signed-off
+- **Continue the earlier Workflow.** Every file stays where it is, the
+  Doorbell file `.scratch/<slug>/doorbells` with the rest, so the interrupted
+  Workflow's waits pick up where they were. The reason this is the
+  interrupted-Workflow answer and no other: a signed-off
   `.scratch/<slug>/CODEREVIEW.md` from a Workflow that already finished sends a
   restarted Orchestrator straight to the PR-Author, and a
   `.scratch/<slug>/PLAN-REVIEW.md` from one sends the Planner pushback on a
