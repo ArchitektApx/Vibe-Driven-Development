@@ -164,6 +164,15 @@ The file holds these lines and stops.
 
 ## 11. Hand over to the Planner
 
+This Session is the Planner, and a Doorbell sent by Session name reaches it
+only under the Planner Session name. Now that `LOOP.md` is written, and before
+the closing summary, name this Session `<short>-<slug>-Planner` wherever your
+Harness file names a way to name it. Where that way fails, end the closing
+summary with the line the user types in this Session to name it by hand, the
+real values filled in: `/rename <short>-<slug>-Planner`. Where your Harness
+file names no way, and on Generic, name nothing: that Harness sends nothing to
+a Session name, and `LOOP.md` still records both Session names.
+
 Print a closing summary of the Loop file you wrote. It names the Harness, and
 says the user corrects it by saying so now, before the Planner starts. On a
 correction, read the Harness file the index links for the corrected Harness,
@@ -172,26 +181,9 @@ the question skipped on one Harness is asked on another, and the number
 offered changes. Rewrite `LOOP.md` with the corrected `Harness:` line and that
 answer, and print this step again.
 
-End the summary with this, the real values filled in:
-
-> This Session is the Planner. Rename it to `<short>-<slug>-Planner` now. The
-> Orchestrator is the other Session this Workflow uses. It has nothing to do
-> until a Spec exists, so you open it when this Planner rings its first
-> Doorbell: <the Orchestrator launch>.
-
-Your Harness file gives the rename command and the Orchestrator launch. On
-Generic the launch is: open a second Session in the same Harness and invoke
-`vdd-orchestrator` there.
-
-Where your Harness file says the Harness delivers no Doorbell by Session name,
-and on Generic, leave the rename sentence out of the closing quote, because
-nothing is sent to a Session name there; `LOOP.md` still records both Session
-names.
-
-No agent can rename its own Session, so where the closing quote asks for the
-rename, the rename is the user's job. Either way, carry straight on:
-immediately invoke the `vdd-planner` skill in this same Session. If you cannot
-invoke skills, tell the user to invoke `vdd-planner` instead.
+Then carry straight on: immediately invoke the `vdd-planner` skill in this same
+Session. If you cannot invoke skills, tell the user to invoke `vdd-planner`
+instead.
 
 ## Harnesses
 
@@ -212,6 +204,5 @@ invoke skills, tell the user to invoke `vdd-planner` instead.
   [`references/harness-codex.md`](references/harness-codex.md),
   [`references/harness-cursor.md`](references/harness-cursor.md) and
   [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
-  typed skill names, the Fresh Coder offer, the rename command or the
-  statement that the Harness delivers no Doorbell by Session name, and the
-  Orchestrator launch on each Harness.
+  typed skill names, the Fresh Coder offer, and how this Session is named on
+  each Harness.

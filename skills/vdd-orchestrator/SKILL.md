@@ -277,7 +277,9 @@ substance you are forbidden to carry.
   name, where a context size sits or that none is reported, how the relay to
   the Planner is confirmed and delivered on each Harness, or that it is
   printed where the Harness delivers none, or that it rings through the
-  Doorbell file instead, and what a resumed Session changes.
+  Doorbell file instead, what a resumed Session changes, and on Codex how
+  this Session names itself at start and what `/new`, `/clear` and a fork do
+  to a Session name.
 - [`references/doorbell-file-posix.md`](references/doorbell-file-posix.md):
   ringing and waiting through the Doorbell file in the POSIX shell, for a
   Harness file that sends you there: the append, the script call that counts
