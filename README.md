@@ -81,7 +81,7 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
   | `writing-for-agents` | 🤖 the agent | Planner, Plan-Reviewer, Code-Reviewer |
   | `grilling` | 🤖 the agent | Brainstormer |
 
-**Optional:** Claude Code 2.1.224+ on macOS or Linux. It lets one session ring the next one's doorbell instead of you copying a line between terminals. Codex rings the next session through `codex queue`. Everything works without a doorbell: the Roles print the line for you to paste, and in Cursor and GitHub Copilot CLI, which cannot ring another session, they always do.
+**Optional:** Claude Code 2.1.224+ on macOS or Linux. It lets one session ring the next one's doorbell instead of you copying a line between terminals. Codex rings the next session through `codex queue`. In Cursor and GitHub Copilot CLI the Roles ring each other through the Doorbell file in `.scratch/<slug>/` and also print the line, which you paste only if the other session does not wake. Everything works without a doorbell: the Roles print the line for you to paste.
 
 </details>
 

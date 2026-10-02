@@ -53,7 +53,7 @@ A Role and its reviewer exchanging a working file until sign-off. The workflow h
 _Avoid_: cycle, iteration, phase
 
 **Working file**:
-Scratch space for handoff between sessions, gitignored, never part of the user's project. The Loop file sits at the repository root; every other Working file sits in the tracker directory, the Spec and the Tickets alongside `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`. Matt Pocock's local-markdown issue tracker counts as a Working file because VDD is what invokes it.
+Scratch space for handoff between sessions, gitignored, never part of the user's project. The Loop file sits at the repository root; every other Working file sits in the tracker directory, the Spec and the Tickets alongside `PLAN-REVIEW.md`, `FIXES.md`, `CODEREVIEW.md` and the Doorbell file. Matt Pocock's local-markdown issue tracker counts as a Working file because VDD is what invokes it.
 _Avoid_: artifact, output, deliverable
 
 **Feature slug**:
@@ -97,8 +97,12 @@ The Orchestrator's one blocking prompt, put to the user before its first spawn i
 _Avoid_: model prompt, model config, model check
 
 **Doorbell**:
-A fixed contract naming which Working file was written, which round, and the open findings per severity or `SIGNED OFF`, with no free text. Carried by whichever of four carriers the two ends have: a cross-session message from the Planner to the Orchestrator, the Orchestrator's relay of the Plan-Reviewer's Doorbell back to the Planner, a hosted Role's return value to the Orchestrator, or the Orchestrator's resume message waking a hosted Role.
+A fixed contract naming which Working file was written, which round, and the open findings per severity or `SIGNED OFF`, with no free text. Carried by whichever of four carriers the two ends have: a cross-session message from the Planner to the Orchestrator, the Orchestrator's relay of the Plan-Reviewer's Doorbell back to the Planner, a hosted Role's return value to the Orchestrator, or the Orchestrator's resume message waking a hosted Role. The two cross-session Doorbells, the Planner's to the Orchestrator and the Orchestrator's relay back to the Planner, are sent to the other Session by name, or appended to the Doorbell file where the Harness cannot send one by Session name.
 _Avoid_: notification, handoff message, ping
+
+**Doorbell file**:
+`.scratch/<feature slug>/doorbells`, the append-only Working file in the tracker directory that carries a cross-session Doorbell on a Harness that cannot send one by Session name. Holds one line per ring, addressed to the Role that receives it.
+_Avoid_: doorbell log, mailbox, inbox
 
 **Sign-off**:
 The literal line `SIGNED OFF` at the top of a review file. The only thing that ends a Loop, withheld while a blocker or a major is open and, on a Minors answer of `fix`, while any minor is open; hedged approval is not sign-off.

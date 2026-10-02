@@ -22,7 +22,7 @@ The commands on this page are Claude Code's. On the other Harnesses:
 |-|-------------|-------|--------|-------------|
 | Skill | `/vdd:vdd-start-loop` | `$vdd:vdd-start-loop` | `/vdd-start-loop` | `/vdd:vdd-start-loop` |
 | Open a named session | `claude -n <name>` | `codex`, then `/rename <name>` | a new chat, or `agent`; no name needed | `copilot`; no name needed |
-| Doorbell | delivered on 2.1.224+ (macOS, Linux) | delivered through `codex queue`; under default approvals you approve each one | printed for you to paste | printed for you to paste |
+| Doorbell | delivered on 2.1.224+ (macOS, Linux) | delivered through `codex queue`; under default approvals you approve each one | rings through the Doorbell file; the line also prints in case the other session does not wake | rings through the Doorbell file; the line also prints in case the other session does not wake |
 
 ## 🔁 The Vibe Driven Development Workflow
 
@@ -82,7 +82,7 @@ It writes the answers and the two session names to `LOOP.md`, which every Role r
 
 `LOOP.md` names two sessions as `<repository>-<slug>-<Role>`, for example `VDD-new-release-Orchestrator`. Rename the current session to the Planner with `/rename <name>`; no agent can rename its own session. When the Planner rings its first Doorbell, open the Orchestrator with `claude -n <name>` and `/vdd:vdd-orchestrator`. It hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, each in a fresh context, and invokes the PR-Author at the end. You open no other session.
 
-A Role that finishes its turn rings its counterpart instead of waiting for you. The Planner rings the Orchestrator, and the Orchestrator relays each Plan-Reviewer round back. The message names only the working file, the round and the open findings per severity. The receiver reads the file and ignores the message, so nothing leaks between the two contexts. Where no Doorbell can be delivered, the line prints for you to paste: on Cursor, Copilot CLI and other agents, and in round 1, before the Orchestrator exists.
+A Role that finishes its turn rings its counterpart instead of waiting for you. The Planner rings the Orchestrator, and the Orchestrator relays each Plan-Reviewer round back. The message names only the working file, the round and the open findings per severity. The receiver reads the file and ignores the message, so nothing leaks between the two contexts. Where no Doorbell can be delivered, the line prints for you to paste: on other agents, and in round 1 on Claude Code and Codex, before the Orchestrator exists. On Cursor and Copilot CLI the Doorbell rings through the Doorbell file, `.scratch/<slug>/doorbells`. The line still prints there as the fallback: paste it only if the other session does not wake. If a security hook blocks the background wait, the session says so, and you paste the printed line. A waiting session may ask, after 45 minutes, whether to keep waiting.
 
 #### 🧠 The Planner
 

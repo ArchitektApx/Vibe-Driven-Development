@@ -101,7 +101,7 @@ stale-working-file check, and Setup now removes the entry from a user's
 `.gitignore`.
 
 **An ADR opening past the Borrowed format's bound.** ADR-0002's opening
-paragraph is four sentences against a bound of three. A three-sentence opening
+paragraph runs past a bound of three sentences. A three-sentence opening
 that keeps every claim is recorded in that Loop's `FIXES.md` under Ticket 10.
 The bound is structure rather than prose, so the pass left the paragraph alone.
 ADR-0001 and ADR-0003 meet the bound at three sentences each, which corrects the

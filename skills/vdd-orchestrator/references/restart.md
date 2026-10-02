@@ -6,7 +6,8 @@ including its `Round` line. Those lines place the Workflow, and one of these
 five states holds:
 
 - **No review file on disk.** The Workflow has not reached a review yet. Wait
-  for the Planner's Doorbell and do nothing else.
+  for the Planner's Doorbell, armed as your Harness file says where it names a
+  wait, and do nothing else.
 - **`PLAN-REVIEW.md` present and not signed off.** The plan Loop is open.
   Relay `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>. Read it.` to
   the Planner and wait; the Planner owns the next move.

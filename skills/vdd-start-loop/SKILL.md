@@ -183,9 +183,10 @@ Your Harness file gives the rename command and the Orchestrator launch. On
 Generic the launch is: open a second Session in the same Harness and invoke
 `vdd-orchestrator` there.
 
-Where your Harness file says the Harness delivers no Doorbell, and on Generic,
-leave the rename sentence out of the closing quote, because nothing is sent to
-a Session name there; `LOOP.md` still records both Session names.
+Where your Harness file says the Harness delivers no Doorbell by Session name,
+and on Generic, leave the rename sentence out of the closing quote, because
+nothing is sent to a Session name there; `LOOP.md` still records both Session
+names.
 
 No agent can rename its own Session, so where the closing quote asks for the
 rename, the rename is the user's job. Either way, carry straight on:
@@ -212,5 +213,5 @@ invoke skills, tell the user to invoke `vdd-planner` instead.
   [`references/harness-cursor.md`](references/harness-cursor.md) and
   [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
   typed skill names, the Fresh Coder offer, the rename command or the
-  statement that the Harness delivers no Doorbell, and the Orchestrator launch
-  on each Harness.
+  statement that the Harness delivers no Doorbell by Session name, and the
+  Orchestrator launch on each Harness.

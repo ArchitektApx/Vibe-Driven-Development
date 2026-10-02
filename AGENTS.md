@@ -31,9 +31,9 @@ accumulates. A record states the decision that holds now: an ordinal or a
 count that reads as a claim about the present is dropped rather than updated,
 and a number that records a measurement stays.
 
-The repository is prose only. There is no build and no tests;
-`docs/agents/VERIFICATION.md` is what verification means here, and CI only
-checks that what ships is well formed (see Invariants).
+The repository is prose plus the shell scripts the Roles run, with no build and
+no tests; `docs/agents/VERIFICATION.md` is what verification means here, and CI
+only checks that what ships is well formed (see Invariants).
 
 ## House style
 
@@ -71,8 +71,9 @@ MCP servers that execute there. `verify.yml` enforces the following on every
 PR; preserve them through any refactor of `.github/`.
 
 - **No executable surface.** No hooks, no MCP servers, no symlinks, no
-  executable files. The plugin ships prose and nothing else. Adding one of
-  these is a deliberate decision: edit the `Reject executable surface` step in
+  executable files. The plugin ships prose and shell scripts at mode 644 that
+  a Role runs with `sh`, never with an executable bit. Adding one of the four
+  is a deliberate decision: edit the `Reject executable surface` step in
   the same PR so the reviewer sees both.
 - **A Codex policy file carries policy only.** Every `agents/openai.yaml`
   under `skills/` has the top-level keys `interface` and `policy` and no
@@ -113,6 +114,15 @@ PR; preserve them through any refactor of `.github/`.
   text `none: the inline text is complete`. A Role reads the Harness file that
   section sends it to, so a Harness missing from it is a Harness whose reader
   gets sent nowhere.
+- **The two copies of the Doorbell wait are identical.**
+  `skills/vdd-planner/references/doorbell-wait.sh` and
+  `skills/vdd-orchestrator/references/doorbell-wait.sh` match byte for byte.
+  Each skill ships its own copy because a skill directory installs on its own,
+  and a copy that drifts makes one Role wait differently from the other.
+- **Every shell script under `skills/` parses.** Each `.sh` file passes
+  `sh -n`, found with `find` so a plain copy of the tree is checked like a
+  checkout. A Role runs the script in the user's Session, so a syntax error
+  reaches the user as a script that fails on its first run.
 - **`CLAUDE.md` is the one line `@AGENTS.md`.** Claude Code reads `CLAUDE.md`
   and wins precedence over `AGENTS.md`; the stub is what makes the rules in
   `AGENTS.md` reach it exactly once.
