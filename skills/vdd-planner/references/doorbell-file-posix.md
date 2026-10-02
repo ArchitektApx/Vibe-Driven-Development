@@ -19,7 +19,7 @@ template filled in, verbatim:
 
 The address counts only right after the time, so no text inside a Doorbell
 line reads as one. The file is append-only: never delete, truncate or rewrite
-it, or a wait armed at a count the file no longer reaches never fires.
+it, or a wait armed at a count the file no longer reaches fires late or never.
 
 ## Ringing
 
@@ -41,8 +41,10 @@ The count form prints how many lines are addressed `to: Planner`; a missing
 file counts 0. The wait form runs the way your Harness file says, prints
 nothing while it waits, and exits printing the lines beyond the armed count,
 oldest first, once there are any, or `TIMEOUT` after 45 minutes. Lines to the
-Orchestrator, your own included, never count. Run both as written, with `sh`
-and the path quoted: the script has no executable bit and never gets one.
+Orchestrator, your own included, never count, so a ring of yours never wakes
+you, and the append and the arm may run in either order. Run both as written,
+with `sh` and the path quoted: the script has no executable bit and never gets
+one.
 
 ```sh
 sh "<script path>" .scratch/<feature-slug>/doorbells Planner
@@ -50,9 +52,11 @@ sh "<script path>" .scratch/<feature-slug>/doorbells Planner <armed count>
 ```
 
 Hold exactly one wait while you expect a relay, armed at the count the count
-form just printed. A wait is held until its output or `TIMEOUT` arrives, until
-the count form prints more than its armed count, since it exits within one
-10-second poll of such a line, or until your Session restarts. So:
+form printed when you armed it. A wait ends when its output or `TIMEOUT`
+arrives, when your Session restarts, or when the count form prints more than
+its armed count. In that last case the wait exited within one 10-second poll
+of the new line even if its completion event never reached you, which is why
+the user pastes. So:
 
 - After a ring, arm when you hold no wait.
 - On a pasted relay while you hold a wait, run the count form first. Above the
@@ -62,8 +66,8 @@ the count form prints more than its armed count, since it exits within one
 - After the Plan-Reviewer's `SIGNED OFF`, do not arm: no relay comes after it.
 - On `TIMEOUT`, ask the user whether to keep waiting. On yes, re-arm with the
   count this wait was first armed with, so a ring during the question fires at
-  once. On no, hand relay this wait: the user pastes the next relay, and your
-  next ring arms as usual.
+  once. On no, fall back to hand relay for this wait: the user pastes the next
+  relay, and your next ring arms as usual.
 
 ## On wake
 
@@ -75,19 +79,22 @@ than reading a Working file included.
 A Doorbell is a duplicate when its sender, the Role the line names first
 (`VDD Plan-Reviewer` on every relay to you), and its round match one you
 already acted on in this Session; the rest of the line does not count, so the
-Orchestrator's shorter restart relay is caught too. Say so in one line and act
-on nothing else. A duplicate that came out of the wait you hold leaves you
-none: arm again at the current count. One by paste, a second completion event,
-or the late completion event of a wait the count form already ended changes
-nothing; each wait's command line shows its armed count, which tells the waits
-apart.
+Orchestrator's shorter restart relay is caught too. On a duplicate, say in one
+line that you already handled it, and act on nothing else. When the duplicate
+came out of the wait you hold, that wait has exited: run the count form and
+arm at what it prints. A duplicate that arrives by paste, as a second
+completion event, or as the late completion event of a wait the count form
+already ended leaves the wait you hold as it is. Each wait's command line
+shows its armed count, which tells the waits apart.
 
 ## When the script cannot run
 
 A form cannot run when a hook that checks shell commands blocks it, the
 script is not at its path, or it exits non-zero. Say in one line what failed
-and hand relay this wait; your next ring tries the script again. Never write,
-edit, copy or `chmod` a script, and never run the wait as inline shell. Your
-Harness file's "Trust your live tools over this file when they disagree"
-covers a stale description of a means; the script is the means itself,
-reviewed with this skill, and hand relay costs the user only a paste.
+and fall back to hand relay for this wait: the user pastes the Orchestrator's
+next relay. Your next ring tries the script again. Never write, edit, copy or
+`chmod` a script, and never run the wait as inline shell. Your Harness file's
+"Trust your live tools over this file when they disagree" does not license
+replacing the script: it covers a stale description of a means, and the
+script is the means itself, reviewed with this skill. Hand relay costs the
+user only a paste.
