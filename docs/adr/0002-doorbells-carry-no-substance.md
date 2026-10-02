@@ -7,9 +7,12 @@ Orchestrator's resume message waking a hosted Role. All four carry the same
 fixed template naming the Working file that was written, the round, and the
 finding counts (or `SIGNED OFF`), and no free text. The receiving end acts on
 the file the Doorbell names, and takes the Doorbell itself as the prompt to go
-and read it. Where a cross-session message cannot reach its target the same
-line is printed for the user to relay, on either cross-session carrier, so
-neither depends on the host having messaging.
+and read it. A cross-session Doorbell travels as a message sent to the other
+Session by name, or as a line appended to the Doorbell file in the tracker
+directory where the Harness cannot send by name. Where the sender cannot
+confirm the line reached its target, the same line is printed for the user to
+relay, on either cross-session carrier, so neither depends on the host having
+messaging.
 
 ## Considered options
 
