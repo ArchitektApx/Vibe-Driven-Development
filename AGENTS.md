@@ -31,9 +31,9 @@ accumulates. A record states the decision that holds now: an ordinal or a
 count that reads as a claim about the present is dropped rather than updated,
 and a number that records a measurement stays.
 
-The repository is prose only. There is no build and no tests;
-`docs/agents/VERIFICATION.md` is what verification means here, and CI only
-checks that what ships is well formed (see Invariants).
+The repository is prose plus the shell scripts the Roles run, with no build and
+no tests; `docs/agents/VERIFICATION.md` is what verification means here, and CI
+only checks that what ships is well formed (see Invariants).
 
 ## House style
 
@@ -71,8 +71,9 @@ MCP servers that execute there. `verify.yml` enforces the following on every
 PR; preserve them through any refactor of `.github/`.
 
 - **No executable surface.** No hooks, no MCP servers, no symlinks, no
-  executable files. The plugin ships prose and nothing else. Adding one of
-  these is a deliberate decision: edit the `Reject executable surface` step in
+  executable files. The plugin ships prose and shell scripts at mode 644 that
+  a Role runs with `sh`, never with an executable bit. Adding one of the four
+  is a deliberate decision: edit the `Reject executable surface` step in
   the same PR so the reviewer sees both.
 - **A Codex policy file carries policy only.** Every `agents/openai.yaml`
   under `skills/` has the top-level keys `interface` and `policy` and no

@@ -36,26 +36,30 @@ read, and the neutral inline text is its complete path. A skipped read and
 Generic therefore behave the same, and an agent on a Harness this repository
 has never heard of still has a whole skill.
 
-**A guardrail never leaves the skill file.** A sentence is a guardrail when it
-names a behaviour a competent agent could plausibly get wrong in this Workflow,
-and ADR-0004 keeps its prohibition beside the positive target. The reader who
-needs a guardrail is the one who believes the situation does not apply to them,
-and that reader follows no pointer. A guardrail about a Harness mechanic splits
-in two: the obligation stays inline in neutral words, and the mechanics move.
-For a cross-Session Doorbell the obligations are to deliver only to the Session
-name the Loop file records, where the Harness addresses a Doorbell by Session
-name; to send the Doorbell line and nothing else; to confirm the recipient is
-reachable by the means the Harness file names; and to print the exact Doorbell
-for the user to paste when that cannot be confirmed or delivery fails. The
-tool, the command and their preconditions are what move. Moving any sentence is
-re-expression rather than deletion, so the Rule inventory records each moved
-sentence with its destination.
+**A guardrail never leaves the skill file, except for a Reference file read on
+every use.** A sentence is a guardrail when it names a behaviour a competent
+agent could plausibly get wrong in this Workflow, and ADR-0004 keeps its
+prohibition beside the positive target. The reader who needs a guardrail is the
+one who believes the situation does not apply to them, and that reader follows
+no pointer. A Reference file that the Harness file sends the Role to on every
+use of the mechanic a guardrail guards is behind no situational pointer, so that
+guardrail may sit there, beside the command it governs (ADR 0011). A guardrail
+about a Harness mechanic splits in two: the obligation stays inline in neutral
+words, and the mechanics move. For a cross-Session Doorbell the obligations are
+to deliver only to the Session name the Loop file records, where the Harness
+addresses a Doorbell by Session name; to send the Doorbell line and nothing
+else; to confirm the recipient is reachable by the means the Harness file names;
+and to print the exact Doorbell for the user to paste when that cannot be
+confirmed or delivery fails. The tool, the command and their preconditions are
+what move. Moving any sentence is re-expression rather than deletion, so the
+Rule inventory records each moved sentence with its destination.
 
 **Every Harness file ends on the drift line**, exactly: "Trust your live tools
 over this file when they disagree." A Harness changes between this
 repository's releases. The agent may improvise the means when its tools
-disagree with the file; the inline obligations still bind the target, the
-content and the fallback.
+disagree with the file, except where the means is a script the plugin ships:
+that script is never replaced by one the agent writes (ADR 0011). The inline
+obligations still bind the target, the content and the fallback.
 
 **Each moved section leaves a pointer and an index entry.** The pointer to a
 cold path sits at the branch point the section left and names the situation

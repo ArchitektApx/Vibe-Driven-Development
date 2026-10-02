@@ -1,8 +1,9 @@
 # Verifying a change to this repository
 
 There is no build and no tests. A change is verified by reading, and these are
-the checks a reviewer applies, in this order. CI adds only the well-formedness
-checks listed under Invariants in `AGENTS.md`.
+the checks a reviewer applies, in this order. A change to a shipped script is
+also verified by running it as a Role would, against a scratch Doorbell file. CI
+adds only the well-formedness checks listed under Invariants in `AGENTS.md`.
 
 ## Cold read
 
@@ -29,8 +30,7 @@ The evidence is the Rule inventory and the Lever log, both defined in
 `CONTEXT.md`: the inventory catches a deleted rule, the log catches a change
 made on taste. Both are written into the Working file of the Role that made the
 pass and stop there. A pull request body here carries nothing about the
-Workflow that produced it, which ADR 0012 decided, so no pass routes them
-onward into one.
+Workflow that produced it, so no pass routes them onward into one.
 
 ## Tells
 
