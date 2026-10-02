@@ -113,6 +113,15 @@ PR; preserve them through any refactor of `.github/`.
   text `none: the inline text is complete`. A Role reads the Harness file that
   section sends it to, so a Harness missing from it is a Harness whose reader
   gets sent nowhere.
+- **The two copies of the Doorbell wait are identical.**
+  `skills/vdd-planner/references/doorbell-wait.sh` and
+  `skills/vdd-orchestrator/references/doorbell-wait.sh` match byte for byte.
+  Each skill ships its own copy because a skill directory installs on its own,
+  and a copy that drifts makes one Role wait differently from the other.
+- **Every shell script under `skills/` parses.** Each `.sh` file passes
+  `sh -n`, found with `find` so a plain copy of the tree is checked like a
+  checkout. A Role runs the script in the user's Session, so a syntax error
+  reaches the user as a script that fails on its first run.
 - **`CLAUDE.md` is the one line `@AGENTS.md`.** Claude Code reads `CLAUDE.md`
   and wins precedence over `AGENTS.md`; the stub is what makes the rules in
   `AGENTS.md` reach it exactly once.

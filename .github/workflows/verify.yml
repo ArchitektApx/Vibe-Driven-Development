@@ -280,10 +280,11 @@ jobs:
             exit 1
           fi
 
-      # This repository is prose only. Hooks, MCP servers, symlinks and
-      # executables all end up on every installer's machine and none of them
-      # is needed here. If one is ever added deliberately, edit this step in
-      # the same PR so the reviewer sees both.
+      # This plugin ships prose and shell scripts a Role runs through `sh` at
+      # mode 644, and no hooks, MCP servers, symlinks or executable files.
+      # Those four end up on every installer's machine and none of them is
+      # needed here. If one is ever added deliberately, edit this step in the
+      # same PR so the reviewer sees both.
       - name: Reject executable surface
         run: |
           rc=0
@@ -314,4 +315,22 @@ jobs:
               echo "$f: top-level keys other than interface and policy:"; echo "$bad"; rc=1
             fi
           done < <(find skills -type f -path '*/agents/openai.yaml')
+          exit $rc
+
+      # The Planner and the Orchestrator each ship their own copy of the
+      # Doorbell wait, because a skill directory installs on its own. A copy
+      # that drifts makes one Role wait differently from the other.
+      - name: The doorbell-wait.sh copies are identical
+        run: |
+          cmp skills/vdd-planner/references/doorbell-wait.sh skills/vdd-orchestrator/references/doorbell-wait.sh
+
+      # A Role runs a shipped shell script with sh in the user's Session, so a
+      # syntax error reaches them as a script that fails on its first run.
+      # find, not git ls-files, so a plain copy of the tree is checked too.
+      - name: Shell scripts under skills parse
+        run: |
+          rc=0
+          while IFS= read -r f; do
+            sh -n "$f" || { echo "does not parse: $f"; rc=1; }
+          done < <(find skills -type f -name '*.sh')
           exit $rc
