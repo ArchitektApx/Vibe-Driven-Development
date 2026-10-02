@@ -231,5 +231,9 @@ review rounds, split it.
   Doorbell file instead.
 - [`references/doorbell-file-posix.md`](references/doorbell-file-posix.md):
   ringing and waiting through the Doorbell file in the POSIX shell, for a
-  Harness file that sends you there: the append, the count and the wait, the
-  timeout, and what to do on wake.
+  Harness file that sends you there: the append, the script call that counts
+  and waits, when to arm, a wait that cannot start, the timeout, and what to
+  do on wake.
+- [`references/doorbell-wait.sh`](references/doorbell-wait.sh): the shell
+  script that file runs with `sh` to count your Doorbells and wait for the
+  next one.

@@ -4,8 +4,9 @@ Your Harness file sent you here. On this Harness a Doorbell between the Planner
 and the Orchestrator travels through the Doorbell file, and each of the two
 waits for its own Doorbells in a background shell. You are the Planner: you
 ring the Orchestrator, and you wait for the Orchestrator's relays to you. The
-commands are written for the POSIX shell. You fill in three values: the
-Feature slug from `LOOP.md`, the Doorbell line, and the armed count.
+commands are written for the POSIX shell. You fill in four values: the Feature
+slug from `LOOP.md`, the Doorbell line, the armed count, and the path of the
+script.
 
 ## The file
 
@@ -24,7 +25,7 @@ and `<Doorbell line>` is the Doorbell template filled in, verbatim. For example:
 ```
 
 The address is the `to: <Role>` right after the time, and only there. The
-commands below match it at the start of the line, so text inside a Doorbell
+script below matches it at the start of the line, so text inside a Doorbell
 line is never read as an address.
 
 The file is append-only for the life of the Workflow. Never delete it, truncate
@@ -53,32 +54,32 @@ You wait for lines addressed `to: Planner`. Lines addressed to the
 Orchestrator, your own included, are never counted, so a ring of yours never
 wakes you, and the order of the append and the arm does not matter.
 
-Arming is two commands. The first prints the count of lines addressed to you;
-a missing file counts as 0, and `|| :` keeps a count of 0 from reading as a
-failed command, since `grep -c` exits 1 when it matches nothing:
+Both commands run the script `doorbell-wait.sh`. It sits in the same Reference
+directory as this file, `references/` under the skill's base directory, which
+your Harness gave you when it loaded this skill. `<script path>` is its full
+path, and it stays quoted in the command. Run it with `sh` as written: the
+script ships without an executable bit and never gets one.
+
+Arming is two commands, the two forms of the script. The first, the count
+form, prints the count of lines addressed to you; a missing Doorbell file
+counts as 0:
 
 ```sh
-cat .scratch/<feature-slug>/doorbells 2>/dev/null | grep -c '^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] to: Planner ' || :
+sh "<script path>" .scratch/<feature-slug>/doorbells Planner
 ```
 
-The second is the wait. It takes the armed count as its argument, and you run
-it the way your Harness file says, so it costs no tokens while it waits and the
-Harness wakes you when it exits:
+The second, the wait form, is the wait. It takes the armed count as its last
+argument, and you run it the way your Harness file says, so it costs no tokens
+while it waits and the Harness wakes you when it exits:
 
 ```sh
-sh -c 'n=$2 p="^[0-9][0-9]:[0-9][0-9]:[0-9][0-9] to: Planner " s=0
-while :; do
-  c=$(cat "$1" 2>/dev/null | grep -c "$p")
-  if [ "$c" -gt "$n" ]; then grep "$p" "$1" | tail -n "+$((n + 1))"; exit 0; fi
-  if [ "$s" -ge 2700 ]; then echo TIMEOUT; exit 0; fi
-  sleep 10; s=$((s + 10))
-done' doorbell-wait .scratch/<feature-slug>/doorbells <armed count>
+sh "<script path>" .scratch/<feature-slug>/doorbells Planner <armed count>
 ```
 
-It polls every 10 seconds. When the count of lines addressed to you rises above
-the armed count, it prints the new lines, those beyond the armed count, and
-exits. After 45 minutes (2700 seconds) without one it prints `TIMEOUT` and
-exits.
+It polls every 10 seconds and prints nothing while it waits. When the count of
+lines addressed to you rises above the armed count, it prints the new lines,
+those beyond the armed count, oldest first, and exits. After 45 minutes (2700
+seconds) without one it prints `TIMEOUT` and exits.
 
 The armed count you pass is the count the first command printed. Keep that
 first count for the life of the wait: a re-arm after `TIMEOUT` passes it again
@@ -87,9 +88,28 @@ counting, which is how it picks up your round-1 line with no paste.
 
 ## When you arm
 
-Arm after every ring. When the relay you woke on is the Plan-Reviewer's
-`SIGNED OFF`, do not re-arm: the plan Loop is over, and no Doorbell comes to
-you after it.
+Arm after every ring, unless "One wait at a time" below says not to. When the
+relay you woke on is the Plan-Reviewer's `SIGNED OFF`, do not re-arm: the plan
+Loop is over, and no Doorbell comes to you after it.
+
+**One wait at a time.** Arm only when you hold no wait. The wait you armed last
+is held until one of three things ends it:
+
+- its output or `TIMEOUT` arrives;
+- the count form prints more than that wait's armed count, because the wait
+  exits within one 10-second poll of such a line landing;
+- your Session restarts, which loses every wait it held.
+
+The second ending covers a lost completion event. The user pastes a relay
+because your Session did not wake, and by then the wait has usually fired and
+exited without its output reaching you. So on a pasted relay while you hold a
+wait, run the count form first, then act on the relay:
+
+- **A count above the wait's armed count.** The held wait has ended. Ring and
+  arm as usual.
+- **A count at or below it.** The line never reached the Doorbell file, and
+  your wait is still running. Ring, and do not arm: the wait you hold fires on
+  the Orchestrator's next line.
 
 ## On wake
 
@@ -112,6 +132,32 @@ and act on nothing else. Then:
   is armed: read the count again and re-arm at it.
 - When it arrived by paste, or as a second completion event of a wait you
   already acted on, the wait you hold stays as it is: nothing changes.
+
+One case joins the duplicates. A completion event from a wait you no longer
+hold, because the count form already ended it, changes nothing, whatever it
+carries: say so in one line and act on nothing in it. The command line of each
+wait names its armed count, which tells the old wait from the one you hold.
+The wait you armed after that count stays as it is. It was armed at a fresh
+count, so every line the old wait prints is at or below that count, and nothing
+it carries is lost.
+
+## When the script cannot run
+
+This covers both forms, the count and the wait. A form cannot run when a hook
+that checks shell commands blocks the command, when the script is not at its
+path, or when it exits with a non-zero status. Say in one line what failed,
+then fall back to hand relay for this wait: the user pastes the Orchestrator's
+next relay. A count form that failed leaves you no armed count, so it falls
+back the same way. Your next ring appends and tries the script again, so a
+hook allowed since, or a repaired install, recovers by itself.
+
+Never write, edit, copy or `chmod` a script, and never run the wait as inline
+shell. Your Harness file ends "Trust your live tools over this file when they
+disagree", and that line does not license replacing the script. The line lets
+you improvise when a Harness file's description of a means goes stale, and the
+script describes nothing: it is the means. A wait you write yourself is code
+nobody reviewed running in the user's shell, and hand relay costs the user
+only a paste.
 
 ## On `TIMEOUT`
 
