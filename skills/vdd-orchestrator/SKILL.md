@@ -286,6 +286,3 @@ substance you are forbidden to carry.
   Harness file that sends you there: the append, the script call that counts
   and waits, when to arm, a wait that cannot start, the timeout, and what to
   do on wake.
-- [`references/doorbell-wait.sh`](references/doorbell-wait.sh): the shell
-  script that file runs with `sh` to count your Doorbells and wait for the
-  next one.

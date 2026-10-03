@@ -145,6 +145,11 @@ Check, in order:
    and follow it, and where it says to skip the check, do what it says.
    Where your Harness file says nothing about it, and on Generic, skip it
    silently.
+7. **Shared scripts.** Where your Harness file says this check applies, read
+   [how to install the shared scripts](references/script-install.md) and
+   follow it. Where your Harness file says nothing about it, and on Generic,
+   skip it silently: a Generic loop relays every Doorbell by hand and runs no
+   script.
 
 Finish with a short status report: what passed, what you fixed, what the user still has to do.
 
@@ -171,8 +176,15 @@ Finish with a short status report: what passed, what you fixed, what the user st
   [`references/harness-cursor.md`](references/harness-cursor.md) and
   [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
   typed skill names, what each Harness lists under the name `code-review`, on
-  Codex the restart a new skill needs, and on Claude Code where the
-  Session-name hook check applies.
+  Codex the restart a new skill needs, on Claude Code where the
+  Session-name hook check applies, and that the shared scripts check applies.
+- [`references/script-install.md`](references/script-install.md): the shared
+  directory and its `XDG_DATA_HOME` default, the scripts installed there, the
+  `cmp` check, the install or update and its consent step, a denied write,
+  native Windows, and its line in the status report.
+- [`references/doorbell-wait.sh`](references/doorbell-wait.sh): the Doorbell
+  wait that check copies into the shared directory with `cp`, never read and
+  written out with a file tool.
 - [`references/session-name-hook.md`](references/session-name-hook.md): what
   the Session-name hook does, its `jq` requirement and minimum Claude Code
   version, the check, the install or update and its consent step, a denied

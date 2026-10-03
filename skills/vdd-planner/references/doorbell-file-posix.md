@@ -4,8 +4,16 @@ Your Harness file sent you here. You are the Planner: you ring the
 Orchestrator through the Doorbell file, and a wait in a background shell
 wakes you on its relays. You fill in the Feature slug from `LOOP.md`, the
 Doorbell line, the armed count, and `<script path>`, the full path of
-`doorbell-wait.sh`. The script sits beside this file, in `references/` under
-the skill's base directory your Harness gave you when it loaded this skill.
+`doorbell-wait.sh` in the shared directory Setup installs it into. Once per
+Session, before you first run the script, resolve that directory:
+
+```sh
+printf '%s\n' "${XDG_DATA_HOME:-$HOME/.local/share}/vdd"
+```
+
+`<script path>` is the absolute path it printed followed by
+`/doorbell-wait.sh`. Write it out in full in every command after that, so a
+hook that checks shell commands and an approval prompt see no expansion.
 
 ## The file
 
@@ -92,9 +100,10 @@ shows its armed count, which tells the waits apart.
 A form cannot run when a hook that checks shell commands blocks it, the
 script is not at its path, or it exits non-zero. Say in one line what failed
 and fall back to hand relay for this wait: the user pastes the Orchestrator's
-next relay. Your next ring tries the script again. Never write, edit, copy or
-`chmod` a script, and never run the wait as inline shell. Your Harness file's
-"Trust your live tools over this file when they disagree" does not license
-replacing the script: it covers a stale description of a means, and the
-script is the means itself, reviewed with this skill. Hand relay costs the
-user only a paste.
+next relay. When the script is not at its path, also tell the user that
+`vdd-setup` installs it into the shared directory. Your next ring tries the
+script again. Never write, edit, copy or `chmod` a script, and never run the
+wait as inline shell. Your Harness file's "Trust your live tools over this
+file when they disagree" does not license replacing the script: it covers a
+stale description of a means, and the script is the means itself, reviewed
+and released with this plugin. Hand relay costs the user only a paste.

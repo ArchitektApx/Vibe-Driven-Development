@@ -74,9 +74,12 @@ PR; preserve them through any refactor of `.github/`.
 
 - **No executable surface.** No hooks, no MCP servers, no symlinks, no
   executable files. The plugin ships prose and shell scripts at mode 644 that
-  a Role runs with `sh`, never with an executable bit. One of those scripts,
-  the Session-name hook, Setup copies to `~/.claude/hooks/` and the user's
-  settings run with `sh`, so the plugin still executes nothing itself.
+  a Role runs with `sh`, never with an executable bit. Setup copies the
+  shipped scripts into the shared directory,
+  `${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`, where a Role and the user's
+  settings run them with `sh`. One more script, the Session-name hook, Setup
+  copies to `~/.claude/hooks/` and the user's settings run with `sh`, so the
+  plugin still executes nothing itself.
   Adding one of the four
   is a deliberate decision: edit the `Reject executable surface` step in
   the same PR so the reviewer sees both.
@@ -119,11 +122,6 @@ PR; preserve them through any refactor of `.github/`.
   text `none: the inline text is complete`. A Role reads the Harness file that
   section sends it to, so a Harness missing from it is a Harness whose reader
   gets sent nowhere.
-- **The two copies of the Doorbell wait are identical.**
-  `skills/vdd-planner/references/doorbell-wait.sh` and
-  `skills/vdd-orchestrator/references/doorbell-wait.sh` match byte for byte.
-  Each skill ships its own copy because a skill directory installs on its own,
-  and a copy that drifts makes one Role wait differently from the other.
 - **Every shell script under `skills/` parses.** Each `.sh` file passes
   `sh -n`, found with `find` so a plain copy of the tree is checked like a
   checkout. A Role runs the script in the user's Session, so a syntax error

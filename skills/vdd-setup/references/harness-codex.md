@@ -11,5 +11,6 @@
   Session runs appears only after the Session restarts. After any install or
   repair, tell the user to start a new Codex Session before they rerun this
   check.
+- **The shared scripts check.** It applies on this Harness.
 
 Trust your live tools over this file when they disagree.

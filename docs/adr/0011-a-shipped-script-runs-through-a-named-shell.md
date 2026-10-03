@@ -11,19 +11,30 @@ short enough for a hook that checks shell commands to pass and for the user to
 read in an approval prompt, and the process list shows the Doorbell file, the
 Role and the count the wait was given.
 
+**The repository ships one copy of each script, in `vdd-setup`.** Setup copies
+each one into the shared directory, `${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`,
+and that copy is what every Role runs, by its plain absolute path. One copy
+holds because nothing a Role runs depends on which skill directories a user
+installed: the README tells a skills-CLI user to take every `vdd-*` skill,
+Setup among them; Setup runs at Start-Loop's first step, so the directory is
+filled before any Role waits; and a script missing there falls back to hand
+relay like any script that cannot run. ADR 0010's rejected "one shared
+directory of Reference files" still stands, because it concerns Reference
+files a Role reads, which ship inside the skill, and not a runtime copy Setup
+installs. ADR 0012 owns the install.
+
 **A shipped script is not replaced by one the agent writes.** ADR 0010 lets the
 agent improvise the means when its tools disagree with a Harness file, because a
 Harness file describes a means and a description goes stale between releases. A
 shipped script describes nothing: it is the means, reviewed and released with
-the skill that calls it. When it cannot run, because a hook blocks it, it is
-missing or it exits non-zero, the Role says so and falls back to the path that
-needs no script, which for the Doorbell wait is hand relay: the user pastes the
-Doorbell line the other Session printed. The Role never writes, edits or
-`chmod`s a script, never copies one except for Setup's install copy of the
-Session-name hook, which ADR 0012 owns, and never runs the script's work as
-inline shell. A model
-that has written a script for itself keeps using it for every later call, and
-that script is code nobody reviewed, running in the user's shell.
+the plugin. When it cannot run, because a hook blocks it, it is missing or it
+exits non-zero, the Role says so and falls back to the path that needs no
+script, which for the Doorbell wait is hand relay: the user pastes the Doorbell
+line the other Session printed. The Role never writes, edits or `chmod`s a
+script, never copies one except for Setup's install copy, and never runs the
+script's work as inline shell. A model that has written a script for itself
+keeps using it for every later call, and that script is code nobody reviewed,
+running in the user's shell.
 
 **The guardrail sits in the Reference file that calls the script.** ADR 0010
 keeps a guardrail in the skill file, because the reader who needs it follows
@@ -54,16 +65,16 @@ committed at mode 755 reaches every installer's machine as a file any process
 there can execute directly. Run through a named shell, the script needs no
 bit, and the command line names the shell that runs it.
 
-**One copy shared across the skills that run it.** Rejected. ADR 0010 rejects
-shared directories because the skills CLI copies each skill directory
-separately and a user may install a subset. Each skill that runs a script
-ships its own copy in its own `references/` directory.
+**A copy in each skill that runs a script.** The repository ships one copy,
+in `vdd-setup`, because Setup fills the shared directory before any Role runs
+a script, for the reasons above.
 
 ## Consequences
 
-A change to a script is made in every copy of it. CI checks what this decision
-rests on: `verify.yml` rejects any file committed at mode 755, fails when the
-copies of `doorbell-wait.sh` differ, and runs `sh -n` on every `.sh` file under
+A change to a script is made once, in `vdd-setup`, and reaches a user's
+machine at the next Setup run, which finds the installed copy differs and
+replaces it. CI checks what this decision rests on: `verify.yml` rejects any
+file committed at mode 755 and runs `sh -n` on every `.sh` file under
 `skills/`. `AGENTS.md` lists each of these under Invariants.
 
 A change to a shipped script is verified by running it as a Role would, as
