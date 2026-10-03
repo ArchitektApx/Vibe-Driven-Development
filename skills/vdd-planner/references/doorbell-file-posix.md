@@ -84,6 +84,11 @@ the user pastes. So:
   below it, the line never reached the file and the wait still runs: act and
   ring, and do not arm.
 - After the Plan-Reviewer's `SIGNED OFF`, do not arm: no relay comes after it.
+- When the user tells you this Session was resumed, in words or by naming
+  the resume command your Harness file names, you hold no wait. Arm one at
+  the count you last acted on, so a relay rung during the restart fires at
+  once. Without that word, the next relay still prints in the Orchestrator's
+  Session for the user to paste.
 - On `TIMEOUT`, ask the user whether to keep waiting. On yes, re-arm with the
   count this wait was first armed with, so a ring during the question fires at
   once. On no, fall back to hand relay for this wait: the user pastes the next

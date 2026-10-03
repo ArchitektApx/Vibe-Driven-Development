@@ -31,13 +31,12 @@
 - **The wait.** Run it in `async` or `detach` mode, never `sync`: a `sync`
   shell blocks the whole Session until it exits (github/copilot-cli #2533). The
   Session wakes when the shell exits.
-- **After `copilot --continue` or `--resume`.** The hosted Roles are gone:
-  a background child does not survive a restart of the Session that spawned
-  it. When `write_agent` or `read_agent` answers
-  `No agent found with agent_id`, or before your first relay after the user
-  resumed this Session, place the Workflow from disk as
-  [`restart.md`](restart.md) says. A wait you armed before the restart is
-  gone too; placing the Workflow re-arms it, as
+- **After `copilot --continue` or `copilot --resume`.** The hosted Roles are
+  gone: a background child does not survive a restart of the Session that
+  spawned it. When `write_agent` or `read_agent` answers `No agent found with
+  agent_id`, or before your first relay after the user resumed this Session,
+  place the Workflow from disk as [`restart.md`](restart.md) says. A wait you
+  armed before the restart is gone too; placing the Workflow re-arms it, as
   [`doorbell-file-posix.md`](doorbell-file-posix.md) says for a restart.
 
 Trust your live tools over this file when they disagree.

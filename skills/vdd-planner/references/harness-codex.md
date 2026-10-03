@@ -46,5 +46,8 @@
   A prompt the user types while the hook waits arrives when it exits, and Esc
   sends it at once. Either way the rule above covers it: the next turn ends
   with your armed file written again.
+- **A resume.** `codex resume` resumes a Session. "The wait" above covers it
+  with no word from the user: the first turn you end after it writes your
+  armed file.
 
 Trust your live tools over this file when they disagree.

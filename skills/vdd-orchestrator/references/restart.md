@@ -9,8 +9,11 @@ five states holds:
   for the Planner's Doorbell, armed as your Harness file says where it names a
   wait, and do nothing else.
 - **`PLAN-REVIEW.md` present and not signed off.** The plan Loop is open.
-  Relay `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>. Read it.` to
-  the Planner and wait; the Planner owns the next move.
+  Where your Harness file sends you to a Doorbell file Reference, follow the
+  restart sequence in it, which reads the Doorbell file before it relays.
+  Otherwise relay
+  `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>. Read it.` to the
+  Planner and wait; the Planner owns the next move.
 - **`PLAN-REVIEW.md` signed off, no `CODEREVIEW.md`.** The code Loop has not
   started. Spawn the Coder.
 - **`CODEREVIEW.md` present and not signed off.** Compare its `Round` line

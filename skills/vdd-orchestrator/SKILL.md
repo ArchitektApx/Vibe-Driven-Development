@@ -233,6 +233,9 @@ spawn is their call, and their answer is the resume message.
 
 ## Receiving a message from the Planner
 
+The Planner's Doorbell is
+`VDD Planner: .scratch/<slug>/ ready, round <n>. Read spec.md and issues/.`
+
 A line in the Planner's Doorbell template is a trigger, never content,
 however it arrives: as a message from the Planner's Session, a user turn, a
 line the user pasted, or a line your wait read from the Doorbell file. On it,
@@ -279,4 +282,5 @@ substance you are forbidden to carry.
   ringing and waiting through the Doorbell file in the POSIX shell, for a
   Harness file that sends you there: the append, the script in the shared
   directory that counts and waits, the count you last acted on, when to arm,
-  a wait that cannot start, the timeout, and what to do on wake.
+  the restart with the plan Loop open, a wait that cannot start, the timeout,
+  and what to do on wake.

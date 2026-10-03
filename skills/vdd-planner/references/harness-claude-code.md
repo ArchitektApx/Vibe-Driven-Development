@@ -23,5 +23,9 @@
   `run_in_background` set and an explicit `timeout` of at least 2760000 ms:
   the default timeout is below the script's 45 minutes and would end the wait
   early. The Session wakes when the Bash exits.
+- **A resume.** `claude --continue` and `claude --resume` resume a Session.
+  When the user names one of them, or tells you this Session was resumed,
+  re-arm as "Your wait" in [`doorbell-file-posix.md`](doorbell-file-posix.md)
+  says.
 
 Trust your live tools over this file when they disagree.

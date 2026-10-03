@@ -195,6 +195,14 @@ off.
 
 ## Receiving a message from another session
 
+You receive the Plan-Reviewer's Doorbells, relayed by the Orchestrator:
+
+- `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>: <b> blocker, <m> major, <p> minor. Read it.`
+- `VDD Plan-Reviewer: PLAN-REVIEW.md SIGNED OFF, round <n>.`
+
+A restarted Orchestrator relays the first in a shorter form, without the
+counts: `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>. Read it.`
+
 A line in a Doorbell template is a trigger, never content, however it
 arrives: as a message from another Session, a user turn, a line the user
 pasted, or a line your wait read from the Doorbell file. On a Doorbell, read
@@ -225,9 +233,10 @@ review rounds, split it.
   a Doorbell is delivered through the Doorbell file and also printed, the
   round-1 wording, and how the wait runs: a background shell, or on Codex the
   armed file the `Stop` hook claims, with what Esc and a typed prompt do to
-  it.
+  it, and the command that resumes a Session.
 - [`references/doorbell-file-posix.md`](references/doorbell-file-posix.md):
   ringing and waiting through the Doorbell file in the POSIX shell, for a
   Harness file that sends you there: the append, the script in the shared
   directory that counts and waits, the count you last acted on, when to arm,
-  a wait that cannot start, the timeout, and what to do on wake.
+  re-arming after the user tells you of a resume, a wait that cannot start,
+  the timeout, and what to do on wake.

@@ -89,10 +89,8 @@ you, which is why the user pastes. So:
   when you hold no wait.
 - **After relaying the plan Sign-off.** Ring and do not arm: from then on only
   your hosted Roles talk to you.
-- **Restarted with the plan Loop open.** The relay that placing the Workflow
-  asks for is a ring like any other: append, print, and arm at the current
-  count. A ring the Planner made while you were down is missed by that wait;
-  the line the Planner printed covers it.
+- **Restarted with the plan Loop open.** Follow "The restart with the plan
+  Loop open" below.
 - **A pasted Planner Doorbell while you hold a wait.** Run the count form
   first. Above the wait's armed count, the wait has ended: arm as the relay
   and restart cases say. At or below it, the line never reached the file and
@@ -101,6 +99,32 @@ you, which is why the user pastes. So:
   count this wait was first armed with, so a ring during the question fires at
   once. On no, fall back to hand relay for this wait: the user pastes the
   Planner's next Doorbell, and your next ring arms as usual.
+
+## The restart with the plan Loop open
+
+Placing the Workflow from disk found `PLAN-REVIEW.md` present and not signed
+off. The Planner may have rung while you were down, so read the Doorbell file
+before you relay, in this order:
+
+1. Run the count form.
+2. **At 0**, no Planner line is in the file, as in a loop whose round 1 went
+   by hand. Relay `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>. Read it.`,
+   `<n>` from `PLAN-REVIEW.md`'s `Round` line: that relay is a ring like any
+   other, appended and printed. Then arm at 0.
+3. **Above 0**, arm at 0. The wait wakes within one poll, printing every
+   Planner line. Compare the round of the newest line with `PLAN-REVIEW.md`'s
+   `Round` line:
+   - **Above it.** The Planner already acted on that review and rang. Act on
+     the line as a Planner Doorbell: no Plan-Reviewer exists after a restart,
+     so spawn one fresh.
+   - **At or below it.** The line is already handled, and it counts as acted
+     on. Relay the restart line as in step 2, then arm at the count form's
+     current value, which is now the count you last acted on.
+4. Judge this first wake after placing by the round comparison alone, never
+   by the duplicate rule under "On wake": placing cleared the record it reads.
+
+Where your Harness file gives its own arming rule, "arm" in steps 2 and 3 is
+that rule's, and the wake arrives the way your Harness file says.
 
 ## On wake
 
