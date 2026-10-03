@@ -48,9 +48,11 @@ The hook does nothing unless the Loop file says `Harness: Claude Code`,
 because Cursor imports hooks from `~/.claude/settings.json` by default and
 would otherwise run it on a Cursor loop.
 
-The "No executable surface" Invariant in `AGENTS.md` and the
-`Reject executable surface` step in `verify.yml` are unchanged: the script is
-a file at mode 644 under `skills/`, and the plugin manifests declare no hook.
+The `Reject executable surface` step in `verify.yml` is unchanged: the script
+is a file at mode 644 under `skills/`, and the plugin manifests declare no
+hook. The "No executable surface" Invariant in `AGENTS.md` keeps its rule, and
+its prose names the hook as the one shipped script the user's own settings
+run.
 ADR 0011's rule that a Role never copies a script names this install copy as
 an exception.
 
