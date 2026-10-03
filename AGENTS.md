@@ -31,9 +31,11 @@ accumulates. A record states the decision that holds now: an ordinal or a
 count that reads as a claim about the present is dropped rather than updated,
 and a number that records a measurement stays.
 
-The repository is prose plus the shell scripts the Roles run, with no build and
-no tests; `docs/agents/VERIFICATION.md` is what verification means here, and CI
-only checks that what ships is well formed (see Invariants).
+The repository is prose plus the shell scripts the Roles run, with no build.
+Its one test is the fixture test for the Session-name hook,
+`tests/vdd-session-name.test.sh`, run by hand and not in CI.
+`docs/agents/VERIFICATION.md` is what verification means here, and CI only
+checks that what ships is well formed (see Invariants).
 
 ## House style
 
@@ -72,7 +74,10 @@ PR; preserve them through any refactor of `.github/`.
 
 - **No executable surface.** No hooks, no MCP servers, no symlinks, no
   executable files. The plugin ships prose and shell scripts at mode 644 that
-  a Role runs with `sh`, never with an executable bit. Adding one of the four
+  a Role runs with `sh`, never with an executable bit. One of those scripts,
+  the Session-name hook, Setup copies to `~/.claude/hooks/` and the user's
+  settings run with `sh`, so the plugin still executes nothing itself.
+  Adding one of the four
   is a deliberate decision: edit the `Reject executable surface` step in
   the same PR so the reviewer sees both.
 - **A Codex policy file carries policy only.** Every `agents/openai.yaml`

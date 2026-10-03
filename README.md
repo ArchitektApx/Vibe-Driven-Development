@@ -99,6 +99,8 @@ Start a new session in your repository and type `/vdd:vdd-setup`. Install Matt P
 /plugin install mattpocock-skills
 ```
 
+Setup also installs the Session-name hook, which names the Planner and Orchestrator sessions so a doorbell sent by name reaches them: after showing you both changes, it copies a script to `~/.claude/hooks/` and adds a `UserPromptSubmit` entry to `~/.claude/settings.json`. The hook needs `jq` and Claude Code 2.1.94 or later.
+
 </details>
 
 <details>

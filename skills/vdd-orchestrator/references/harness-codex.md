@@ -1,5 +1,12 @@
 # Orchestrator on Codex
 
+- **Naming this Session.** Act on this at start, once you have read
+  `LOOP.md`: call `set_thread_title` (`mcp__codex_tui__set_thread_title`, a
+  deferred tool you find by tool search) with the title set to the
+  Orchestrator Session name and no `threadId`, which names this thread. Where
+  the tool is missing or the call fails, tell the user to type
+  `/rename <Orchestrator Session name>` in this Session, the real name filled
+  in.
 - **Spawn and resume.** `collaboration.spawn_agent` spawns a fresh child.
   `collaboration.followup_task` addressed to that child resumes the same child
   with its context intact.
@@ -28,5 +35,14 @@
   has taken one turn of its own. When the user restarted this Orchestrator,
   or the Planner, with `codex resume`, tell them to send the resumed Session
   one message, or the Doorbells queued for it wait.
+- **A lost or doubled Session name.** `/new` and `/clear` start a new thread
+  with no name, and the old thread keeps the Session name, so a Doorbell sent
+  to that name goes to the old thread. A fork copies the thread's name, so
+  `codex queue --thread <name>` fails with "Multiple sessions match" until
+  one of the two threads is renamed or archived. The fix in each case is
+  `/rename <Session name>` in the thread that should carry the name, once
+  the other thread carrying it is archived or renamed: two active threads
+  with one name fail as a fork does. When a delivery fails or goes quiet
+  after one of these, tell the user this fix.
 
 Trust your live tools over this file when they disagree.

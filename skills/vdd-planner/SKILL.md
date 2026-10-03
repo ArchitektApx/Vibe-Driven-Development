@@ -228,7 +228,8 @@ review rounds, split it.
   typed skill names, the `code-review` reading, the Orchestrator launch, and
   how a Doorbell is confirmed and delivered on each Harness, or that it is
   printed where the Harness delivers none, or that it rings through the
-  Doorbell file instead.
+  Doorbell file instead, and on Codex what `/new`, `/clear` and a fork do to
+  a Session name.
 - [`references/doorbell-file-posix.md`](references/doorbell-file-posix.md):
   ringing and waiting through the Doorbell file in the POSIX shell, for a
   Harness file that sends you there: the append, the script call that counts
