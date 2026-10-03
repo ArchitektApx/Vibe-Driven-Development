@@ -182,9 +182,10 @@ Finish with a short status report: what passed, what you fixed, what the user st
   directory and its `XDG_DATA_HOME` default, the scripts installed there, the
   `cmp` check, the install or update and its consent step, a denied write,
   native Windows, and its line in the status report.
-- [`references/doorbell-wait.sh`](references/doorbell-wait.sh): the Doorbell
-  wait that check copies into the shared directory with `cp`, never read and
-  written out with a file tool.
+- [`references/doorbell-wait.sh`](references/doorbell-wait.sh) and
+  [`references/vdd-codex-stop.sh`](references/vdd-codex-stop.sh): the Doorbell
+  wait and the Codex `Stop` hook, which that check copies into the shared
+  directory with `cp`, never read and written out with a file tool.
 - [`references/session-name-hook.md`](references/session-name-hook.md): what
   the Session-name hook does, its `jq` requirement and minimum Claude Code
   version, the check, the install or update and its consent step, a denied

@@ -27,6 +27,8 @@ The scripts Setup installs, each shipped beside this file:
 
 - [`doorbell-wait.sh`](doorbell-wait.sh): the Doorbell wait the Planner and
   the Orchestrator run.
+- [`vdd-codex-stop.sh`](vdd-codex-stop.sh): the Codex `Stop` hook, which runs
+  the Doorbell wait for a Codex Role from this same directory.
 
 ## The check
 
