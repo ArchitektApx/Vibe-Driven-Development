@@ -9,9 +9,6 @@
   against something else, which is why a bare hit needs its description read.
   `mattpocock-skills:code-review` is the Claude Code plugin install of Matt
   Pocock's. Claude Code bundles nothing named `writing-for-agents`.
-- **The Session-name hook check.** It applies on this Harness on macOS and
-  Linux. On Windows, skip it and report in one line why: the hook is a POSIX
-  sh script, and its Windows form has not shipped.
 - **The shared scripts check.** It applies on this Harness.
 
 Trust your live tools over this file when they disagree.

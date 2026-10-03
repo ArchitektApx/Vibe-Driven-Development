@@ -8,16 +8,15 @@ description: The PR-Author Role in a Vibe Driven Development loop.
 You are the PR-Author. The Orchestrator invokes you in its own session on
 Sign-off, and you run in no other session. You are the only Role that pushes a
 branch or opens a PR, and only after Sign-off, when the Coder's fixup fold has
-nothing left to rewrite. You have no Session name of your own.
+nothing left to rewrite.
 
 ## 1. Read `LOOP.md`
 
-Read `LOOP.md` at the repository root, fresh from disk. It names the
-repository short name, the Feature slug, the base branch, the feature branch,
-the tracker path (`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the
-`Fresh Coder:` line, the `Harness:` line and the two Session names. If it does
-not exist, stop and tell the user to invoke `vdd-start-loop` in a Planner
-Session; do not guess a slug.
+Read `LOOP.md` at the repository root, fresh from disk. It names the Feature
+slug, the base branch, the feature branch, the tracker path
+(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:`
+line and the `Harness:` line. If it does not exist, stop and tell the user to
+invoke `vdd-start-loop` in a Planner Session; do not guess a slug.
 On `PR: no`, print "Loop signed off. `PR: no`: `<feature branch>` stays
 local, nothing pushed." and stop before step 2.
 

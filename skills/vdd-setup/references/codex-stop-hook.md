@@ -65,8 +65,12 @@ seconds, a minute above the wait's 45 minutes.
 
 Make the edit with your own tools, so it lands as this outcome:
 
-- With an existing `hooks.json`, the entry is added beside any hooks already
-  there, under `hooks.Stop`, and every other key and value is kept.
+- With an existing `hooks.json`, the entry is appended as a new matcher
+  group at the end of `hooks.Stop`, every existing group and handler stays in
+  its place and order, and every other key and value is kept. Codex keys its
+  trust by group and handler index, so a group inserted ahead of the user's,
+  or a handler added into one of their groups, moves their trusted hooks to
+  new keys and Codex skips them until they are trusted again.
 - With no `hooks.json`, the file holds only this entry.
 - The file parses as JSON afterwards.
 

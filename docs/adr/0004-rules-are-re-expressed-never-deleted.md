@@ -81,9 +81,9 @@ paragraph and the sentence that no agent can rename a session both left the
 Plan-Reviewer, the Coder and the Code-Reviewer, because the mechanism they
 described, a session the user starts and renames by hand, is gone from those
 three Roles under a hosted Workflow. The rename sentence has now left every
-Role skill file: Start-Loop re-expresses it as the instruction to name its
-own Session, and ADR 0002 owns how Session names are set. The other five
-stand as they were.
+Role skill file, because no Session is named: a cross-session Doorbell travels
+through the Doorbell file or the printed line, as ADR 0002 says. The other
+five stand as they were.
 
 **Glossary sentences kept because nothing else owns them.** `CONTEXT.md`'s Loop
 file entry runs to three sentences to keep `One Loop per repository at a time`,

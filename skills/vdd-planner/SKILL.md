@@ -12,12 +12,11 @@ into the Spec instead, as a description of what the Coder should build.
 
 ## The Loop file
 
-Read `LOOP.md` at the repository root first. It names the repository short
-name, the Feature slug, the base branch, the feature branch, the tracker path
-(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:`
-line, the `Harness:` line and the two Session names. If it does not exist,
-stop and tell the user to invoke `vdd-start-loop` in a Planner Session; do not
-guess a slug.
+Read `LOOP.md` at the repository root first. It names the Feature slug, the
+base branch, the feature branch, the tracker path (`.scratch/<slug>/`), the
+`Minors:` line, the `PR:` line, the `Fresh Coder:` line and the `Harness:`
+line. If it does not exist, stop and tell the user to invoke `vdd-start-loop`
+in a Planner Session; do not guess a slug.
 
 Read the `Harness:` line of the Loop file. If this skill's Harnesses index
 links a file for that Harness, read it now, once. Otherwise the inline text is
@@ -166,15 +165,12 @@ keep no round line of your own, so read it from the `Round` line of
 exist.
 
 Deliver it to the Orchestrator through your Harness file's delivery
-mechanics, as the Doorbell line and nothing else. Where your Harness addresses
-a Doorbell by Session name, address it to the Orchestrator's Session name from
-`LOOP.md` and to no other Session. First confirm that Session is reachable, by
-the means your Harness file names, then deliver it. When reachability cannot be
-confirmed, or delivery fails, print the exact Doorbell and ask the user to
-paste it into the Orchestrator's Session; where your Harness file gives the
-wording for that print, use it. On Generic there are no delivery mechanics,
-so you print. On round 1 the Orchestrator's Session cannot exist yet, so
-round 1 always prints.
+mechanics, as the Doorbell line and nothing else. Where nothing delivers it,
+or delivery fails, print the exact Doorbell and ask the user to paste it into
+the Orchestrator's Session; where your Harness file gives the wording for that
+print, use it. On Generic there are no delivery mechanics, so you print. On
+round 1 the Orchestrator's Session does not exist yet when you send, so round
+1 always prints.
 
 Never put reasoning, findings or file contents in the message. A Doorbell says
 which file to read and nothing more.

@@ -17,12 +17,11 @@ severity or `SIGNED OFF`.
 
 ## The Loop file
 
-Read `LOOP.md` at the repository root first. It names the repository short
-name, the Feature slug, the base branch, the feature branch, the tracker path
-(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:`
-line, the `Harness:` line and the two Session names. If it does not exist,
-stop and tell the user to invoke `vdd-start-loop` in a Planner Session; do not
-guess a slug.
+Read `LOOP.md` at the repository root first. It names the Feature slug, the
+base branch, the feature branch, the tracker path (`.scratch/<slug>/`), the
+`Minors:` line, the `PR:` line, the `Fresh Coder:` line and the `Harness:`
+line. If it does not exist, stop and tell the user to invoke `vdd-start-loop`
+in a Planner Session; do not guess a slug.
 
 Read the `Harness:` line of the Loop file. If this skill's Harnesses index
 links a file for that Harness, read it now, once. Otherwise the inline text is
@@ -187,14 +186,11 @@ fresh, with the Spawn prompt above.
 
 **From the Plan-Reviewer.** Relay every one, the rounds with open findings as
 well as the Sign-off. Deliver it to the Planner through your Harness file's
-delivery mechanics, as the Doorbell line and nothing else. Where your Harness
-addresses a Doorbell by Session name, address it to the Planner's Session name
-from `LOOP.md` and to no other Session. First confirm that Session is
-reachable, by the means your Harness file names, then deliver it. When
-reachability cannot be confirmed, or delivery fails, print the exact Doorbell
-and ask the user to paste it into the Planner's Session; where your Harness
-file gives the wording for that print, use it. On Generic there are no delivery
-mechanics, so you print. On open findings, wait for the Planner's next
+delivery mechanics, as the Doorbell line and nothing else. Where nothing
+delivers it, or delivery fails, print the exact Doorbell and ask the user to
+paste it into the Planner's Session; where your Harness file gives the wording
+for that print, use it. On Generic there are no delivery mechanics, so you
+print. On open findings, wait for the Planner's next
 Doorbell: the Planner owns the next move. On `SIGNED OFF`, the plan Loop is
 over and there is no next Planner Doorbell to wait for: spawn the Coder, as
 "The live sequence" says.
