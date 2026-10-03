@@ -6,31 +6,45 @@
   skill, such as `$vdd:vdd-setup`.
 - **The Orchestrator launch.** `codex` in a terminal in this repository, then
   `$vdd:vdd-orchestrator` in that Session.
-- **Delivering a Doorbell.** Run
-  `codex queue --thread <Orchestrator Session name> --message '<Doorbell>'`
-  with escalated permissions, outside the sandbox: the default sandbox makes
-  `~/.codex` read-only, and the command fails inside it. `codex queue`
-  resolves the Session name when it sends, so its exit code is the
-  reachability check and the delivery in one step. Exit 0 means delivered. Any
-  other exit is a failed delivery: print.
-- **Approval prompts.** Under default approvals, each Doorbell raises one
-  approval prompt for the escalated command. That is normal: the user's
-  permission mode governs a Doorbell like any other command.
-- **A busy recipient.** A Doorbell sent while the Orchestrator's Session is in
-  a turn arrives when that turn ends. It is not lost, and it interrupts
-  nothing.
-- **After `codex resume`.** A resumed Session takes no queued Doorbell until it
-  has taken one turn of its own. When the user has resumed this Session or the
-  Orchestrator's with `codex resume`, tell them to send the resumed Session one
-  message, or the Doorbells queued for it wait.
-- **A lost or doubled Session name.** `/new` and `/clear` start a new thread
-  with no name, and the old thread keeps the Session name, so a Doorbell sent
-  to that name goes to the old thread. A fork copies the thread's name, so
-  `codex queue --thread <name>` fails with "Multiple sessions match" until
-  one of the two threads is renamed or archived. The fix in each case is
-  `/rename <Session name>` in the thread that should carry the name, once
-  the other thread carrying it is archived or renamed: two active threads
-  with one name fail as a fork does. When a delivery fails or goes quiet
-  after one of these, tell the user this fix.
+- **Delivering a Doorbell.** Through the Doorbell file: ring as
+  [`doorbell-file-posix.md`](doorbell-file-posix.md) says, and wait as "The
+  wait" below says. Nothing confirms that the Orchestrator's Session is
+  reachable, so every ring also prints, worded: "If the Orchestrator's
+  Session does not wake, paste this into it:" followed by the exact Doorbell.
+- **Round 1.** The Orchestrator reads your round-1 Doorbell from the Doorbell
+  file when it starts. In place of "Paste the Doorbell below into it once it
+  is up", say: "It picks up the Doorbell below from the Doorbell file; paste
+  it in only if it does not start the review."
+- **The wait.** A background shell cannot wake an idle Codex Session, so the
+  `Stop` hook Setup installs waits for you. This rule replaces the arming
+  rules of "Your wait" in [`doorbell-file-posix.md`](doorbell-file-posix.md):
+  end every turn in which you expect a Doorbell by writing your armed file,
+  `.scratch/<feature-slug>/armed-<id>`, holding the one line
+  `Planner <count>`, where `<count>` is the count you last acted on as that
+  file defines it. `<id>` is this Session's thread id: read it once with
+  `printf '%s\n' "$CODEX_THREAD_ID"` and write it out in full after that.
+  Write it with one shell command:
+
+  ```sh
+  printf 'Planner %s\n' <count> > .scratch/<feature-slug>/armed-<id>
+  ```
+
+  Write none in a turn in which you expect no Doorbell: after the plan
+  Sign-off, and in a turn that ends asking the user a question, whose answer
+  the hook would hold back until it exits. Writing the file again in a later
+  turn is harmless: the hook claims it at most once per turn end. With
+  `CODEX_THREAD_ID` empty you cannot arm: say so in one line and fall back to
+  hand relay, as "When the script cannot run" says.
+- **How the wait wakes you.** When your turn ends, the hook claims your armed
+  file, waits on the Doorbell file with no model turn, and continues this
+  Session with the newest Doorbell line, or `TIMEOUT`, as your next prompt.
+  Handle it as a line your wait printed, under "On wake" in
+  [`doorbell-file-posix.md`](doorbell-file-posix.md), and `TIMEOUT` as that
+  file says. A hook that is missing or untrusted never wakes you, and the
+  line the Orchestrator printed is the fallback.
+- **Esc and typed prompts.** Esc ends the hook's wait together with the turn.
+  A prompt the user types while the hook waits arrives when it exits, and Esc
+  sends it at once. Either way the rule above covers it: the next turn ends
+  with your armed file written again.
 
 Trust your live tools over this file when they disagree.

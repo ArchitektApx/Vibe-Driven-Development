@@ -12,5 +12,8 @@
   repair, tell the user to start a new Codex Session before they rerun this
   check.
 - **The shared scripts check.** It applies on this Harness.
+- **The `Stop` hook registration.** Once the shared scripts check has run,
+  read [how to register the Codex `Stop` hook](codex-stop-hook.md) and follow
+  it. The hook is how a waiting Codex Planner or Orchestrator wakes.
 
 Trust your live tools over this file when they disagree.

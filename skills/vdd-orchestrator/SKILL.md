@@ -274,14 +274,13 @@ substance you are forbidden to carry.
   [`references/harness-cursor.md`](references/harness-cursor.md) and
   [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
   spawn and resume primitives, how a return is read, the Spawn prompt's skill
-  name, where a context size sits or that none is reported, how the relay to
-  the Planner is delivered on each Harness, through the Doorbell file on
-  Claude Code, Cursor and Copilot CLI, how the wait runs and that it arms at
-  0 on a fresh start, what a resumed Session changes, and on Codex how this
-  Session names itself at start and what `/new`, `/clear` and a fork do to a
-  Session name.
+  name, where a context size sits or that none is reported, that the relay
+  to the Planner goes through the Doorbell file and is also printed, that the
+  wait arms at 0 on a fresh start, how the wait runs: a background shell, or
+  on Codex the armed file the `Stop` hook claims, with what Esc and a typed
+  prompt do to it, and what a resumed Session changes.
 - [`references/doorbell-file-posix.md`](references/doorbell-file-posix.md):
   ringing and waiting through the Doorbell file in the POSIX shell, for a
-  Harness file that sends you there: the append, the script call that counts
-  and waits, when to arm, a wait that cannot start, the timeout, and what to
-  do on wake.
+  Harness file that sends you there: the append, the script in the shared
+  directory that counts and waits, the count you last acted on, when to arm,
+  a wait that cannot start, the timeout, and what to do on wake.

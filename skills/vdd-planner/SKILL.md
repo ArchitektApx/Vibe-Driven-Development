@@ -225,13 +225,13 @@ review rounds, split it.
   [`references/harness-codex.md`](references/harness-codex.md),
   [`references/harness-cursor.md`](references/harness-cursor.md) and
   [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
-  typed skill names, the `code-review` reading, the Orchestrator launch, how
-  a Doorbell is delivered on each Harness, through the Doorbell file on
-  Claude Code, Cursor and Copilot CLI, the round-1 wording and how the wait
-  runs there, and on Codex what `/new`, `/clear` and a fork do to a Session
-  name.
+  typed skill names, the `code-review` reading, the Orchestrator launch, that
+  a Doorbell is delivered through the Doorbell file and also printed, the
+  round-1 wording, and how the wait runs: a background shell, or on Codex the
+  armed file the `Stop` hook claims, with what Esc and a typed prompt do to
+  it.
 - [`references/doorbell-file-posix.md`](references/doorbell-file-posix.md):
   ringing and waiting through the Doorbell file in the POSIX shell, for a
-  Harness file that sends you there: the append, the script call that counts
-  and waits, when to arm, a wait that cannot start, the timeout, and what to
-  do on wake.
+  Harness file that sends you there: the append, the script in the shared
+  directory that counts and waits, the count you last acted on, when to arm,
+  a wait that cannot start, the timeout, and what to do on wake.

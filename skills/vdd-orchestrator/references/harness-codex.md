@@ -1,12 +1,5 @@
 # Orchestrator on Codex
 
-- **Naming this Session.** Act on this at start, once you have read
-  `LOOP.md`: call `set_thread_title` (`mcp__codex_tui__set_thread_title`, a
-  deferred tool you find by tool search) with the title set to the
-  Orchestrator Session name and no `threadId`, which names this thread. Where
-  the tool is missing or the call fails, tell the user to type
-  `/rename <Orchestrator Session name>` in this Session, the real name filled
-  in.
 - **Spawn and resume.** `collaboration.spawn_agent` spawns a fresh child.
   `collaboration.followup_task` addressed to that child resumes the same child
   with its context intact.
@@ -19,30 +12,47 @@
 - **The context size.** Codex reports none for a subagent, in any field of the
   spawn, wait, follow-up or completion results. The no-size path of "The
   Coder's context" applies from the first Coder return.
-- **Relaying to the Planner.** Run
-  `codex queue --thread <Planner Session name> --message '<Doorbell>'` with
-  escalated permissions, outside the sandbox: the default sandbox makes
-  `~/.codex` read-only, and the command fails inside it. `codex queue`
-  resolves the Session name when it sends, so its exit code is the
-  reachability check and the delivery in one step. Exit 0 means delivered. Any
-  other exit is a failed delivery: print.
-- **Approval prompts.** Under default approvals, each relay raises one
-  approval prompt for the escalated command. That is normal: the user's
-  permission mode governs a Doorbell like any other command.
-- **A busy recipient.** A Doorbell sent while the Planner's Session is in a
-  turn arrives when that turn ends. It is not lost, and it interrupts nothing.
-- **After `codex resume`.** A resumed Session takes no queued Doorbell until it
-  has taken one turn of its own. When the user restarted this Orchestrator,
-  or the Planner, with `codex resume`, tell them to send the resumed Session
-  one message, or the Doorbells queued for it wait.
-- **A lost or doubled Session name.** `/new` and `/clear` start a new thread
-  with no name, and the old thread keeps the Session name, so a Doorbell sent
-  to that name goes to the old thread. A fork copies the thread's name, so
-  `codex queue --thread <name>` fails with "Multiple sessions match" until
-  one of the two threads is renamed or archived. The fix in each case is
-  `/rename <Session name>` in the thread that should carry the name, once
-  the other thread carrying it is archived or renamed: two active threads
-  with one name fail as a fork does. When a delivery fails or goes quiet
-  after one of these, tell the user this fix.
+- **Starting with no review file on disk.** Arm at 0, as
+  [`doorbell-file-posix.md`](doorbell-file-posix.md) says, by writing your
+  armed file holding `Orchestrator 0` before your first turn ends, so the
+  Planner's round-1 Doorbell already in the Doorbell file fires at once.
+- **Relaying to the Planner.** Through the Doorbell file: ring as
+  [`doorbell-file-posix.md`](doorbell-file-posix.md) says, and wait as "The
+  wait" below says. Nothing confirms that the Planner's Session is reachable,
+  so every relay also prints, worded: "If the Planner's Session does not
+  wake, paste this into it:" followed by the exact Doorbell.
+- **The wait.** A background shell cannot wake an idle Codex Session, so the
+  `Stop` hook Setup installs waits for you. This rule replaces the arming
+  rules of "Your wait" in [`doorbell-file-posix.md`](doorbell-file-posix.md):
+  end every turn in which you expect a Planner Doorbell by writing your armed
+  file, `.scratch/<feature-slug>/armed-<id>`, holding the one line
+  `Orchestrator <count>`, where `<count>` is the count you last acted on as
+  that file defines it. `<id>` is this Session's thread id: read it once with
+  `printf '%s\n' "$CODEX_THREAD_ID"` and write it out in full after that.
+  Write it with one shell command:
+
+  ```sh
+  printf 'Orchestrator %s\n' <count> > .scratch/<feature-slug>/armed-<id>
+  ```
+
+  Write none in a turn in which you expect no Planner Doorbell: after you
+  relayed the plan Sign-off, and in a turn that ends asking the user a
+  question, Model approval included, whose answer the hook would hold back
+  until it exits. Writing the file again in a later turn is harmless: the
+  hook claims it at most once per turn end. With `CODEX_THREAD_ID` empty you
+  cannot arm: say so in one line and fall back to hand relay, as "When the
+  script cannot run" says.
+- **How the wait wakes you.** When your turn ends, the hook claims your armed
+  file, waits on the Doorbell file with no model turn, and continues this
+  Session with the newest Doorbell line, or `TIMEOUT`, as your next prompt.
+  Handle it as a line your wait printed, under "On wake" in
+  [`doorbell-file-posix.md`](doorbell-file-posix.md), and `TIMEOUT` as that
+  file says. The hook runs at the end of your own turns only, never a hosted
+  Role's. A hook that is missing or untrusted never wakes you, and the line
+  the Planner printed is the fallback.
+- **Esc and typed prompts.** Esc ends the hook's wait together with the turn.
+  A prompt the user types while the hook waits arrives when it exits, and Esc
+  sends it at once. Either way the rule above covers it: the next turn ends
+  with your armed file written again.
 
 Trust your live tools over this file when they disagree.

@@ -176,12 +176,18 @@ Finish with a short status report: what passed, what you fixed, what the user st
   [`references/harness-cursor.md`](references/harness-cursor.md) and
   [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
   typed skill names, what each Harness lists under the name `code-review`, on
-  Codex the restart a new skill needs, on Claude Code where the
-  Session-name hook check applies, and that the shared scripts check applies.
+  Codex the restart a new skill needs and the `Stop` hook registration, on
+  Claude Code where the Session-name hook check applies, and that the shared
+  scripts check applies.
 - [`references/script-install.md`](references/script-install.md): the shared
   directory and its `XDG_DATA_HOME` default, the scripts installed there, the
   `cmp` check, the install or update and its consent step, a denied write,
   native Windows, and its line in the status report.
+- [`references/codex-stop-hook.md`](references/codex-stop-hook.md), read only
+  where the Codex Harness file sends you: what the Codex `Stop` hook does, the
+  registration check across `~/.codex/hooks.json` and `~/.codex/config.toml`,
+  the exact entry and why it is exact, the edit and its consent step, the
+  trust step, and its line in the status report.
 - [`references/doorbell-wait.sh`](references/doorbell-wait.sh) and
   [`references/vdd-codex-stop.sh`](references/vdd-codex-stop.sh): the Doorbell
   wait and the Codex `Stop` hook, which that check copies into the shared

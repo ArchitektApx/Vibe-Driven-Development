@@ -59,6 +59,18 @@ sh "<script path>" .scratch/<feature-slug>/doorbells Planner
 sh "<script path>" .scratch/<feature-slug>/doorbells Planner <armed count>
 ```
 
+**The count you last acted on.** When you act on a Doorbell addressed to you,
+from a wake or a paste, run the count form at once. The number it prints is
+the count you last acted on, until you act on the next Doorbell. Before you
+have acted on any, it is the value your first arm uses, the count form's
+value. A duplicate that came out of your wait, as "On wake" defines one,
+counts as acted on too, so the next wait does not wake on it again. On an
+ordinary ring it equals the count the rules below arm at.
+
+Where your Harness file gives its own arming rule, that rule replaces the
+arming rules below. The script's two forms still hold, and so do the count you
+last acted on and "On wake".
+
 Hold exactly one wait while you expect a relay, armed at the count the count
 form printed when you armed it. A wait ends when its output or `TIMEOUT`
 arrives, when your Session restarts, or when the count form prints more than
