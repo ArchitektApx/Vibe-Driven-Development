@@ -100,6 +100,10 @@ _Avoid_: notification, handoff message, ping
 `.scratch/<feature slug>/doorbells`, the append-only Working file in the tracker directory that carries a cross-session Doorbell. Holds one line per ring, addressed to the Role that receives it. On Codex a waiting Role also writes an armed file beside it, `armed-<thread id>`, which the `Stop` hook claims.
 _Avoid_: doorbell log, mailbox, inbox
 
+**Shared directory**:
+`${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`, outside the project, where Setup copies the scripts the plugin ships and from which the Planner, the Orchestrator and the Codex `Stop` hook run them with `sh`. One per machine, shared by every Workflow on every Harness but Generic.
+_Avoid_: install directory, scripts folder, hooks directory
+
 **Sign-off**:
 The literal line `SIGNED OFF` at the top of a review file. The only thing that ends a Loop, withheld while a blocker or a major is open and, on a Minors answer of `fix`, while any minor is open; hedged approval is not sign-off.
 _Avoid_: approval, LGTM, done

@@ -21,8 +21,8 @@ The commands on this page are Claude Code's. On the other Harnesses:
 | | Claude Code | Codex | Cursor | Copilot CLI |
 |-|-------------|-------|--------|-------------|
 | Skill | `/vdd:vdd-start-loop` | `$vdd:vdd-start-loop` | `/vdd-start-loop` | `/vdd:vdd-start-loop` |
-| Open a named session | `claude -n <name>` | `codex`; the session names itself | a new chat, or `agent`; no name needed | `copilot`; no name needed |
-| Doorbell | delivered on 2.1.224+ (macOS, Linux) | delivered through `codex queue`; under default approvals you approve each one | rings through the Doorbell file; the line also prints in case the other session does not wake | rings through the Doorbell file; the line also prints in case the other session does not wake |
+| Open the Orchestrator | `claude` | `codex` | a new chat, or `agent` | `copilot` |
+| Doorbell | rings through the Doorbell file; the line also prints in case the other session does not wake | rings through the Doorbell file, waited on by the `Stop` hook Setup installs; the line also prints in case the other session does not wake | rings through the Doorbell file; the line also prints in case the other session does not wake | rings through the Doorbell file; the line also prints in case the other session does not wake |
 
 ## 🔁 The Vibe Driven Development Workflow
 
@@ -71,18 +71,18 @@ Put it where your Harness reads its instructions; the path above is Claude Code'
 
 `/vdd:vdd-start-loop` runs the environment check, then asks for:
 
-- a short name for the repository and a kebab-case slug for the work
+- a kebab-case slug for the work
 - the base branch and the feature branch
 - whether an open minor holds up Sign-off (`fix`, or `leave` it listed)
 - whether VDD opens the PR at the end (yes, ask at Sign-off, or manual)
 
-It writes the answers and the two session names to `LOOP.md`, which every Role reads first, so none asks again. It then prints a summary of the Loop file and hands over to the Planner.
+It writes the answers to `LOOP.md`, which every Role reads first, so none asks again. It then prints a summary of the Loop file and hands over to the Planner.
 
-#### 🔔 Sessions, names and Doorbells
+#### 🔔 Sessions and Doorbells
 
-`LOOP.md` names two sessions as `<repository>-<slug>-<Role>`, for example `VDD-new-release-Orchestrator`. The current session gets the Planner's name without you typing it: from the Session-name hook that `/vdd:vdd-setup` installs on Claude Code, and from the Role itself on Codex. Where that fails, the summary Start-Loop prints carries the `/rename <name>` line to type. When the Planner rings its first Doorbell, open the Orchestrator with `claude -n <name>` and `/vdd:vdd-orchestrator`. It hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, each in a fresh context, and invokes the PR-Author at the end. You open no other session.
+The session you started the loop in is the Planner. When the Planner rings its first Doorbell, open the Orchestrator in a second terminal in the repository with plain `claude` and `/vdd:vdd-orchestrator`. It hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, each in a fresh context, and invokes the PR-Author at the end. You open no other session.
 
-A Role that finishes its turn rings its counterpart instead of waiting for you. The Planner rings the Orchestrator, and the Orchestrator relays each Plan-Reviewer round back. The message names only the working file, the round and the open findings per severity. The receiver reads the file and ignores the message, so nothing leaks between the two contexts. Where no Doorbell can be delivered, the line prints for you to paste: on other agents, and in round 1 on Claude Code and Codex, before the Orchestrator exists. On Cursor and Copilot CLI the Doorbell rings through the Doorbell file, `.scratch/<slug>/doorbells`. The line still prints there as the fallback: paste it only if the other session does not wake. If a security hook blocks the background wait, the session says so, and you paste the printed line. A waiting session may ask, after 45 minutes, whether to keep waiting.
+A Role that finishes its turn rings its counterpart instead of waiting for you. The Planner rings the Orchestrator, and the Orchestrator relays each Plan-Reviewer round back. The message names only the working file, the round and the open findings per severity. The receiver reads the file and ignores the message, so nothing leaks between the two contexts. On Claude Code, Codex, Cursor and Copilot CLI the Doorbell rings through the Doorbell file, `.scratch/<slug>/doorbells`, round 1 included: the Orchestrator you open reads the Planner's first Doorbell from the file and starts the review. The waiting session runs a background wait, or on Codex the `Stop` hook `/vdd:vdd-setup` installs. Every ring also prints the line: paste it only if the other session does not wake. On other agents the line prints for you to paste. If a security hook blocks the wait, the session says so, and you paste the printed line. A waiting session may ask, after 45 minutes, whether to keep waiting.
 
 #### 🧠 The Planner
 
@@ -149,6 +149,6 @@ The map is done when `.scratch/<effort>/handoffs/` holds `00-overview.md` and on
 
 ## 💡 Tips
 
-- **Name your two sessions as `LOOP.md` says**, or the Doorbell cannot find its target.
+- **After resuming a waiting Planner, tell it so.** A resumed session holds no wait, and your word is what tells the Planner to arm it again; otherwise you paste the next relay by hand.
 - **Keep loops small.** One bug or one refactoring per loop. A loop that does not converge in a few rounds should be split.
 - **Mix vendors if you can.** A reviewer from a different model family catches blind spots two sessions of one model share.
