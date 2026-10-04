@@ -31,8 +31,11 @@ count that reads as a claim about the present is dropped rather than updated,
 and a number that records a measurement stays.
 
 The repository is prose plus the shell scripts the Roles run, with no build.
-Its one test is the fixture test for the Codex `Stop` hook,
-`sh tests/vdd-codex-stop.test.sh`, run by hand from anywhere and not in CI.
+Its tests are the two fixture tests for the Codex `Stop` hook and the Doorbell
+wait, each run by hand from anywhere and not in CI:
+`sh tests/vdd-codex-stop.test.sh` for the POSIX scripts, and
+`pwsh -NoProfile -File tests/vdd-codex-stop.test.ps1` for the PowerShell
+scripts, run once with `powershell.exe` on Windows as well.
 `docs/agents/VERIFICATION.md` is what verification means here, and CI only
 checks that what ships is well formed (see Invariants).
 
@@ -73,11 +76,13 @@ PR; preserve them through any refactor of `.github/`.
 
 - **No executable surface.** No hooks, no MCP servers, no symlinks, no
   executable files. The plugin ships prose and shell scripts at mode 644 that
-  a Role runs with `sh`, never with an executable bit. Setup copies the
-  shipped scripts into the shared directory,
-  `${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`, where a Role runs the Doorbell
-  wait and the user's `~/.codex/hooks.json` runs the Codex `Stop` hook, both
-  with `sh`, so the plugin still executes nothing itself.
+  a Role runs with `sh`, or on native Windows with `powershell.exe -NoProfile
+  -ExecutionPolicy Bypass -File`, never with an executable bit. Setup copies
+  the shipped scripts into the shared directory,
+  `${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`, or `%LOCALAPPDATA%\vdd\` on
+  native Windows, where a Role runs the Doorbell wait and the user's
+  `~/.codex/hooks.json` runs the Codex `Stop` hook, both through that named
+  shell, so the plugin still executes nothing itself.
   Adding one of the four
   is a deliberate decision: edit the `Reject executable surface` step in
   the same PR so the reviewer sees both.
@@ -121,9 +126,17 @@ PR; preserve them through any refactor of `.github/`.
   section sends it to, so a Harness missing from it is a Harness whose reader
   gets sent nowhere.
 - **Every shell script under `skills/` parses.** Each `.sh` file passes
-  `sh -n`, found with `find` so a plain copy of the tree is checked like a
-  checkout. A Role runs the script in the user's Session, so a syntax error
-  reaches the user as a script that fails on its first run.
+  `sh -n`, and each `.ps1` file passes the PowerShell parser with none of the
+  token kinds Windows PowerShell 5.1 cannot parse (`&&`, `||`, `??`, `??=`,
+  the ternary `?`, `?.` and `?[`), all found with `find` so a plain copy of
+  the tree is checked like a checkout. A Role runs the script in the user's
+  Session, so a syntax error reaches the user as a script that fails on its
+  first run.
+- **Every shipped script is ASCII-only.** No `.sh` or `.ps1` under `skills/`
+  holds a byte outside tab, line feed, carriage return and printable ASCII,
+  found with `find`. Windows PowerShell 5.1 reads a script without a byte
+  order mark in the ANSI code page, so any other byte reaches it as a
+  different character.
 - **`CLAUDE.md` is the one line `@AGENTS.md`.** Claude Code reads `CLAUDE.md`
   and wins precedence over `AGENTS.md`; the stub is what makes the rules in
   `AGENTS.md` reach it exactly once.

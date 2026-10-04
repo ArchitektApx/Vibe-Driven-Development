@@ -28,9 +28,10 @@ user knows the pass ends when the toggle goes off.
 The roots live in the Setup Harness files, written as `~/...` and `./...`
 paths that hold on macOS and on Windows, each with the variable that
 relocates it named in words. A search form spells the roots and the
-relocations for its own shell, and `present-search-posix.md` is the `sh`
-form. Keeping the roots in the Harness files means a form for another shell
-reads the same lists rather than carrying its own.
+relocations for its own shell: `present-search-posix.md` is the `sh` form
+and `present-search-windows.md` the PowerShell form. Keeping the roots in
+the Harness files means each form reads the same lists rather than carrying
+its own.
 
 ## Considered options
 
@@ -48,12 +49,15 @@ can tell which one is running.
 
 ## Consequences
 
-The search runs `find -L`. A skills-CLI install for Claude Code puts the real
-copy in `~/.agents/skills/<name>/` and a symlink at `~/.claude/skills/<name>`,
-and Claude Code does not search `~/.agents/skills`, so a `find` that does not
-follow symlinked directories would report that working install as Not
-Present. With `-L` a dangling symlink still lists nothing and reads as
-absent.
+The search follows linked directories: the POSIX search runs `find -L`,
+and the PowerShell search recurses through links by default on Windows
+PowerShell 5.1 and with `-FollowSymlink` on PowerShell 6 and later. A
+skills-CLI install for Claude Code puts the real copy in
+`~/.agents/skills/<name>/` and a symlink at `~/.claude/skills/<name>`, and
+Claude Code does not search `~/.agents/skills`, so a search that does not
+follow linked directories would report that working install as Not Present.
+Both forms match `SKILL.md` files, so a dangling link still lists nothing
+and reads as absent.
 
 Claude Code can scrub variables from the environment of the shell it runs a
 Role's commands in. When `CLAUDE_CONFIG_DIR` does not reach that shell, the

@@ -78,7 +78,7 @@ Fog: <what we do not know yet, whether it could be a dead end, and the cheapest 
 
 ## Evidence
 
-- <One finding per list item: what research or testing showed, dated, with the method in one line so it can be rerun. Scripts, data and longer write-ups go under `research/<slug>/`; link them from here.>
+- <One finding per list item: what research or testing showed, dated, with the method in one line, written for the shell this machine runs, so it can be rerun. Scripts, data and longer write-ups go under `research/<slug>/`; link them from here.>
 
 ## Prior Art
 

@@ -65,10 +65,15 @@ Check, in order:
    Setup runs from the repository root, and `./` is that root as it stands.
    Search for the files, not the directories, so that a dangling symlink reads
    as absent, and match on the trailing path `<skill>/SKILL.md` at any depth.
-   Run [the find loop](references/present-search-posix.md) on every Harness,
-   in place of any search tool your Harness gives you. The loop applies the
-   relocation variables and follows symlinked skill directories the same way
-   everywhere, and a Harness's own search tool may do neither.
+   Run the search on every Harness, in place of any search tool your Harness
+   gives you: [the find loop](references/present-search-posix.md) in a POSIX
+   shell, Git Bash on native Windows included, and
+   [the PowerShell search](references/present-search-windows.md) in
+   PowerShell. Each applies the relocation variables and follows symlinked
+   skill directories the same way everywhere, and a Harness's own search tool
+   may do neither. In Git Bash the find loop reads `$HOME`, which differs from
+   `%USERPROFILE%` only when the user set `HOME` themselves, and that gap is
+   accepted.
 
    **Resolvable.** Present means the file sits in a store this Harness reads;
    it does not mean this Session has loaded it. Answer this one from your own
@@ -191,6 +196,11 @@ Finish with a short status report: what passed, what you fixed, what the user st
   the substitution table that spells each root and its relocation variable in
   `sh`, how to write the `set --` line, the find loop, and why the loop runs
   `find -L`, filters with `grep` and takes one skill per invocation.
+- [`references/present-search-windows.md`](references/present-search-windows.md):
+  the same search in PowerShell, for Windows PowerShell 5.1 and PowerShell 7:
+  the four lines that resolve the relocated stores, the substitution table,
+  the search, and why it matches the parent directory name and passes
+  `-FollowSymlink` on PowerShell 6 and later.
 - [`references/resolvable-probes.md`](references/resolvable-probes.md): the
   sibling names to probe after `writing-for-agents` misses, how to read a bare
   `code-review` hit, and the question to put to the user when nothing hits.
@@ -206,15 +216,21 @@ Finish with a short status report: what passed, what you fixed, what the user st
   Codex the restart a new skill needs and the `Stop` hook registration, and
   that the shared scripts check applies.
 - [`references/script-install.md`](references/script-install.md): the shared
-  directory and its `XDG_DATA_HOME` default, the scripts installed there, the
-  `cmp` check, the install or update and its consent step, a denied write,
-  native Windows, and its line in the status report.
+  directory, its `XDG_DATA_HOME` default and its native Windows location
+  under `%LOCALAPPDATA%`, the scripts installed on each, the byte comparison
+  in `sh` and in PowerShell, the install or update and its consent step, a
+  denied write, and its line in the status report.
 - [`references/codex-stop-hook.md`](references/codex-stop-hook.md), read only
   where the Codex Harness file sends you: what the Codex `Stop` hook does, the
   registration check across `~/.codex/hooks.json` and `~/.codex/config.toml`,
-  the exact entry and why it is exact, the edit and its consent step, the
-  trust step, and its line in the status report.
+  the exact entry and why it is exact, with the native Windows entry carrying
+  `command` and `commandWindows`, the edit and its consent step, the trust
+  step, and its line in the status report.
 - [`references/doorbell-wait.sh`](references/doorbell-wait.sh) and
   [`references/vdd-codex-stop.sh`](references/vdd-codex-stop.sh): the Doorbell
-  wait and the Codex `Stop` hook, which the shared scripts check copies into
-  the shared directory with `cp`, never read and written out with a file tool.
+  wait and the Codex `Stop` hook, and
+  [`references/doorbell-wait.ps1`](references/doorbell-wait.ps1) and
+  [`references/vdd-codex-stop.ps1`](references/vdd-codex-stop.ps1), the same
+  two in PowerShell for native Windows, which the shared scripts check copies
+  into the shared directory with the shell's copy command, never read and
+  written out with a file tool.

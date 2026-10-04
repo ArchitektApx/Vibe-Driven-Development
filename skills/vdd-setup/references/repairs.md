@@ -1,9 +1,11 @@
 # Repairing a Borrowed-skills failure
 
 Read the section for your Harness, or the Generic section on Generic, and in
-it the route for the store the files were found in. The path the find loop
+it the route for the store the files were found in. The path the search
 printed names the store. A store that a variable relocated takes the route of
-the store it replaces.
+the store it replaces. On native Windows a `~/` path below reads as
+`%USERPROFILE%\` and each `/` as `\`, so match a path the PowerShell search
+printed to its store that way.
 
 Each section covers three cases:
 
@@ -131,8 +133,10 @@ installer asks which agents to install for, then open a new chat or a new
 
   With `COPILOT_HOME` set, the `-g` re-run writes `~/.agents/skills`, which
   Copilot CLI does not read while `COPILOT_HOME` is set. Follow it with
-  `copilot skill add ~/.agents/skills`, then `/skills reload` or a new
-  `copilot` Session.
+  `copilot skill add ~/.agents/skills`, in PowerShell
+  `copilot skill add "$env:USERPROFILE\.agents\skills"`, then
+  `/skills reload` or a new `copilot` Session. PowerShell does not expand `~`
+  for a program it runs, so the path goes in expanded.
 - Under `~/.copilot/installed-plugins/`: a Copilot CLI plugin put it there.
   Tell the user to re-enable it, then start a new `copilot` Session:
   - Under `~/.copilot/installed-plugins/<marketplace>/<plugin>/`, a
@@ -147,10 +151,12 @@ installer asks which agents to install for, then open a new chat or a new
 
 `npx skills@latest add -g mattpocock/skills`, selecting GitHub Copilot when
 the installer asks which agents to install for. With `COPILOT_HOME` set, then
-run `copilot skill add ~/.agents/skills`, because Copilot CLI does not read
-that store while `COPILOT_HOME` is set. Then run `/skills reload` or start a
-new `copilot` Session before rerunning this check: a skill added while a
-Session runs is not picked up without one of the two.
+run `copilot skill add ~/.agents/skills`, in PowerShell
+`copilot skill add "$env:USERPROFILE\.agents\skills"`, because Copilot CLI
+does not read that store while `COPILOT_HOME` is set. Then run
+`/skills reload` or start a new `copilot` Session before rerunning this
+check: a skill added while a Session runs is not picked up without one of
+the two.
 
 ### A collection that predates `writing-for-agents`
 

@@ -278,9 +278,10 @@ substance you are forbidden to carry.
   wait arms at 0 on a fresh start, how the wait runs: a background shell, or
   on Codex the armed file the `Stop` hook claims, with what Esc and a typed
   prompt do to it, and what a resumed Session changes.
-- [`references/doorbell-file-posix.md`](references/doorbell-file-posix.md):
-  ringing and waiting through the Doorbell file in the POSIX shell, for a
-  Harness file that sends you there: the append, the script in the shared
+- [`references/doorbell-file.md`](references/doorbell-file.md):
+  ringing and waiting through the Doorbell file, each command for macOS and
+  Linux and for native Windows, for a Harness file that sends you there:
+  which form your shell takes, the append, the script in the shared
   directory that counts and waits, the count you last acted on, when to arm,
   the restart with the plan Loop open, a wait that cannot start, the timeout,
   and what to do on wake.

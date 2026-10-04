@@ -9,7 +9,7 @@
   `--no-daemon`, Codex runs the Session in its shared background server, and
   quitting the terminal leaves a running turn and its hosted Roles working.
 - **Delivering a Doorbell.** Through the Doorbell file: ring as
-  [`doorbell-file-posix.md`](doorbell-file-posix.md) says, and wait as "The
+  [`doorbell-file.md`](doorbell-file.md) says, and wait as "The
   wait" below says. Nothing confirms that the Orchestrator's Session is
   reachable, so every ring also prints, worded: "If the Orchestrator's
   Session does not wake, paste this into it:" followed by the exact Doorbell.
@@ -19,17 +19,28 @@
   it in only if it does not start the review."
 - **The wait.** A background shell cannot wake an idle Codex Session, so the
   `Stop` hook Setup installs waits for you. This rule replaces the arming
-  rules of "Your wait" in [`doorbell-file-posix.md`](doorbell-file-posix.md):
+  rules of "Your wait" in [`doorbell-file.md`](doorbell-file.md):
   end every turn in which you expect a Doorbell by writing your armed file,
   `.scratch/<feature-slug>/armed-<id>`, holding the one line
   `Planner <count>`, where `<count>` is the count you last acted on as that
   file defines it. `<id>` is this Session's thread id: read it once with
-  `printf '%s\n' "$CODEX_THREAD_ID"` and write it out in full after that.
-  Write it with one shell command:
+  `printf '%s\n' "$CODEX_THREAD_ID"`, on native Windows with
+  `$env:CODEX_THREAD_ID`, and write it out in full after that. Write it with
+  one shell command:
 
   ```sh
   printf 'Planner %s\n' <count> > .scratch/<feature-slug>/armed-<id>
   ```
+
+  On native Windows, where Codex gives you PowerShell:
+
+  ```powershell
+  [IO.File]::WriteAllText((Join-Path (Get-Location).Path '.scratch/<feature-slug>/armed-<id>'), 'Planner <count>' + "`n")
+  ```
+
+  That writes the one line ending in LF, as UTF-8 with no byte order mark,
+  which the hook reads as plain text. Never write it with `>`, which writes
+  UTF-16 in Windows PowerShell 5.1.
 
   Write none in a turn in which you expect no Doorbell: after the plan
   Sign-off, and in a turn that ends asking the user a question, whose answer
@@ -41,7 +52,7 @@
   file, waits on the Doorbell file with no model turn, and continues this
   Session with the newest Doorbell line, or `TIMEOUT`, as your next prompt.
   Handle it as a line your wait printed, under "On wake" in
-  [`doorbell-file-posix.md`](doorbell-file-posix.md), and `TIMEOUT` as that
+  [`doorbell-file.md`](doorbell-file.md), and `TIMEOUT` as that
   file says. A hook that is missing or untrusted never wakes you, and the
   line the Orchestrator printed is the fallback.
 - **Esc and typed prompts.** Esc ends the hook's wait together with the turn.

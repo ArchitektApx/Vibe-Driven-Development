@@ -1,12 +1,14 @@
 # Verifying a change to this repository
 
-There is no build, and one test: the fixture test for the Codex `Stop` hook. A
-change is verified by reading, and these are the checks a reviewer applies, in
-this order. A change to a shipped script is also verified by running it: the
-Doorbell wait as a Role would, against a scratch Doorbell file, and the Codex
-`Stop` hook with `sh tests/vdd-codex-stop.test.sh`, which must print no `FAIL`
-line and exit 0. The test runs by hand, from anywhere, never in CI. CI adds
-only the well-formedness checks listed under Invariants in `AGENTS.md`.
+There is no build, and two tests: the fixture tests for the Codex `Stop` hook
+and the Doorbell wait. A change is verified by reading, and these are the
+checks a reviewer applies, in this order. A change to a shipped script is also
+verified by running it: the Doorbell wait as a Role would, against a scratch
+Doorbell file, and the fixture tests, `sh tests/vdd-codex-stop.test.sh` for
+the POSIX scripts and `pwsh -NoProfile -File tests/vdd-codex-stop.test.ps1`
+for the PowerShell scripts, each of which must print no `FAIL` line and exit 0.
+The tests run by hand, from anywhere, never in CI. CI adds only the
+well-formedness checks listed under Invariants in `AGENTS.md`.
 
 ## Cold read
 
