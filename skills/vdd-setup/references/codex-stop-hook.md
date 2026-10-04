@@ -117,8 +117,8 @@ field for a Windows command and keeps the entry correct should a later Codex
 run `command` through another shell on Windows, while the copy in `command`
 costs one line.
 
-On macOS and Linux the entry and the check are the `sh` ones above. Add no
-`commandWindows` to an existing macOS or Linux entry.
+On macOS and Linux the entry and the check are the `sh` ones above, and an
+existing entry there gets no `commandWindows`.
 
 Write the command strings and the timeout exactly as shown. Codex's trust
 covers a hash of the event, the matcher, the command string and the timeout,

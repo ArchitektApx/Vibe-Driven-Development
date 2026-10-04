@@ -56,8 +56,8 @@ for a Windows command and keeps the entry correct should a later Codex run
 costs one line. On Windows the trust hash covers the
 selected `commandWindows` string, so the new entry is trusted once in
 `/hooks`, as on macOS and Linux. Setup adds no `commandWindows` to an
-existing macOS or Linux entry, and on Windows finds a present registration by
-`vdd-codex-stop.ps1` in either field.
+existing entry on macOS and Linux, and on Windows finds a present registration
+by `vdd-codex-stop.ps1` in either field.
 
 The hook is plain POSIX `sh` with no `jq`, and its PowerShell form needs no
 `jq` either: Codex runs hooks outside its sandbox, so the user should be able
