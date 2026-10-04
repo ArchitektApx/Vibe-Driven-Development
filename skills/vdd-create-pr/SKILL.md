@@ -62,7 +62,10 @@ Statement and Solution and nothing else.
 
 **Title.** Follow the convention of the titles in that same `gh pr list`
 result when there is history: a conventional prefix, a ticket reference, a
-capitalisation. Without history, use the Spec's title.
+capitalisation. Without history, use the Spec's title. The title holds no
+double quote: Windows PowerShell 5.1 strips it from the argument it hands
+`gh`, so the PR would open under a title other than the one the user
+confirmed. Write a single quote in its place.
 
 ## 4. The `PR:` line
 
