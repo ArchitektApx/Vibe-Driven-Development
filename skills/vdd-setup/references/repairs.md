@@ -32,8 +32,12 @@ store under `./`.
 ### Present but not Resolvable
 
 - Under `~/.claude/plugins/cache/`: the Claude Code plugin put it there, so
-  the repair belongs on the plugin side. Tell the user to reinstall or
-  re-enable `mattpocock-skills`, then start a new Claude Code Session.
+  the repair belongs on the plugin side. Tell the user to run
+  `claude plugin enable mattpocock-skills@<marketplace>` from the repository
+  root, then start a new Claude Code Session. It finds the scope that holds
+  the disable, a project's `.claude/settings.local.json` included.
+  `<marketplace>` is read off the path as in the update route below. If the
+  plugin is enabled and still not loaded, tell the user to reinstall it.
 - Under `~/.claude/skills/` or `./.claude/skills/`: the skills CLI put it
   there. Tell the user to re-run the install and to select Claude Code, in the
   scope of the store the files sit in:
