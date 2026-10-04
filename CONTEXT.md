@@ -139,11 +139,11 @@ A property of a skill whose author blocked agents from starting it, so only a hu
 _Avoid_: manual, disabled, blocked
 
 **Present**:
-A Borrowed skill's `SKILL.md` exists in a known store on this machine. Says nothing about whether any Harness can run it.
+A Borrowed skill's `SKILL.md` exists in a store the Harness this Session runs in reads. Says nothing about whether this Session can run it.
 _Avoid_: installed, downloaded
 
 **Resolvable**:
-The Harness this Session runs in can run a Borrowed skill. Present is necessary but not sufficient: a Borrowed skill sitting in a store this Harness was never wired to is Present and not Resolvable.
+This Session can run a Borrowed skill. Present is not sufficient: a skill in a store the Harness reads that this Session has not loaded, through a Session that predates the install or a disabled plugin, is Present and not Resolvable. A skill this Session runs from a store Setup does not search is Resolvable and not Present.
 _Avoid_: available, wired, active, visible
 
 **Sibling probe**:
