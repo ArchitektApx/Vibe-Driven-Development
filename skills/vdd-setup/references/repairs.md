@@ -153,9 +153,10 @@ installer asks which agents to install for, then open a new chat or a new
 the installer asks which agents to install for. With `COPILOT_HOME` set, then
 run `copilot skill add ~/.agents/skills`, in PowerShell
 `copilot skill add "$env:USERPROFILE\.agents\skills"`, because Copilot CLI
-does not read that store while `COPILOT_HOME` is set. Then run `/skills reload` or start a
-new `copilot` Session before rerunning this check: a skill added while a
-Session runs is not picked up without one of the two.
+does not read that store while `COPILOT_HOME` is set. Then run
+`/skills reload` or start a new `copilot` Session before rerunning this
+check: a skill added while a Session runs is not picked up without one of
+the two.
 
 ### A collection that predates `writing-for-agents`
 

@@ -98,12 +98,14 @@ Ways to move an idea:
   known, and what needs research, testing or a decision.
 - **Clear fog.** Research, test or explore what is unknown, by the cheapest
   means that answers the question: a small PoC or script, online research,
-  an example for the user to try. Stop when the question is answered; a PoC
-  answers a question, it does not begin the work. Record under the idea's
-  Evidence section what was measured, what it showed, how (one line, so it
-  can be rerun) and what it cost. Scripts, data and longer write-ups go under
-  `research/<slug>/`, see [Brainstorming Directory](#brainstorming-directory),
-  and are referenced from Evidence.
+  an example for the user to try. Write a PoC or a script for the shell this
+  machine runs, not bash by default, so the user can rerun it. Stop when the
+  question is answered; a PoC answers a question, it does not begin the
+  work. Record under the idea's Evidence section what was measured, what it
+  showed, how (one line, so it can be rerun) and what it cost. Scripts, data
+  and longer write-ups go under `research/<slug>/`, see
+  [Brainstorming Directory](#brainstorming-directory), and are referenced
+  from Evidence.
 - **Grill.** When the idea's shape is clear enough that the user can decide
   or settle on a direction, invoke the `grilling` skill. It runs the
   interview that brings you and the user to a shared understanding.

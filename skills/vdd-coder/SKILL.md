@@ -40,7 +40,8 @@ frontier: any Ticket whose blocking Tickets are all done. For each one:
 
 1. Implement only what that Ticket and the Spec ask for.
 2. Run its acceptance criteria and the Spec's Testing Decisions, and capture
-   the actual output.
+   the actual output. Run each command in your own shell as the Ticket
+   writes it.
 3. Tick the acceptance checkboxes in the Ticket file, but only for what you
    actually verified.
 4. Write its `FIXES.md` entry and save the file before the next Ticket opens.
@@ -127,13 +128,16 @@ commits sharing a subject send that fixup to the earlier one.
 Fold once, after the round's last fixup:
 
 ```
-GIT_SEQUENCE_EDITOR=true git rebase -i --autosquash <base>
+git -c sequence.editor=true rebase -i --autosquash <base>
 ```
 
 The sequence editor set to `true` accepts the rearranged todo list unchanged, so
-no editor opens. Bare `--autosquash` without `-i` is ignored by older git, which
-reports success and leaves every `fixup!` commit on the branch. So end on a
-check of the branch rather than on an exit code:
+no editor opens. The `-c` form is one command in every shell, PowerShell
+included, where an environment assignment in front of `git` does not parse. A
+sequence editor exported in the environment still wins over `-c`, and the check
+below catches the fold that did not squash. Bare `--autosquash` without `-i`
+is ignored by older git, which reports success and leaves every `fixup!` commit
+on the branch. So end on a check of the branch rather than on an exit code:
 
 ```
 git log <base>..HEAD --format=%s

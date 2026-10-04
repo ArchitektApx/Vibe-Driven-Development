@@ -87,6 +87,9 @@ thing that answers it and let the user say run or skip:
 - a throwaway prototype, when a design has to be felt before it can be argued
 - a measurement script, when the answer is a number
 
+Write a proof of concept or a measurement script for the shell this machine's
+Roles run, not bash by default, so that it reruns here.
+
 This holds in the summary you give before the grilling, for every assumption
 listed there, and during the grilling, whenever a question stalls. Write each
 finding to `.scratch/<slug>/research/<question>.md`, scripts and data beside
@@ -126,8 +129,10 @@ When the user confirms shared understanding, resume as Planner.
 3. Ask the user to invoke `to-tickets` with `.scratch/<slug>/spec.md`. During
    its quiz on granularity, make sure every Ticket's acceptance criteria are
    verifiable by a Coder without guessing: the commands to run and the
-   behaviour to expect. Spec and Tickets deliberately carry no file paths, so
-   the criteria are all the Coder has to check itself against.
+   behaviour to expect. Write the commands for the shell this machine's Roles
+   run, not bash by default, so the Coder and the Code-Reviewer run them as
+   written. Spec and Tickets deliberately carry no file paths, so the criteria
+   are all the Coder has to check itself against.
 4. Invoke `writing-for-agents`, then apply its levers to the published Spec and
    to every published Ticket, editing those files directly. The Coder reads them
    cold, and this is the one point where the whole set passes through your hands

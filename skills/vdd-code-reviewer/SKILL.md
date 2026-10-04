@@ -72,8 +72,9 @@ Judge the implementation on:
 - Does the diff contain anything the Spec and Tickets did not ask for?
 - Is the code correct? Look for edge cases, error handling gaps, and
   regressions in surrounding code.
-- Did verification pass? Rerun it yourself: the Coder's captured output is its
-  claim, and your run is the check.
+- Did verification pass? Rerun it yourself, each command in your own shell as
+  the Ticket writes it: the Coder's captured output is its claim, and your run
+  is the check.
 - Are the deviations recorded in `FIXES.md` justified?
 
 ## Step 3: the Agent documents in the diff

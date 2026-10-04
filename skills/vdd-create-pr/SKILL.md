@@ -122,13 +122,25 @@ user once more before pushing: that outcome exists only because `gh` cannot
 open the PR here, so the push itself is optional.
 
 Push, run by you: `git push -u <remote> <feature branch>`. Then, on the
-both-present outcome, open: `gh pr create --head <feature branch> --base
-<base branch> --title <title> --body <body>`, so `gh` never opens its own
-interactive push prompt. On the push-only outcome, stop after the push:
-print the body, name the open-a-PR check that failed, and say the user opens
-the PR in the web UI. When `gh` fails after the push, print the body and the
-exact `gh` failure line and stop; the user is one command away from the PR
-rather than starting over.
+both-present outcome, write the body as the user confirmed it, amendments
+included, to `.scratch/<slug>/pr-body.md` with your file tool, never with a
+shell redirect, and open:
+
+```
+gh pr create --head <feature branch> --base <base branch> --title '<title>' --body-file .scratch/<slug>/pr-body.md
+```
+
+The body goes as a file because Windows PowerShell 5.1 cuts a multi-line
+argument at its first double quote, and the tracker directory leaves nothing
+to commit. The title sits in single quotes: write an apostrophe in it as `''`
+in PowerShell and as `'\''` in a POSIX shell. Naming both branches means `gh`
+never opens its own interactive push prompt.
+
+On the push-only outcome, stop after the push: print the body, name the
+open-a-PR check that failed, and say the user opens the PR in the web UI.
+When `gh` fails after the push, print the body and the exact `gh` failure
+line and stop; the user is one command away from the PR rather than
+starting over.
 
 Every path that does not open a PR ends by printing the assembled body.
 Every such path also leaves the branch unpushed, except the push-only
