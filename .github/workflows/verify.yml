@@ -317,13 +317,6 @@ jobs:
           done < <(find skills -type f -path '*/agents/openai.yaml')
           exit $rc
 
-      # The Planner and the Orchestrator each ship their own copy of the
-      # Doorbell wait, because a skill directory installs on its own. A copy
-      # that drifts makes one Role wait differently from the other.
-      - name: The doorbell-wait.sh copies are identical
-        run: |
-          cmp skills/vdd-planner/references/doorbell-wait.sh skills/vdd-orchestrator/references/doorbell-wait.sh
-
       # A Role runs a shipped shell script with sh in the user's Session, so a
       # syntax error reaches them as a script that fails on its first run.
       # find, not git ls-files, so a plain copy of the tree is checked too.

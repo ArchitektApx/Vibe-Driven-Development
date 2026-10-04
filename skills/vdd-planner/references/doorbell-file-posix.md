@@ -4,8 +4,16 @@ Your Harness file sent you here. You are the Planner: you ring the
 Orchestrator through the Doorbell file, and a wait in a background shell
 wakes you on its relays. You fill in the Feature slug from `LOOP.md`, the
 Doorbell line, the armed count, and `<script path>`, the full path of
-`doorbell-wait.sh`. The script sits beside this file, in `references/` under
-the skill's base directory your Harness gave you when it loaded this skill.
+`doorbell-wait.sh` in the shared directory Setup installs it into. Once per
+Session, before you first run the script, resolve that directory:
+
+```sh
+printf '%s\n' "${XDG_DATA_HOME:-$HOME/.local/share}/vdd"
+```
+
+`<script path>` is the absolute path it printed followed by
+`/doorbell-wait.sh`. Write it out in full in every command after that, so a
+hook that checks shell commands and an approval prompt see no expansion.
 
 ## The file
 
@@ -51,6 +59,18 @@ sh "<script path>" .scratch/<feature-slug>/doorbells Planner
 sh "<script path>" .scratch/<feature-slug>/doorbells Planner <armed count>
 ```
 
+**The count you last acted on.** When you act on a Doorbell addressed to you,
+from a wake or a paste, run the count form at once. The number it prints is
+the count you last acted on, until you act on the next Doorbell. Before you
+have acted on any, it is the value your first arm uses, the count form's
+value. A duplicate that came out of your wait, as "On wake" defines one,
+counts as acted on too, so the next wait does not wake on it again. On an
+ordinary ring it equals the count the rules below arm at.
+
+Where your Harness file gives its own arming rule, that rule replaces the
+arming rules below. The script's two forms still hold, and so do the count you
+last acted on and "On wake".
+
 Hold exactly one wait while you expect a relay, armed at the count the count
 form printed when you armed it. A wait ends when its output or `TIMEOUT`
 arrives, when your Session restarts, or when the count form prints more than
@@ -64,6 +84,11 @@ the user pastes. So:
   below it, the line never reached the file and the wait still runs: act and
   ring, and do not arm.
 - After the Plan-Reviewer's `SIGNED OFF`, do not arm: no relay comes after it.
+- When the user tells you this Session was resumed, in words or by naming
+  the resume command your Harness file names, you hold no wait. Arm one at
+  the count you last acted on, so a relay rung during the restart fires at
+  once. Without that word, the next relay still prints in the Orchestrator's
+  Session for the user to paste.
 - On `TIMEOUT`, ask the user whether to keep waiting. On yes, re-arm with the
   count this wait was first armed with, so a ring during the question fires at
   once. On no, fall back to hand relay for this wait: the user pastes the next
@@ -92,9 +117,10 @@ shows its armed count, which tells the waits apart.
 A form cannot run when a hook that checks shell commands blocks it, the
 script is not at its path, or it exits non-zero. Say in one line what failed
 and fall back to hand relay for this wait: the user pastes the Orchestrator's
-next relay. Your next ring tries the script again. Never write, edit, copy or
-`chmod` a script, and never run the wait as inline shell. Your Harness file's
-"Trust your live tools over this file when they disagree" does not license
-replacing the script: it covers a stale description of a means, and the
-script is the means itself, reviewed with this skill. Hand relay costs the
-user only a paste.
+next relay. When the script is not at its path, also tell the user that
+`vdd-setup` installs it into the shared directory. Your next ring tries the
+script again. Never write, edit, copy or `chmod` a script, and never run the
+wait as inline shell. Your Harness file's "Trust your live tools over this
+file when they disagree" does not license replacing the script: it covers a
+stale description of a means, and the script is the means itself, reviewed
+and released with this plugin. Hand relay costs the user only a paste.

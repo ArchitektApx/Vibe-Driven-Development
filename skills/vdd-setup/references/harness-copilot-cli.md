@@ -8,5 +8,6 @@
   in your skill list, which the `skill` tool runs. The `task` tool offers a
   `code-review` agent type: that is Copilot CLI's own reviewer and not Matt
   Pocock's skill, and it answers nothing about the collection.
+- **The shared scripts check.** It applies on this Harness.
 
 Trust your live tools over this file when they disagree.

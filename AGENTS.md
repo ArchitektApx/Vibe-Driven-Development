@@ -4,12 +4,11 @@ This repository is developed with its own workflow. Use the VDD Roles on
 changes to it, the same way a user would on their own project:
 `/vdd:vdd-start-loop` opens the loop and writes `LOOP.md`, the Planner grills
 you and produces the Spec and Tickets under `.scratch/<feature-slug>/`, then
-an Orchestrator session, opened with `claude -n <name>` and
-`/vdd:vdd-orchestrator` when the Planner rings its first Doorbell, hosts the
-Plan-Reviewer, the Coder and the Code-Reviewer as subagents until Sign-off,
-then invokes the PR-Author, which opens the pull request. Proportionality
-applies: a typo fix can skip the loop, and anything that changes how a Role
-behaves takes it.
+an Orchestrator session, opened with `claude` and `/vdd:vdd-orchestrator`
+when the Planner rings its first Doorbell, hosts the Plan-Reviewer, the Coder
+and the Code-Reviewer as subagents until Sign-off, then invokes the PR-Author,
+which opens the pull request. Proportionality applies: a typo fix can skip the
+loop, and anything that changes how a Role behaves takes it.
 `docs/VDD-WORKFLOW.md` walks the same loop from the user's side.
 
 The Planner's grilling step produced the glossary and the decision records
@@ -32,8 +31,8 @@ count that reads as a claim about the present is dropped rather than updated,
 and a number that records a measurement stays.
 
 The repository is prose plus the shell scripts the Roles run, with no build.
-Its one test is the fixture test for the Session-name hook,
-`tests/vdd-session-name.test.sh`, run by hand and not in CI.
+Its one test is the fixture test for the Codex `Stop` hook,
+`sh tests/vdd-codex-stop.test.sh`, run by hand from anywhere and not in CI.
 `docs/agents/VERIFICATION.md` is what verification means here, and CI only
 checks that what ships is well formed (see Invariants).
 
@@ -74,9 +73,11 @@ PR; preserve them through any refactor of `.github/`.
 
 - **No executable surface.** No hooks, no MCP servers, no symlinks, no
   executable files. The plugin ships prose and shell scripts at mode 644 that
-  a Role runs with `sh`, never with an executable bit. One of those scripts,
-  the Session-name hook, Setup copies to `~/.claude/hooks/` and the user's
-  settings run with `sh`, so the plugin still executes nothing itself.
+  a Role runs with `sh`, never with an executable bit. Setup copies the
+  shipped scripts into the shared directory,
+  `${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`, where a Role runs the Doorbell
+  wait and the user's `~/.codex/hooks.json` runs the Codex `Stop` hook, both
+  with `sh`, so the plugin still executes nothing itself.
   Adding one of the four
   is a deliberate decision: edit the `Reject executable surface` step in
   the same PR so the reviewer sees both.
@@ -119,11 +120,6 @@ PR; preserve them through any refactor of `.github/`.
   text `none: the inline text is complete`. A Role reads the Harness file that
   section sends it to, so a Harness missing from it is a Harness whose reader
   gets sent nowhere.
-- **The two copies of the Doorbell wait are identical.**
-  `skills/vdd-planner/references/doorbell-wait.sh` and
-  `skills/vdd-orchestrator/references/doorbell-wait.sh` match byte for byte.
-  Each skill ships its own copy because a skill directory installs on its own,
-  and a copy that drifts makes one Role wait differently from the other.
 - **Every shell script under `skills/` parses.** Each `.sh` file passes
   `sh -n`, found with `find` so a plain copy of the tree is checked like a
   checkout. A Role runs the script in the user's Session, so a syntax error

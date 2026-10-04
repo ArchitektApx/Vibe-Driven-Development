@@ -26,10 +26,10 @@ ships no `references/` directory.
 `references/harness-<slug>.md`, the slug being the Harness's name lowercased
 with spaces turned to hyphens: `harness-claude-code.md`, `harness-codex.md`.
 A start step reads it: from the Loop file's `Harness:` line in a Role that runs
-inside a Workflow, and from the Harness the Session names, or the user states,
-in `vdd-setup` and `vdd-start-loop`. Each branch point in the body then names
-the mechanic in neutral words, such as "deliver it through your Harness file's
-delivery mechanics".
+inside a Workflow, and from the Harness the Session knows itself to run in,
+or the user states, in `vdd-setup` and `vdd-start-loop`. Each branch point in
+the body then names the mechanic in neutral words, such as "deliver it through
+your Harness file's delivery mechanics".
 
 **Generic ships no file.** Generic is the state in which no Harness file is
 read, and the neutral inline text is its complete path. A skipped read and
@@ -46,13 +46,12 @@ use of the mechanic a guardrail guards is behind no situational pointer, so that
 guardrail may sit there, beside the command it governs (ADR 0011). A guardrail
 about a Harness mechanic splits in two: the obligation stays inline in neutral
 words, and the mechanics move. For a cross-Session Doorbell the obligations are
-to deliver only to the Session name the Loop file records, where the Harness
-addresses a Doorbell by Session name; to send the Doorbell line and nothing
-else; to confirm the recipient is reachable by the means the Harness file names;
-and to print the exact Doorbell for the user to paste when that cannot be
-confirmed or delivery fails. The tool, the command and their preconditions are
-what move. Moving any sentence is re-expression rather than deletion, so the
-Rule inventory records each moved sentence with its destination.
+to deliver it through the Harness file's delivery mechanics; to send the
+Doorbell line and nothing else; and to print the exact Doorbell for the user to
+paste where nothing delivers it or delivery fails. The tool, the command and
+their preconditions are what move. Moving any sentence is re-expression rather
+than deletion, so the Rule inventory records each moved sentence with its
+destination.
 
 **Every Harness file ends on the drift line**, exactly: "Trust your live tools
 over this file when they disagree." A Harness changes between this

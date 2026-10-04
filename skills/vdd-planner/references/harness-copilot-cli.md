@@ -18,5 +18,9 @@
 - **The wait.** Run it in `async` or `detach` mode, never `sync`: a `sync`
   shell blocks the whole Session until it exits (github/copilot-cli #2533). The
   Session wakes when the shell exits.
+- **A resume.** `copilot --continue` and `copilot --resume` resume a Session.
+  When the user names one of them, or tells you this Session was resumed,
+  re-arm as "Your wait" in [`doorbell-file-posix.md`](doorbell-file-posix.md)
+  says.
 
 Trust your live tools over this file when they disagree.

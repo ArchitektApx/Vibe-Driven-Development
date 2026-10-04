@@ -57,7 +57,7 @@ Scratch space for handoff between sessions, gitignored, never part of the user's
 _Avoid_: artifact, output, deliverable
 
 **Feature slug**:
-The kebab-case name of one Loop's piece of work, chosen by the user when the Loop starts. It names the tracker directory and sits in the middle of every Session name.
+The kebab-case name of one Loop's piece of work, chosen by the user when the Loop starts. It names the tracker directory, and Start-Loop proposes it as the feature branch.
 _Avoid_: feature name, ticket name, branch name
 
 **Tracker directory**:
@@ -65,7 +65,7 @@ _Avoid_: feature name, ticket name, branch name
 _Avoid_: scratch dir, feature folder, workspace
 
 **Loop file**:
-`LOOP.md` at the repository root. Records the Feature slug, the repository short name, the base branch, the feature branch, the tracker path, the `Minors:` line, the `PR:` line, the `Fresh Coder:` line, the Harness and the two Session names, so every Role reads them instead of asking. It is the one Working file outside the tracker directory, because every Role reads it before it knows a Feature slug and no tracker path resolves until it has. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
+`LOOP.md` at the repository root. Records the Feature slug, the base branch, the feature branch, the tracker path, the `Minors:` line, the `PR:` line, the `Fresh Coder:` line and the Harness, so every Role reads them instead of asking. It is the one Working file outside the tracker directory, because every Role reads it before it knows a Feature slug and no tracker path resolves until it has. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
 _Avoid_: session file, config, manifest
 
 **Spec**:
@@ -84,14 +84,6 @@ _Avoid_: prompt, instruction file, agent-facing doc
 A file under a Role skill's `references/` directory, read when a pointer in that skill's `SKILL.md` names the situation at hand. It ships inside the skill directory on every install route, so it is an Agent document like the skill file that points at it.
 _Avoid_: resource file, sibling file, appendix
 
-**Session name**:
-`<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner` or `VDD-new-release-Orchestrator`. There are two, the Planner's and the Orchestrator's, and each is the address a cross-session Doorbell is sent to. On Claude Code the Session-name hook sets the Planner's and `claude -n` the Orchestrator's; on Codex each Role names its own Session; where that fails, the user sets the name by hand with `/rename`. On Cursor, Copilot CLI and Generic, which deliver no Doorbell by Session name, the name is still recorded in the Loop file, and nothing is sent to it.
-_Avoid_: session id, title, label
-
-**Session-name hook**:
-The `UserPromptSubmit` hook Setup installs on Claude Code that gives a Session its Planner or Orchestrator name from the Loop file. It names the Session that ran Start-Loop after the Planner and the Session that ran the Orchestrator after the Orchestrator, restores a lost name, and does nothing in a project whose Loop file names another Harness.
-_Avoid_: rename hook, title hook
-
 **Spawn prompt**:
 The prompt the Orchestrator spawns a hosted Role with. Names the Working files outright, tells the Role to invoke its skill, declares that an Orchestrator hosts this Workflow, and states the three prefixed return shapes. Carries the return contract; no Role skill does.
 _Avoid_: system prompt, task prompt, instructions
@@ -101,12 +93,16 @@ The Orchestrator's one blocking prompt, put to the user before its first spawn i
 _Avoid_: model prompt, model config, model check
 
 **Doorbell**:
-A fixed contract naming which Working file was written, which round, and the open findings per severity or `SIGNED OFF`, with no free text. Carried by whichever of four carriers the two ends have: a cross-session message from the Planner to the Orchestrator, the Orchestrator's relay of the Plan-Reviewer's Doorbell back to the Planner, a hosted Role's return value to the Orchestrator, or the Orchestrator's resume message waking a hosted Role. The two cross-session Doorbells, the Planner's to the Orchestrator and the Orchestrator's relay back to the Planner, are sent to the other Session by name, or appended to the Doorbell file where the Harness cannot send one by Session name.
+A fixed contract naming which Working file was written, which round, and the open findings per severity or `SIGNED OFF`, with no free text. Carried by whichever of four carriers the two ends have: a cross-session message from the Planner to the Orchestrator, the Orchestrator's relay of the Plan-Reviewer's Doorbell back to the Planner, a hosted Role's return value to the Orchestrator, or the Orchestrator's resume message waking a hosted Role. The two cross-session Doorbells, the Planner's to the Orchestrator and the Orchestrator's relay back to the Planner, are appended to the Doorbell file on every Harness but Generic and printed for a paste on Generic. Every ring prints the line on the other Harnesses too, for a paste where the other Session does not wake.
 _Avoid_: notification, handoff message, ping
 
 **Doorbell file**:
-`.scratch/<feature slug>/doorbells`, the append-only Working file in the tracker directory that carries a cross-session Doorbell on a Harness that cannot send one by Session name. Holds one line per ring, addressed to the Role that receives it.
+`.scratch/<feature slug>/doorbells`, the append-only Working file in the tracker directory that carries a cross-session Doorbell. Holds one line per ring, addressed to the Role that receives it. On Codex a waiting Role also writes an armed file beside it, `armed-<thread id>`, which the `Stop` hook claims.
 _Avoid_: doorbell log, mailbox, inbox
+
+**Shared directory**:
+`${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`, outside the project, where Setup copies the scripts the plugin ships and from which the Planner, the Orchestrator and the Codex `Stop` hook run them with `sh`. One per machine, shared by every Workflow on every Harness but Generic.
+_Avoid_: install directory, scripts folder, hooks directory
 
 **Sign-off**:
 The literal line `SIGNED OFF` at the top of a review file. The only thing that ends a Loop, withheld while a blocker or a major is open and, on a Minors answer of `fix`, while any minor is open; hedged approval is not sign-off.

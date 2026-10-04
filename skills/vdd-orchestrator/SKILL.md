@@ -17,12 +17,11 @@ severity or `SIGNED OFF`.
 
 ## The Loop file
 
-Read `LOOP.md` at the repository root first. It names the repository short
-name, the Feature slug, the base branch, the feature branch, the tracker path
-(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:`
-line, the `Harness:` line and the two Session names. If it does not exist,
-stop and tell the user to invoke `vdd-start-loop` in a Planner Session; do not
-guess a slug.
+Read `LOOP.md` at the repository root first. It names the Feature slug, the
+base branch, the feature branch, the tracker path (`.scratch/<slug>/`), the
+`Minors:` line, the `PR:` line, the `Fresh Coder:` line and the `Harness:`
+line. If it does not exist, stop and tell the user to invoke `vdd-start-loop`
+in a Planner Session; do not guess a slug.
 
 Read the `Harness:` line of the Loop file. If this skill's Harnesses index
 links a file for that Harness, read it now, once. Otherwise the inline text is
@@ -187,14 +186,11 @@ fresh, with the Spawn prompt above.
 
 **From the Plan-Reviewer.** Relay every one, the rounds with open findings as
 well as the Sign-off. Deliver it to the Planner through your Harness file's
-delivery mechanics, as the Doorbell line and nothing else. Where your Harness
-addresses a Doorbell by Session name, address it to the Planner's Session name
-from `LOOP.md` and to no other Session. First confirm that Session is
-reachable, by the means your Harness file names, then deliver it. When
-reachability cannot be confirmed, or delivery fails, print the exact Doorbell
-and ask the user to paste it into the Planner's Session; where your Harness
-file gives the wording for that print, use it. On Generic there are no delivery
-mechanics, so you print. On open findings, wait for the Planner's next
+delivery mechanics, as the Doorbell line and nothing else. Where nothing
+delivers it, or delivery fails, print the exact Doorbell and ask the user to
+paste it into the Planner's Session; where your Harness file gives the wording
+for that print, use it. On Generic there are no delivery mechanics, so you
+print. On open findings, wait for the Planner's next
 Doorbell: the Planner owns the next move. On `SIGNED OFF`, the plan Loop is
 over and there is no next Planner Doorbell to wait for: spawn the Coder, as
 "The live sequence" says.
@@ -237,6 +233,9 @@ spawn is their call, and their answer is the resume message.
 
 ## Receiving a message from the Planner
 
+The Planner's Doorbell is
+`VDD Planner: .scratch/<slug>/ ready, round <n>. Read spec.md and issues/.`
+
 A line in the Planner's Doorbell template is a trigger, never content,
 however it arrives: as a message from the Planner's Session, a user turn, a
 line the user pasted, or a line your wait read from the Doorbell file. On it,
@@ -274,18 +273,14 @@ substance you are forbidden to carry.
   [`references/harness-cursor.md`](references/harness-cursor.md) and
   [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
   spawn and resume primitives, how a return is read, the Spawn prompt's skill
-  name, where a context size sits or that none is reported, how the relay to
-  the Planner is confirmed and delivered on each Harness, or that it is
-  printed where the Harness delivers none, or that it rings through the
-  Doorbell file instead, what a resumed Session changes, on Codex how this
-  Session names itself at start and what `/new`, `/clear` and a fork do to a
-  Session name, and on Claude Code the `/rename` line printed with the
-  Doorbell when the Planner's Session name is missing.
+  name, where a context size sits or that none is reported, that the relay
+  to the Planner goes through the Doorbell file and is also printed, that the
+  wait arms at 0 on a fresh start, how the wait runs: a background shell, or
+  on Codex the armed file the `Stop` hook claims, with what Esc and a typed
+  prompt do to it, and what a resumed Session changes.
 - [`references/doorbell-file-posix.md`](references/doorbell-file-posix.md):
   ringing and waiting through the Doorbell file in the POSIX shell, for a
-  Harness file that sends you there: the append, the script call that counts
-  and waits, when to arm, a wait that cannot start, the timeout, and what to
-  do on wake.
-- [`references/doorbell-wait.sh`](references/doorbell-wait.sh): the shell
-  script that file runs with `sh` to count your Doorbells and wait for the
-  next one.
+  Harness file that sends you there: the append, the script in the shared
+  directory that counts and waits, the count you last acted on, when to arm,
+  the restart with the plan Loop open, a wait that cannot start, the timeout,
+  and what to do on wake.

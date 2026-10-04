@@ -14,13 +14,13 @@ PR-Author reads it instead of asking again.
 supported Harness spawns subagents, so no Workflow runs the Code-Reviewer in a
 session of its own that could run the PR-Author.
 
-**A fifth Session for the PR-Author.** Rejected. A fifth Session name would
-mean a fifth terminal the user opens by hand at the exact point the Workflow
-is closest to finished and the user is closest to walking away. The
-PR-Author's read list, `LOOP.md`, `CODEREVIEW.md`, `PLAN-REVIEW.md`,
-`FIXES.md` and the Spec, is exactly what the Orchestrator's session already
-holds or can read fresh, so a new session would buy no independence a
-reviewer needs, only a copy-paste step a Doorbell already removes elsewhere.
+**A fifth Session for the PR-Author.** Rejected. A fifth Session would mean a
+fifth terminal the user opens by hand at the exact point the Workflow is
+closest to finished and the user is closest to walking away. The PR-Author's
+read list, `LOOP.md`, `CODEREVIEW.md`, `PLAN-REVIEW.md`, `FIXES.md` and the
+Spec, is exactly what the Orchestrator's session already holds or can read
+fresh, so a new session would buy no independence a reviewer needs, only a
+copy-paste step a Doorbell already removes elsewhere.
 
 **A carve-out on the Coder or the Code-Reviewer instead of a new Role.**
 Rejected. The Coder's rule that it never pushes and the Code-Reviewer's rule

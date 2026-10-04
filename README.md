@@ -81,7 +81,7 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
   | `writing-for-agents` | 🤖 the agent | Planner, Plan-Reviewer, Code-Reviewer |
   | `grilling` | 🤖 the agent | Brainstormer |
 
-**Optional:** Claude Code 2.1.224+ on macOS or Linux. It lets one session ring the next one's doorbell instead of you copying a line between terminals. Codex rings the next session through `codex queue`. In Cursor and GitHub Copilot CLI the Roles ring each other through the Doorbell file in `.scratch/<slug>/` and also print the line, which you paste only if the other session does not wake. Everything works without a doorbell: the Roles print the line for you to paste.
+**Optional:** macOS or Linux, for the doorbell. In Claude Code, Codex, Cursor and GitHub Copilot CLI the Roles ring each other through the Doorbell file in `.scratch/<slug>/` instead of you copying a line between terminals, and also print the line, which you paste only if the other session does not wake. Everything works without a doorbell: the Roles print the line for you to paste.
 
 </details>
 
@@ -99,8 +99,6 @@ Start a new session in your repository and type `/vdd:vdd-setup`. Install Matt P
 /plugin install mattpocock-skills
 ```
 
-Setup also installs the Session-name hook, which names the Planner and Orchestrator sessions so a doorbell sent by name reaches them: after showing you both changes, it copies a script to `~/.claude/hooks/` and adds a `UserPromptSubmit` entry to `~/.claude/settings.json`. The hook needs `jq` and Claude Code 2.1.94 or later.
-
 </details>
 
 <details>
@@ -111,11 +109,21 @@ codex plugin marketplace add ArchitektApx/Vibe-Driven-Development
 codex plugin add vdd@vibe-driven-development
 ```
 
-Start a new Codex session in your repository, so it picks up the plugin, and type `$vdd:vdd-setup`. Matt Pocock's plugin is Claude Code only, so install his collection with the skills CLI and select Codex when it asks which agents to install for:
+Start a new Codex session in your repository with `codex --no-daemon`, so it picks up the plugin, and type `$vdd:vdd-setup`. Matt Pocock's plugin is Claude Code only, so install his collection with the skills CLI and select Codex when it asks which agents to install for:
 
 ```bash
 npx skills@latest add -g mattpocock/skills
 ```
+
+A Codex session cannot be woken by a background shell, so on Codex a waiting Role waits in a `Stop` hook. Setup installs it: after showing you the change, it copies the hook beside the Doorbell wait into `~/.local/share/vdd/` (or `$XDG_DATA_HOME/vdd/`) and adds a `Stop` entry to `~/.codex/hooks.json`. Codex runs no hook you have not trusted, so trust it in `/hooks` when Setup asks; that also turns it on in the session you are in.
+
+> ⚠️ **Warning**
+>
+> Start every VDD session on Codex with `codex --no-daemon`, and resume one with `codex resume --no-daemon`. Since 0.158, plain `codex` runs its sessions in a shared background server, and quitting the terminal only disconnects you ("Any running work continues"). A quit Orchestrator then keeps running the Coder and the Code-Reviewer, spending tokens you do not see. `--no-daemon` keeps the session in your terminal, so quitting stops it.
+>
+> Apps that run Codex on their own app server, such as T3 Code, stop a session when you close it and need no flag.
+
+To stop using VDD on Codex, delete the `Stop` entry that runs `vdd-codex-stop.sh` from `~/.codex/hooks.json`.
 
 </details>
 

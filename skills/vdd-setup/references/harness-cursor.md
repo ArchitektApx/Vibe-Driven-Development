@@ -8,5 +8,6 @@
   description names "Standards" and "Spec". Cursor also lists skills it
   imports from Claude Code and Codex installs, so read the description of each
   `code-review` hit.
+- **The shared scripts check.** It applies on this Harness.
 
 Trust your live tools over this file when they disagree.

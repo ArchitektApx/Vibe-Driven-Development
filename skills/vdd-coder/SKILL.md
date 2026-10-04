@@ -10,12 +10,11 @@ against the Spec, and document your work in `.scratch/<slug>/FIXES.md`.
 
 ## The Loop file
 
-Read `LOOP.md` at the repository root first. It names the repository short
-name, the Feature slug, the base branch, the feature branch, the tracker path
-(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:`
-line, the `Harness:` line and the two Session names. If it does not exist,
-stop and tell the user to invoke `vdd-start-loop` in a Planner Session; do not
-guess a slug.
+Read `LOOP.md` at the repository root first. It names the Feature slug, the
+base branch, the feature branch, the tracker path (`.scratch/<slug>/`), the
+`Minors:` line, the `PR:` line, the `Fresh Coder:` line and the `Harness:`
+line. If it does not exist, stop and tell the user to invoke `vdd-start-loop`
+in a Planner Session; do not guess a slug.
 
 ## Branch
 

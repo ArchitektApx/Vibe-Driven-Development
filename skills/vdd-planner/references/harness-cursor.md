@@ -21,5 +21,9 @@
   delivering the same output again; the duplicate rule in
   [`doorbell-file-posix.md`](doorbell-file-posix.md) makes the second wake a
   no-op.
+- **A resume.** In the Cursor CLI, `agent --continue`, `agent --resume` and
+  `agent resume` resume a Session; in the IDE, a reopened chat does. When the
+  user names one of them, or tells you this Session was resumed, re-arm as
+  "Your wait" in [`doorbell-file-posix.md`](doorbell-file-posix.md) says.
 
 Trust your live tools over this file when they disagree.

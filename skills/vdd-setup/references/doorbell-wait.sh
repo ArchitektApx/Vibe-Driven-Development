@@ -6,6 +6,9 @@
 # file and writes nothing. Run it with sh, as `sh doorbell-wait.sh ...`. It
 # ships at mode 644 and is never made executable.
 #
+# It ships once, in the vdd-setup skill's references. Setup installs a copy
+# into ${XDG_DATA_HOME:-$HOME/.local/share}/vdd/, and the Roles run that copy.
+#
 # Two forms, chosen by the number of arguments:
 #
 #   sh doorbell-wait.sh <Doorbell file> <Role>
