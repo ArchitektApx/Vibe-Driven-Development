@@ -4,20 +4,26 @@ On every Harness but Generic the Planner and the Orchestrator ring each other
 through the Doorbell file, and they run two shell scripts the plugin ships:
 `doorbell-wait.sh`, the Doorbell wait, and on Codex `vdd-codex-stop.sh`, the
 `Stop` hook that runs the wait for a Session a background shell cannot wake.
-Both ship once, as References of `vdd-setup`, at mode 644. Setup copies them
-into the shared directory, `${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`, on
-every Harness but Generic, as a standard check with no opt-in question: it
-compares each copy with the shipped file by `cmp`, shows the user what it will
-copy, and copies with `cp`. A Role resolves the directory once per Session and
-runs the wait by its plain absolute path, so a hook that checks shell commands
-and an approval prompt see no expansion.
+Each has a PowerShell form for native Windows, `doorbell-wait.ps1` and
+`vdd-codex-stop.ps1`. Each ships once, as a Reference of `vdd-setup`, at
+mode 644. Setup copies the `.sh` pair into the shared directory,
+`${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`, and on native Windows the `.ps1`
+pair, never a `.sh`, into `%LOCALAPPDATA%\vdd\`, on every Harness but
+Generic, as a standard check with no opt-in question: it compares each copy
+with the shipped file byte for byte, by `cmp` or by `Get-FileHash`, shows the
+user what it will copy, and copies with `cp` or `Copy-Item`. A Role resolves
+the directory once per Session and runs the wait by its plain absolute path,
+so a hook that checks shell commands and an approval prompt see no expansion.
 
 Setup copies the scripts out of the plugin because the plugin's install path
 changes with every version and differs per Harness, so a command pointing into
 it would break on the next update. The directory follows `XDG_DATA_HOME`
-because the copies are application data the user may keep elsewhere. Run from
-there through `sh`, by a Role or by a command in the user's own settings, a
-script is not executed from the plugin, and the plugin still declares no hook.
+because the copies are application data the user may keep elsewhere. On
+native Windows it sits under `%LOCALAPPDATA%`, where Windows keeps per-user
+application data, because a Windows user does not know `XDG_DATA_HOME`. Run
+from there through a named shell, by a Role or by a command in the user's own
+settings, a script is not executed from the plugin, and the plugin still
+declares no hook.
 
 On Codex, Setup also registers the hook in `~/.codex/hooks.json` as a `Stop`
 handler running `sh "<directory>/vdd-codex-stop.sh" || true` with a timeout
@@ -36,12 +42,37 @@ a new matcher group at the end of `hooks.Stop`, leaving every existing group
 and handler in its place and order, because Codex keys its trust by group and
 handler index and a moved hook loses its trust.
 
-The hook is plain POSIX `sh` with no `jq`: Codex runs hooks outside its
-sandbox, so the user should be able to read every line that runs there, and on
-the turn ends of every project that is not a Codex loop it exits on shell
-builtins alone.
+On native Windows the handler carries `command` and `commandWindows`, both set
+to `$f='<directory>\vdd-codex-stop.ps1';if(Test-Path -LiteralPath $f){powershell.exe -NoProfile -ExecutionPolicy Bypass -File $f}`.
+Codex runs the selected string through PowerShell with `-Command` there,
+Windows PowerShell 5.1 where PowerShell 7 is absent, so the string uses no
+`||`, which 5.1 cannot parse. The `Test-Path` guard keeps a registration that
+outlives its script silent, where `-File` on a missing path prints usage text
+that Codex reports as invalid hook output at every turn end. `command` is
+required in any entry, and Codex 0.160.0 runs it through the same PowerShell
+when `commandWindows` is absent; `commandWindows` is Codex's documented field
+for a Windows command and keeps the entry correct should a later Codex run
+`command` through another shell on Windows. Writing the same string into both
+costs one line. On Windows the trust hash covers the
+selected `commandWindows` string, so the new entry is trusted once in
+`/hooks`, as on macOS and Linux. Setup adds no `commandWindows` to an
+existing macOS or Linux entry, and on Windows finds a present registration by
+`vdd-codex-stop.ps1` in either field.
+
+The hook is plain POSIX `sh` with no `jq`, and its PowerShell form needs no
+`jq` either: Codex runs hooks outside its sandbox, so the user should be able
+to read every line that runs there, and on the turn ends of every project
+that is not a Codex loop the `sh` form exits on shell builtins alone.
 
 ## Considered options
+
+**Correction: on native Windows Setup installs the PowerShell forms of both
+scripts and registers the hook, rather than skipping the install and the
+registration there.**
+
+**`XDG_DATA_HOME` on native Windows too.** Rejected. Windows users do not know
+the variable, and `%LOCALAPPDATA%` is where Windows keeps per-user application
+data.
 
 **A hook declared in the plugin's `hooks/hooks.json`.** Rejected. A plugin
 hook runs on every turn in every project where the plugin is enabled, with no
@@ -77,8 +108,9 @@ only the armed file named after its own Session, so a Planner and an
 Orchestrator in two Codex Sessions of one project never wait on each other's
 behalf.
 
-On native Windows Setup skips the install and the registration, because both
-scripts are POSIX `sh` and no PowerShell form ships.
+A change to the hook entry is made in both of its strings, the `sh` one and
+the PowerShell one, since each is written byte for byte and trusted by its
+hash.
 
 The `Reject executable surface` step in `verify.yml` is unchanged: the scripts
 are files at mode 644 under `skills/`, the plugin manifests declare no hook,

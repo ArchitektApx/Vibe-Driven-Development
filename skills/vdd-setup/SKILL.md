@@ -213,12 +213,14 @@ Finish with a short status report: what passed, what you fixed, what the user st
 - [`references/codex-stop-hook.md`](references/codex-stop-hook.md), read only
   where the Codex Harness file sends you: what the Codex `Stop` hook does, the
   registration check across `~/.codex/hooks.json` and `~/.codex/config.toml`,
-  the exact entry and why it is exact, the edit and its consent step, the
-  trust step, and its line in the status report.
+  the exact entry and why it is exact, with the native Windows entry carrying
+  `command` and `commandWindows`, the edit and its consent step, the trust
+  step, and its line in the status report.
 - [`references/doorbell-wait.sh`](references/doorbell-wait.sh) and
   [`references/vdd-codex-stop.sh`](references/vdd-codex-stop.sh): the Doorbell
   wait and the Codex `Stop` hook, and
-  [`references/doorbell-wait.ps1`](references/doorbell-wait.ps1), the Doorbell
-  wait in PowerShell for native Windows, which the shared scripts check copies
+  [`references/doorbell-wait.ps1`](references/doorbell-wait.ps1) and
+  [`references/vdd-codex-stop.ps1`](references/vdd-codex-stop.ps1), the same
+  two in PowerShell for native Windows, which the shared scripts check copies
   into the shared directory with the shell's copy command, never read and
   written out with a file tool.

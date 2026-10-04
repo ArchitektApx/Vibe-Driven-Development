@@ -46,9 +46,8 @@ checkout carries the `.sh` files with CRLF line endings, and no Role there
 runs one.
 
 - [`doorbell-wait.ps1`](doorbell-wait.ps1): the Doorbell wait in PowerShell.
-
-On Codex on native Windows, skip the `Stop` hook registration that follows
-this check and say so in one line: its PowerShell form is not installed yet.
+- [`vdd-codex-stop.ps1`](vdd-codex-stop.ps1): the Codex `Stop` hook in
+  PowerShell, which runs `doorbell-wait.ps1` from this same directory.
 
 ## The check
 

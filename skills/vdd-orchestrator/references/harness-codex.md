@@ -28,12 +28,23 @@
   file, `.scratch/<feature-slug>/armed-<id>`, holding the one line
   `Orchestrator <count>`, where `<count>` is the count you last acted on as
   that file defines it. `<id>` is this Session's thread id: read it once with
-  `printf '%s\n' "$CODEX_THREAD_ID"` and write it out in full after that.
-  Write it with one shell command:
+  `printf '%s\n' "$CODEX_THREAD_ID"`, on native Windows with
+  `$env:CODEX_THREAD_ID`, and write it out in full after that. Write it with
+  one shell command:
 
   ```sh
   printf 'Orchestrator %s\n' <count> > .scratch/<feature-slug>/armed-<id>
   ```
+
+  On native Windows, where Codex gives you PowerShell:
+
+  ```powershell
+  [IO.File]::WriteAllText((Join-Path (Get-Location).Path '.scratch/<feature-slug>/armed-<id>'), 'Orchestrator <count>' + "`n")
+  ```
+
+  That writes the one line ending in LF, as UTF-8 with no byte order mark,
+  which the hook reads as plain text. Never write it with `>`, which writes
+  UTF-16 in Windows PowerShell 5.1.
 
   Write none in a turn in which you expect no Planner Doorbell: after you
   relayed the plan Sign-off, and in a turn that ends asking the user a

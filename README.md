@@ -115,7 +115,7 @@ Start a new Codex session in your repository with `codex --no-daemon`, so it pic
 npx skills@latest add -g mattpocock/skills
 ```
 
-A Codex session cannot be woken by a background shell, so on Codex a waiting Role waits in a `Stop` hook. Setup installs it: after showing you the change, it copies the hook beside the Doorbell wait into `~/.local/share/vdd/` (or `$XDG_DATA_HOME/vdd/`) and adds a `Stop` entry to `~/.codex/hooks.json`. Codex runs no hook you have not trusted, so trust it in `/hooks` when Setup asks; that also turns it on in the session you are in.
+A Codex session cannot be woken by a background shell, so on Codex a waiting Role waits in a `Stop` hook. Setup installs it: after showing you the change, it copies the hook beside the Doorbell wait into `~/.local/share/vdd/` (or `$XDG_DATA_HOME/vdd/`; on Windows `%LOCALAPPDATA%\vdd\`) and adds a `Stop` entry to `~/.codex/hooks.json`. Codex runs no hook you have not trusted, so trust it in `/hooks` when Setup asks; that also turns it on in the session you are in.
 
 > ⚠️ **Warning**
 >
@@ -123,7 +123,7 @@ A Codex session cannot be woken by a background shell, so on Codex a waiting Rol
 >
 > Apps that run Codex on their own app server, such as T3 Code, stop a session when you close it and need no flag.
 
-To stop using VDD on Codex, delete the `Stop` entry that runs `vdd-codex-stop.sh` from `~/.codex/hooks.json`.
+To stop using VDD on Codex, delete the `Stop` entry that runs `vdd-codex-stop.sh`, or `vdd-codex-stop.ps1` on Windows, from `~/.codex/hooks.json`.
 
 </details>
 

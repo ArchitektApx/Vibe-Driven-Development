@@ -263,6 +263,250 @@ foreach ($case in $parityCases) {
   Verdict $case[0] $ok
 }
 
+# --- The Codex Stop hook ----------------------------------------------------
+
+if (-not (Test-Path -LiteralPath $HookScript -PathType Leaf)) {
+  $script:status = 0
+  $script:out = ''
+  Verdict ('H0 no hook script at ' + $HookScript) $false
+} else {
+
+# The hook and the wait name powershell.exe, which macOS and Linux lack. Off
+# Windows a temp directory first on PATH holds a powershell.exe that runs
+# pwsh, executable inside that directory only. The shipped scripts are run
+# unchanged.
+if (-not $onWindows) {
+  $shim = Join-Path $root 'bin'
+  [void](New-Item -ItemType Directory -Path $shim)
+  Write-Text (Join-Path $shim 'powershell.exe') "#!/bin/sh`nexec pwsh `"`$@`"`n"
+  & chmod 755 (Join-Path $shim 'powershell.exe')
+  $env:PATH = $shim + [System.IO.Path]::PathSeparator + $env:PATH
+  Say ('shim: ' + (Join-Path $shim 'powershell.exe') + ', first on PATH, runs pwsh in place of powershell.exe')
+}
+
+# The shared directory, as Setup fills it, and three more whose wait is a
+# stub: one that prints TIMEOUT at once, since the real wait times out after
+# 45 minutes; one that prints a line and exits 3; and one that also records
+# that it ran.
+function New-HookDir([string]$name, [string]$waitText) {
+  $dir = Join-Path (Join-Path $root $name) 'vdd'
+  [void](New-Item -ItemType Directory -Path $dir)
+  Copy-Item -LiteralPath $HookScript -Destination (Join-Path $dir 'vdd-codex-stop.ps1')
+  if ($waitText -eq '') {
+    Copy-Item -LiteralPath $WaitScript -Destination (Join-Path $dir 'doorbell-wait.ps1')
+  } else {
+    Write-Text (Join-Path $dir 'doorbell-wait.ps1') $waitText
+  }
+  return $dir
+}
+$shared = New-HookDir 'share' ''
+$stubbed = New-HookDir 'stub' "[Console]::Out.Write(`"TIMEOUT``n`")`nexit 0`n"
+$failing = New-HookDir 'fail' "[Console]::Out.Write(`"10:00:00 to: Orchestrator VDD Planner: x`")`nexit 3`n"
+$probe = New-HookDir 'probe' "[System.IO.File]::WriteAllText((Join-Path `$PSScriptRoot 'wait-ran'), 'ran')`n[Console]::Out.Write(`"TIMEOUT``n`")`nexit 0`n"
+$waitRan = Join-Path $probe 'wait-ran'
+
+$proj = Join-Path $root 'proj'
+$tracker = '.scratch/feat'
+$trackerDir = Join-Path $proj $tracker
+$doorbells = Join-Path $trackerDir 'doorbells'
+$id = '019a0001-aaaa-7bbb-8ccc-0123456789ab'
+$other = '019a0002-dddd-7eee-8fff-0123456789ab'
+
+function Fresh {
+  if (Test-Path -LiteralPath $proj) { Remove-Item -LiteralPath $proj -Recurse -Force }
+  [void](New-Item -ItemType Directory -Path $trackerDir)
+  if (Test-Path -LiteralPath $waitRan) { Remove-Item -LiteralPath $waitRan -Force }
+}
+
+function Write-Loop([string]$harness, [string]$variant) {
+  # $variant: 'no-tracker' for a Loop file without one, 'crlf' for CRLF lines.
+  $lines = @('# VDD Loop', '', 'Feature: feat', 'Base branch: main', 'Feature branch: feat')
+  if ($variant -ne 'no-tracker') { $lines += ('Tracker: ' + $tracker + '/') }
+  $lines += @('Minors: fix', 'PR: no', 'Fresh Coder: never', ('Harness: ' + $harness))
+  $eol = "`n"
+  if ($variant -eq 'crlf') { $eol = "`r`n" }
+  Write-Text (Join-Path $proj 'LOOP.md') (($lines -join $eol) + $eol)
+}
+
+function Ring([string]$time, [string]$role, [string]$line) {
+  [System.IO.File]::AppendAllText($doorbells, $time + ' to: ' + $role + ' ' + $line + "`n", $utf8)
+}
+
+function Arm([string]$session, [string]$line) {
+  Write-Text (Join-Path $trackerDir ('armed-' + $session)) ($line + "`n")
+}
+
+function Stop-Input([string]$session) {
+  return '{"session_id":"' + $session + '","turn_id":"t1","cwd":"' + $proj.Replace('\', '\\') + '","hook_event_name":"Stop","stop_hook_active":false,"last_assistant_message":"Done."}'
+}
+
+function Get-Snapshot {
+  $items = Get-ChildItem -LiteralPath $proj -Recurse -Force -File | Sort-Object FullName
+  $lines = foreach ($f in $items) { $f.FullName.Substring($proj.Length) + ' ' + (Get-FileHash -LiteralPath $f.FullName).Hash }
+  return ($lines -join "`n")
+}
+
+function Invoke-Hook([string]$dir, [string]$stdin) {
+  Invoke-Child $hostExe @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $dir 'vdd-codex-stop.ps1')) $stdin $proj
+}
+
+function Block([string]$reason) {
+  return '{"decision":"block","reason":"' + $reason + '"}' + "`n"
+}
+
+# Every hook case also expects exit 0 and stdout that is empty or one line.
+function Hook-Verdict([string]$label, [bool]$ok) {
+  $lineCount = @($script:out.Split("`n") | Where-Object { $_ -ne '' }).Count
+  Verdict $label ($ok -and $script:status -eq 0 -and $lineCount -le 1)
+}
+
+function Test-SilentUntouched { return ($script:out -eq '' -and (Get-Snapshot) -ceq $script:before) }
+function Test-PrintedClaimed([string]$expected) {
+  return ($script:out -ceq $expected -and -not (Test-Path -LiteralPath (Join-Path $trackerDir ('armed-' + $id))))
+}
+function Test-NoBlockNoWait {
+  return ($script:out -eq '' -and -not (Test-Path -LiteralPath (Join-Path $trackerDir ('armed-' + $id))) -and -not (Test-Path -LiteralPath $waitRan))
+}
+
+$plannerLine = 'VDD Plan-Reviewer: PLAN-REVIEW.md written, round 1: 0 blocker, 1 major, 0 minor. Read it.'
+$orchestratorLine = 'VDD Planner: .scratch/feat/ ready, round 1. Read spec.md and issues/.'
+
+Fresh
+Arm $id 'Orchestrator 0'
+Ring '10:00:00' 'Orchestrator' $orchestratorLine
+$script:before = Get-Snapshot
+Invoke-Hook $shared (Stop-Input $id)
+Hook-Verdict 'H1 no LOOP.md: silent, nothing touched' (Test-SilentUntouched)
+
+Fresh
+Write-Loop 'Cursor' ''
+Arm $id 'Orchestrator 0'
+Ring '10:00:00' 'Orchestrator' $orchestratorLine
+$script:before = Get-Snapshot
+Invoke-Hook $shared (Stop-Input $id)
+Hook-Verdict 'H2 Harness: Cursor: silent, nothing touched' (Test-SilentUntouched)
+
+Fresh
+Write-Loop 'Codex-like' ''
+Arm $id 'Orchestrator 0'
+Ring '10:00:00' 'Orchestrator' $orchestratorLine
+$script:before = Get-Snapshot
+Invoke-Hook $shared (Stop-Input $id)
+Hook-Verdict 'H3 Harness: Codex-like: silent, nothing touched' (Test-SilentUntouched)
+
+Fresh
+Write-Loop 'Codex' ''
+Ring '10:00:00' 'Orchestrator' $orchestratorLine
+$script:before = Get-Snapshot
+Invoke-Hook $shared (Stop-Input $id)
+Hook-Verdict 'H4 nothing armed: silent, nothing touched' (Test-SilentUntouched)
+
+Fresh
+Write-Loop 'Codex' ''
+Arm $other 'Orchestrator 0'
+Ring '10:00:00' 'Orchestrator' $orchestratorLine
+$script:before = Get-Snapshot
+Invoke-Hook $shared (Stop-Input $id)
+Hook-Verdict "H5 another Session's armed file: silent, untouched" (Test-SilentUntouched)
+
+Fresh
+Write-Loop 'Codex' ''
+Arm $id 'Orchestrator 0'
+Arm $other 'Planner 0'
+Ring '10:00:00' 'Orchestrator' $orchestratorLine
+Invoke-Hook $shared (Stop-Input $id)
+$otherFile = Join-Path $trackerDir ('armed-' + $other)
+Hook-Verdict 'H6 armed, line already there: block, own file deleted' ((Test-PrintedClaimed (Block ('10:00:00 to: Orchestrator ' + $orchestratorLine))) -and [System.IO.File]::ReadAllText($otherFile) -ceq "Planner 0`n")
+
+Fresh
+Write-Loop 'Codex' 'crlf'
+Arm $id 'Orchestrator 0'
+Ring '10:00:00' 'Orchestrator' $orchestratorLine
+Invoke-Hook $shared (Stop-Input $id)
+Hook-Verdict 'H7 LOOP.md with CRLF lines: still a Codex loop' (Test-PrintedClaimed (Block ('10:00:00 to: Orchestrator ' + $orchestratorLine)))
+
+Fresh
+Write-Loop 'Codex' ''
+Arm $id 'Planner 1'
+Ring '10:00:00' 'Planner' $plannerLine
+Ring '10:01:00' 'Orchestrator' $orchestratorLine
+Ring '10:02:00' 'Planner' 'VDD Plan-Reviewer: PLAN-REVIEW.md written, round 2: 0 blocker, 0 major, 1 minor. Read it.'
+Ring '10:03:00' 'Planner' 'VDD Plan-Reviewer: PLAN-REVIEW.md SIGNED OFF, round 3.'
+Invoke-Hook $shared (Stop-Input $id)
+Hook-Verdict 'H8 several lines beyond the count: newest passed' (Test-PrintedClaimed (Block '10:03:00 to: Planner VDD Plan-Reviewer: PLAN-REVIEW.md SIGNED OFF, round 3.'))
+
+Fresh
+Write-Loop 'Codex' ''
+Arm $id 'Orchestrator 0'
+$quoted = 'VDD Planner: .scratch/a"b\c/ ready, round 1. Read spec.md and issues/.'
+Ring '10:00:00' 'Orchestrator' $quoted
+Invoke-Hook $shared (Stop-Input $id)
+$roundTrip = $null
+try { $roundTrip = ($script:out | ConvertFrom-Json).reason } catch { $roundTrip = $null }
+Hook-Verdict 'H9 a line with " and \: valid JSON that reads back' ((Test-PrintedClaimed ('{"decision":"block","reason":"10:00:00 to: Orchestrator VDD Planner: .scratch/a\"b\\c/ ready, round 1. Read spec.md and issues/."}' + "`n")) -and $roundTrip -ceq ('10:00:00 to: Orchestrator ' + $quoted))
+
+Fresh
+Write-Loop 'Codex' ''
+Arm $id 'Orchestrator 0'
+Ring '10:00:00' 'Orchestrator' ("VDD Planner: .scratch/feat/ ready,`tround 1." + [char]27 + "[0m Read spec.md and issues/.")
+Invoke-Hook $shared (Stop-Input $id)
+Hook-Verdict 'H10 a tab and an escape: control characters dropped' (Test-PrintedClaimed (Block '10:00:00 to: Orchestrator VDD Planner: .scratch/feat/ ready,round 1.[0m Read spec.md and issues/.'))
+
+Fresh
+Write-Loop 'Codex' ''
+Arm $id 'Planner 0'
+Invoke-Hook $stubbed (Stop-Input $id)
+Hook-Verdict 'H11 the wait prints TIMEOUT: TIMEOUT passed on' (Test-PrintedClaimed (Block 'TIMEOUT'))
+
+$badLines = @(
+  @('H12 a bad Role in the armed file: claimed, no wait, no block', 'Coder 0'),
+  @('H13 count 01 in the armed file: claimed, no wait, no block', 'Orchestrator 01'),
+  @('H14 count x in the armed file: claimed, no wait, no block', 'Orchestrator x'),
+  @('H15 no count in the armed file: claimed, no wait, no block', 'Orchestrator')
+)
+foreach ($case in $badLines) {
+  Fresh
+  Write-Loop 'Codex' ''
+  Arm $id $case[1]
+  Ring '10:00:00' 'Orchestrator' $orchestratorLine
+  Invoke-Hook $probe (Stop-Input $id)
+  Hook-Verdict $case[0] (Test-NoBlockNoWait)
+}
+
+Fresh
+Write-Loop 'Codex' ''
+Arm $id 'Orchestrator 0'
+Ring '10:00:00' 'Orchestrator' $orchestratorLine
+Invoke-Hook $failing (Stop-Input $id)
+Hook-Verdict 'H16 the wait exits 3 after printing: no block' ($script:out -eq '' -and -not (Test-Path -LiteralPath (Join-Path $trackerDir ('armed-' + $id))))
+
+$badInputs = @(
+  @('H17 stdin with no session_id: silent, nothing touched', '{"turn_id":"t1","hook_event_name":"Stop","stop_hook_active":false}'),
+  @('H18 stdin with an empty session_id: silent, nothing touched', (Stop-Input '')),
+  @('H19 a session_id with ../: silent, nothing touched', (Stop-Input '../feat/armed-x'))
+)
+foreach ($case in $badInputs) {
+  Fresh
+  Write-Loop 'Codex' ''
+  Arm '' 'Orchestrator 0'
+  Arm $id 'Orchestrator 0'
+  Ring '10:00:00' 'Orchestrator' $orchestratorLine
+  $script:before = Get-Snapshot
+  Invoke-Hook $shared $case[1]
+  Hook-Verdict $case[0] (Test-SilentUntouched)
+}
+
+Fresh
+Write-Loop 'Codex' 'no-tracker'
+Arm '' 'Orchestrator 0'
+Arm $id 'Orchestrator 0'
+Ring '10:00:00' 'Orchestrator' $orchestratorLine
+$script:before = Get-Snapshot
+Invoke-Hook $shared (Stop-Input $id)
+Hook-Verdict 'H20 Harness: Codex, no Tracker: line: silent, nothing touched' (Test-SilentUntouched)
+
+}
+
 } finally {
   Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 }
