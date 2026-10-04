@@ -70,11 +70,11 @@ Check, in order:
    relocation variables and follows symlinked skill directories the same way
    everywhere, and a Harness's own search tool may do neither.
 
-   **Resolvable.** Present only means the file exists somewhere; it does not
-   mean this Harness can run it. Answer this one from your own skill list
-   alone, leaving symlink targets and other Harnesses' directories where they
-   are. Only your own resolution matters, because the user will be running the
-   loop in this Harness.
+   **Resolvable.** Present means the file sits in a store this Harness reads;
+   it does not mean this Session has loaded it. Answer this one from your own
+   skill list alone, leaving symlink targets and other Harnesses' directories
+   where they are. Only your own resolution matters, because the user will be
+   running the loop in this Harness.
 
    Probe your own skill list for `writing-for-agents`. It is Borrowed in its
    own right and agent-invocable, so a wired collection puts it in your skill
@@ -91,7 +91,8 @@ Check, in order:
    Report the result as one of three states:
 
    - **Present and Resolvable.** Passed, say nothing further.
-   - **Present but not Resolvable.** Installed, not wired to this Harness.
+   - **Present but not Resolvable.** The skill sits in a store this Harness
+     reads, and this Session has not loaded it.
    - **Not Present.** Tell the user to install the whole collection.
 
    A fourth case passes too: **Resolvable with no search hit.** This Session
@@ -111,10 +112,10 @@ Check, in order:
    an old collection rather than a missing one, and telling that user to
    install a collection they already have is the wrong advice.
 
-   In either failing state, and on that old-collection shape, read
-   [the repair for the store the files came from](references/repairs.md),
-   in the section for your Harness where the route differs, and give the user
-   the commands it names.
+   In either failing state, and on that old-collection shape, read your
+   Harness's section of [the repairs](references/repairs.md), the Generic
+   section on Generic, take the route for the store the files came from, and
+   give the user the commands it names.
 
    Name what a failure costs each Role, in these words. A missing or
    unresolvable `grill-with-docs`, `improve-codebase-architecture`, `to-spec` or
@@ -194,7 +195,7 @@ Finish with a short status report: what passed, what you fixed, what the user st
   sibling names to probe after `writing-for-agents` misses, how to read a bare
   `code-review` hit, and the question to put to the user when nothing hits.
 - [`references/repairs.md`](references/repairs.md): the repair for each failing
-  state, keyed on the store the files were found in and on the Harness, and the
+  state, keyed by Harness, then by the store the files were found in, and the
   update route for a collection that predates `writing-for-agents`.
 - [`references/harness-claude-code.md`](references/harness-claude-code.md),
   [`references/harness-codex.md`](references/harness-codex.md),
