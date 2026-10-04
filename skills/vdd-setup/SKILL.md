@@ -218,3 +218,6 @@ Finish with a short status report: what passed, what you fixed, what the user st
   [`references/vdd-codex-stop.sh`](references/vdd-codex-stop.sh): the Doorbell
   wait and the Codex `Stop` hook, which the shared scripts check copies into
   the shared directory with `cp`, never read and written out with a file tool.
+- [`references/doorbell-wait.ps1`](references/doorbell-wait.ps1): the Doorbell
+  wait in PowerShell, the form the Planner and the Orchestrator run on native
+  Windows.
