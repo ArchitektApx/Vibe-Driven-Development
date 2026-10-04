@@ -20,10 +20,12 @@ there through `sh`, by a Role or by a command in the user's own settings, a
 script is not executed from the plugin, and the plugin still declares no hook.
 
 On Codex, Setup also registers the hook in `~/.codex/hooks.json` as a `Stop`
-handler running `sh "<directory>/vdd-codex-stop.sh"` with a timeout of 2760
-seconds, after showing the user the diff, and only when the hook's copy is in
-the shared directory, since a registration pointing at a missing script fails
-at every Codex turn end. A registration already present in `hooks.json` or
+handler running `sh "<directory>/vdd-codex-stop.sh" || true` with a timeout
+of 2760 seconds, after showing the user the diff, and only when the hook's
+copy is in the shared directory. The `|| true` is there because Codex reads a
+`Stop` hook that exits 2 with stderr as a block, repeated without limit, and
+dash exits 2 on a missing script, so a registration that outlives its script
+would loop every Codex Session. A registration already present in `hooks.json` or
 `config.toml` is left exactly as it is. Codex's trust covers a hash of the
 event, the matcher, the command string and the timeout, not the script's
 contents, so the entry is written exactly, and a later Setup run that replaces

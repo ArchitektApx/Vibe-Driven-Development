@@ -4,8 +4,10 @@
   form they type: `$<name>` for a Borrowed skill, such as `$grill-with-docs`
   or `$to-tickets .scratch/<slug>/spec.md`, and `$vdd:vdd-<role>` for a VDD
   skill, such as `$vdd:vdd-setup`.
-- **The Orchestrator launch.** `codex` in a terminal in this repository, then
-  `$vdd:vdd-orchestrator` in that Session.
+- **The Orchestrator launch.** `codex --no-daemon` in a terminal in this
+  repository, then `$vdd:vdd-orchestrator` in that Session. Without
+  `--no-daemon`, Codex runs the Session in its shared background server, and
+  quitting the terminal leaves a running turn and its hosted Roles working.
 - **Delivering a Doorbell.** Through the Doorbell file: ring as
   [`doorbell-file-posix.md`](doorbell-file-posix.md) says, and wait as "The
   wait" below says. Nothing confirms that the Orchestrator's Session is
@@ -46,7 +48,8 @@
   A prompt the user types while the hook waits arrives when it exits, and Esc
   sends it at once. Either way the rule above covers it: the next turn ends
   with your armed file written again.
-- **A resume.** `codex resume` resumes a Session. "The wait" above covers it
+- **A resume.** `codex resume --no-daemon` resumes a Session the user quit.
+  The quit ended its turn and its hook wait, and "The wait" above re-arms it
   with no word from the user: the first turn you end after it writes your
   armed file.
 

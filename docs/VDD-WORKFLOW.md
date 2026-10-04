@@ -21,7 +21,7 @@ The commands on this page are Claude Code's. On the other Harnesses:
 | | Claude Code | Codex | Cursor | Copilot CLI |
 |-|-------------|-------|--------|-------------|
 | Skill | `/vdd:vdd-start-loop` | `$vdd:vdd-start-loop` | `/vdd-start-loop` | `/vdd:vdd-start-loop` |
-| Open the Orchestrator | `claude` | `codex` | a new chat, or `agent` | `copilot` |
+| Open the Orchestrator | `claude` | `codex --no-daemon` | a new chat, or `agent` | `copilot` |
 | Doorbell | rings through the Doorbell file; the line also prints in case the other session does not wake | rings through the Doorbell file, waited on by the `Stop` hook Setup installs; the line also prints in case the other session does not wake | rings through the Doorbell file; the line also prints in case the other session does not wake | rings through the Doorbell file; the line also prints in case the other session does not wake |
 
 ## 🔁 The Vibe Driven Development Workflow

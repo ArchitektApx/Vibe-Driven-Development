@@ -54,5 +54,9 @@
   A prompt the user types while the hook waits arrives when it exits, and Esc
   sends it at once. Either way the rule above covers it: the next turn ends
   with your armed file written again.
+- **A resume.** `codex resume --no-daemon` resumes a Session the user quit.
+  The quit ended its turn, the Roles it hosted and its hook wait. Place the
+  Workflow from the files as `restart.md` says, and "The wait" above re-arms
+  you at the first turn you end.
 
 Trust your live tools over this file when they disagree.

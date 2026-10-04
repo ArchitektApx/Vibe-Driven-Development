@@ -20,8 +20,7 @@ POSIX lines a user can read in full. It needs no `jq`.
 Register the hook only when its copy is in the shared directory, which the
 shared scripts check has just confirmed or installed. When that copy is not
 there, register nothing and report "Codex `Stop` hook not installed: its
-script is not in the shared directory". A registration that points at a
-missing script fails at every Codex turn end.
+script is not in the shared directory".
 
 The registration is present when a `Stop` hook command in
 `~/.codex/hooks.json` or in `~/.codex/config.toml` contains
@@ -45,7 +44,7 @@ scripts check resolved:
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"<directory>/vdd-codex-stop.sh\"",
+            "command": "sh \"<directory>/vdd-codex-stop.sh\" || true",
             "timeout": 2760
           }
         ]
