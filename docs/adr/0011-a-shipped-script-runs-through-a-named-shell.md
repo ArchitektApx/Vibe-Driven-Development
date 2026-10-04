@@ -3,17 +3,35 @@
 Some of what a Role does is a command too long or too fragile to carry in
 prose, and the plugin ships it as a shell script. A script the plugin ships is
 committed at mode 644 and run only through a named shell, as `sh <path>` or
-`bash <path>`, whoever runs it: a Role in its Session, or a command the user
-adds to their Harness's settings. `doorbell-wait.sh`, the Doorbell wait the
-Planner and the Orchestrator run on a Harness that rings through the Doorbell
-file, is one such script. Run that way, the command line the Harness sees is
-short enough for a hook that checks shell commands to pass and for the user to
-read in an approval prompt, and the process list shows the Doorbell file, the
-Role and the count the wait was given.
+`bash <path>`, and on native Windows as `powershell.exe -NoProfile
+-ExecutionPolicy Bypass -File <path>`, whoever runs it: a Role in its Session,
+or a command the user adds to their Harness's settings. `doorbell-wait.sh`,
+the Doorbell wait the Planner and the Orchestrator run on a Harness that
+rings through the Doorbell file, is one such script. Run that way, the
+command line the Harness sees is short enough for a hook that checks shell
+commands to pass and for the user to read in an approval prompt, and the
+process list shows the Doorbell file, the Role and the count the wait was
+given.
+
+**On native Windows a shipped script runs as its `.ps1`.** Each script ships a
+PowerShell form beside its `.sh`, written for Windows PowerShell 5.1 and
+PowerShell 7 alike, and on native Windows that form runs, through the
+PowerShell line above, on every Harness and from every shell, Git Bash
+included, even where `sh` resolves. Every `.sh` in a Windows plugin cache is
+checked out with CRLF line endings, so `sh` fails on it at the first line
+ending, and no `.gitattributes` ships to change that: on Windows no `.sh`
+runs, and PowerShell runs a `.ps1` with CRLF. `powershell.exe` is the name
+because every Windows client has it, where a command naming `pwsh` fails on a
+machine with 5.1 only. A Role tells native Windows from macOS and Linux by
+the platform its Harness reports, and WSL reports Linux. A command a Role
+types into its own Session rather than a script it runs, such as the ring or
+Setup's install check, takes the form of the shell it runs in: the POSIX form
+in Git Bash, the PowerShell form in PowerShell.
 
 **The repository ships one copy of each script, in `vdd-setup`.** Setup copies
 each one into the shared directory, `${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`,
-and that copy is what every Role runs, by its plain absolute path. One copy
+or `%LOCALAPPDATA%\vdd\` on native Windows, and that copy is what every Role
+runs, by its plain absolute path. One copy
 holds because nothing a Role runs depends on which skill directories a user
 installed: the README tells a skills-CLI user to take every `vdd-*` skill,
 Setup among them; Setup runs at Start-Loop's first step, so the directory is
@@ -39,7 +57,7 @@ running in the user's shell.
 **The guardrail sits in the Reference file that calls the script.** ADR 0010
 keeps a guardrail in the skill file, because the reader who needs it follows
 no situational pointer. On the Harnesses that use the Doorbell wait, the
-Harness file sends the Role to `doorbell-file-posix.md` on every ring, so that
+Harness file sends the Role to `doorbell-file.md` on every ring, so that
 Reference file is behind no situational pointer: every Role that runs the wait
 has just read it. The command that fails also comes from that file, so the
 rule against replacing the script sits beside the command it governs. In
@@ -65,6 +83,14 @@ committed at mode 755 reaches every installer's machine as a file any process
 there can execute directly. Run through a named shell, the script needs no
 bit, and the command line names the shell that runs it.
 
+**`pwsh` as the named shell on Windows.** Rejected. PowerShell 7 is an
+install of its own, and a Windows machine with Windows PowerShell 5.1 alone
+would fail on every call.
+
+**A `.gitattributes` that checks the `.sh` files out with LF on Windows.**
+Rejected. It would let `sh` run them in Git Bash, but Codex on Windows gives a
+Role PowerShell and never Git Bash, and the `.ps1` runs from both shells.
+
 **A copy in each skill that runs a script.** The repository ships one copy,
 in `vdd-setup`, because Setup fills the shared directory before any Role runs
 a script, for the reasons above.
@@ -73,9 +99,12 @@ a script, for the reasons above.
 
 A change to a script is made once, in `vdd-setup`, and reaches a user's
 machine at the next Setup run, which finds the installed copy differs and
-replaces it. CI checks what this decision rests on: `verify.yml` rejects any
-file committed at mode 755 and runs `sh -n` on every `.sh` file under
-`skills/`. `AGENTS.md` lists each of these under Invariants.
+replaces it. A change to a script's behaviour is made in its `.sh` and its
+`.ps1` together. CI checks what this decision rests on: `verify.yml` rejects
+any file committed at mode 755, runs `sh -n` on every `.sh` file under
+`skills/`, parses every `.ps1` there and rejects the tokens Windows PowerShell
+5.1 cannot parse, and rejects a non-ASCII byte in either. `AGENTS.md` lists
+each of these under Invariants.
 
 A change to a shipped script is verified by running it as a Role would, as
 `docs/agents/VERIFICATION.md` says, in addition to the reading every other

@@ -13,17 +13,17 @@
   spawn, wait, follow-up or completion results. The no-size path of "The
   Coder's context" applies from the first Coder return.
 - **Starting with no review file on disk.** Arm at 0, as
-  [`doorbell-file-posix.md`](doorbell-file-posix.md) says, by writing your
+  [`doorbell-file.md`](doorbell-file.md) says, by writing your
   armed file holding `Orchestrator 0` before your first turn ends, so the
   Planner's round-1 Doorbell already in the Doorbell file fires at once.
 - **Relaying to the Planner.** Through the Doorbell file: ring as
-  [`doorbell-file-posix.md`](doorbell-file-posix.md) says, and wait as "The
+  [`doorbell-file.md`](doorbell-file.md) says, and wait as "The
   wait" below says. Nothing confirms that the Planner's Session is reachable,
   so every relay also prints, worded: "If the Planner's Session does not
   wake, paste this into it:" followed by the exact Doorbell.
 - **The wait.** A background shell cannot wake an idle Codex Session, so the
   `Stop` hook Setup installs waits for you. This rule replaces the arming
-  rules of "Your wait" in [`doorbell-file-posix.md`](doorbell-file-posix.md):
+  rules of "Your wait" in [`doorbell-file.md`](doorbell-file.md):
   end every turn in which you expect a Planner Doorbell by writing your armed
   file, `.scratch/<feature-slug>/armed-<id>`, holding the one line
   `Orchestrator <count>`, where `<count>` is the count you last acted on as
@@ -46,7 +46,7 @@
   file, waits on the Doorbell file with no model turn, and continues this
   Session with the newest Doorbell line, or `TIMEOUT`, as your next prompt.
   Handle it as a line your wait printed, under "On wake" in
-  [`doorbell-file-posix.md`](doorbell-file-posix.md), and `TIMEOUT` as that
+  [`doorbell-file.md`](doorbell-file.md), and `TIMEOUT` as that
   file says. The hook runs at the end of your own turns only, never a hosted
   Role's. A hook that is missing or untrusted never wakes you, and the line
   the Planner printed is the fallback.

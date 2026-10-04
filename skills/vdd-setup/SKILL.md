@@ -206,9 +206,10 @@ Finish with a short status report: what passed, what you fixed, what the user st
   Codex the restart a new skill needs and the `Stop` hook registration, and
   that the shared scripts check applies.
 - [`references/script-install.md`](references/script-install.md): the shared
-  directory and its `XDG_DATA_HOME` default, the scripts installed there, the
-  `cmp` check, the install or update and its consent step, a denied write,
-  native Windows, and its line in the status report.
+  directory, its `XDG_DATA_HOME` default and its native Windows location
+  under `%LOCALAPPDATA%`, the scripts installed on each, the byte comparison
+  in `sh` and in PowerShell, the install or update and its consent step, a
+  denied write, and its line in the status report.
 - [`references/codex-stop-hook.md`](references/codex-stop-hook.md), read only
   where the Codex Harness file sends you: what the Codex `Stop` hook does, the
   registration check across `~/.codex/hooks.json` and `~/.codex/config.toml`,
@@ -216,8 +217,8 @@ Finish with a short status report: what passed, what you fixed, what the user st
   trust step, and its line in the status report.
 - [`references/doorbell-wait.sh`](references/doorbell-wait.sh) and
   [`references/vdd-codex-stop.sh`](references/vdd-codex-stop.sh): the Doorbell
-  wait and the Codex `Stop` hook, which the shared scripts check copies into
-  the shared directory with `cp`, never read and written out with a file tool.
-- [`references/doorbell-wait.ps1`](references/doorbell-wait.ps1): the Doorbell
-  wait in PowerShell, the form the Planner and the Orchestrator run on native
-  Windows.
+  wait and the Codex `Stop` hook, and
+  [`references/doorbell-wait.ps1`](references/doorbell-wait.ps1), the Doorbell
+  wait in PowerShell for native Windows, which the shared scripts check copies
+  into the shared directory with the shell's copy command, never read and
+  written out with a file tool.

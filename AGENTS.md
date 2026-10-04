@@ -76,11 +76,13 @@ PR; preserve them through any refactor of `.github/`.
 
 - **No executable surface.** No hooks, no MCP servers, no symlinks, no
   executable files. The plugin ships prose and shell scripts at mode 644 that
-  a Role runs with `sh`, never with an executable bit. Setup copies the
-  shipped scripts into the shared directory,
-  `${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`, where a Role runs the Doorbell
-  wait and the user's `~/.codex/hooks.json` runs the Codex `Stop` hook, both
-  with `sh`, so the plugin still executes nothing itself.
+  a Role runs with `sh`, or on native Windows with `powershell.exe -NoProfile
+  -ExecutionPolicy Bypass -File`, never with an executable bit. Setup copies
+  the shipped scripts into the shared directory,
+  `${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`, or `%LOCALAPPDATA%\vdd\` on
+  native Windows, where a Role runs the Doorbell wait and the user's
+  `~/.codex/hooks.json` runs the Codex `Stop` hook, both through that named
+  shell, so the plugin still executes nothing itself.
   Adding one of the four
   is a deliberate decision: edit the `Reject executable surface` step in
   the same PR so the reviewer sees both.

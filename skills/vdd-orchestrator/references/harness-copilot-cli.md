@@ -21,10 +21,10 @@
   results carry no context or token figure. The no-size path of "The Coder's
   context" applies from the first Coder return.
 - **Starting with no review file on disk.** Arm the wait at 0, as
-  [`doorbell-file-posix.md`](doorbell-file-posix.md) says, so the Planner's
+  [`doorbell-file.md`](doorbell-file.md) says, so the Planner's
   round-1 Doorbell already in the Doorbell file fires at once.
 - **Relaying to the Planner.** Through the Doorbell file: ring and arm your
-  wait as [`doorbell-file-posix.md`](doorbell-file-posix.md) says. Nothing
+  wait as [`doorbell-file.md`](doorbell-file.md) says. Nothing
   confirms that the Planner's Session is reachable, so every relay also
   prints, worded: "If the Planner's Session does not wake, paste this into
   it:" followed by the exact Doorbell.
@@ -37,6 +37,6 @@
   agent_id`, or before your first relay after the user resumed this Session,
   place the Workflow from disk as [`restart.md`](restart.md) says. A wait you
   armed before the restart is gone too; placing the Workflow re-arms it, as
-  [`doorbell-file-posix.md`](doorbell-file-posix.md) says for a restart.
+  [`doorbell-file.md`](doorbell-file.md) says for a restart.
 
 Trust your live tools over this file when they disagree.

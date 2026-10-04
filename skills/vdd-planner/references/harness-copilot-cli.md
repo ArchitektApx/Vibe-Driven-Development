@@ -7,7 +7,7 @@
 - **The Orchestrator launch.** `copilot` in a terminal in this repository,
   then `/vdd:vdd-orchestrator` in that Session.
 - **Delivering a Doorbell.** Through the Doorbell file: ring and arm your
-  wait as [`doorbell-file-posix.md`](doorbell-file-posix.md) says. Nothing
+  wait as [`doorbell-file.md`](doorbell-file.md) says. Nothing
   confirms that the Orchestrator's Session is reachable, so every ring also
   prints, worded: "If the Orchestrator's Session does not wake, paste this
   into it:" followed by the exact Doorbell.
@@ -20,7 +20,7 @@
   Session wakes when the shell exits.
 - **A resume.** `copilot --continue` and `copilot --resume` resume a Session.
   When the user names one of them, or tells you this Session was resumed,
-  re-arm as "Your wait" in [`doorbell-file-posix.md`](doorbell-file-posix.md)
+  re-arm as "Your wait" in [`doorbell-file.md`](doorbell-file.md)
   says.
 
 Trust your live tools over this file when they disagree.

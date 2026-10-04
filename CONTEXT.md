@@ -101,7 +101,7 @@ _Avoid_: notification, handoff message, ping
 _Avoid_: doorbell log, mailbox, inbox
 
 **Shared directory**:
-`${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`, outside the project, where Setup copies the scripts the plugin ships and from which the Planner, the Orchestrator and the Codex `Stop` hook run them with `sh`. One per machine, shared by every Workflow on every Harness but Generic.
+`${XDG_DATA_HOME:-$HOME/.local/share}/vdd/` on macOS and Linux and `%LOCALAPPDATA%\vdd\` on native Windows, outside the project, where Setup copies the scripts the plugin ships and from which the Planner, the Orchestrator and the Codex `Stop` hook run them through a named shell: `sh`, or `powershell.exe -NoProfile -ExecutionPolicy Bypass -File` on native Windows. One per machine, shared by every Workflow on every Harness but Generic.
 _Avoid_: install directory, scripts folder, hooks directory
 
 **Sign-off**:
