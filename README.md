@@ -6,9 +6,19 @@
 
 [![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FArchitektApx%2FVibe-Driven-Development%2Fmaster%2F.claude-plugin%2Fplugin.json&query=%24.version&prefix=v&label=plugin&color=blue)](.claude-plugin/plugin.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757)](#-install)
-[![Works with npx skills](https://img.shields.io/badge/npx_skills-compatible-000)](#-install)
 [![Built on mattpocock/skills](https://img.shields.io/badge/built_on-mattpocock%2Fskills-8250df)](https://github.com/mattpocock/skills)
+[![Works with npx skills](https://img.shields.io/badge/npx_skills-compatible-000)](#-install)
+
+Plugin for <br>
+[![Claude Code](https://img.shields.io/badge/Claude_Code-D97757?logo=claude&logoColor=fff)](#-install)
+[![Codex](https://custom-icon-badges.demolab.com/badge/Codex-000?logo=openai&logoColor=fff)](#-install)
+[![Cursor](https://img.shields.io/badge/Cursor-000000?logo=cursor)](#-install)
+[![GitHub Copilot](https://img.shields.io/badge/GitHub%20Copilot-000?logo=githubcopilot&logoColor=fff)](#-install)
+
+Works on <br>
+[![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=F0F0F0)](#)
+[![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)](#)
+[![Windows](https://custom-icon-badges.demolab.com/badge/Windows-0078D6?logo=windows11&logoColor=white)](#)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/workflow-dark.svg">
