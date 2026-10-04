@@ -36,23 +36,39 @@ Check, in order:
    author, so they never appear in your own skill list even when correctly
    installed. Answer for them on the two separate conditions below.
 
-   **Present.** Search for the files, not the directories, so that a dangling
-   symlink reads as absent:
+   **Present.** Search the roots your Harness file lists, and only those: a
+   skill found in a store your Harness does not read is not there for this
+   Harness. On Generic, nobody knows which stores the Harness reads, so search
+   the union of every Harness file's roots:
 
    ```
-   ~/.agents/skills/*/SKILL.md
-   ./.agents/skills/*/SKILL.md
-   ~/.claude/skills/*/SKILL.md
-   ./.claude/skills/*/SKILL.md
-   ~/.claude/plugins/cache/*/mattpocock-skills/*/skills/**/SKILL.md
-   ~/.codex/plugins/cache/**/SKILL.md
+   ~/.agents/skills
+   ./.agents/skills
+   ~/.claude/skills
+   ./.claude/skills
+   ~/.claude/plugins/cache/*/mattpocock-skills
+   ~/.codex/skills
+   ./.codex/skills
+   ~/.codex/plugins/cache
+   ~/.cursor/skills
+   ./.cursor/skills
+   ~/.cursor/plugins/cache
+   ~/.copilot/skills
+   ./.github/skills
+   ~/.copilot/installed-plugins
    ```
 
-   Search every root on every Harness, and match on the trailing path
-   `<skill>/SKILL.md` rather than a fixed depth.
+   On Generic each root moves with the variables that move it on the Harness
+   it comes from. Copilot CLI's rule that a set `COPILOT_HOME` drops
+   `~/.agents/skills` does not apply to Generic.
 
-   Use your file-search tool if you have one; otherwise run
-   [the find loop](references/present-search.md).
+   Setup runs from the repository root, and `./` is that root as it stands.
+   Search for the files, not the directories, so that a dangling symlink reads
+   as absent, and match on the trailing path `<skill>/SKILL.md` at any depth.
+   Run [the find loop](references/present-search-posix.md) on every Harness,
+   in place of any search tool your Harness gives you. The loop applies the
+   relocation variables and follows symlinked skill directories the same way
+   everywhere, and a Harness's own search tool may do neither.
 
    **Resolvable.** Present only means the file exists somewhere; it does not
    mean this Harness can run it. Answer this one from your own skill list
@@ -157,9 +173,10 @@ Finish with a short status report: what passed, what you fixed, what the user st
 
 ## Reference files
 
-- [`references/present-search.md`](references/present-search.md): the search
-  roots, and why the Present search filters with `grep` and takes one skill per
-  invocation.
+- [`references/present-search-posix.md`](references/present-search-posix.md):
+  the substitution table that spells each root and its relocation variable in
+  `sh`, how to write the `set --` line, the find loop, and why the loop runs
+  `find -L`, filters with `grep` and takes one skill per invocation.
 - [`references/resolvable-probes.md`](references/resolvable-probes.md): the
   sibling names to probe after `writing-for-agents` misses, how to read a bare
   `code-review` hit, and the question to put to the user when nothing hits.
@@ -170,7 +187,8 @@ Finish with a short status report: what passed, what you fixed, what the user st
   [`references/harness-codex.md`](references/harness-codex.md),
   [`references/harness-cursor.md`](references/harness-cursor.md) and
   [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
-  typed skill names, what each Harness lists under the name `code-review`, on
+  typed skill names, what each Harness lists under the name `code-review`, the
+  roots its Present search covers and the variable that relocates each, on
   Codex the restart a new skill needs and the `Stop` hook registration, and
   that the shared scripts check applies.
 - [`references/script-install.md`](references/script-install.md): the shared
