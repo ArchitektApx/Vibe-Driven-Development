@@ -36,29 +36,45 @@ Check, in order:
    author, so they never appear in your own skill list even when correctly
    installed. Answer for them on the two separate conditions below.
 
-   **Present.** Search for the files, not the directories, so that a dangling
-   symlink reads as absent:
+   **Present.** Search the roots your Harness file lists, and only those: a
+   skill found in a store your Harness does not read is not there for this
+   Harness. On Generic, nobody knows which stores the Harness reads, so search
+   the union of every Harness file's roots:
 
    ```
-   ~/.agents/skills/*/SKILL.md
-   ./.agents/skills/*/SKILL.md
-   ~/.claude/skills/*/SKILL.md
-   ./.claude/skills/*/SKILL.md
-   ~/.claude/plugins/cache/*/mattpocock-skills/*/skills/**/SKILL.md
-   ~/.codex/plugins/cache/**/SKILL.md
+   ~/.agents/skills
+   ./.agents/skills
+   ~/.claude/skills
+   ./.claude/skills
+   ~/.claude/plugins/cache/*/mattpocock-skills
+   ~/.codex/skills
+   ./.codex/skills
+   ~/.codex/plugins/cache
+   ~/.cursor/skills
+   ./.cursor/skills
+   ~/.cursor/plugins/cache
+   ~/.copilot/skills
+   ./.github/skills
+   ~/.copilot/installed-plugins
    ```
 
-   Search every root on every Harness, and match on the trailing path
-   `<skill>/SKILL.md` rather than a fixed depth.
+   On Generic each root moves with the variables that move it on the Harness
+   it comes from. Copilot CLI's rule that a set `COPILOT_HOME` drops
+   `~/.agents/skills` does not apply to Generic.
 
-   Use your file-search tool if you have one; otherwise run
-   [the find loop](references/present-search.md).
+   Setup runs from the repository root, and `./` is that root as it stands.
+   Search for the files, not the directories, so that a dangling symlink reads
+   as absent, and match on the trailing path `<skill>/SKILL.md` at any depth.
+   Run [the find loop](references/present-search-posix.md) on every Harness,
+   in place of any search tool your Harness gives you. The loop applies the
+   relocation variables and follows symlinked skill directories the same way
+   everywhere, and a Harness's own search tool may do neither.
 
-   **Resolvable.** Present only means the file exists somewhere; it does not
-   mean this Harness can run it. Answer this one from your own skill list
-   alone, leaving symlink targets and other Harnesses' directories where they
-   are. Only your own resolution matters, because the user will be running the
-   loop in this Harness.
+   **Resolvable.** Present means the file sits in a store this Harness reads;
+   it does not mean this Session has loaded it. Answer this one from your own
+   skill list alone, leaving symlink targets and other Harnesses' directories
+   where they are. Only your own resolution matters, because the user will be
+   running the loop in this Harness.
 
    Probe your own skill list for `writing-for-agents`. It is Borrowed in its
    own right and agent-invocable, so a wired collection puts it in your skill
@@ -75,17 +91,31 @@ Check, in order:
    Report the result as one of three states:
 
    - **Present and Resolvable.** Passed, say nothing further.
-   - **Present but not Resolvable.** Installed, not wired to this Harness.
+   - **Present but not Resolvable.** The skill sits in a store this Harness
+     reads, and this Session has not loaded it.
    - **Not Present.** Tell the user to install the whole collection.
+
+   A fourth case passes too: **Resolvable with no search hit.** This Session
+   can run the collection, and the search found some of the nine in no store
+   it searched, so they resolve from a store Setup does not search. Do not
+   report those skills as Not Present, and give no repair for them. Report
+   them in one line that names whichever of the nine had no hit:
+
+   ```
+   <skills>: Resolvable from a store Setup does not search. Passed.
+   ```
+
+   Where your Harness file gives a continuation for this line, add it to the
+   line.
 
    Not Present for `writing-for-agents` alone, with the other eight Present, is
    an old collection rather than a missing one, and telling that user to
    install a collection they already have is the wrong advice.
 
-   In either failing state, and on that old-collection shape, read
-   [the repair for the store the files came from](references/repairs.md),
-   in the section for your Harness where the route differs, and give the user
-   the commands it names.
+   In either failing state, and on that old-collection shape, read your
+   Harness's section of [the repairs](references/repairs.md), the Generic
+   section on Generic, take the route for the store the files came from, and
+   give the user the commands it names.
 
    Name what a failure costs each Role, in these words. A missing or
    unresolvable `grill-with-docs`, `improve-codebase-architecture`, `to-spec` or
@@ -157,20 +187,22 @@ Finish with a short status report: what passed, what you fixed, what the user st
 
 ## Reference files
 
-- [`references/present-search.md`](references/present-search.md): the search
-  roots, and why the Present search filters with `grep` and takes one skill per
-  invocation.
+- [`references/present-search-posix.md`](references/present-search-posix.md):
+  the substitution table that spells each root and its relocation variable in
+  `sh`, how to write the `set --` line, the find loop, and why the loop runs
+  `find -L`, filters with `grep` and takes one skill per invocation.
 - [`references/resolvable-probes.md`](references/resolvable-probes.md): the
   sibling names to probe after `writing-for-agents` misses, how to read a bare
   `code-review` hit, and the question to put to the user when nothing hits.
 - [`references/repairs.md`](references/repairs.md): the repair for each failing
-  state, keyed on the store the files were found in and on the Harness, and the
+  state, keyed by Harness, then by the store the files were found in, and the
   update route for a collection that predates `writing-for-agents`.
 - [`references/harness-claude-code.md`](references/harness-claude-code.md),
   [`references/harness-codex.md`](references/harness-codex.md),
   [`references/harness-cursor.md`](references/harness-cursor.md) and
   [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
-  typed skill names, what each Harness lists under the name `code-review`, on
+  typed skill names, what each Harness lists under the name `code-review`, the
+  roots its Present search covers and the variable that relocates each, on
   Codex the restart a new skill needs and the `Stop` hook registration, and
   that the shared scripts check applies.
 - [`references/script-install.md`](references/script-install.md): the shared
