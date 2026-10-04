@@ -94,6 +94,19 @@ Check, in order:
    - **Present but not Resolvable.** Installed, not wired to this Harness.
    - **Not Present.** Tell the user to install the whole collection.
 
+   A fourth case passes too: **Resolvable with no search hit.** This Session
+   can run the collection, and the search found some of the nine in no store
+   it searched, so they resolve from a store Setup does not search. Do not
+   report those skills as Not Present, and give no repair for them. Report
+   them in one line that names whichever of the nine had no hit:
+
+   ```
+   <skills>: Resolvable from a store Setup does not search. Passed.
+   ```
+
+   Where your Harness file gives a continuation for this line, add it to the
+   line.
+
    Not Present for `writing-for-agents` alone, with the other eight Present, is
    an old collection rather than a missing one, and telling that user to
    install a collection they already have is the wrong advice.

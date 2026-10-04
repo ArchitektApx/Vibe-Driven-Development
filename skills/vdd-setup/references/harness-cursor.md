@@ -20,6 +20,10 @@
   Cursor reads those only through the IDE's third-party import, which the
   user can turn off. Setup does not read that toggle, because no shell can
   tell the IDE's Agent from the CLI, and the CLI ignores the toggle.
+- **Resolvable with no search hit.** Continue check 1's line for this case
+  with: "This is likely Claude Code's or Codex's store, read through Cursor's
+  third-party import, which the IDE setting can turn off. A skills-CLI install
+  that selects Cursor does not depend on it."
 - **The shared scripts check.** It applies on this Harness.
 
 Trust your live tools over this file when they disagree.
