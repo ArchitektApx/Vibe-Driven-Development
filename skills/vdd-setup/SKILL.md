@@ -65,10 +65,15 @@ Check, in order:
    Setup runs from the repository root, and `./` is that root as it stands.
    Search for the files, not the directories, so that a dangling symlink reads
    as absent, and match on the trailing path `<skill>/SKILL.md` at any depth.
-   Run [the find loop](references/present-search-posix.md) on every Harness,
-   in place of any search tool your Harness gives you. The loop applies the
-   relocation variables and follows symlinked skill directories the same way
-   everywhere, and a Harness's own search tool may do neither.
+   Run the search on every Harness, in place of any search tool your Harness
+   gives you: [the find loop](references/present-search-posix.md) in a POSIX
+   shell, Git Bash on native Windows included, and
+   [the PowerShell search](references/present-search-windows.md) in
+   PowerShell. Each applies the relocation variables and follows symlinked
+   skill directories the same way everywhere, and a Harness's own search tool
+   may do neither. In Git Bash the find loop reads `$HOME`, which differs from
+   `%USERPROFILE%` only when the user set `HOME` themselves, and that gap is
+   accepted.
 
    **Resolvable.** Present means the file sits in a store this Harness reads;
    it does not mean this Session has loaded it. Answer this one from your own
@@ -191,6 +196,11 @@ Finish with a short status report: what passed, what you fixed, what the user st
   the substitution table that spells each root and its relocation variable in
   `sh`, how to write the `set --` line, the find loop, and why the loop runs
   `find -L`, filters with `grep` and takes one skill per invocation.
+- [`references/present-search-windows.md`](references/present-search-windows.md):
+  the same search in PowerShell, for Windows PowerShell 5.1 and PowerShell 7:
+  the four lines that resolve the relocated stores, the substitution table,
+  the search, and why it matches the parent directory name and passes
+  `-FollowSymlink` on PowerShell 6 and later.
 - [`references/resolvable-probes.md`](references/resolvable-probes.md): the
   sibling names to probe after `writing-for-agents` misses, how to read a bare
   `code-review` hit, and the question to put to the user when nothing hits.

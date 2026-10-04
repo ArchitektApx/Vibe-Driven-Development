@@ -21,8 +21,9 @@ You need the `wayfinder` skill from Matt Pocock's skills collection. It is
 user-invoked, so it never appears in your skill list; look for
 `wayfinder/SKILL.md` under `~/.agents/skills`, `./.agents/skills`,
 `~/.claude/skills`, `./.claude/skills`, `~/.claude/plugins/cache` or
-`~/.codex/plugins/cache`, all of them on every Harness. If it is missing,
-tell the user to invoke `vdd-setup` to install it.
+`~/.codex/plugins/cache`, all of them on every Harness. On native Windows
+`~` is `%USERPROFILE%`. If it is missing, tell the user to invoke `vdd-setup`
+to install it.
 
 ## Wayfinding Directory
 
