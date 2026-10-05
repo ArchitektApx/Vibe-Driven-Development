@@ -84,7 +84,9 @@ Ask the user what they want to work on:
 
 An idea arrives as a rough description from the user in text or as a rough
 file in the working directory. Gather what you need to bring it into the
-format of an idea file, and add its row to the index. Fill what is known,
+format of an idea file, from [`idea-template.md`](references/idea-template.md),
+and add its row to the index, from
+[`index-template.md`](references/index-template.md). Fill what is known,
 leave the template's placeholders where it is not, set `status: idea`. For a
 project's first idea, create the directory and `index.md` in the same step.
 
@@ -151,10 +153,3 @@ frontmatter:
 
 Move the idea's row to the Closed ideas table, set its status to `done`, and
 add the link to the PR or commit that carried it out under `Decision`.
-
-## Reference files
-
-- [`references/idea-template.md`](references/idea-template.md): the template
-  for an idea file.
-- [`references/index-template.md`](references/index-template.md): the
-  template for `index.md`.
