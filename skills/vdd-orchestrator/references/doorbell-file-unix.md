@@ -50,8 +50,9 @@ Every relay to the Planner is a ring. In one turn:
 ## The two commands
 
 The script takes the Doorbell file and your Role, and for a wait the armed
-count as a third argument. It takes no flags. Run it through `sh` with the
-path quoted, exactly as written: it has no executable bit and never gets one.
+count as a third argument, and nothing else: no flag, and no word such as
+`count` or `wait`. Run it through `sh` with the path quoted, exactly as
+written: it has no executable bit and never gets one.
 
 The count command prints how many lines are addressed `to: Orchestrator`. A
 missing file counts 0.
