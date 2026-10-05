@@ -52,6 +52,13 @@ which name to try first.
 Paste the skill's `## Standards` and `## Spec` output verbatim into
 `CODEREVIEW.md`, under a `## code-review` heading.
 
+`code-review` hands the Standards and Spec reviews to two sub-agents. Do not
+write `CODEREVIEW.md` until both have reported back, because their reports are
+what you paste. Wait for them inside your turn, as your Harness file says
+where it names a way. Ending your turn to wait hands back an unfinished round,
+and a `sleep` or timer you leave running keeps your next Doorbell from
+reaching the Orchestrator.
+
 If the Borrowed skill is not Resolvable, say so in `CODEREVIEW.md` and review
 the Spec axis by hand.
 
