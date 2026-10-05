@@ -108,9 +108,9 @@ jobs:
           '
 
       # A file under a skill directory that its skill file does not link is a
-      # file no reader can be sent to. The index section every split skill
-      # carries is what makes a direct link enough, so this needs no
-      # transitive crawl.
+      # file no reader can be sent to. Each file is linked from the step in
+      # SKILL.md that reads it, a Harness file from ## Harnesses, which is what
+      # makes a direct link enough, so this needs no transitive crawl.
       - name: Every file under a skill is linked from its skill file
         run: |
           node -e '

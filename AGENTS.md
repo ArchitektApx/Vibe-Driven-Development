@@ -51,6 +51,14 @@ needs it.
 This style binds work on this repository alone. In a user's project their prose
 stays theirs, in whatever style they write it.
 
+In a skill, a sentence earns its place by changing what a Role does.
+Whether it does is settled by running a draft on a lower-tier model, not by
+reading it. A reason stays when the Role needs it to act; a reason only a
+maintainer needs lives in the commit or the ADR that records it. A slip is
+fixed by removing the text that competed with the right instruction, and only
+when it breaks a step or a call. A `SKILL.md` aims to fit one 240-line read
+window; text every run needs may take it past.
+
 The six tells of machine prose, a closed list, are in
 `docs/agents/VERIFICATION.md`, beside the other checks a reviewer applies.
 
@@ -115,9 +123,10 @@ PR; preserve them through any refactor of `.github/`.
   ignored by the Harnesses the other covers, so a skill carrying one alone is
   model-invocable on those Harnesses.
 - **Every file under a skill directory is linked from its `SKILL.md`.** A
-  Reference file no skill file points at is one no reader can be sent to. The
-  index section each split skill carries is what makes the direct link enough,
-  so the check does not follow links between Reference files.
+  Reference file no skill file points at is one no reader can be sent to.
+  Each file is linked from the step in `SKILL.md` that reads it, a Harness
+  file from `## Harnesses`, which is what makes the direct link enough, so the
+  check does not follow links between Reference files.
   `agents/openai.yaml` directly inside a skill directory is the one exemption:
   Codex reads it as the skill's policy file, and no reader reaches it by a
   link.
