@@ -69,7 +69,9 @@ In one turn:
 
 2. Print the Doorbell line, worded as your Harness file says. An append proves
    nothing about whether the Orchestrator is waiting, so every ring prints.
-3. Arm your wait, as "Your wait" says.
+3. Arm your wait, as "Your wait" says, at the count you last acted on: the
+   count command's value right after you acted on the last Doorbell
+   addressed to you, never the round number.
 
 ## The two commands
 
