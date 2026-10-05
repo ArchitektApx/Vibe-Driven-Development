@@ -1,79 +1,24 @@
 # Running the Present search in PowerShell
 
-Your Harness file lists the roots your Present search covers, and on Generic
-check 1 lists the union. This file spells those roots for PowerShell and
-holds the search that reads them. It lists no roots of its own. Everything
-here runs in Windows PowerShell 5.1 and in PowerShell 7 alike.
-
-## The substitution table
-
-The search opens with four lines that resolve the stores a variable can move,
-each falling back to its default under `$env:USERPROFILE`:
+Your Harness file writes out the roots your Present search covers, as a
+`$roots` block. Everything here runs in Windows PowerShell 5.1 and in
+PowerShell 7 alike. `~` is `%USERPROFILE%`, never `HOME`, because the
+Harnesses read their stores under `%USERPROFILE%` on Windows. On Generic, use
+the union of every Harness's roots instead:
 
 ```powershell
 $claude = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path $env:USERPROFILE '.claude' }
 $claudePlugins = if ($env:CLAUDE_CODE_PLUGIN_CACHE_DIR) { $env:CLAUDE_CODE_PLUGIN_CACHE_DIR } else { Join-Path $claude 'plugins' }
 $codex = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
 $copilot = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $env:USERPROFILE '.copilot' }
+$roots = @("$env:USERPROFILE\.agents\skills", ".\.agents\skills", "$claude\skills", ".\.claude\skills", "$claudePlugins\cache\*\mattpocock-skills", "$codex\skills", ".\.codex\skills", "$codex\plugins\cache", "$env:USERPROFILE\.cursor\skills", ".\.cursor\skills", "$env:USERPROFILE\.cursor\plugins\cache", "$copilot\skills", ".\.github\skills", "$copilot\installed-plugins")
 ```
 
-Spell each root by replacing its prefix as below, turning every `/` after it
-into `\`, and keep the double quotes. Where two prefixes match a root, the
-longer one wins, so the Claude cache root always takes its own row and never
-the `~/.claude` row:
-
-| Root prefix | PowerShell spelling |
-|---|---|
-| `~/.claude` | `"$claude` |
-| `~/.claude/plugins/cache`, the Claude cache root | `"$claudePlugins\cache` |
-| `~/.codex` | `"$codex` |
-| `~/.copilot` | `"$copilot` |
-| any other `~` | `"$env:USERPROFILE` |
-| `./` | `".\` |
-
-The rest of the root follows, then the closing quote:
-`~/.claude/plugins/cache/*/mattpocock-skills` reads
-`"$claudePlugins\cache\*\mattpocock-skills"`, and `./.claude/skills` reads
-`".\.claude\skills"`. `~` is `%USERPROFILE%`, never `HOME`, because the
-Harnesses read their stores under `%USERPROFILE%` on Windows.
-
-## Writing and running the search
-
-1. Take every root your Harness file lists, or every root of the union on
-   Generic.
-2. Spell each one with the substitution table.
-3. Write them, separated by commas, inside `$roots = @(...)` on one line.
-4. On Copilot CLI, leave `~/.agents/skills` off that line and add this line
-   after it, which adds the root only when `COPILOT_HOME` is empty or unset:
-
-   ```powershell
-   if (-not $env:COPILOT_HOME) { $roots += "$env:USERPROFILE\.agents\skills" }
-   ```
-
-   Generic keeps `"$env:USERPROFILE\.agents\skills"` on its `$roots` line
-   whatever `COPILOT_HOME` holds.
-5. Run the four lines above, your `$roots` line, the Copilot CLI line where
-   it applies, and the search below as one command. A Harness may start a
-   fresh PowerShell for each command, and variables set in one are gone by
-   the time the next runs.
+Run that block and the search below as one command. A Harness may start a
+fresh PowerShell for each command, and variables set in one are gone by the
+time the next runs.
 
 ```powershell
-$follow = @{}
-if ($PSVersionTable.PSVersion.Major -ge 6) { $follow = @{ FollowSymlink = $true } }
-$found = @(Get-Item -Path $roots -Force -ErrorAction SilentlyContinue | Where-Object { $_.PSIsContainer } | ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Recurse -Force -File -Filter SKILL.md -ErrorAction SilentlyContinue @follow })
-foreach ($s in 'setup-matt-pocock-skills', 'grill-with-docs', 'improve-codebase-architecture', 'to-spec', 'to-tickets', 'wayfinder', 'code-review', 'writing-for-agents', 'grilling') {
-  $found | Where-Object { $_.Directory.Name -eq $s } | ForEach-Object { $_.FullName }
-}
-```
-
-On Claude Code the whole command reads:
-
-```powershell
-$claude = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path $env:USERPROFILE '.claude' }
-$claudePlugins = if ($env:CLAUDE_CODE_PLUGIN_CACHE_DIR) { $env:CLAUDE_CODE_PLUGIN_CACHE_DIR } else { Join-Path $claude 'plugins' }
-$codex = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
-$copilot = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $env:USERPROFILE '.copilot' }
-$roots = @("$claude\skills", ".\.claude\skills", "$claudePlugins\cache\*\mattpocock-skills")
 $follow = @{}
 if ($PSVersionTable.PSVersion.Major -ge 6) { $follow = @{ FollowSymlink = $true } }
 $found = @(Get-Item -Path $roots -Force -ErrorAction SilentlyContinue | Where-Object { $_.PSIsContainer } | ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Recurse -Force -File -Filter SKILL.md -ErrorAction SilentlyContinue @follow })
@@ -97,9 +42,9 @@ plugin route nests skills by category (`engineering/`, `productivity/`),
 which is why the search recurses rather than looking at a fixed depth.
 
 Claude Code, Codex and Copilot CLI each move some of their stores when the
-user sets one of the variables in the four lines, and the lines move the
-search with them, so the search reads the stores the Harness reads in that
-state. Each line carries a default, so an unset variable leaves the plain
+user sets one of their variables, and the roots move the search with
+them, so the search reads the stores the Harness reads in that
+state. Each root carries a default, so an unset variable leaves the plain
 path.
 
 ## Why the parent directory name
