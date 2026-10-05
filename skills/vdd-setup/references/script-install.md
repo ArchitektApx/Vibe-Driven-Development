@@ -107,8 +107,8 @@ Copy-Item -LiteralPath '<skill base directory>\references\<script>' -Destination
 
 Copy with the shell's copy command alone, `cp` or `Copy-Item`. Never read a
 script and write it out with a file tool, never edit a copy, and never set an
-executable bit: a script the Role writes is a script nobody reviewed (ADR
-0011), and every caller runs the copy through a named shell, `sh` or
+executable bit: a script the Role writes is a script nobody reviewed, and
+every caller runs the copy through a named shell, `sh` or
 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File`.
 
 The directory is outside the project. A write there may need your Harness's

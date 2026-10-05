@@ -24,18 +24,11 @@ skill file.
 
 ## Rules
 
-ADR 0004 holds: a writing pass re-expresses a rule and never deletes one. A
-sentence is a guardrail when it names a behaviour a competent agent could
-plausibly get wrong in this workflow, and a guardrail keeps its prohibition
-beside the positive target. Everything else is a candidate no-op, written up as
-a proposal rather than removed. Where the test is balanced, git history or an
-ADR showing the sentence was added for a reason settles it as a guardrail.
-
-The evidence is the Rule inventory and the Lever log, both defined in
-`CONTEXT.md`: the inventory catches a deleted rule, the log catches a change
-made on taste. Both are written into the Working file of the Role that made the
-pass and stop there. A pull request body here carries nothing about the
-Workflow that produced it, so no pass routes them onward into one.
+A cut keeps the guardrails, as ADR 0003 decides. For every sentence a change
+removes, the reviewer looks up why it was added: when the commit or an ADR
+shows it prevents a behaviour, the cut stands only if that behaviour can no
+longer happen or another sentence the same reader reads before acting now
+prevents it. A guardrail keeps its prohibition beside the positive target.
 
 ## Tells
 

@@ -120,14 +120,6 @@ _Avoid_: restart rule, context limit, respawn flag
 A minor the latest review lists as `open`; a minor the reviewer marked `fixed` or `accepted` is closed. On a Minors answer of `fix` an open minor holds up Sign-off, and on `leave` it does not.
 _Avoid_: outstanding nit, unresolved comment, leftover
 
-**Rule inventory**:
-One entry per behavioural rule in an Agent document, taken before a writing pass over it and marked afterwards as unchanged, re-expressed or proposed for deletion. Written into the Working file of the Role that made the pass, where it is the evidence that no rule left the document.
-_Avoid_: rule list, checklist, audit
-
-**Lever log**:
-One entry per passage a writing pass changed, naming the lever from `writing-for-agents` that the passage broke, in that skill's own term. Written beside the Rule inventory, where it is the evidence that no change was made on taste.
-_Avoid_: change log, diff summary, rationale
-
 ## Skill dependencies
 
 **Borrowed skill**:
