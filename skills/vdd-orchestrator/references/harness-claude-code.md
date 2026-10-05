@@ -8,15 +8,15 @@
   `vdd:vdd-coder` or `vdd:vdd-code-reviewer`.
 - **The context size.** It sits in the trailer under the Agent tool's result
   for the finished subagent.
-- **Starting with no review file on disk.** Arm the wait at 0, as
-  [`doorbell-file.md`](doorbell-file.md) says, so the Planner's
-  round-1 Doorbell already in the Doorbell file fires at once.
-- **Relaying to the Planner.** Through the Doorbell file: ring and arm your
-  wait as [`doorbell-file.md`](doorbell-file.md) says. Nothing
-  confirms that the Planner's Session is reachable, so every relay also
-  prints, worded: "If the Planner's Session does not wake, paste this into
-  it:" followed by the exact Doorbell.
-- **The wait.** Run the wait form in the background in your shell tool,
+- **The Doorbell file.** You ring and wait through it, as the Doorbell file
+  for your platform that `SKILL.md` links says.
+- **Starting with no review file on disk.** Arm the wait at 0, so the
+  Planner's round-1 Doorbell already in the Doorbell file fires at once.
+- **Relaying to the Planner.** Ring and arm your wait. Nothing confirms that
+  the Planner's Session is reachable, so every relay also prints, worded: "If
+  the Planner's Session does not wake, paste this into it:" followed by the
+  exact Doorbell.
+- **The wait.** Run the wait command in the background in your shell tool,
   Bash or PowerShell, with `run_in_background` set and an explicit `timeout`
   of at least 2760000 ms: the default timeout is below the script's 45
   minutes and would end the wait early. The Session wakes when the command

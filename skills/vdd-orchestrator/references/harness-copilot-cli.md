@@ -18,16 +18,19 @@
 - **The Spawn prompt's skill name.** `vdd-<role>`, bare: `vdd-plan-reviewer`,
   `vdd-coder` or `vdd-code-reviewer`. A child loads it with the `skill` tool.
 - **The context size.** None reaches the parent: the `task` and `read_agent`
-  results carry no context or token figure. The no-size path of "The Coder's
-  context" applies from the first Coder return.
-- **Starting with no review file on disk.** Arm the wait at 0, as
-  [`doorbell-file.md`](doorbell-file.md) says, so the Planner's
-  round-1 Doorbell already in the Doorbell file fires at once.
-- **Relaying to the Planner.** Through the Doorbell file: ring and arm your
-  wait as [`doorbell-file.md`](doorbell-file.md) says. Nothing
-  confirms that the Planner's Session is reachable, so every relay also
-  prints, worded: "If the Planner's Session does not wake, paste this into
-  it:" followed by the exact Doorbell.
+  results carry no context or token figure. From the first Coder return,
+  whatever the `Fresh Coder:` line says, the no-size path of the fresh-Coder
+  file that `SKILL.md` links applies: tell the user once that the check cannot
+  run and that they can ask for a fresh Coder at any round. On that request,
+  spawn as that file says.
+- **The Doorbell file.** You ring and wait through it, as the Doorbell file
+  for your platform that `SKILL.md` links says.
+- **Starting with no review file on disk.** Arm the wait at 0, so the
+  Planner's round-1 Doorbell already in the Doorbell file fires at once.
+- **Relaying to the Planner.** Ring and arm your wait. Nothing confirms that
+  the Planner's Session is reachable, so every relay also prints, worded: "If
+  the Planner's Session does not wake, paste this into it:" followed by the
+  exact Doorbell.
 - **The wait.** Run it in `async` or `detach` mode, never `sync`: a `sync`
   shell blocks the whole Session until it exits (github/copilot-cli #2533). The
   Session wakes when the shell exits.
@@ -35,8 +38,8 @@
   gone: a background child does not survive a restart of the Session that
   spawned it. When `write_agent` or `read_agent` answers `No agent found with
   agent_id`, or before your first relay after the user resumed this Session,
-  place the Workflow from disk as [`restart.md`](restart.md) says. A wait you
-  armed before the restart is gone too; placing the Workflow re-arms it, as
-  [`doorbell-file.md`](doorbell-file.md) says for a restart.
+  place the Workflow from disk as `restart.md` says. A wait you armed before
+  the restart is gone too; placing the Workflow re-arms it, as the Doorbell
+  file for your platform says for a restart.
 
 Trust your live tools over this file when they disagree.

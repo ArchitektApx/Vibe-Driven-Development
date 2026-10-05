@@ -29,6 +29,13 @@ complete. Take the Harness from the Loop file only, and do not choose it again
 from what this Session shows. A Loop file with no `Harness:` line is Generic,
 and you leave the file as it is.
 
+Where your Harness file rings and waits through the Doorbell file, read the
+file for your platform now, once: on native Windows, when your Harness
+reports the platform as Windows,
+[`doorbell-file-windows.md`](references/doorbell-file-windows.md); on macOS
+and Linux, WSL included,
+[`doorbell-file-unix.md`](references/doorbell-file-unix.md).
+
 ## What you may read
 
 `LOOP.md` in full. Each of `.scratch/<slug>/PLAN-REVIEW.md`,
@@ -36,15 +43,11 @@ and you leave the file as it is.
 including its `Round` line, and nothing below. You read no Spec, no Ticket and
 no finding.
 
-The boundary is the `Round` line rather than a line count. A review file's
-first line is `SIGNED OFF` only when it is signed off; on an open round the
-first line is the `Round` line and the second is already a finding, so "the
-first two lines" would let one through.
-
-Everything above a `Round` line carries what a Doorbell already carries:
-which file, which round, and whether the Loop ended. That is what lets you
-check a subagent's claim that it wrote a file, and what lets a restarted
-session work out where the Workflow stands.
+The boundary is the `Round` line rather than a line count: on an open round
+the first line is the `Round` line and the second is already a finding, so
+"the first two lines" would let one through. What sits above it tells you
+which file, which round, and whether the Loop ended, which is enough to check
+a subagent's claim that it wrote a file and to place a restarted Workflow.
 
 A Role's own children may deliver their reports to you. The Borrowed
 `code-review` skill spawns subagents of its own, and you are awake when they
@@ -71,8 +74,7 @@ round 2, and so on until `CODEREVIEW.md` signs off, then the PR-Author.
 
 ## Model approval
 
-Before your first spawn in this session, put Model approval to the user. It has
-three steps.
+Before your first spawn in this session, put Model approval to the user.
 
 **Read your context.** Your Harness and the user's configuration have already
 put into it whatever they have to say about models and thinking levels. That is
@@ -108,13 +110,9 @@ Spawn and resume are your Harness's own subagent primitives, named in your
 Harness file: one spawns a fresh subagent, the other resumes that same
 subagent with a message, its context intact. Before every spawn, print one
 line naming the Role, the model and the round:
-`Spawning <Role>, <model>, round <n>.` Where
-you pass no model, the line says `inherited`. A Coder spawned fresh under the
-`Fresh Coder:` line ends the line with the size that sent it there:
-`Spawning Coder, <model>, round <n>, fresh at <size>.`, or `fresh on request`
-when the user asked for it. Say nothing else while
-a child runs; the Harness's own subagent view is where the user watches a Role
-work.
+`Spawning <Role>, <model>, round <n>.` Where you pass no model, the line says
+`inherited`. Say nothing else while a child runs; the Harness's own subagent
+view is where the user watches a Role work.
 
 ### The Spawn prompt
 
@@ -168,9 +166,9 @@ Anything else you resolve yourself or report as `BLOCKED`.
 Match the return against the three prefixes the template states above, and
 also against the Doorbell's own template, the `VDD <Role>: <file> written,
 round <n>` line and its `SIGNED OFF` form, which every hosted Role prints at
-the end of its turn. A line matching that template
-with no prefix still counts as a `DOORBELL`. Discard everything else in the
-return, including prose wrapped around a line that matched.
+the end of its turn. A line matching that template with no prefix still
+counts as a `DOORBELL`. Discard everything else in the return, including
+prose wrapped around a line that matched.
 
 On no match, resume the same subagent once with the contract restated, the
 three shapes above. On a second miss, raise the return to the user as a
@@ -190,35 +188,24 @@ delivery mechanics, as the Doorbell line and nothing else. Where nothing
 delivers it, or delivery fails, print the exact Doorbell and ask the user to
 paste it into the Planner's Session; where your Harness file gives the wording
 for that print, use it. On Generic there are no delivery mechanics, so you
-print. On open findings, wait for the Planner's next
-Doorbell: the Planner owns the next move. On `SIGNED OFF`, the plan Loop is
-over and there is no next Planner Doorbell to wait for: spawn the Coder, as
-"The live sequence" says.
+print. On open findings, wait for the Planner's next Doorbell: the Planner
+owns the next move. On `SIGNED OFF`, the plan Loop is over and there is no
+next Planner Doorbell to wait for: spawn the Coder.
 
 **From the Coder.** No relay: spawn the Code-Reviewer, or resume the existing
 one when the code Loop has already had a round.
 
 **From the Code-Reviewer.** No relay. On open findings, resume the Coder, or
 spawn it fresh when "The Coder's context" below says so. On `SIGNED OFF`,
-follow the section "The PR-Author" below.
-
-The Code-Reviewer is resumed round after round for the life of the code Loop,
-so it keeps the context it accumulated across its own rounds; only a crash
-costs that context.
+follow "The PR-Author" below. The Code-Reviewer is resumed round after round
+for the life of the code Loop, so it keeps the context of its own rounds.
 
 ## The Coder's context
 
-`Fresh Coder: never`: resume the Coder every round.
-
-`Fresh Coder: over <n>`: on every Coder return, read the context size your
-Harness reports for the finished subagent, where your Harness file says it
-sits. Under the limit, resume. Over it, the
-next Coder round is a fresh spawn, with the same Spawn prompt and that
-round's number; the Coder's state is on disk as `FIXES.md` and the commits.
-Round 1 has no earlier return to read a size from, so it gets no check.
-
-With no size readable, tell the user once that the check cannot run and that
-they can ask for a fresh Coder at any round. Resume as usual until they do.
+`Fresh Coder: never`: resume the Coder every round. `Fresh Coder: over <n>`,
+or when the user asks for a fresh Coder: read
+[when the Coder is spawned fresh](references/fresh-coder.md) before you act
+on the first Coder return or on the request.
 
 ## Acting on a `QUESTION`
 
@@ -249,9 +236,9 @@ Once `CODEREVIEW.md` signs off, read the `PR:` line from `LOOP.md`, fresh
 from disk. On `PR: no`, do not invoke the PR-Author: print "Loop signed off.
 `PR: no`: `<feature branch>` stays local, nothing pushed." and stop. On any
 other value, invoke the `vdd-create-pr` skill in your own Session, never as a
-subagent. Every path in it shows the user the
-assembled title and body and waits for one confirmation, and that body is
-substance you are forbidden to carry.
+subagent. Every path in it shows the user the assembled title and body and
+waits for one confirmation, and that body is substance you are forbidden to
+carry.
 
 ## Harnesses
 
@@ -259,29 +246,3 @@ substance you are forbidden to carry.
 - Codex: [`references/harness-codex.md`](references/harness-codex.md)
 - Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
 - Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
-
-## Reference files
-
-- [`references/restart.md`](references/restart.md): the five states a Workflow
-  already under way can be in, read off the review files, and what each one
-  asks of you.
-- [`references/unmatched-return.md`](references/unmatched-return.md): why one
-  resume answers a return that matches neither the three prefixes nor the
-  Doorbell template, and why a bare Doorbell line is the ordinary case.
-- [`references/harness-claude-code.md`](references/harness-claude-code.md),
-  [`references/harness-codex.md`](references/harness-codex.md),
-  [`references/harness-cursor.md`](references/harness-cursor.md) and
-  [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
-  spawn and resume primitives, how a return is read, the Spawn prompt's skill
-  name, where a context size sits or that none is reported, that the relay
-  to the Planner goes through the Doorbell file and is also printed, that the
-  wait arms at 0 on a fresh start, how the wait runs: a background shell, or
-  on Codex the armed file the `Stop` hook claims, with what Esc and a typed
-  prompt do to it, and what a resumed Session changes.
-- [`references/doorbell-file.md`](references/doorbell-file.md):
-  ringing and waiting through the Doorbell file, each command for macOS and
-  Linux and for native Windows, for a Harness file that sends you there:
-  which form your shell takes, the append, the script in the shared
-  directory that counts and waits, the count you last acted on, when to arm,
-  the restart with the plan Loop open, a wait that cannot start, the timeout,
-  and what to do on wake.
