@@ -6,9 +6,12 @@
 - **The Spawn prompt's skill name.** `$vdd:vdd-<role>`:
   `$vdd:vdd-plan-reviewer`, `$vdd:vdd-coder` or `$vdd:vdd-code-reviewer`. A
   child spawned with that name in its task loads the plugin's skill.
-- **The return.** A child's completion arrives as a message of type
-  `FINAL_ANSWER` with a `Task name`, a `Sender` and a `Payload`. The `Payload`
-  is the return to parse.
+- **The return.** After every spawn and every follow-up, wait for that child
+  inside your turn with `collaboration.wait_agent`, a timeout of several
+  minutes, and wait again until its completion arrives. A child that finishes
+  after your turn has ended does not wake this Session. The completion
+  arrives as a message of type `FINAL_ANSWER` with a `Task name`, a `Sender`
+  and a `Payload`. The `Payload` is the return to parse.
 - **The context size.** Codex reports none for a subagent, in any field of the
   spawn, wait, follow-up or completion results. From the first Coder return,
   whatever the `Fresh Coder:` line says, the no-size path of the fresh-Coder
