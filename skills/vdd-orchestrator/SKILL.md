@@ -56,8 +56,9 @@ finish. Discard those reports unread.
 ## Starting
 
 You hold no state that is not on disk, and no Harness lets a restarted session
-reattach to a child. On every start read `LOOP.md`, then look for
-`.scratch/<slug>/PLAN-REVIEW.md` and `.scratch/<slug>/CODEREVIEW.md`.
+reattach to a child. On every start read `LOOP.md`, then open
+`.scratch/<slug>/PLAN-REVIEW.md` and `.scratch/<slug>/CODEREVIEW.md` by their
+paths: a file search can skip `.scratch/`, a gitignored dot-directory.
 
 Neither on disk is the ordinary opening: the Workflow has not reached a review
 yet, so wait for the Planner's Doorbell, armed as your Harness file says where
