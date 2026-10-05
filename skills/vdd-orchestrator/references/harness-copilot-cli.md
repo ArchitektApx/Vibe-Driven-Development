@@ -1,11 +1,13 @@
 # Orchestrator on Copilot CLI
 
 - **Spawn.** The `task` tool spawns a fresh subagent. Pass
-  `agent_type: "general-purpose"`, `mode: "background"`, a `name`, and
-  `model` where the approved list names one for the Role. `general-purpose` is
-  the built-in agent that receives the repository's instructions files, which
-  the Spawn prompt relies on without naming them; the other built-in agents do
-  not receive them. `mode: "background"` because a synchronous `task` returns
+  `agent_type: "general-purpose"`, `mode: "background"`, a `name`, and a
+  `model` on every spawn: the model the approved list names for the Role,
+  and for `inherited` this Session's own model id. A `task` call without a
+  `model` can get a model Copilot's runtime policy picks instead of this
+  Session's. `general-purpose` is the built-in agent that receives the
+  repository's instructions files, which the Spawn prompt relies on without
+  naming them; the other built-in agents do not receive them. `mode: "background"` because a synchronous `task` returns
   no reusable `agent_id`, and a child without one cannot be resumed.
 - **The return.** Read it with `read_agent`, passing the child's `agent_id`.
   A background `task` returns at once, so a `read_agent` result whose
