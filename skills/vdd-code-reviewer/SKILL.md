@@ -52,12 +52,12 @@ which name to try first.
 Paste the skill's `## Standards` and `## Spec` output verbatim into
 `CODEREVIEW.md`, under a `## code-review` heading.
 
-`code-review` hands the Standards and Spec reviews to two sub-agents. Do not
-write `CODEREVIEW.md` until both have reported back, because their reports are
-what you paste. Wait for them inside your turn, as your Harness file says
-where it names a way. Ending your turn to wait hands back an unfinished round,
-and a `sleep` or timer you leave running keeps your next Doorbell from
-reaching the Orchestrator.
+`code-review` hands the Standards and Spec reviews to two sub-agents, and
+their reports are what you paste. Wait for both inside your turn, with the
+call your Harness file names where it names one, and write `CODEREVIEW.md`
+once both have reported back. Step 1 is done when both reports are in the
+file and nothing you started is still running: work left running holds your
+Doorbell back from the Orchestrator.
 
 If the Borrowed skill is not Resolvable, say so in `CODEREVIEW.md` and review
 the Spec axis by hand.
@@ -90,8 +90,8 @@ This step fires when the diff touches an Agent document: a skill file, an
 `AGENTS.md`, a `CLAUDE.md`, or any document one of those points at. The Spec and
 the Tickets are Agent documents too, on the rare branch that changes them. When
 it fires, read [the Agent document review](references/agent-documents.md) and
-run it: it invokes `writing-for-agents`, and the step is not done until you
-have.
+run it. The step is done when you have invoked `writing-for-agents` and
+checked every added or changed line of those files against its levers.
 
 Only two outcomes leave the step with nothing to say, and each is one line
 above finding 1: `Step 3: no Agent document in the diff.` or
@@ -171,6 +171,6 @@ you report to the user and do not act on.
 ## Harnesses
 
 - Claude Code: [`references/harness-claude-code.md`](references/harness-claude-code.md)
-- Codex: none: the inline text is complete
+- Codex: [`references/harness-codex.md`](references/harness-codex.md)
 - Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
 - Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
