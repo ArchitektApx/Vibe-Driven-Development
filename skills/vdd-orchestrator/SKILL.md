@@ -206,6 +206,8 @@ for the life of the code Loop, so it keeps the context of its own rounds.
 
 ## The Coder's context
 
+Where your Harness file says no context size reaches you, its no-size path
+applies from the first Coder return, whatever this line says. Otherwise,
 `Fresh Coder: never`: resume the Coder every round. `Fresh Coder: over <n>`,
 or when the user asks for a fresh Coder: read
 [when the Coder is spawned fresh](references/fresh-coder.md) before you act
