@@ -189,8 +189,9 @@ delivers it, or delivery fails, print the exact Doorbell and ask the user to
 paste it into the Planner's Session; where your Harness file gives the wording
 for that print, use it. On Generic there are no delivery mechanics, so you
 print. On open findings, wait for the Planner's next Doorbell: the Planner
-owns the next move. On `SIGNED OFF`, the plan Loop is over and there is no
-next Planner Doorbell to wait for: spawn the Coder.
+owns the next move. On `SIGNED OFF`, relay and print it like any other; the
+plan Loop is then over, with no Planner Doorbell to wait for, so print the
+`Spawning` line and spawn the Coder.
 
 **From the Coder.** No relay: spawn the Code-Reviewer, or resume the existing
 one when the code Loop has already had a round.
