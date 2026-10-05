@@ -82,11 +82,12 @@ Judge the implementation on:
 This step fires when the diff touches an Agent document: a skill file, an
 `AGENTS.md`, a `CLAUDE.md`, or any document one of those points at. The Spec and
 the Tickets are Agent documents too, on the rare branch that changes them. When
-it fires, review them as [the Agent document review](references/agent-documents.md)
-says.
+it fires, read [the Agent document review](references/agent-documents.md) and
+run it: it invokes `writing-for-agents`, and the step is not done until you
+have.
 
-Two outcomes leave the step with nothing to say, and each is one line above
-finding 1: `Step 3: no Agent document in the diff.` or
+Only two outcomes leave the step with nothing to say, and each is one line
+above finding 1: `Step 3: no Agent document in the diff.` or
 `Step 3: writing-for-agents did not resolve.`
 
 ## Write `CODEREVIEW.md`

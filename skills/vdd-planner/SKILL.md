@@ -169,15 +169,16 @@ keep no round line of your own, so read it from the `Round` line of
 `.scratch/<slug>/PLAN-REVIEW.md` and add one, or use 1 when that file does not
 exist.
 
-Deliver it to the Orchestrator through your Harness file's delivery
-mechanics, as the Doorbell line and nothing else. Where your Harness file
-rings and waits through the Doorbell file, read the file for your platform
-before your first ring: on native Windows, when your Harness reports the
-platform as Windows,
+Where your Harness file rings and waits through the Doorbell file, read the
+file for your platform before your first ring: on native Windows, when your
+Harness reports the platform as Windows,
 [`doorbell-file-windows.md`](references/doorbell-file-windows.md); on macOS
 and Linux, WSL included,
-[`doorbell-file-unix.md`](references/doorbell-file-unix.md).
-Where nothing delivers it,
+[`doorbell-file-unix.md`](references/doorbell-file-unix.md). It holds the
+ring, the count and the wait your Harness file's delivery mechanics use.
+
+Deliver it to the Orchestrator through your Harness file's delivery
+mechanics, as the Doorbell line and nothing else. Where nothing delivers it,
 or delivery fails, print the exact Doorbell and ask the user to paste it into
 the Orchestrator's Session; where your Harness file gives the wording for that
 print, use it. On Generic there are no delivery mechanics, so you print. On

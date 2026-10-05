@@ -16,7 +16,9 @@
   run and that they can ask for a fresh Coder at any round. On that request,
   spawn as that file says.
 - **The Doorbell file.** You ring and wait through it, as the Doorbell file
-  for your platform that `SKILL.md` links says, and as "The wait" below says.
+  for your platform says, `doorbell-file-unix.md` or on native Windows
+  `doorbell-file-windows.md`, which `SKILL.md` links, and as "The wait" below
+  says.
 - **Starting with no review file on disk.** Arm at 0, as the Doorbell file
   for your platform says, by writing your armed file holding
   `Orchestrator 0` before your first turn ends, so the Planner's round-1

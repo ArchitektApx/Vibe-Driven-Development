@@ -9,8 +9,10 @@
   `--no-daemon`, Codex runs the Session in its shared background server, and
   quitting the terminal leaves a running turn and its hosted Roles working.
 - **Delivering a Doorbell.** You ring and wait through the Doorbell file:
-  ring as the Doorbell file for your platform that `SKILL.md` links says, and
-  wait as "The wait" below says. Nothing confirms that the Orchestrator's
+  ring as the Doorbell file for your platform says, `doorbell-file-unix.md`
+  or on native Windows `doorbell-file-windows.md`, which `SKILL.md` links,
+  and wait as "The wait" below says. Read it before your first ring: it holds
+  the ring and the count your armed file needs. Nothing confirms that the Orchestrator's
   Session is reachable, so every ring also prints, worded: "If the
   Orchestrator's Session does not wake, paste this into it:" followed by the
   exact Doorbell.

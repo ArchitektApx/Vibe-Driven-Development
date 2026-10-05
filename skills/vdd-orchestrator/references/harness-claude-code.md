@@ -9,7 +9,8 @@
 - **The context size.** It sits in the trailer under the Agent tool's result
   for the finished subagent.
 - **The Doorbell file.** You ring and wait through it, as the Doorbell file
-  for your platform that `SKILL.md` links says.
+  for your platform says, `doorbell-file-unix.md` or on native Windows
+  `doorbell-file-windows.md`, which `SKILL.md` links.
 - **Starting with no review file on disk.** Arm the wait at 0, so the
   Planner's round-1 Doorbell already in the Doorbell file fires at once.
 - **Relaying to the Planner.** Ring and arm your wait. Nothing confirms that

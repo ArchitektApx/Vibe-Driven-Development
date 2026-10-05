@@ -7,8 +7,9 @@
 - **The Orchestrator launch.** `copilot` in a terminal in this repository,
   then `/vdd:vdd-orchestrator` in that Session.
 - **Delivering a Doorbell.** You ring and wait through the Doorbell file:
-  ring and arm your wait as the Doorbell file for your platform that
-  `SKILL.md` links says. Nothing
+  ring and arm your wait as the Doorbell file for your platform says,
+  `doorbell-file-unix.md` or on native Windows `doorbell-file-windows.md`,
+  which `SKILL.md` links. Nothing
   confirms that the Orchestrator's Session is reachable, so every ring also
   prints, worded: "If the Orchestrator's Session does not wake, paste this
   into it:" followed by the exact Doorbell.
