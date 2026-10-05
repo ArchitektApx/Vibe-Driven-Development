@@ -26,7 +26,10 @@
   end every turn in which you expect a Doorbell by writing your armed file,
   `.scratch/<feature-slug>/armed-<id>`, holding the one line
   `Planner <count>`, where `<count>` is the count you last acted on as that
-  file defines it. `<id>` is this Session's thread id: read it once with
+  file defines it: the number the count command printed when you acted on
+  the last Doorbell addressed to you, and before you have acted on any, the
+  count command's value, 0 on round 1. Run the count command for it; the
+  round number is not a count. `<id>` is this Session's thread id: read it once with
   `printf '%s\n' "$CODEX_THREAD_ID"`, on native Windows with
   `$env:CODEX_THREAD_ID`, and write it out in full after that. Write it with
   one shell command:
