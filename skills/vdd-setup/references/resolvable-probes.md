@@ -5,10 +5,8 @@
 Probe your own skill list for another of the collection's skills that is not
 user-invoked: `grilling`, `codebase-design`, `domain-modeling`, `tdd`,
 `research`, `prototype`, `diagnosing-bugs`. A hit
-means the collection is wired to this Harness, which answers Resolvable for all
-nine. A miss on `writing-for-agents`
-followed by a hit further down the list means the collection is Resolvable and
-`writing-for-agents` is not.
+means the collection is wired to this Harness: the other eight are
+Resolvable, and `writing-for-agents`, which missed, is not.
 
 ## Reading a `code-review` hit
 
