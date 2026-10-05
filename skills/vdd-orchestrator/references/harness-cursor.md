@@ -24,6 +24,10 @@
 - **The wait.** Run it as a background shell; the Session wakes when the
   shell finishes. The IDE Agent and the CLI may each wake twice for one wait,
   delivering the same output again; the duplicate rule in
-  the Doorbell file for your platform makes the second wake a no-op.
+  the Doorbell file for your platform makes the second wake a no-op. Run the
+  ring and the count in the foreground with a `block_until_ms` of 120000, so
+  each finishes inside its call: in the Cursor CLI, a shell moved to the
+  background that finishes while your turn runs stops every later wake in
+  this Session.
 
 Trust your live tools over this file when they disagree.
