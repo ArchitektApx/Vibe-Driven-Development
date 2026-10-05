@@ -52,20 +52,10 @@ and the feature branch step 5 proposes, so the user owns it.
 `.scratch/<slug>/` exists. If it does not, carry on.
 
 If it does, an earlier Workflow used this slug and its Spec, its Tickets and
-its review files are all still in there. Put three answers to the user:
-continue that Workflow, start fresh on this slug, or use a different slug.
-Continue is the answer when that Workflow was interrupted, and only then.
-Starting fresh moves the directory aside, and the move happens before anything
-else writes under `.scratch/<slug>/`.
-
-Before you put the question, read
-[what each answer does to those files](references/leftover-tracker.md); the
-user chooses on that.
-
-Delete nothing on any of the three answers. The earlier Workflow's directory is
-that Workflow's record, so a wrong answer here stays recoverable. Keep every
-path you touch under `.scratch/` inside this loop's slug or the name you moved
-the old one to.
+its review files are all still in there. Read
+[the three answers for a leftover tracker directory](references/leftover-tracker.md)
+and put them to the user before anything else writes under
+`.scratch/<slug>/`.
 
 ## 5. Branches
 
@@ -170,17 +160,3 @@ instead.
 - Codex: [`references/harness-codex.md`](references/harness-codex.md)
 - Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
 - Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
-
-## Reference files
-
-- [`references/leftover-tracker.md`](references/leftover-tracker.md): what
-  continuing, starting fresh and changing the slug each do to an existing
-  `.scratch/<slug>/`.
-- [`references/pr-preflight.md`](references/pr-preflight.md): the two commands
-  behind the `PR: yes` checks, the remote they share, and why their stderr is
-  ignored.
-- [`references/harness-claude-code.md`](references/harness-claude-code.md),
-  [`references/harness-codex.md`](references/harness-codex.md),
-  [`references/harness-cursor.md`](references/harness-cursor.md) and
-  [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
-  typed skill names, the Fresh Coder offer, and on Cursor the Harness value.
