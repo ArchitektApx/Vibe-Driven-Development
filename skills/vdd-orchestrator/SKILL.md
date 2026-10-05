@@ -112,8 +112,10 @@ Harness file: one spawns a fresh subagent, the other resumes that same
 subagent with a message, its context intact. Before every spawn, print one
 line naming the Role, the model and the round:
 `Spawning <Role>, <model>, round <n>.` Where you pass no model, the line says
-`inherited`. Say nothing else while a child runs; the Harness's own subagent
-view is where the user watches a Role work.
+`inherited`. A print is text in your reply, written before the tool call that
+follows it: the user reads your reply and never your reasoning, so a line you
+only planned there is not printed. Say nothing else while a child runs; the
+Harness's own subagent view is where the user watches a Role work.
 
 ### The Spawn prompt
 
@@ -190,9 +192,9 @@ delivers it, or delivery fails, print the exact Doorbell and ask the user to
 paste it into the Planner's Session; where your Harness file gives the wording
 for that print, use it. On Generic there are no delivery mechanics, so you
 print. On open findings, wait for the Planner's next Doorbell: the Planner
-owns the next move. On `SIGNED OFF`, relay and print it like any other; the
-plan Loop is then over, with no Planner Doorbell to wait for, so print the
-`Spawning` line and spawn the Coder.
+owns the next move. On `SIGNED OFF`, the plan Loop is over, with no Planner
+Doorbell to wait for. Ring it, print the Doorbell and the `Spawning` line in
+your reply, and only then spawn the Coder.
 
 **From the Coder.** No relay: spawn the Code-Reviewer, or resume the existing
 one when the code Loop has already had a round.
