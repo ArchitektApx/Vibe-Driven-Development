@@ -74,7 +74,8 @@ Check, in order:
    - **Present and Resolvable.** Passed, say nothing further.
    - **Present but not Resolvable.** The skill sits in a store this Harness
      reads, and this Session has not loaded it.
-   - **Not Present.** Tell the user to install the whole collection.
+   - **Not Present.** Tell the user to install the whole collection, with the
+     commands the repairs below name for your Harness.
 
    A fourth case passes too: **Resolvable with no search hit.** This Session
    can run the collection, and the search found some of the nine in no store
@@ -94,9 +95,10 @@ Check, in order:
    install a collection they already have is the wrong advice.
 
    In either failing state, and on that old-collection shape, read
-   [the repairs](references/repairs.md): what the failure costs each Role,
-   and your Harness's section, the Generic section on Generic, with the route
-   for the store the files came from.
+   [the repairs](references/repairs.md) before you report: what the failure
+   costs each Role, and your Harness's section, the Generic section on
+   Generic. Take the route for the store the files came from, and give the
+   user the commands it names.
 
 2. **Tracker configured.** `to-spec`, `to-tickets` and `code-review` all read
    `docs/agents/issue-tracker.md` to learn where specs and tickets live, and
