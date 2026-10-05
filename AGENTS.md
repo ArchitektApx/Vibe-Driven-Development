@@ -163,6 +163,10 @@ PR; preserve them through any refactor of `.github/`.
   mattpocock/skills`. That is delegated trust to a third-party repository and
   is deliberate; the Planner cannot run without it. Keep it a user instruction.
 
+## Local Development
+
+@AGENTS.local.md
+
 ## Agent skills
 
 ### Issue tracker
