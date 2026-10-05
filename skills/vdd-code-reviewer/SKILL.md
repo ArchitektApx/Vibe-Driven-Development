@@ -81,20 +81,9 @@ Judge the implementation on:
 
 This step fires when the diff touches an Agent document: a skill file, an
 `AGENTS.md`, a `CLAUDE.md`, or any document one of those points at. The Spec and
-the Tickets are Agent documents too, on the rare branch that changes them.
-
-When it fires, invoke `writing-for-agents` and check the added and changed lines
-of those files against its levers. Those lines are the whole object of the step.
-Source files in the same diff stay out of it, and so do the Agent document lines
-the branch left alone: agent-writing levers read over application code produce
-findings the Coder cannot act on, and levers read over untouched lines produce
-findings this branch did not earn.
-
-Name the lever a finding breaks in the term `writing-for-agents` uses for it.
-That Borrowed skill ships with the collection and is the single source of truth
-for the levers, so read them there. Severity follows consequence, on the same
-scale as every other finding: a defect that leaves a step ambiguous is a major,
-sprawl that costs tokens without changing behaviour is a minor.
+the Tickets are Agent documents too, on the rare branch that changes them. When
+it fires, review them as [the Agent document review](references/agent-documents.md)
+says.
 
 Two outcomes leave the step with nothing to say, and each is one line above
 finding 1: `Step 3: no Agent document in the diff.` or
@@ -177,11 +166,3 @@ you report to the user and do not act on.
 - Codex: none: the inline text is complete
 - Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
 - Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
-
-## Reference files
-
-- [`references/harness-claude-code.md`](references/harness-claude-code.md),
-  [`references/harness-cursor.md`](references/harness-cursor.md) and
-  [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md):
-  which `code-review` to use and the other skills that share its name, and the
-  typed skill names, on each Harness.
