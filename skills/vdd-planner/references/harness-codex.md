@@ -8,18 +8,19 @@
   repository, then `$vdd:vdd-orchestrator` in that Session. Without
   `--no-daemon`, Codex runs the Session in its shared background server, and
   quitting the terminal leaves a running turn and its hosted Roles working.
-- **Delivering a Doorbell.** Through the Doorbell file: ring as
-  [`doorbell-file.md`](doorbell-file.md) says, and wait as "The
-  wait" below says. Nothing confirms that the Orchestrator's Session is
-  reachable, so every ring also prints, worded: "If the Orchestrator's
-  Session does not wake, paste this into it:" followed by the exact Doorbell.
+- **Delivering a Doorbell.** You ring and wait through the Doorbell file:
+  ring as the Doorbell file for your platform that `SKILL.md` links says, and
+  wait as "The wait" below says. Nothing confirms that the Orchestrator's
+  Session is reachable, so every ring also prints, worded: "If the
+  Orchestrator's Session does not wake, paste this into it:" followed by the
+  exact Doorbell.
 - **Round 1.** The Orchestrator reads your round-1 Doorbell from the Doorbell
   file when it starts. In place of "Paste the Doorbell below into it once it
   is up", say: "It picks up the Doorbell below from the Doorbell file; paste
   it in only if it does not start the review."
 - **The wait.** A background shell cannot wake an idle Codex Session, so the
   `Stop` hook Setup installs waits for you. This rule replaces the arming
-  rules of "Your wait" in [`doorbell-file.md`](doorbell-file.md):
+  rules of "Your wait" in the Doorbell file for your platform:
   end every turn in which you expect a Doorbell by writing your armed file,
   `.scratch/<feature-slug>/armed-<id>`, holding the one line
   `Planner <count>`, where `<count>` is the count you last acted on as that
@@ -52,9 +53,9 @@
   file, waits on the Doorbell file with no model turn, and continues this
   Session with the newest Doorbell line, or `TIMEOUT`, as your next prompt.
   Handle it as a line your wait printed, under "On wake" in
-  [`doorbell-file.md`](doorbell-file.md), and `TIMEOUT` as that
-  file says. A hook that is missing or untrusted never wakes you, and the
-  line the Orchestrator printed is the fallback.
+  the Doorbell file for your platform, and `TIMEOUT` as that file says. A
+  hook that is missing or untrusted never wakes you, and the line the
+  Orchestrator printed is the fallback.
 - **Esc and typed prompts.** Esc ends the hook's wait together with the turn.
   A prompt the user types while the hook waits arrives when it exits, and Esc
   sends it at once. Either way the rule above covers it: the next turn ends

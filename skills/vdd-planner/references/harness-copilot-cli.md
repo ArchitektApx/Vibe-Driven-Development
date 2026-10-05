@@ -6,8 +6,9 @@
   skill, such as `/vdd:vdd-setup`.
 - **The Orchestrator launch.** `copilot` in a terminal in this repository,
   then `/vdd:vdd-orchestrator` in that Session.
-- **Delivering a Doorbell.** Through the Doorbell file: ring and arm your
-  wait as [`doorbell-file.md`](doorbell-file.md) says. Nothing
+- **Delivering a Doorbell.** You ring and wait through the Doorbell file:
+  ring and arm your wait as the Doorbell file for your platform that
+  `SKILL.md` links says. Nothing
   confirms that the Orchestrator's Session is reachable, so every ring also
   prints, worded: "If the Orchestrator's Session does not wake, paste this
   into it:" followed by the exact Doorbell.
@@ -20,7 +21,6 @@
   Session wakes when the shell exits.
 - **A resume.** `copilot --continue` and `copilot --resume` resume a Session.
   When the user names one of them, or tells you this Session was resumed,
-  re-arm as "Your wait" in [`doorbell-file.md`](doorbell-file.md)
-  says.
+  re-arm as "Your wait" in the Doorbell file for your platform says.
 
 Trust your live tools over this file when they disagree.

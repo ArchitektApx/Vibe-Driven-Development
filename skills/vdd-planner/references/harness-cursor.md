@@ -7,8 +7,9 @@
 - **The Orchestrator launch.** In the Cursor IDE, a new chat, then
   `/vdd-orchestrator` in it. In the Cursor CLI, `agent` in a terminal in this
   repository, then `/vdd-orchestrator` in that Session.
-- **Delivering a Doorbell.** Through the Doorbell file: ring and arm your
-  wait as [`doorbell-file.md`](doorbell-file.md) says. Nothing
+- **Delivering a Doorbell.** You ring and wait through the Doorbell file:
+  ring and arm your wait as the Doorbell file for your platform that
+  `SKILL.md` links says. Nothing
   confirms that the Orchestrator's Session is reachable, so every ring also
   prints, worded: "If the Orchestrator's Session does not wake, paste this
   into it:" followed by the exact Doorbell.
@@ -19,11 +20,10 @@
 - **The wait.** Run it as a background shell; the Session wakes when the
   shell finishes. The IDE Agent and the CLI may each wake twice for one wait,
   delivering the same output again; the duplicate rule in
-  [`doorbell-file.md`](doorbell-file.md) makes the second wake a
-  no-op.
+  the Doorbell file for your platform makes the second wake a no-op.
 - **A resume.** In the Cursor CLI, `agent --continue`, `agent --resume` and
   `agent resume` resume a Session; in the IDE, a reopened chat does. When the
   user names one of them, or tells you this Session was resumed, re-arm as
-  "Your wait" in [`doorbell-file.md`](doorbell-file.md) says.
+  "Your wait" in the Doorbell file for your platform says.
 
 Trust your live tools over this file when they disagree.

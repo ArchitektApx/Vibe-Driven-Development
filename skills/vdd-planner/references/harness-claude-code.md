@@ -11,7 +11,7 @@
 - **The Orchestrator launch.** `claude` in a terminal in this repository,
   then `/vdd:vdd-orchestrator` in that Session.
 - **Delivering a Doorbell.** Through the Doorbell file: ring and arm your
-  wait as [`doorbell-file.md`](doorbell-file.md) says. Nothing
+  wait as the Doorbell file for your platform that `SKILL.md` links says. Nothing
   confirms that the Orchestrator's Session is reachable, so every ring also
   prints, worded: "If the Orchestrator's Session does not wake, paste this
   into it:" followed by the exact Doorbell.
@@ -19,14 +19,13 @@
   file when it starts. In place of "Paste the Doorbell below into it once it
   is up", say: "It picks up the Doorbell below from the Doorbell file; paste
   it in only if it does not start the review."
-- **The wait.** Run the wait form in the background in your shell tool,
+- **The wait.** Run the wait command in the background in your shell tool,
   Bash or PowerShell, with `run_in_background` set and an explicit `timeout`
   of at least 2760000 ms: the default timeout is below the script's 45
   minutes and would end the wait early. The Session wakes when the command
   exits.
 - **A resume.** `claude --continue` and `claude --resume` resume a Session.
   When the user names one of them, or tells you this Session was resumed,
-  re-arm as "Your wait" in [`doorbell-file.md`](doorbell-file.md)
-  says.
+  re-arm as "Your wait" in the Doorbell file for your platform says.
 
 Trust your live tools over this file when they disagree.
