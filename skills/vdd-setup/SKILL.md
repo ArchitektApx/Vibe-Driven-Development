@@ -17,7 +17,7 @@ Harness is Generic, and the inline text is complete.
 
 Check, in order:
 
-1. **Borrowed skills.** The Roles depend on nine skills from Matt Pocock's
+1. **Borrowed skills.** The Roles depend on 13 skills from Matt Pocock's
    collection:
 
    | Borrowed skill | Invoked by | Needed by |
@@ -30,7 +30,11 @@ Check, in order:
    | `wayfinder` | the user | Wayfinder |
    | `code-review` | an agent | Code-Reviewer |
    | `writing-for-agents` | an agent | Planner, Plan-Reviewer, Code-Reviewer |
-   | `grilling` | an agent | Brainstormer |
+   | `grilling` | an agent | Planner, Wayfinder, Brainstormer |
+   | `domain-modeling` | an agent | Planner, Wayfinder |
+   | `codebase-design` | an agent | Planner |
+   | `research` | an agent | Wayfinder |
+   | `prototype` | an agent | Wayfinder |
 
    The six user-invoked ones were blocked from model invocation by their
    author, so they never appear in your own skill list even when correctly
@@ -60,7 +64,7 @@ Check, in order:
    Probe your own skill list for `writing-for-agents`. It is Borrowed in its
    own right and agent-invocable, so a wired collection puts it in your skill
    list, and the name is the collection's alone, so a hit needs no reading. A
-   hit answers Resolvable for all nine.
+   hit answers Resolvable for all 13.
 
    A miss proves nothing, because these collections can be installed one skill
    at a time. `code-review` is agent-invocable too, but a hit on it counts only
@@ -78,10 +82,10 @@ Check, in order:
      commands the repairs below name for your Harness.
 
    A fourth case passes too: **Resolvable with no search hit.** This Session
-   can run the collection, and the search found some of the nine in no store
+   can run the collection, and the search found some of the 13 in no store
    it searched, so they resolve from a store Setup does not search. Do not
    report those skills as Not Present, and give no repair for them. Report
-   them in one line that names whichever of the nine had no hit:
+   them in one line that names whichever of the 13 had no hit:
 
    ```
    <skills>: Resolvable from a store Setup does not search. Passed.
@@ -90,7 +94,7 @@ Check, in order:
    Where your Harness file gives a continuation for this line, add it to the
    line.
 
-   Not Present for `writing-for-agents` alone, with the other eight Present, is
+   Not Present for `writing-for-agents` alone, with the other 12 Present, is
    an old collection rather than a missing one, and telling that user to
    install a collection they already have is the wrong advice.
 

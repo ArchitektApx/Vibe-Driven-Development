@@ -5,7 +5,7 @@
 Probe your own skill list for another of the collection's skills that is not
 user-invoked: `grilling`, `codebase-design`, `domain-modeling`, `tdd`,
 `research`, `prototype`, `diagnosing-bugs`. A hit
-means the collection is wired to this Harness: the other eight are
+means the collection is wired to this Harness: the other 12 are
 Resolvable, and `writing-for-agents`, which missed, is not.
 
 ## Reading a `code-review` hit

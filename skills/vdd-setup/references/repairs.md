@@ -4,15 +4,23 @@
 
 Name what the failure costs each Role, in these words. A missing or
 unresolvable `grill-with-docs`, `improve-codebase-architecture`, `to-spec` or
-`to-tickets` blocks the Planner. A missing or unresolvable `code-review`
-blocks the Code-Reviewer. A missing or unresolvable `wayfinder` blocks the
-Wayfinder. A missing or unresolvable `writing-for-agents` degrades the
-Planner, the Plan-Reviewer and the Code-Reviewer instead of blocking them:
-each drops its writing pass, records that in the file it writes, and carries
-on. A missing or unresolvable `grilling` degrades the Brainstormer the same
-way: it talks the idea through without grilling. The Brainstormer and the
-Wayfinder check their own Borrowed skill when they start, so each of those
-two failures surfaces again at the Role. The Coder is the only Role that
+`to-tickets` blocks the Planner. A missing or unresolvable `domain-modeling`
+blocks the Planner and the Wayfinder, because `grill-with-docs` and
+`wayfinder` call it. A missing or unresolvable `codebase-design` blocks the
+Planner's general-improvement branch, because
+`improve-codebase-architecture` calls it. A missing or unresolvable `grilling`
+blocks the Planner and the Wayfinder, because `grill-with-docs`,
+`improve-codebase-architecture` and `wayfinder` call it, and degrades the
+Brainstormer, which talks the idea through without grilling. A missing or
+unresolvable `code-review` blocks the Code-Reviewer. A missing or
+unresolvable `wayfinder` blocks the Wayfinder. A missing or unresolvable
+`research` or `prototype` degrades the Wayfinder: its research and prototype
+tickets cannot run. A missing or unresolvable `writing-for-agents` degrades
+the Planner, the Plan-Reviewer and the Code-Reviewer instead of blocking
+them: each drops its writing pass, records that in the file it writes, and
+carries on. The Brainstormer checks `grilling` and the Wayfinder checks
+`wayfinder` when they start, so each of those two failures surfaces again at
+the Role. The Coder is the only Role that
 borrows nothing, and a user resuming mid-workflow is stopped by the
 `code-review` finding alone.
 

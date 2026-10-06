@@ -13,7 +13,7 @@ fresh shell for each command, and a `set --` run on its own is gone by the
 time the loop runs.
 
 ```sh
-for s in setup-matt-pocock-skills grill-with-docs improve-codebase-architecture to-spec to-tickets wayfinder code-review writing-for-agents grilling; do
+for s in setup-matt-pocock-skills grill-with-docs improve-codebase-architecture to-spec to-tickets wayfinder code-review writing-for-agents grilling domain-modeling codebase-design research prototype; do
   find -L "$@" -name SKILL.md 2>/dev/null | grep "/$s/SKILL.md$"
 done
 ```
