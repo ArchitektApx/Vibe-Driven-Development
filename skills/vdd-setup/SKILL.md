@@ -95,10 +95,21 @@ Check, in order:
    line.
 
    Not Present for `writing-for-agents` alone, with the other 12 Present, is
-   an old collection rather than a missing one, and telling that user to
-   install a collection they already have is the wrong advice.
+   an old collection rather than a missing one: a collection from before the
+   glossary rename. Telling that user to install a collection they already
+   have is the wrong advice.
 
-   In either failing state, and on that old-collection shape, read
+   Last, whatever state the 13 are in, read `domain-modeling`'s description
+   in your own skill list; this runs no command. When `domain-modeling` is
+   listed and its description does not name `GLOSSARY.md`, report a
+   collection from before the glossary rename, as a warning that does not
+   block, with the update route the repairs below give for the store the
+   collection was found in. That one route replaces the Not Present route for
+   every Borrowed skill Not Present, because the update brings them all. When
+   `domain-modeling` is not in your skill list, say nothing about it.
+
+   In either failing state, and on a collection from before the glossary
+   rename, reached by either shape above, read
    [the repairs](references/repairs.md) before you report: what the failure
    costs each Role, and your Harness's section, the Generic section on
    Generic. Take the route for the store the files came from, and give the
@@ -157,7 +168,8 @@ Check, in order:
    [`codex-stop-hook-windows.md`](references/codex-stop-hook-windows.md), on
    macOS and Linux [`codex-stop-hook-unix.md`](references/codex-stop-hook-unix.md).
 
-Finish with a short status report: what passed, what you fixed, what the user still has to do.
+Finish with a short status report: what passed, what you fixed, what the user
+still has to do, and each warning, named as a warning.
 
 ## Harnesses
 
