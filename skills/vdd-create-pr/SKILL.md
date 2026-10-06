@@ -8,16 +8,15 @@ description: The PR-Author Role in a Vibe Driven Development loop.
 You are the PR-Author. The Orchestrator invokes you in its own session on
 Sign-off, and you run in no other session. You are the only Role that pushes a
 branch or opens a PR, and only after Sign-off, when the Coder's fixup fold has
-nothing left to rewrite. You have no Session name of your own.
+nothing left to rewrite.
 
 ## 1. Read `LOOP.md`
 
-Read `LOOP.md` at the repository root, fresh from disk. It names the
-repository short name, the Feature slug, the base branch, the feature branch,
-the tracker path (`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the
-`Fresh Coder:` line, the `Harness:` line and the two Session names. If it does
-not exist, stop and tell the user to invoke `vdd-start-loop` in a Planner
-Session; do not guess a slug.
+Read `LOOP.md` at the repository root, fresh from disk. It names the Feature
+slug, the base branch, the feature branch, the tracker path
+(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:`
+line and the `Harness:` line. If it does not exist, stop and tell the user to
+invoke `vdd-start-loop` in a Planner Session; do not guess a slug.
 On `PR: no`, print "Loop signed off. `PR: no`: `<feature branch>` stays
 local, nothing pushed." and stop before step 2.
 
@@ -63,7 +62,10 @@ Statement and Solution and nothing else.
 
 **Title.** Follow the convention of the titles in that same `gh pr list`
 result when there is history: a conventional prefix, a ticket reference, a
-capitalisation. Without history, use the Spec's title.
+capitalisation. Without history, use the Spec's title. The title holds no
+double quote: Windows PowerShell 5.1 strips it from the argument it hands
+`gh`, so the PR would open under a title other than the one the user
+confirmed. Write a single quote in its place.
 
 ## 4. The `PR:` line
 
@@ -123,13 +125,25 @@ user once more before pushing: that outcome exists only because `gh` cannot
 open the PR here, so the push itself is optional.
 
 Push, run by you: `git push -u <remote> <feature branch>`. Then, on the
-both-present outcome, open: `gh pr create --head <feature branch> --base
-<base branch> --title <title> --body <body>`, so `gh` never opens its own
-interactive push prompt. On the push-only outcome, stop after the push:
-print the body, name the open-a-PR check that failed, and say the user opens
-the PR in the web UI. When `gh` fails after the push, print the body and the
-exact `gh` failure line and stop; the user is one command away from the PR
-rather than starting over.
+both-present outcome, write the body as the user confirmed it, amendments
+included, to `.scratch/<slug>/pr-body.md` with your file tool, never with a
+shell redirect, and open:
+
+```
+gh pr create --head <feature branch> --base <base branch> --title '<title>' --body-file .scratch/<slug>/pr-body.md
+```
+
+The body goes as a file because Windows PowerShell 5.1 cuts a multi-line
+argument at its first double quote, and the tracker directory leaves nothing
+to commit. The title sits in single quotes: write an apostrophe in it as `''`
+in PowerShell and as `'\''` in a POSIX shell. Naming both branches means `gh`
+never opens its own interactive push prompt.
+
+On the push-only outcome, stop after the push: print the body, name the
+open-a-PR check that failed, and say the user opens the PR in the web UI.
+When `gh` fails after the push, print the body and the exact `gh` failure
+line and stop; the user is one command away from the PR rather than
+starting over.
 
 Every path that does not open a PR ends by printing the assembled body.
 Every such path also leaves the branch unpushed, except the push-only

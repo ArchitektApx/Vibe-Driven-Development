@@ -4,34 +4,41 @@ This repository is developed with its own workflow. Use the VDD Roles on
 changes to it, the same way a user would on their own project:
 `/vdd:vdd-start-loop` opens the loop and writes `LOOP.md`, the Planner grills
 you and produces the Spec and Tickets under `.scratch/<feature-slug>/`, then
-an Orchestrator session, opened with `claude -n <name>` and
-`/vdd:vdd-orchestrator` when the Planner rings its first Doorbell, hosts the
-Plan-Reviewer, the Coder and the Code-Reviewer as subagents until Sign-off,
-then invokes the PR-Author, which opens the pull request. Proportionality
-applies: a typo fix can skip the loop, and anything that changes how a Role
-behaves takes it.
+an Orchestrator session, opened with `claude` and `/vdd:vdd-orchestrator`
+when the Planner rings its first Doorbell, hosts the Plan-Reviewer, the Coder
+and the Code-Reviewer as subagents until Sign-off, then invokes the PR-Author,
+which opens the pull request. Proportionality applies: a typo fix can skip the
+loop, and anything that changes how a Role behaves takes it.
 `docs/VDD-WORKFLOW.md` walks the same loop from the user's side.
 
 The Planner's grilling step produced the glossary and the decision records
 below, and they are committed so every clone reads the same vocabulary and the
 same decisions:
 
-- `CONTEXT.md` is the glossary. Use its terms exactly when editing the skills,
+- `GLOSSARY.md` is the glossary. Use its terms exactly when editing the skills,
   so the ten `SKILL.md` files keep one vocabulary.
-- `docs/adr/` records decisions that are hard to reverse and surprising without
-  context. Read `0001` before proposing that a Role run outside the
-  Orchestrator, or that the Planner be hosted too; both were decided there.
+- `docs/adr/` holds the ADRs, which follow `ADR-FORMAT.md` in the
+  `domain-modeling` skill. Read `0001` before proposing that a Role run
+  outside the Orchestrator, or that the Planner be hosted too; both were
+  decided there.
 
-One decision, one record, kept current. When a decision changes, rewrite the
-record that owns it in place to state the decision that holds now. A reversal
-appears as one line under `## Considered options`, written as the correction
-rather than as the discarded claim, so the false claim is never stated in its
-own voice. No stubs, no `Status:` lines, no `Superseded by` lines: nothing
-accumulates. A record states the decision that holds now: an ordinal or a
-count that reads as a claim about the present is dropped rather than updated,
-and a number that records a measurement stays.
+An ADR records a decision that is hard to reverse, surprising without context
+and the result of a real trade-off, and says in a few sentences what was
+decided and why. It states the long-term decision, never the wording or
+mechanics of the skill that carries it out, so a change to a skill leaves the
+ADR as it is. An ADR that would need an edit with every change to a skill
+records current ruling, and that ruling belongs in the skill.
 
-The repository is prose only. There is no build and no tests;
+When a decision changes, rewrite the record that owns it in place to state the
+decision that holds now, with the discarded option under
+`## Considered options`, so superseded records never pile up.
+
+The repository is prose plus the shell scripts the Roles run, with no build.
+Its tests are the two fixture tests for the Codex `Stop` hook and the Doorbell
+wait, each run by hand from anywhere and not in CI:
+`sh tests/vdd-codex-stop.test.sh` for the POSIX scripts, and
+`pwsh -NoProfile -File tests/vdd-codex-stop.test.ps1` for the PowerShell
+scripts, run once with `powershell.exe` on Windows as well.
 `docs/agents/VERIFICATION.md` is what verification means here, and CI only
 checks that what ships is well formed (see Invariants).
 
@@ -43,6 +50,14 @@ needs it.
 
 This style binds work on this repository alone. In a user's project their prose
 stays theirs, in whatever style they write it.
+
+In a skill, a sentence earns its place by changing what a Role does.
+Whether it does is settled by running a draft on a lower-tier model, not by
+reading it. A reason stays when the Role needs it to act; a reason only a
+maintainer needs lives in the commit or the ADR that records it. A slip is
+fixed by removing the text that competed with the right instruction, and only
+when it breaks a step or a call. A `SKILL.md` aims to fit one 240-line read
+window; text every run needs may take it past.
 
 The six tells of machine prose, a closed list, are in
 `docs/agents/VERIFICATION.md`, beside the other checks a reviewer applies.
@@ -63,6 +78,9 @@ behaviour alone.
 Commit signing, SHA pinning and the workflow-registration quirk are in
 `docs/agents/LANDING-A-CHANGE.md`.
 
+A release follows the steps in
+[`docs/agents/LANDING-A-CHANGE.md#releasing`](docs/agents/LANDING-A-CHANGE.md#releasing).
+
 ## Invariants
 
 This repository is a supplier: everything committed here is cloned onto every
@@ -71,8 +89,16 @@ MCP servers that execute there. `verify.yml` enforces the following on every
 PR; preserve them through any refactor of `.github/`.
 
 - **No executable surface.** No hooks, no MCP servers, no symlinks, no
-  executable files. The plugin ships prose and nothing else. Adding one of
-  these is a deliberate decision: edit the `Reject executable surface` step in
+  executable files. The plugin ships prose and shell scripts at mode 644 that
+  a Role runs with `sh`, or on native Windows with `powershell.exe -NoProfile
+  -ExecutionPolicy Bypass -File`, never with an executable bit. Setup copies
+  the shipped scripts into the shared directory,
+  `${XDG_DATA_HOME:-$HOME/.local/share}/vdd/`, or `%LOCALAPPDATA%\vdd\` on
+  native Windows, where a Role runs the Doorbell wait and the user's
+  `~/.codex/hooks.json` runs the Codex `Stop` hook, both through that named
+  shell, so the plugin still executes nothing itself.
+  Adding one of the four
+  is a deliberate decision: edit the `Reject executable surface` step in
   the same PR so the reviewer sees both.
 - **A Codex policy file carries policy only.** Every `agents/openai.yaml`
   under `skills/` has the top-level keys `interface` and `policy` and no
@@ -80,8 +106,14 @@ PR; preserve them through any refactor of `.github/`.
   among them. The `Reject executable surface` step checks it, finding the
   files with `find` so a plain copy of the tree is checked like a checkout.
 - **`verify.yml` triggers on `pull_request`.** It runs PR-head content, so
-  `pull_request_target` would hand fork PRs write access and secrets. Its
-  `permissions` stay `contents: read`.
+  `pull_request_target` would hand fork PRs write access and secrets. It also
+  runs on a push to every branch, so a branch shows its check before a PR
+  exists. Its `permissions` stay `contents: read`.
+- **`release.yml` alone grants write access.** `release.yml` triggers only on
+  a version tag push and on `workflow_dispatch`, and its release job is the
+  only place any workflow grants `contents: write`, so a refactor cannot
+  quietly widen write access. The `Only release.yml grants write access` step
+  checks it.
 - **Manifests parse and agree.** `.claude-plugin/plugin.json` and the plugin's
   entry in `.claude-plugin/marketplace.json` share name, version and
   `source: "./"`. A broken manifest breaks install for every user; there is no
@@ -100,9 +132,10 @@ PR; preserve them through any refactor of `.github/`.
   ignored by the Harnesses the other covers, so a skill carrying one alone is
   model-invocable on those Harnesses.
 - **Every file under a skill directory is linked from its `SKILL.md`.** A
-  Reference file no skill file points at is one no reader can be sent to. The
-  index section each split skill carries is what makes the direct link enough,
-  so the check does not follow links between Reference files.
+  Reference file no skill file points at is one no reader can be sent to.
+  Each file is linked from the step in `SKILL.md` that reads it, a Harness
+  file from `## Harnesses`, which is what makes the direct link enough, so the
+  check does not follow links between Reference files.
   `agents/openai.yaml` directly inside a skill directory is the one exemption:
   Codex reads it as the skill's policy file, and no reader reaches it by a
   link.
@@ -113,6 +146,18 @@ PR; preserve them through any refactor of `.github/`.
   text `none: the inline text is complete`. A Role reads the Harness file that
   section sends it to, so a Harness missing from it is a Harness whose reader
   gets sent nowhere.
+- **Every shell script under `skills/` parses.** Each `.sh` file passes
+  `sh -n`, and each `.ps1` file passes the PowerShell parser with none of the
+  token kinds Windows PowerShell 5.1 cannot parse (`&&`, `||`, `??`, `??=`,
+  the ternary `?`, `?.` and `?[`), all found with `find` so a plain copy of
+  the tree is checked like a checkout. A Role runs the script in the user's
+  Session, so a syntax error reaches the user as a script that fails on its
+  first run.
+- **Every shipped script is ASCII-only.** No `.sh` or `.ps1` under `skills/`
+  holds a byte outside tab, line feed, carriage return and printable ASCII,
+  found with `find`. Windows PowerShell 5.1 reads a script without a byte
+  order mark in the ANSI code page, so any other byte reaches it as a
+  different character.
 - **`CLAUDE.md` is the one line `@AGENTS.md`.** Claude Code reads `CLAUDE.md`
   and wins precedence over `AGENTS.md`; the stub is what makes the rules in
   `AGENTS.md` reach it exactly once.
@@ -127,6 +172,10 @@ PR; preserve them through any refactor of `.github/`.
   mattpocock/skills`. That is delegated trust to a third-party repository and
   is deliberate; the Planner cannot run without it. Keep it a user instruction.
 
+## Local Development
+
+@AGENTS.local.md
+
 ## Agent skills
 
 ### Issue tracker
@@ -139,4 +188,4 @@ Default vocabulary, label strings equal role names. See `docs/agents/triage-labe
 
 ### Domain docs
 
-Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.

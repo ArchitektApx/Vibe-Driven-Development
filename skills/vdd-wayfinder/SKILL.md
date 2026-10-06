@@ -21,8 +21,9 @@ You need the `wayfinder` skill from Matt Pocock's skills collection. It is
 user-invoked, so it never appears in your skill list; look for
 `wayfinder/SKILL.md` under `~/.agents/skills`, `./.agents/skills`,
 `~/.claude/skills`, `./.claude/skills`, `~/.claude/plugins/cache` or
-`~/.codex/plugins/cache`, all of them on every Harness. If it is missing,
-tell the user to invoke `vdd-setup` to install it.
+`~/.codex/plugins/cache`, all of them on every Harness. On native Windows
+`~` is `%USERPROFILE%`. If it is missing, tell the user to invoke `vdd-setup`
+to install it.
 
 ## Wayfinding Directory
 
@@ -70,12 +71,15 @@ Ask the user for the effort slug, then look for `.scratch/<effort>/map.md`.
 
 ### Briefing the wayfinder
 
-`wayfinder` runs in this session and reads what you print. Fill `<effort>`
-and the two template paths with the absolute paths under this skill's base
-directory, the one your Harness reports when the skill loads, and confirm
-both files exist. Print the briefing, then tell the user to invoke `wayfinder`
-with the idea or file you read. You are done; the upstream skill charts the map and
-works its tickets over as many sessions as the effort needs.
+`wayfinder` runs in this session and reads what you print. Fill `<effort>`,
+and fill the two template paths with the absolute paths of
+[`overview-template.md`](references/overview-template.md) and
+[`handoff-template.md`](references/handoff-template.md) under this skill's
+base directory, the one your Harness reports when the skill loads, and
+confirm both files exist. Print the briefing, then tell the user to invoke
+`wayfinder` with the idea or file you read. You are done; the upstream skill
+charts the map and works its tickets over as many sessions as the effort
+needs.
 
 ```plaintext
 Briefing for the wayfinding of <effort>:
@@ -96,10 +100,3 @@ Briefing for the wayfinding of <effort>:
 - Carry these three points into the map's Notes section, so every later
   wayfinding session reads them.
 ```
-
-## Reference files
-
-- [`references/overview-template.md`](references/overview-template.md): the
-  template for `00-overview.md`.
-- [`references/handoff-template.md`](references/handoff-template.md): the
-  template for one loop's handoff.

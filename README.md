@@ -6,9 +6,19 @@
 
 [![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FArchitektApx%2FVibe-Driven-Development%2Fmaster%2F.claude-plugin%2Fplugin.json&query=%24.version&prefix=v&label=plugin&color=blue)](.claude-plugin/plugin.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757)](#-install)
-[![Works with npx skills](https://img.shields.io/badge/npx_skills-compatible-000)](#-install)
 [![Built on mattpocock/skills](https://img.shields.io/badge/built_on-mattpocock%2Fskills-8250df)](https://github.com/mattpocock/skills)
+[![Works with npx skills](https://img.shields.io/badge/npx_skills-compatible-000)](#-install)
+
+Plugin for <br>
+[![Claude Code](https://img.shields.io/badge/Claude_Code-D97757?logo=claude&logoColor=fff)](#-install)
+[![Codex](https://custom-icon-badges.demolab.com/badge/Codex-000?logo=openai&logoColor=fff)](#-install)
+[![Cursor](https://img.shields.io/badge/Cursor-000000?logo=cursor)](#-install)
+[![GitHub Copilot](https://img.shields.io/badge/GitHub%20Copilot-000?logo=githubcopilot&logoColor=fff)](#-install)
+
+Works on <br>
+[![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=F0F0F0)](#)
+[![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)](#)
+[![Windows](https://custom-icon-badges.demolab.com/badge/Windows-0078D6?logo=windows11&logoColor=white)](#)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/workflow-dark.svg">
@@ -21,7 +31,7 @@
 **tl;dr:** an opinionated wrapper around Matt Pocock's [skills](https://github.com/mattpocock/skills). It splits planning, plan review, implementation and code review across separate Claude Code / Codex / Cursor / GitHub Copilot CLI sessions that adversarially check each other's work.
 
 > [!IMPORTANT]
-> Matt Pocock's skill collection is a hard requirement: without it the Planner stops at its first handoff. See [Install](#-install).
+> Matt Pocock's skill collection, v1.3.1 or later, is a hard requirement: without it the Planner stops at its first handoff. See [Install](#-install). Upgrading from VDD 0.14? Follow the [migration steps](CHANGELOG.md#migrating-from-014).
 
 ## 📚 Contents
 
@@ -55,7 +65,7 @@ In Codex, type `$vdd:vdd-start-loop` instead, and in Cursor `/vdd-start-loop`. G
 
 That one command runs the environment check, walks you through anything the check finds missing, and starts the loop with you and the Planner.
 
-VDD and the Matt Pocock skills create multiple working files along the way that are not gitignored by default (`docs/agents/`, `docs/adr/`, `CONTEXT.md`, appending to `AGENTS.md`/`CLAUDE.md`). If you'd rather keep them out of your history, you just can safely add them to `.gitignore` and/or prune the additions to your `AGENTS.md`/`CLAUDE.md`.
+VDD and the Matt Pocock skills create multiple working files along the way that are not gitignored by default (`docs/agents/`, `docs/adr/`, `GLOSSARY.md`, appending to `AGENTS.md`/`CLAUDE.md`). If you'd rather keep them out of your history, you just can safely add them to `.gitignore` and/or prune the additions to your `AGENTS.md`/`CLAUDE.md`.
 
 ## 🔌 Install
 
@@ -67,7 +77,7 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
 - A repository to work in
 - The ability to run two agent sessions side by side (two terminals is enough): the Planner, in your foreground, and the Orchestrator, which runs the rest.
 - A coding agent with subagents. Claude Code, Cursor, Codex and GitHub Copilot CLI all have the primitive the Orchestrator needs to spawn the Plan-Reviewer, the Coder and the Code-Reviewer, each in a fresh context, and to resume the same one round after round. If your host asks for approval per command, grant session approval before you start the Workflow, so you are not answering prompts through the whole run.
-- Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection. In Claude Code: `/plugin install mattpocock-skills` (official marketplace). In Codex, Cursor, GitHub Copilot CLI and any other agent: `npx skills@latest add -g mattpocock/skills`, selecting your agent when it asks. The Roles borrow these:
+- Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection, v1.3.1 or later. In Claude Code: Matt Pocock's own marketplace, `/plugin marketplace add mattpocock/skills` then `/plugin install mattpocock-skills@mattpocock`. In Codex, Cursor, GitHub Copilot CLI and any other agent: `npx skills@latest add -g mattpocock/skills`, selecting your agent when it asks. The Roles borrow these:
 
   | Borrowed skill | Started by | Needed by |
   |----------------|-----------|-----------|
@@ -79,9 +89,13 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
   | `wayfinder` | 🧑 you | Wayfinder |
   | `code-review` | 🤖 the agent | Code-Reviewer |
   | `writing-for-agents` | 🤖 the agent | Planner, Plan-Reviewer, Code-Reviewer |
-  | `grilling` | 🤖 the agent | Brainstormer |
+  | `grilling` | 🤖 the agent | Planner, Wayfinder, Brainstormer |
+  | `domain-modeling` | 🤖 the agent | Planner, Wayfinder |
+  | `codebase-design` | 🤖 the agent | Planner |
+  | `research` | 🤖 the agent | Wayfinder |
+  | `prototype` | 🤖 the agent | Wayfinder |
 
-**Optional:** Claude Code 2.1.224+ on macOS or Linux. It lets one session ring the next one's doorbell instead of you copying a line between terminals. Codex rings the next session through `codex queue`. Everything works without a doorbell: the Roles print the line for you to paste, and in Cursor and GitHub Copilot CLI, which cannot ring another session, they always do.
+**Optional:** the doorbell. In Claude Code, Codex, Cursor and GitHub Copilot CLI the Roles ring each other through the Doorbell file in `.scratch/<slug>/` instead of you copying a line between terminals, and also print the line, which you paste only if the other session does not wake. Everything works without a doorbell: the Roles print the line for you to paste.
 
 </details>
 
@@ -93,11 +107,14 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
 /plugin install vdd@vibe-driven-development
 ```
 
-Start a new session in your repository and type `/vdd:vdd-setup`. Install Matt Pocock's collection from the official marketplace:
+Start a new session in your repository and type `/vdd:vdd-setup`. Install Matt Pocock's collection from his own marketplace:
 
 ```
-/plugin install mattpocock-skills
+/plugin marketplace add mattpocock/skills
+/plugin install mattpocock-skills@mattpocock
 ```
+
+Then turn on auto-update for the `mattpocock` marketplace under `/plugin` > Marketplaces, so the collection stays current. Auto-update is off by default for every marketplace but Anthropic's own.
 
 </details>
 
@@ -109,11 +126,21 @@ codex plugin marketplace add ArchitektApx/Vibe-Driven-Development
 codex plugin add vdd@vibe-driven-development
 ```
 
-Start a new Codex session in your repository, so it picks up the plugin, and type `$vdd:vdd-setup`. Matt Pocock's plugin is Claude Code only, so install his collection with the skills CLI and select Codex when it asks which agents to install for:
+Start a new Codex session in your repository with `codex --no-daemon`, so it picks up the plugin, and type `$vdd:vdd-setup`. Matt Pocock's plugin is Claude Code only, so install his collection with the skills CLI and select Codex when it asks which agents to install for:
 
 ```bash
 npx skills@latest add -g mattpocock/skills
 ```
+
+A Codex session cannot be woken by a background shell, so on Codex a waiting Role waits in a `Stop` hook. Setup installs it: after showing you the change, it copies the hook beside the Doorbell wait into `~/.local/share/vdd/` (or `$XDG_DATA_HOME/vdd/`; on Windows `%LOCALAPPDATA%\vdd\`) and adds a `Stop` entry to `~/.codex/hooks.json`. Codex runs no hook you have not trusted, so trust it in `/hooks` when Setup asks; that also turns it on in the session you are in.
+
+> ⚠️ **Warning**
+>
+> Start every VDD session on Codex with `codex --no-daemon`, and resume one with `codex resume --no-daemon`. Since 0.158, plain `codex` runs its sessions in a shared background server, and quitting the terminal only disconnects you ("Any running work continues"). A quit Orchestrator then keeps running the Coder and the Code-Reviewer, spending tokens you do not see. `--no-daemon` keeps the session in your terminal, so quitting stops it.
+>
+> Apps that run Codex on their own app server, such as T3 Code, stop a session when you close it and need no flag.
+
+To stop using VDD on Codex, delete the `Stop` entry that runs `vdd-codex-stop.sh`, or `vdd-codex-stop.ps1` on Windows, from `~/.codex/hooks.json`.
 
 </details>
 
@@ -294,7 +321,7 @@ Neither Role starts the next one. You carry a decided idea file to `/vdd:vdd-sta
 
 <div align="center">
 
-Built with its own workflow. Glossary in [`CONTEXT.md`](CONTEXT.md), decisions in [`docs/adr/`](docs/adr/), house rules in [`AGENTS.md`](AGENTS.md).
+Built with its own workflow. Glossary in [`GLOSSARY.md`](GLOSSARY.md), decisions in [`docs/adr/`](docs/adr/), house rules in [`AGENTS.md`](AGENTS.md).
 
 MIT · [ArchitektApx](https://github.com/ArchitektApx)
 

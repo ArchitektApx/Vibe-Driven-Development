@@ -10,7 +10,7 @@ You open a Vibe Driven Development loop. Your deliverable is `LOOP.md` at the
 repository root, the file every Role reads first. It is the only file you create
 or change: code belongs to the Coder, and the tracker directory
 `.scratch/<slug>/` is created by the Borrowed skill `to-spec` later, during the
-Planner's turn. The one exception is step 5, where you move an existing tracker
+Planner's turn. The one exception is step 4, where you move an existing tracker
 directory aside on the user's word.
 
 Work through the steps in order, each one on the answers the ones before it
@@ -39,42 +39,25 @@ itself, never from environment variables, binaries on `PATH`, or model and
 provider names: a wrapper can set any of those without offering the Harness's
 mechanics.
 
-## 3. Repository short name
-
-Propose the basename of `git rev-parse --show-toplevel`. The user confirms it
-or gives a shorter one. Ask once. This name prefixes every Session name, so it
-keeps names unique across the projects on this machine, and a long one is
-longer to type.
-
-## 4. Feature slug
+## 3. Feature slug
 
 Ask the user for one kebab-case Feature slug, matching
 `[a-z0-9]+(-[a-z0-9]+)*`. Reject anything else, say why, and ask again. The
 slug comes from the user and from nowhere else: it names the tracker directory
-and sits in the middle of both Session names, so the user owns it.
+and the feature branch step 5 proposes, so the user owns it.
 
-## 5. Leftover state from an earlier loop
+## 4. Leftover state from an earlier loop
 
 `vdd-setup` already asked about a leftover `LOOP.md`. Check whether
 `.scratch/<slug>/` exists. If it does not, carry on.
 
 If it does, an earlier Workflow used this slug and its Spec, its Tickets and
-its review files are all still in there. Put three answers to the user:
-continue that Workflow, start fresh on this slug, or use a different slug.
-Continue is the answer when that Workflow was interrupted, and only then.
-Starting fresh moves the directory aside, and the move happens before anything
-else writes under `.scratch/<slug>/`.
+its review files are all still in there. Read
+[the three answers for a leftover tracker directory](references/leftover-tracker.md)
+and put them to the user before anything else writes under
+`.scratch/<slug>/`.
 
-Before you put the question, read
-[what each answer does to those files](references/leftover-tracker.md); the
-user chooses on that.
-
-Delete nothing on any of the three answers. The earlier Workflow's directory is
-that Workflow's record, so a wrong answer here stays recoverable. Keep every
-path you touch under `.scratch/` inside this loop's slug or the name you moved
-the old one to.
-
-## 6. Branches
+## 5. Branches
 
 Base branch: read `git branch --show-current`. If it is empty, HEAD is
 detached; ask the user which branch is the base.
@@ -89,7 +72,7 @@ both reviewers need the two to differ, because every review diffs
 
 The Coder creates the branch when it starts, so this step ends on the two names.
 
-## 7. The Minors question
+## 6. The Minors question
 
 Ask the user once whether an open minor holds up Sign-off. Present these two
 answers and no other, in this order:
@@ -104,7 +87,7 @@ reviewers read the line this answer produces, and a reviewer that stops to ask
 the user a question stalls the Loop it is in, so this is the only place the
 question is asked.
 
-## 8. The PR question
+## 7. The PR question
 
 Ask the user once, now that the branches are settled, whether VDD should open
 the PR at the end of the Workflow. Present four answers, in this order, with
@@ -127,7 +110,7 @@ exit code alone and ignore stderr. They warn without blocking: the Workflow
 continues either way, and a broken `gh` login surfaces here instead of at
 Sign-off.
 
-## 9. The Fresh Coder question
+## 8. The Fresh Coder question
 
 Ask the user once whether the Orchestrator should spawn the Coder fresh when
 its context grows past a limit. Present these two answers, in this order:
@@ -138,14 +121,13 @@ its context grows past a limit. Present these two answers, in this order:
 
 Where your Harness file says to skip this question, follow it instead.
 
-## 10. Write `LOOP.md`
+## 9. Write `LOOP.md`
 
 Write it at the repository root, in this exact shape:
 
 ```markdown
 # VDD Loop
 
-Repository: <short>
 Feature: <slug>
 Base branch: <base>
 Feature branch: <branch>
@@ -154,43 +136,23 @@ Minors: <answer>
 PR: <answer>
 Fresh Coder: <answer>
 Harness: <Claude Code, Codex, Cursor, Copilot CLI or Generic>
-
-Sessions:
-- Planner: <short>-<slug>-Planner
-- Orchestrator: <short>-<slug>-Orchestrator
 ```
 
 The file holds these lines and stops.
 
-## 11. Hand over to the Planner
+## 10. Hand over to the Planner
 
-Print a closing summary of the Loop file you wrote. It names the Harness, and
-says the user corrects it by saying so now, before the Planner starts. On a
-correction, read the Harness file the index links for the corrected Harness,
-if any, and redo step 9 where the corrected Harness handles it differently:
-the question skipped on one Harness is asked on another, and the number
-offered changes. Rewrite `LOOP.md` with the corrected `Harness:` line and that
-answer, and print this step again.
+This Session is the Planner. Print a closing summary of the Loop file you
+wrote. It names the Harness, and says the user corrects it by saying so now,
+before the Planner starts. On a correction, read the Harness file the index
+links for the corrected Harness, if any, and redo step 8 where the corrected
+Harness handles it differently: the question skipped on one Harness is asked
+on another, and the number offered changes. Rewrite `LOOP.md` with the
+corrected `Harness:` line and that answer, and print this step again.
 
-End the summary with this, the real values filled in:
-
-> This Session is the Planner. Rename it to `<short>-<slug>-Planner` now. The
-> Orchestrator is the other Session this Workflow uses. It has nothing to do
-> until a Spec exists, so you open it when this Planner rings its first
-> Doorbell: <the Orchestrator launch>.
-
-Your Harness file gives the rename command and the Orchestrator launch. On
-Generic the launch is: open a second Session in the same Harness and invoke
-`vdd-orchestrator` there.
-
-Where your Harness file says the Harness delivers no Doorbell, and on Generic,
-leave the rename sentence out of the closing quote, because nothing is sent to
-a Session name there; `LOOP.md` still records both Session names.
-
-No agent can rename its own Session, so where the closing quote asks for the
-rename, the rename is the user's job. Either way, carry straight on:
-immediately invoke the `vdd-planner` skill in this same Session. If you cannot
-invoke skills, tell the user to invoke `vdd-planner` instead.
+Then carry straight on: immediately invoke the `vdd-planner` skill in this same
+Session. If you cannot invoke skills, tell the user to invoke `vdd-planner`
+instead.
 
 ## Harnesses
 
@@ -198,19 +160,3 @@ invoke skills, tell the user to invoke `vdd-planner` instead.
 - Codex: [`references/harness-codex.md`](references/harness-codex.md)
 - Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
 - Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
-
-## Reference files
-
-- [`references/leftover-tracker.md`](references/leftover-tracker.md): what
-  continuing, starting fresh and changing the slug each do to an existing
-  `.scratch/<slug>/`.
-- [`references/pr-preflight.md`](references/pr-preflight.md): the two commands
-  behind the `PR: yes` checks, the remote they share, and why their stderr is
-  ignored.
-- [`references/harness-claude-code.md`](references/harness-claude-code.md),
-  [`references/harness-codex.md`](references/harness-codex.md),
-  [`references/harness-cursor.md`](references/harness-cursor.md) and
-  [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
-  typed skill names, the Fresh Coder offer, the rename command or the
-  statement that the Harness delivers no Doorbell, and the Orchestrator launch
-  on each Harness.

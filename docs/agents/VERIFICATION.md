@@ -1,8 +1,14 @@
 # Verifying a change to this repository
 
-There is no build and no tests. A change is verified by reading, and these are
-the checks a reviewer applies, in this order. CI adds only the well-formedness
-checks listed under Invariants in `AGENTS.md`.
+There is no build, and two tests: the fixture tests for the Codex `Stop` hook
+and the Doorbell wait. A change is verified by reading, and these are the
+checks a reviewer applies, in this order. A change to a shipped script is also
+verified by running it: the Doorbell wait as a Role would, against a scratch
+Doorbell file, and the fixture tests, `sh tests/vdd-codex-stop.test.sh` for
+the POSIX scripts and `pwsh -NoProfile -File tests/vdd-codex-stop.test.ps1`
+for the PowerShell scripts, each of which must print no `FAIL` line and exit 0.
+The tests run by hand, from anywhere, never in CI. CI adds only the
+well-formedness checks listed under Invariants in `AGENTS.md`.
 
 ## Cold read
 
@@ -12,25 +18,17 @@ sense to someone who followed the conversation fails here.
 
 ## Vocabulary
 
-Every term is the one `CONTEXT.md` defines, and none from its `_Avoid_` lines.
+Every term is the one `GLOSSARY.md` defines, and none from its `_Avoid_` lines.
 A word the glossary lacks is a proposal for the glossary, not a coinage in one
 skill file.
 
 ## Rules
 
-ADR 0004 holds: a writing pass re-expresses a rule and never deletes one. A
-sentence is a guardrail when it names a behaviour a competent agent could
-plausibly get wrong in this workflow, and a guardrail keeps its prohibition
-beside the positive target. Everything else is a candidate no-op, written up as
-a proposal rather than removed. Where the test is balanced, git history or an
-ADR showing the sentence was added for a reason settles it as a guardrail.
-
-The evidence is the Rule inventory and the Lever log, both defined in
-`CONTEXT.md`: the inventory catches a deleted rule, the log catches a change
-made on taste. Both are written into the Working file of the Role that made the
-pass and stop there. A pull request body here carries nothing about the
-Workflow that produced it, which ADR 0012 decided, so no pass routes them
-onward into one.
+A cut keeps the guardrails, as ADR 0003 decides. For every sentence a change
+removes, the reviewer looks up why it was added: when the commit or an ADR
+shows it prevents a behaviour, the cut stands only if that behaviour can no
+longer happen or another sentence the same reader reads before acting now
+prevents it. A guardrail keeps its prohibition beside the positive target.
 
 ## Tells
 

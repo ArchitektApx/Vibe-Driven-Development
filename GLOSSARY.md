@@ -53,11 +53,11 @@ A Role and its reviewer exchanging a working file until sign-off. The workflow h
 _Avoid_: cycle, iteration, phase
 
 **Working file**:
-Scratch space for handoff between sessions, gitignored, never part of the user's project. The Loop file sits at the repository root; every other Working file sits in the tracker directory, the Spec and the Tickets alongside `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`. Matt Pocock's local-markdown issue tracker counts as a Working file because VDD is what invokes it.
+Scratch space for handoff between sessions, gitignored, never part of the user's project. The Loop file sits at the repository root; every other Working file sits in the tracker directory, the Spec and the Tickets alongside `PLAN-REVIEW.md`, `FIXES.md`, `CODEREVIEW.md` and the Doorbell file. Matt Pocock's local-markdown issue tracker counts as a Working file because VDD is what invokes it.
 _Avoid_: artifact, output, deliverable
 
 **Feature slug**:
-The kebab-case name of one Loop's piece of work, chosen by the user when the Loop starts. It names the tracker directory and sits in the middle of every Session name.
+The kebab-case name of one Loop's piece of work, chosen by the user when the Loop starts. It names the tracker directory, and Start-Loop proposes it as the feature branch.
 _Avoid_: feature name, ticket name, branch name
 
 **Tracker directory**:
@@ -65,7 +65,7 @@ _Avoid_: feature name, ticket name, branch name
 _Avoid_: scratch dir, feature folder, workspace
 
 **Loop file**:
-`LOOP.md` at the repository root. Records the Feature slug, the repository short name, the base branch, the feature branch, the tracker path, the `Minors:` line, the `PR:` line, the `Fresh Coder:` line, the Harness and the two Session names, so every Role reads them instead of asking. It is the one Working file outside the tracker directory, because every Role reads it before it knows a Feature slug and no tracker path resolves until it has. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
+`LOOP.md` at the repository root. Records the Feature slug, the base branch, the feature branch, the tracker path, the `Minors:` line, the `PR:` line, the `Fresh Coder:` line and the Harness, so every Role reads them instead of asking. It is the one Working file outside the tracker directory, because every Role reads it before it knows a Feature slug and no tracker path resolves until it has. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
 _Avoid_: session file, config, manifest
 
 **Spec**:
@@ -84,10 +84,6 @@ _Avoid_: prompt, instruction file, agent-facing doc
 A file under a Role skill's `references/` directory, read when a pointer in that skill's `SKILL.md` names the situation at hand. It ships inside the skill directory on every install route, so it is an Agent document like the skill file that points at it.
 _Avoid_: resource file, sibling file, appendix
 
-**Session name**:
-`<repository short name>-<Feature slug>-<Role>`, for example `VDD-new-release-Planner` or `VDD-new-release-Orchestrator`. There are two, the Planner's and the Orchestrator's. Set by the user rather than by an agent; it is the address a Doorbell is sent to. On a Harness that delivers no Doorbell the name is still recorded in the Loop file, and nothing is sent to it.
-_Avoid_: session id, title, label
-
 **Spawn prompt**:
 The prompt the Orchestrator spawns a hosted Role with. Names the Working files outright, tells the Role to invoke its skill, declares that an Orchestrator hosts this Workflow, and states the three prefixed return shapes. Carries the return contract; no Role skill does.
 _Avoid_: system prompt, task prompt, instructions
@@ -97,8 +93,16 @@ The Orchestrator's one blocking prompt, put to the user before its first spawn i
 _Avoid_: model prompt, model config, model check
 
 **Doorbell**:
-A fixed contract naming which Working file was written, which round, and the open findings per severity or `SIGNED OFF`, with no free text. Carried by whichever of four carriers the two ends have: a cross-session message from the Planner to the Orchestrator, the Orchestrator's relay of the Plan-Reviewer's Doorbell back to the Planner, a hosted Role's return value to the Orchestrator, or the Orchestrator's resume message waking a hosted Role.
+A fixed contract naming which Working file was written, which round, and the open findings per severity or `SIGNED OFF`, with no free text. Carried by whichever of four carriers the two ends have: a cross-session message from the Planner to the Orchestrator, the Orchestrator's relay of the Plan-Reviewer's Doorbell back to the Planner, a hosted Role's return value to the Orchestrator, or the Orchestrator's resume message waking a hosted Role. The two cross-session Doorbells, the Planner's to the Orchestrator and the Orchestrator's relay back to the Planner, are appended to the Doorbell file on every Harness but Generic and printed for a paste on Generic. Every ring prints the line on the other Harnesses too, for a paste where the other Session does not wake.
 _Avoid_: notification, handoff message, ping
+
+**Doorbell file**:
+`.scratch/<feature slug>/doorbells`, the append-only Working file in the tracker directory that carries a cross-session Doorbell. Holds one line per ring, addressed to the Role that receives it. On Codex a waiting Role also writes an armed file beside it, `armed-<thread id>`, which the `Stop` hook claims.
+_Avoid_: doorbell log, mailbox, inbox
+
+**Shared directory**:
+`${XDG_DATA_HOME:-$HOME/.local/share}/vdd/` on macOS and Linux and `%LOCALAPPDATA%\vdd\` on native Windows, outside the project, where Setup copies the scripts the plugin ships and from which the Planner, the Orchestrator and the Codex `Stop` hook run them through a named shell: `sh`, or `powershell.exe -NoProfile -ExecutionPolicy Bypass -File` on native Windows. One per machine, shared by every Workflow on every Harness but Generic.
+_Avoid_: install directory, scripts folder, hooks directory
 
 **Sign-off**:
 The literal line `SIGNED OFF` at the top of a review file. The only thing that ends a Loop, withheld while a blocker or a major is open and, on a Minors answer of `fix`, while any minor is open; hedged approval is not sign-off.
@@ -116,30 +120,22 @@ _Avoid_: restart rule, context limit, respawn flag
 A minor the latest review lists as `open`; a minor the reviewer marked `fixed` or `accepted` is closed. On a Minors answer of `fix` an open minor holds up Sign-off, and on `leave` it does not.
 _Avoid_: outstanding nit, unresolved comment, leftover
 
-**Rule inventory**:
-One entry per behavioural rule in an Agent document, taken before a writing pass over it and marked afterwards as unchanged, re-expressed or proposed for deletion. Written into the Working file of the Role that made the pass, where it is the evidence that no rule left the document.
-_Avoid_: rule list, checklist, audit
-
-**Lever log**:
-One entry per passage a writing pass changed, naming the lever from `writing-for-agents` that the passage broke, in that skill's own term. Written beside the Rule inventory, where it is the evidence that no change was made on taste.
-_Avoid_: change log, diff summary, rationale
-
 ## Skill dependencies
 
 **Borrowed skill**:
-A skill from another collection that a Role depends on but does not ship. From Matt Pocock's collection: `setup-matt-pocock-skills`, `grill-with-docs`, `improve-codebase-architecture`, `to-spec`, `to-tickets`, `wayfinder` (all User-invoked), and `code-review`, `writing-for-agents` and `grilling` (agent-invocable).
+A skill from another collection that a Role depends on but does not ship. From Matt Pocock's collection: `setup-matt-pocock-skills`, `grill-with-docs`, `improve-codebase-architecture`, `to-spec`, `to-tickets`, `wayfinder` (all User-invoked), and `code-review`, `writing-for-agents`, `grilling`, `domain-modeling`, `codebase-design`, `research` and `prototype` (agent-invocable).
 _Avoid_: external skill, third-party skill, dependency
 
 **User-invoked**:
-A property of a skill whose author blocked agents from starting it, so only a human typing the slash command can. All Borrowed skills except `code-review`, `writing-for-agents` and `grilling` are user-invoked. In Claude Code, Cursor and Copilot CLI this is `disable-model-invocation: true` in the frontmatter; in Codex, `policy.allow_implicit_invocation: false`.
+A property of a skill whose author blocked agents from starting it, so only a human typing the slash command can. All Borrowed skills except `code-review`, `writing-for-agents`, `grilling`, `domain-modeling`, `codebase-design`, `research` and `prototype` are user-invoked. In Claude Code, Cursor and Copilot CLI this is `disable-model-invocation: true` in the frontmatter; in Codex, `policy.allow_implicit_invocation: false`.
 _Avoid_: manual, disabled, blocked
 
 **Present**:
-A Borrowed skill's `SKILL.md` exists in a known store on this machine. Says nothing about whether any Harness can run it.
+A Borrowed skill's `SKILL.md` exists in a store the Harness this Session runs in reads. Says nothing about whether this Session can run it.
 _Avoid_: installed, downloaded
 
 **Resolvable**:
-The Harness this Session runs in can run a Borrowed skill. Present is necessary but not sufficient: a Borrowed skill sitting in a store this Harness was never wired to is Present and not Resolvable.
+This Session can run a Borrowed skill. Present is not sufficient: a skill in a store the Harness reads that this Session has not loaded, through a Session that predates the install or a disabled plugin, is Present and not Resolvable. A skill this Session runs from a store Setup does not search is Resolvable and not Present.
 _Avoid_: available, wired, active, visible
 
 **Sibling probe**:

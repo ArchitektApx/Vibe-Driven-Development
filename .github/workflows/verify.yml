@@ -4,7 +4,7 @@ name: Verify
 # from the PR head, so it must not have write access or secrets.
 on:
   push:
-    branches: [master]
+    branches: ['**']
   pull_request:
 
 permissions:
@@ -108,9 +108,9 @@ jobs:
           '
 
       # A file under a skill directory that its skill file does not link is a
-      # file no reader can be sent to. The index section every split skill
-      # carries is what makes a direct link enough, so this needs no
-      # transitive crawl.
+      # file no reader can be sent to. Each file is linked from the step in
+      # SKILL.md that reads it, a Harness file from ## Harnesses, which is what
+      # makes a direct link enough, so this needs no transitive crawl.
       - name: Every file under a skill is linked from its skill file
         run: |
           node -e '
@@ -280,10 +280,13 @@ jobs:
             exit 1
           fi
 
-      # This repository is prose only. Hooks, MCP servers, symlinks and
-      # executables all end up on every installer's machine and none of them
-      # is needed here. If one is ever added deliberately, edit this step in
-      # the same PR so the reviewer sees both.
+      # This plugin ships prose and shell scripts at mode 644 that a Role runs
+      # through `sh`, or on native Windows through `powershell.exe -NoProfile
+      # -ExecutionPolicy Bypass -File`, and no hooks, MCP servers, symlinks or
+      # executable files.
+      # Those four end up on every installer's machine and none of them is
+      # needed here. If one is ever added deliberately, edit this step in the
+      # same PR so the reviewer sees both.
       - name: Reject executable surface
         run: |
           rc=0
@@ -314,4 +317,99 @@ jobs:
               echo "$f: top-level keys other than interface and policy:"; echo "$bad"; rc=1
             fi
           done < <(find skills -type f -path '*/agents/openai.yaml')
+          exit $rc
+
+      # release.yml is the one workflow that may write to the repository, and
+      # only from a version tag push or a workflow_dispatch. A pull_request
+      # trigger there would run PR-head content with write access, and write
+      # access anywhere else widens what any push or PR can do. The runner has
+      # no YAML parser, so these are text checks on the lines that are not
+      # comments. The patterns are spelled so this step's own text never
+      # matches them when verify.yml itself is checked.
+      - name: Only release.yml grants write access
+        run: |
+          rc=0
+          r=.github/workflows/release.yml
+          [ -f "$r" ] || { echo "missing $r"; exit 1; }
+          trig=$(awk '/^[[:space:]]*#/ {next} /^on:[[:space:]]*$/ {f=1; next} /^[^[:space:]]/ {f=0} f && /^  [^[:space:]]/ {sub(/:.*/, ""); sub(/^ +/, ""); print}' "$r" | sort | paste -sd' ' -)
+          [ "$trig" = "push workflow_dispatch" ] || { echo "$r: triggers are '$trig', expected push and workflow_dispatch"; rc=1; }
+          push=$(awk '/^[[:space:]]*#/ {next} /^on:[[:space:]]*$/ {o=1; next} /^[^[:space:]]/ {o=0} o && /^  push:/ {p=1; next} o && /^  [^[:space:]]/ {p=0} o && p && /^    [^[:space:]]/ {sub(/:.*/, ""); sub(/^ +/, ""); print}' "$r" | sort | paste -sd' ' -)
+          [ "$push" = "tags" ] || { echo "$r: push filters are '$push', expected tags only"; rc=1; }
+          if awk '/^[[:space:]]*#/ {next} /pull_request/ {f=1} END {exit !f}' "$r"; then
+            echo "$r: names a pull_request trigger"; rc=1
+          fi
+          perms=$(awk '/^[[:space:]]*#/ {next} /^permissions:/ {f=1; print; next} /^[^[:space:]]/ {f=0} f && NF' "$r" | paste -sd'|' -)
+          [ "$perms" = "permissions:|  contents: read" ] || { echo "$r: workflow-level permissions are '$perms', expected contents read"; rc=1; }
+          if ! awk '/^[[:space:]]*#/ {next} /^jobs:/ {j=1} !j && /contents:[[:space:]]*writ[e]/ {f=1} END {exit f}' "$r"; then
+            echo "$r: grants contents write access outside a job"; rc=1
+          fi
+          writes=$(awk '/^[[:space:]]*#/ {next} /contents:[[:space:]]*writ[e]/ {n++} END {print n+0}' "$r")
+          [ "$writes" = 1 ] || { echo "$r: grants contents write access in $writes places, expected the release job alone"; rc=1; }
+          for f in .github/workflows/*.yml .github/workflows/*.yaml; do
+            [ -f "$f" ] || continue
+            if awk '/^[[:space:]]*#/ {next} /write[-]all/ {f=1} END {exit !f}' "$f"; then
+              echo "$f: grants every permission at once"; rc=1
+            fi
+            [ "$f" = "$r" ] && continue
+            if awk '/^[[:space:]]*#/ {next} /contents:[[:space:]]*writ[e]/ {f=1} END {exit !f}' "$f"; then
+              echo "$f: grants contents write access, which only release.yml's release job may"; rc=1
+            fi
+          done
+          exit $rc
+
+      # A Role runs a shipped shell script in the user's Session, a .sh with
+      # sh and, on native Windows, a .ps1 through `powershell.exe -NoProfile
+      # -ExecutionPolicy Bypass -File`, so a syntax error reaches them as a
+      # script that fails on its first run. find, not git ls-files, so a plain
+      # copy of the tree is checked too.
+      - name: Shell scripts under skills parse
+        run: |
+          rc=0
+          while IFS= read -r f; do
+            sh -n "$f" || { echo "does not parse: $f"; rc=1; }
+          done < <(find skills -type f -name '*.sh')
+          exit $rc
+
+      # On native Windows a Role runs a shipped .ps1 through `powershell.exe
+      # -NoProfile -ExecutionPolicy Bypass -File`, which is Windows PowerShell
+      # 5.1 on a machine without PowerShell 7. The 7 parser here accepts
+      # tokens 5.1 cannot parse, so those token kinds fail the step too.
+      # find, not git ls-files, so a plain copy of the tree is checked too.
+      - name: PowerShell scripts under skills parse
+        run: |
+          PS1_FILES=$(find skills -type f -name '*.ps1') pwsh -NoProfile -NonInteractive -Command '
+            $banned = @("AndAnd", "OrOr", "QuestionQuestion", "QuestionQuestionEquals", "QuestionMark", "QuestionDot", "QuestionLBracket")
+            $rc = 0
+            function Find-Banned($tokens) {
+              foreach ($t in $tokens) {
+                if ($banned -contains $t.Kind.ToString()) { $t }
+                if ($t.PSObject.Properties["NestedTokens"] -and $t.NestedTokens) { Find-Banned $t.NestedTokens }
+              }
+            }
+            foreach ($f in ($env:PS1_FILES -split "`n" | Where-Object { $_ -ne "" })) {
+              $tokens = $null
+              $errors = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path -LiteralPath $f).Path, [ref]$tokens, [ref]$errors)
+              foreach ($e in $errors) {
+                Write-Host ("does not parse: {0}:{1}: {2}" -f $f, $e.Extent.StartLineNumber, $e.Message)
+                $rc = 1
+              }
+              foreach ($t in (Find-Banned $tokens)) {
+                Write-Host ("Windows PowerShell 5.1 cannot parse {0}: {1}:{2}: {3}" -f $t.Kind, $f, $t.Extent.StartLineNumber, $t.Text)
+                $rc = 1
+              }
+            }
+            exit $rc
+          '
+
+      # Windows PowerShell 5.1 reads a script without a byte order mark in the
+      # ANSI code page, so a non-ASCII byte in a shipped script reaches it as
+      # a different character. find, not git ls-files, so a plain copy of the
+      # tree is checked too.
+      - name: Shell scripts under skills are ASCII
+        run: |
+          rc=0
+          while IFS= read -r f; do
+            perl -ne 'if (/[^\x09\x0a\x0d\x20-\x7e]/) { print "non-ASCII byte: $ARGV:$.\n"; $bad = 1 } END { exit($bad ? 1 : 0) }' "$f" || rc=1
+          done < <(find skills -type f \( -name '*.sh' -o -name '*.ps1' \))
           exit $rc

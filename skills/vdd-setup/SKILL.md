@@ -17,7 +17,7 @@ Harness is Generic, and the inline text is complete.
 
 Check, in order:
 
-1. **Borrowed skills.** The Roles depend on nine skills from Matt Pocock's
+1. **Borrowed skills.** The Roles depend on 13 skills from Matt Pocock's
    collection:
 
    | Borrowed skill | Invoked by | Needed by |
@@ -30,40 +30,41 @@ Check, in order:
    | `wayfinder` | the user | Wayfinder |
    | `code-review` | an agent | Code-Reviewer |
    | `writing-for-agents` | an agent | Planner, Plan-Reviewer, Code-Reviewer |
-   | `grilling` | an agent | Brainstormer |
+   | `grilling` | an agent | Planner, Wayfinder, Brainstormer |
+   | `domain-modeling` | an agent | Planner, Wayfinder |
+   | `codebase-design` | an agent | Planner |
+   | `research` | an agent | Wayfinder |
+   | `prototype` | an agent | Wayfinder |
 
    The six user-invoked ones were blocked from model invocation by their
    author, so they never appear in your own skill list even when correctly
    installed. Answer for them on the two separate conditions below.
 
-   **Present.** Search for the files, not the directories, so that a dangling
-   symlink reads as absent:
+   **Present.** Search the roots your Harness file writes out, and only
+   those: a skill found in a store your Harness does not read is not there
+   for this Harness. On Generic, nobody knows which stores the Harness reads,
+   so search the union of every Harness's roots, which the search file below
+   writes out.
 
-   ```
-   ~/.agents/skills/*/SKILL.md
-   ./.agents/skills/*/SKILL.md
-   ~/.claude/skills/*/SKILL.md
-   ./.claude/skills/*/SKILL.md
-   ~/.claude/plugins/cache/*/mattpocock-skills/*/skills/**/SKILL.md
-   ~/.codex/plugins/cache/**/SKILL.md
-   ```
+   Setup runs from the repository root, and `./` is that root as it stands.
+   Run the search on every Harness, in place of any search tool your Harness
+   gives you: [the find loop](references/present-search-posix.md) in a POSIX
+   shell, Git Bash on native Windows included, and
+   [the PowerShell search](references/present-search-windows.md) in
+   PowerShell. Each applies the relocation variables and follows symlinked
+   skill directories the same way everywhere, and a Harness's own search tool
+   may do neither.
 
-   Search every root on every Harness, and match on the trailing path
-   `<skill>/SKILL.md` rather than a fixed depth.
-
-   Use your file-search tool if you have one; otherwise run
-   [the find loop](references/present-search.md).
-
-   **Resolvable.** Present only means the file exists somewhere; it does not
-   mean this Harness can run it. Answer this one from your own skill list
-   alone, leaving symlink targets and other Harnesses' directories where they
-   are. Only your own resolution matters, because the user will be running the
-   loop in this Harness.
+   **Resolvable.** Present means the file sits in a store this Harness reads;
+   it does not mean this Session has loaded it. Answer this one from your own
+   skill list alone, leaving symlink targets and other Harnesses' directories
+   where they are. Only your own resolution matters, because the user will be
+   running the loop in this Harness.
 
    Probe your own skill list for `writing-for-agents`. It is Borrowed in its
    own right and agent-invocable, so a wired collection puts it in your skill
    list, and the name is the collection's alone, so a hit needs no reading. A
-   hit answers Resolvable for all nine.
+   hit answers Resolvable for all 13.
 
    A miss proves nothing, because these collections can be installed one skill
    at a time. `code-review` is agent-invocable too, but a hit on it counts only
@@ -75,31 +76,44 @@ Check, in order:
    Report the result as one of three states:
 
    - **Present and Resolvable.** Passed, say nothing further.
-   - **Present but not Resolvable.** Installed, not wired to this Harness.
-   - **Not Present.** Tell the user to install the whole collection.
+   - **Present but not Resolvable.** The skill sits in a store this Harness
+     reads, and this Session has not loaded it.
+   - **Not Present.** Tell the user to install the whole collection, with the
+     commands the repairs below name for your Harness.
 
-   Not Present for `writing-for-agents` alone, with the other eight Present, is
-   an old collection rather than a missing one, and telling that user to
-   install a collection they already have is the wrong advice.
+   A fourth case passes too: **Resolvable with no search hit.** This Session
+   can run the collection, and the search found some of the 13 in no store
+   it searched, so they resolve from a store Setup does not search. Do not
+   report those skills as Not Present, and give no repair for them. Report
+   them in one line that names whichever of the 13 had no hit:
 
-   In either failing state, and on that old-collection shape, read
-   [the repair for the store the files came from](references/repairs.md),
-   in the section for your Harness where the route differs, and give the user
-   the commands it names.
+   ```
+   <skills>: Resolvable from a store Setup does not search. Passed.
+   ```
 
-   Name what a failure costs each Role, in these words. A missing or
-   unresolvable `grill-with-docs`, `improve-codebase-architecture`, `to-spec` or
-   `to-tickets` blocks the Planner. A missing or unresolvable `code-review`
-   blocks the Code-Reviewer. A missing or unresolvable `wayfinder` blocks the Wayfinder. A
-   missing or unresolvable `writing-for-agents` degrades the Planner, the
-   Plan-Reviewer and the Code-Reviewer instead of blocking them: each drops
-   its writing pass, records that in the file it writes, and carries on. A
-   missing or unresolvable `grilling` degrades the Brainstormer the same way:
-   it talks the idea through without grilling. The Brainstormer and the
-   Wayfinder check their own Borrowed skill when they start, so each of those
-   two failures surfaces again at the Role. The Coder is the only Role that
-   borrows nothing, and a user resuming mid-workflow is stopped by the
-   `code-review` finding alone.
+   Where your Harness file gives a continuation for this line, add it to the
+   line.
+
+   Not Present for `writing-for-agents` alone, with the other 12 Present, is
+   an old collection rather than a missing one: a collection from before the
+   glossary rename. Telling that user to install a collection they already
+   have is the wrong advice.
+
+   Last, whatever state the 13 are in, read `domain-modeling`'s description
+   in your own skill list; this runs no command. When `domain-modeling` is
+   listed and its description does not name `GLOSSARY.md`, report a
+   collection from before the glossary rename, as a warning that does not
+   block, with the update route the repairs below give for the store the
+   collection was found in. That one route replaces the Not Present route for
+   every Borrowed skill Not Present, because the update brings them all. When
+   `domain-modeling` is not in your skill list, say nothing about it.
+
+   In either failing state, and on a collection from before the glossary
+   rename, reached by either shape above, read
+   [the repairs](references/repairs.md) before you report: what the failure
+   costs each Role, and your Harness's section, the Generic section on
+   Generic. Take the route for the store the files came from, and give the
+   user the commands it names.
 
 2. **Tracker configured.** `to-spec`, `to-tickets` and `code-review` all read
    `docs/agents/issue-tracker.md` to learn where specs and tickets live, and
@@ -116,32 +130,72 @@ Check, in order:
    note it and continue. VDD works with any tracker the collection supports,
    but the Roles are written for local markdown under `.scratch/<slug>/`.
 
-3. **Git repository.** The workflow needs one. If this directory is not a repository, ask before running `git init`.
-4. **Gitignore.** The loop's working files are scratch space, and `.gitignore`
-   is what keeps them out of the user's history. Ensure `.gitignore` covers
-   `LOOP.md` and `.scratch/`; add either one that is missing. `.scratch/` is
-   the Borrowed tracker directory, and VDD is what invokes it here, so it is
-   scratch space like the rest. It is also where the three review files are
-   written, so its entry covers them.
+3. **A repository set up before the glossary rename.** Matt Pocock's
+   collection renamed `CONTEXT.md` to `GLOSSARY.md` and `CONTEXT-MAP.md` to
+   `GLOSSARY-MAP.md`, and rerunning `setup-matt-pocock-skills` does not
+   migrate a repository. Read the files with your own tools; this check runs
+   no command. It fires when `docs/agents/domain.md` names `CONTEXT.md` or
+   `CONTEXT-MAP.md`, or when a root `CONTEXT.md` or `CONTEXT-MAP.md` exists
+   with no `GLOSSARY.md` and no `GLOSSARY-MAP.md` at the root. Otherwise say
+   nothing.
+
+   When it fires, report a repository set up before the glossary rename, as a
+   warning that does not block, and give the user:
+
+   - A `git mv` for each old file that exists: `git mv CONTEXT.md
+     GLOSSARY.md`, `git mv CONTEXT-MAP.md GLOSSARY-MAP.md`, and for each
+     per-context `CONTEXT.md` that `CONTEXT-MAP.md` lists, a `git mv` to
+     `GLOSSARY.md` in the same directory.
+   - Where a `GLOSSARY.md` already exists beside an old `CONTEXT.md`, in place
+     of its `git mv`: merge the old terms into `GLOSSARY.md`, then remove
+     `CONTEXT.md`.
+   - The two files to edit so they name the new files: `docs/agents/domain.md`,
+     and `AGENTS.md` or `CLAUDE.md`, whichever holds the collection's setup
+     section.
+   - The full steps:
+     `https://github.com/ArchitektApx/Vibe-Driven-Development/blob/master/CHANGELOG.md#migrating-from-014`
+
+4. **Git repository.** The workflow needs one. If this directory is not a repository, ask before running `git init`.
+5. **Gitignore.** Ensure `.gitignore` covers `LOOP.md` and `.scratch/`, the
+   loop's scratch space, which also holds the review files; add either one
+   that is missing.
 
    Then remove the four entries VDD no longer maintains: `PLAN.md`,
-   `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`. A user upgrading from an
-   earlier release has them, and no file can appear at any of those paths in
-   this release. Name in your report which of the four you removed, because
-   this edits a file the user tracks.
+   `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`. Name in your report which
+   of the four you removed, because this edits a file the user tracks.
 
    Remove a line only when the whole line, trimmed of surrounding whitespace,
    equals one of those four names. A line that merely contains one of them,
    `docs/PLAN.md` or `!PLAN.md` or `PLAN.md.bak`, is the user's own and stays:
    `PLAN.md` is a name anyone may ignore for reasons of their own.
-5. **Stale working files.** If `LOOP.md` already exists from a previous loop,
+6. **Stale working files.** If `LOOP.md` already exists from a previous loop,
    ask whether to delete it before starting fresh. Delete only between loops.
    It is the one working file you can find from here: the rest live under
    `.scratch/<slug>/`, and `vdd-start-loop` asks about that directory once
    the user has named the slug, because from here you cannot know which feature
    is stale.
+7. **Shared scripts.** Where your Harness file says this check applies, read
+   how to install the shared scripts and follow it: on native Windows, when
+   your Harness reports the platform as Windows,
+   [`script-install-windows.md`](references/script-install-windows.md), which
+   copies [`doorbell-wait.ps1`](references/doorbell-wait.ps1) and
+   [`vdd-codex-stop.ps1`](references/vdd-codex-stop.ps1); on macOS and Linux,
+   WSL included, [`script-install-unix.md`](references/script-install-unix.md),
+   which copies [`doorbell-wait.sh`](references/doorbell-wait.sh) and
+   [`vdd-codex-stop.sh`](references/vdd-codex-stop.sh). A command your
+   Harness refuses is no reason to skip this check: the file says how to
+   escalate it. Where your Harness file says nothing about this check, and on
+   Generic, skip it silently: a Generic loop relays every Doorbell by hand and
+   runs no script.
+8. **The Codex `Stop` hook.** On Codex, once the shared scripts check has run,
+   register the hook that wakes a waiting Codex Planner or Orchestrator: on
+   native Windows
+   [`codex-stop-hook-windows.md`](references/codex-stop-hook-windows.md), on
+   macOS and Linux [`codex-stop-hook-unix.md`](references/codex-stop-hook-unix.md).
 
-Finish with a short status report: what passed, what you fixed, what the user still has to do.
+Finish with a short status report: what passed, what you fixed, what the user
+still has to do, and each glossary-rename warning from checks 1 and 3, named as
+a warning.
 
 ## Harnesses
 
@@ -149,21 +203,3 @@ Finish with a short status report: what passed, what you fixed, what the user st
 - Codex: [`references/harness-codex.md`](references/harness-codex.md)
 - Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
 - Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
-
-## Reference files
-
-- [`references/present-search.md`](references/present-search.md): the search
-  roots, and why the Present search filters with `grep` and takes one skill per
-  invocation.
-- [`references/resolvable-probes.md`](references/resolvable-probes.md): the
-  sibling names to probe after `writing-for-agents` misses, how to read a bare
-  `code-review` hit, and the question to put to the user when nothing hits.
-- [`references/repairs.md`](references/repairs.md): the repair for each failing
-  state, keyed on the store the files were found in and on the Harness, and the
-  update route for a collection that predates `writing-for-agents`.
-- [`references/harness-claude-code.md`](references/harness-claude-code.md),
-  [`references/harness-codex.md`](references/harness-codex.md),
-  [`references/harness-cursor.md`](references/harness-cursor.md) and
-  [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
-  typed skill names, what each Harness lists under the name `code-review`, and
-  on Codex the restart a new skill needs.

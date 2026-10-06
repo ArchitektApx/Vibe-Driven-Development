@@ -4,11 +4,9 @@
 
 Probe your own skill list for another of the collection's skills that is not
 user-invoked: `grilling`, `codebase-design`, `domain-modeling`, `tdd`,
-`research`, `prototype`, `diagnosing-bugs`, `resolving-merge-conflicts`. A hit
-means the collection is wired to this Harness, which answers Resolvable for all
-nine. A miss on `writing-for-agents`
-followed by a hit further down the list means the collection is Resolvable and
-`writing-for-agents` is not.
+`research`, `prototype`, `diagnosing-bugs`. A hit
+means the collection is wired to this Harness: the other 12 are
+Resolvable, and `writing-for-agents`, which missed, is not.
 
 ## Reading a `code-review` hit
 
@@ -32,6 +30,6 @@ followed by a hit further down the list means the collection is Resolvable and
 ## On a miss across the whole list, or a skill list you cannot inspect
 
 Ask the user to invoke `writing-for-agents` and tell you whether it resolves.
-That one question answers the collection and the seventh skill together, and a
-miss on it followed by a `grill-with-docs` hit is the collection that predates
-the skill.
+That one question answers the collection and `writing-for-agents` together,
+and a miss on it followed by a `grill-with-docs` hit is a collection from
+before the glossary rename, which takes that case in the repairs.

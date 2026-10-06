@@ -11,12 +11,11 @@ back to the Coder, and the fixes are its job.
 
 ## The Loop file
 
-Read `LOOP.md` at the repository root first. It names the repository short
-name, the Feature slug, the base branch, the feature branch, the tracker path
-(`.scratch/<slug>/`), the `Minors:` line, the `PR:` line, the `Fresh Coder:`
-line, the `Harness:` line and the two Session names. If it does not exist,
-stop and tell the user to invoke `vdd-start-loop` in a Planner Session; do not
-guess a slug.
+Read `LOOP.md` at the repository root first. It names the Feature slug, the
+base branch, the feature branch, the tracker path (`.scratch/<slug>/`), the
+`Minors:` line, the `PR:` line, the `Fresh Coder:` line and the `Harness:`
+line. If it does not exist, stop and tell the user to invoke `vdd-start-loop`
+in a Planner Session; do not guess a slug.
 
 Read the `Harness:` line of the Loop file. If this skill's Harnesses index
 links a file for that Harness, read it now, once. Otherwise the inline text is
@@ -53,6 +52,13 @@ which name to try first.
 Paste the skill's `## Standards` and `## Spec` output verbatim into
 `CODEREVIEW.md`, under a `## code-review` heading.
 
+`code-review` hands the Standards and Spec reviews to two sub-agents, and
+their reports are what you paste. Wait for both inside your turn, with the
+call your Harness file names where it names one, and write `CODEREVIEW.md`
+once both have reported back. Step 1 is done when both reports are in the
+file and nothing you started is still running: work left running holds your
+Doorbell back from the Orchestrator.
+
 If the Borrowed skill is not Resolvable, say so in `CODEREVIEW.md` and review
 the Spec axis by hand.
 
@@ -73,31 +79,22 @@ Judge the implementation on:
 - Does the diff contain anything the Spec and Tickets did not ask for?
 - Is the code correct? Look for edge cases, error handling gaps, and
   regressions in surrounding code.
-- Did verification pass? Rerun it yourself: the Coder's captured output is its
-  claim, and your run is the check.
+- Did verification pass? Rerun it yourself, each command in your own shell as
+  the Ticket writes it: the Coder's captured output is its claim, and your run
+  is the check.
 - Are the deviations recorded in `FIXES.md` justified?
 
 ## Step 3: the Agent documents in the diff
 
 This step fires when the diff touches an Agent document: a skill file, an
 `AGENTS.md`, a `CLAUDE.md`, or any document one of those points at. The Spec and
-the Tickets are Agent documents too, on the rare branch that changes them.
+the Tickets are Agent documents too, on the rare branch that changes them. When
+it fires, read [the Agent document review](references/agent-documents.md) and
+run it. The step is done when you have invoked `writing-for-agents` and
+checked every added or changed line of those files against its levers.
 
-When it fires, invoke `writing-for-agents` and check the added and changed lines
-of those files against its levers. Those lines are the whole object of the step.
-Source files in the same diff stay out of it, and so do the Agent document lines
-the branch left alone: agent-writing levers read over application code produce
-findings the Coder cannot act on, and levers read over untouched lines produce
-findings this branch did not earn.
-
-Name the lever a finding breaks in the term `writing-for-agents` uses for it.
-That Borrowed skill ships with the collection and is the single source of truth
-for the levers, so read them there. Severity follows consequence, on the same
-scale as every other finding: a defect that leaves a step ambiguous is a major,
-sprawl that costs tokens without changing behaviour is a minor.
-
-Two outcomes leave the step with nothing to say, and each is one line above
-finding 1: `Step 3: no Agent document in the diff.` or
+Only two outcomes leave the step with nothing to say, and each is one line
+above finding 1: `Step 3: no Agent document in the diff.` or
 `Step 3: writing-for-agents did not resolve.`
 
 ## Write `CODEREVIEW.md`
@@ -174,14 +171,6 @@ you report to the user and do not act on.
 ## Harnesses
 
 - Claude Code: [`references/harness-claude-code.md`](references/harness-claude-code.md)
-- Codex: none: the inline text is complete
+- Codex: [`references/harness-codex.md`](references/harness-codex.md)
 - Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
 - Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
-
-## Reference files
-
-- [`references/harness-claude-code.md`](references/harness-claude-code.md),
-  [`references/harness-cursor.md`](references/harness-cursor.md) and
-  [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md):
-  which `code-review` to use and the other skills that share its name, and the
-  typed skill names, on each Harness.

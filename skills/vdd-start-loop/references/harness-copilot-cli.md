@@ -7,9 +7,5 @@
   Copilot CLI reports no context size for a subagent, so the Orchestrator
   would have no size to hold against a limit. Say in the closing summary that
   the user can ask the Orchestrator for a fresh Coder at any round.
-- **Doorbell delivery.** None: this Harness delivers no Doorbell into a
-  running Session.
-- **The Orchestrator launch.** `copilot` in a terminal in this repository,
-  then `/vdd:vdd-orchestrator` in that Session.
 
 Trust your live tools over this file when they disagree.
