@@ -78,6 +78,9 @@ behaviour alone.
 Commit signing, SHA pinning and the workflow-registration quirk are in
 `docs/agents/LANDING-A-CHANGE.md`.
 
+A release follows the steps in
+[`docs/agents/LANDING-A-CHANGE.md#releasing`](docs/agents/LANDING-A-CHANGE.md#releasing).
+
 ## Invariants
 
 This repository is a supplier: everything committed here is cloned onto every
