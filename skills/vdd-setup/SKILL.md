@@ -17,7 +17,7 @@ Harness is Generic, and the inline text is complete.
 
 Check, in order:
 
-1. **Borrowed skills.** The Roles depend on nine skills from Matt Pocock's
+1. **Borrowed skills.** The Roles depend on 13 skills from Matt Pocock's
    collection:
 
    | Borrowed skill | Invoked by | Needed by |
@@ -30,7 +30,11 @@ Check, in order:
    | `wayfinder` | the user | Wayfinder |
    | `code-review` | an agent | Code-Reviewer |
    | `writing-for-agents` | an agent | Planner, Plan-Reviewer, Code-Reviewer |
-   | `grilling` | an agent | Brainstormer |
+   | `grilling` | an agent | Planner, Wayfinder, Brainstormer |
+   | `domain-modeling` | an agent | Planner, Wayfinder |
+   | `codebase-design` | an agent | Planner |
+   | `research` | an agent | Wayfinder |
+   | `prototype` | an agent | Wayfinder |
 
    The six user-invoked ones were blocked from model invocation by their
    author, so they never appear in your own skill list even when correctly
@@ -60,7 +64,7 @@ Check, in order:
    Probe your own skill list for `writing-for-agents`. It is Borrowed in its
    own right and agent-invocable, so a wired collection puts it in your skill
    list, and the name is the collection's alone, so a hit needs no reading. A
-   hit answers Resolvable for all nine.
+   hit answers Resolvable for all 13.
 
    A miss proves nothing, because these collections can be installed one skill
    at a time. `code-review` is agent-invocable too, but a hit on it counts only
@@ -78,10 +82,10 @@ Check, in order:
      commands the repairs below name for your Harness.
 
    A fourth case passes too: **Resolvable with no search hit.** This Session
-   can run the collection, and the search found some of the nine in no store
+   can run the collection, and the search found some of the 13 in no store
    it searched, so they resolve from a store Setup does not search. Do not
    report those skills as Not Present, and give no repair for them. Report
-   them in one line that names whichever of the nine had no hit:
+   them in one line that names whichever of the 13 had no hit:
 
    ```
    <skills>: Resolvable from a store Setup does not search. Passed.
@@ -90,11 +94,22 @@ Check, in order:
    Where your Harness file gives a continuation for this line, add it to the
    line.
 
-   Not Present for `writing-for-agents` alone, with the other eight Present, is
-   an old collection rather than a missing one, and telling that user to
-   install a collection they already have is the wrong advice.
+   Not Present for `writing-for-agents` alone, with the other 12 Present, is
+   an old collection rather than a missing one: a collection from before the
+   glossary rename. Telling that user to install a collection they already
+   have is the wrong advice.
 
-   In either failing state, and on that old-collection shape, read
+   Last, whatever state the 13 are in, read `domain-modeling`'s description
+   in your own skill list; this runs no command. When `domain-modeling` is
+   listed and its description does not name `GLOSSARY.md`, report a
+   collection from before the glossary rename, as a warning that does not
+   block, with the update route the repairs below give for the store the
+   collection was found in. That one route replaces the Not Present route for
+   every Borrowed skill Not Present, because the update brings them all. When
+   `domain-modeling` is not in your skill list, say nothing about it.
+
+   In either failing state, and on a collection from before the glossary
+   rename, reached by either shape above, read
    [the repairs](references/repairs.md) before you report: what the failure
    costs each Role, and your Harness's section, the Generic section on
    Generic. Take the route for the store the files came from, and give the
@@ -115,8 +130,33 @@ Check, in order:
    note it and continue. VDD works with any tracker the collection supports,
    but the Roles are written for local markdown under `.scratch/<slug>/`.
 
-3. **Git repository.** The workflow needs one. If this directory is not a repository, ask before running `git init`.
-4. **Gitignore.** Ensure `.gitignore` covers `LOOP.md` and `.scratch/`, the
+3. **A repository set up before the glossary rename.** Matt Pocock's
+   collection renamed `CONTEXT.md` to `GLOSSARY.md` and `CONTEXT-MAP.md` to
+   `GLOSSARY-MAP.md`, and rerunning `setup-matt-pocock-skills` does not
+   migrate a repository. Read the files with your own tools; this check runs
+   no command. It fires when `docs/agents/domain.md` names `CONTEXT.md` or
+   `CONTEXT-MAP.md`, or when a root `CONTEXT.md` or `CONTEXT-MAP.md` exists
+   with no `GLOSSARY.md` and no `GLOSSARY-MAP.md` at the root. Otherwise say
+   nothing.
+
+   When it fires, report a repository set up before the glossary rename, as a
+   warning that does not block, and give the user:
+
+   - A `git mv` for each old file that exists: `git mv CONTEXT.md
+     GLOSSARY.md`, `git mv CONTEXT-MAP.md GLOSSARY-MAP.md`, and for each
+     per-context `CONTEXT.md` that `CONTEXT-MAP.md` lists, a `git mv` to
+     `GLOSSARY.md` in the same directory.
+   - Where a `GLOSSARY.md` already exists beside an old `CONTEXT.md`, in place
+     of its `git mv`: merge the old terms into `GLOSSARY.md`, then remove
+     `CONTEXT.md`.
+   - The two files to edit so they name the new files: `docs/agents/domain.md`,
+     and `AGENTS.md` or `CLAUDE.md`, whichever holds the collection's setup
+     section.
+   - The full steps:
+     `https://github.com/ArchitektApx/Vibe-Driven-Development/blob/master/CHANGELOG.md#migrating-from-014`
+
+4. **Git repository.** The workflow needs one. If this directory is not a repository, ask before running `git init`.
+5. **Gitignore.** Ensure `.gitignore` covers `LOOP.md` and `.scratch/`, the
    loop's scratch space, which also holds the review files; add either one
    that is missing.
 
@@ -128,13 +168,13 @@ Check, in order:
    equals one of those four names. A line that merely contains one of them,
    `docs/PLAN.md` or `!PLAN.md` or `PLAN.md.bak`, is the user's own and stays:
    `PLAN.md` is a name anyone may ignore for reasons of their own.
-5. **Stale working files.** If `LOOP.md` already exists from a previous loop,
+6. **Stale working files.** If `LOOP.md` already exists from a previous loop,
    ask whether to delete it before starting fresh. Delete only between loops.
    It is the one working file you can find from here: the rest live under
    `.scratch/<slug>/`, and `vdd-start-loop` asks about that directory once
    the user has named the slug, because from here you cannot know which feature
    is stale.
-6. **Shared scripts.** Where your Harness file says this check applies, read
+7. **Shared scripts.** Where your Harness file says this check applies, read
    how to install the shared scripts and follow it: on native Windows, when
    your Harness reports the platform as Windows,
    [`script-install-windows.md`](references/script-install-windows.md), which
@@ -147,13 +187,15 @@ Check, in order:
    escalate it. Where your Harness file says nothing about this check, and on
    Generic, skip it silently: a Generic loop relays every Doorbell by hand and
    runs no script.
-7. **The Codex `Stop` hook.** On Codex, once the shared scripts check has run,
+8. **The Codex `Stop` hook.** On Codex, once the shared scripts check has run,
    register the hook that wakes a waiting Codex Planner or Orchestrator: on
    native Windows
    [`codex-stop-hook-windows.md`](references/codex-stop-hook-windows.md), on
    macOS and Linux [`codex-stop-hook-unix.md`](references/codex-stop-hook-unix.md).
 
-Finish with a short status report: what passed, what you fixed, what the user still has to do.
+Finish with a short status report: what passed, what you fixed, what the user
+still has to do, and each glossary-rename warning from checks 1 and 3, named as
+a warning.
 
 ## Harnesses
 

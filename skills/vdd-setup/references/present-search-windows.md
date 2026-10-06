@@ -22,7 +22,7 @@ time the next runs.
 $follow = @{}
 if ($PSVersionTable.PSVersion.Major -ge 6) { $follow = @{ FollowSymlink = $true } }
 $found = @(Get-Item -Path $roots -Force -ErrorAction SilentlyContinue | Where-Object { $_.PSIsContainer } | ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Recurse -Force -File -Filter SKILL.md -ErrorAction SilentlyContinue @follow })
-foreach ($s in 'setup-matt-pocock-skills', 'grill-with-docs', 'improve-codebase-architecture', 'to-spec', 'to-tickets', 'wayfinder', 'code-review', 'writing-for-agents', 'grilling') {
+foreach ($s in 'setup-matt-pocock-skills', 'grill-with-docs', 'improve-codebase-architecture', 'to-spec', 'to-tickets', 'wayfinder', 'code-review', 'writing-for-agents', 'grilling', 'domain-modeling', 'codebase-design', 'research', 'prototype') {
   $found | Where-Object { $_.Directory.Name -eq $s } | ForEach-Object { $_.FullName }
 }
 ```

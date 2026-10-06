@@ -4,15 +4,23 @@
 
 Name what the failure costs each Role, in these words. A missing or
 unresolvable `grill-with-docs`, `improve-codebase-architecture`, `to-spec` or
-`to-tickets` blocks the Planner. A missing or unresolvable `code-review`
-blocks the Code-Reviewer. A missing or unresolvable `wayfinder` blocks the
-Wayfinder. A missing or unresolvable `writing-for-agents` degrades the
-Planner, the Plan-Reviewer and the Code-Reviewer instead of blocking them:
-each drops its writing pass, records that in the file it writes, and carries
-on. A missing or unresolvable `grilling` degrades the Brainstormer the same
-way: it talks the idea through without grilling. The Brainstormer and the
-Wayfinder check their own Borrowed skill when they start, so each of those
-two failures surfaces again at the Role. The Coder is the only Role that
+`to-tickets` blocks the Planner. A missing or unresolvable `domain-modeling`
+blocks the Planner and the Wayfinder, because `grill-with-docs` and
+`wayfinder` call it. A missing or unresolvable `codebase-design` blocks the
+Planner's general-improvement branch, because
+`improve-codebase-architecture` calls it. A missing or unresolvable `grilling`
+blocks the Planner and the Wayfinder, because `grill-with-docs`,
+`improve-codebase-architecture` and `wayfinder` call it, and degrades the
+Brainstormer, which talks the idea through without grilling. A missing or
+unresolvable `code-review` blocks the Code-Reviewer. A missing or
+unresolvable `wayfinder` blocks the Wayfinder. A missing or unresolvable
+`research` or `prototype` degrades the Wayfinder: its research and prototype
+tickets cannot run. A missing or unresolvable `writing-for-agents` degrades
+the Planner, the Plan-Reviewer and the Code-Reviewer instead of blocking
+them: each drops its writing pass, records that in the file it writes, and
+carries on. The Brainstormer checks `grilling` and the Wayfinder checks
+`wayfinder` when they start, so each of those two failures surfaces again at
+the Role. The Coder is the only Role that
 borrows nothing, and a user resuming mid-workflow is stopped by the
 `code-review` finding alone.
 
@@ -33,11 +41,13 @@ Each section covers three cases:
 - **Not Present.** Tell the user to install it, taking the whole collection.
   A skills-CLI route installs globally, with `-g`, so the collection is
   installed once for the user and not into each repository.
-- **A collection that predates `writing-for-agents`.** `writing-for-agents`
-  shipped after the six the Roles borrowed before it, so a user who installed
-  the collection earlier has those six Present and this one absent. Say that
-  the installed collection predates the skill, and give the update route for
-  the store the six were found in.
+- **A collection from before the glossary rename.** Reached by either of two
+  signals: check 1's warning fires, because `domain-modeling`'s description
+  does not name `GLOSSARY.md`, or `writing-for-agents` alone is Not Present
+  with the other Borrowed skills Present. The user has the collection, in a
+  version too old for the Roles. Say so, and give the update route for the
+  store the collection was found in, once, in place of a Not Present route
+  for any Borrowed skill.
 
 A store is one of two kinds. A plugin cache is a root a Harness installs
 plugins into: `~/.claude/plugins/cache`, `~/.codex/plugins/cache`,
@@ -67,16 +77,25 @@ store under `./`.
 
 ### Not Present
 
-`/plugin install mattpocock-skills` from Claude Code's official marketplace.
+`/plugin marketplace add mattpocock/skills`, then
+`/plugin install mattpocock-skills@mattpocock`, then turn on auto-update for
+the `mattpocock` marketplace under `/plugin` > Marketplaces. Auto-update is
+off by default for every marketplace but Anthropic's own.
 
-### A collection that predates `writing-for-agents`
+### A collection from before the glossary rename
 
-- Under `~/.claude/plugins/cache/`: `claude plugin marketplace update
-  <marketplace>` then `claude plugin update mattpocock-skills`.
-  `<marketplace>` is the first directory under `~/.claude/plugins/cache/` on
-  the path the six were found at, which is the marketplace name, not the
-  plugin name below it. In a Claude Code session the marketplace half is
-  `/plugin marketplace update <marketplace>`.
+- Under `~/.claude/plugins/cache/claude-plugins-official/`: Anthropic's
+  marketplace pins an old version, so an update there stays old. Switch the
+  user to Matt Pocock's marketplace: `claude plugin uninstall
+  mattpocock-skills@claude-plugins-official`, `claude plugin marketplace add
+  mattpocock/skills`, `claude plugin install mattpocock-skills@mattpocock`,
+  then turn on auto-update for `mattpocock` under `/plugin` > Marketplaces.
+- Under any other marketplace in `~/.claude/plugins/cache/`: `claude plugin
+  marketplace update <marketplace>` then `claude plugin update
+  mattpocock-skills`. `<marketplace>` is the first directory under
+  `~/.claude/plugins/cache/` on the path the collection was found at, which is
+  the marketplace name, not the plugin name below it. In a Claude Code session
+  the marketplace half is `/plugin marketplace update <marketplace>`.
 - Under `~/.claude/skills/`: `npx skills update -g`.
 - Under `./.claude/skills/`: `npx skills update -p`.
 
@@ -102,7 +121,7 @@ store under `./`.
 installer asks which agents to install for, then start a new Codex Session: a
 skill added while a Session runs appears only in a new one.
 
-### A collection that predates `writing-for-agents`
+### A collection from before the glossary rename
 
 - Under `~/.codex/plugins/cache/`: `codex plugin marketplace upgrade
   <marketplace>`, then `codex plugin add <plugin>@<marketplace>` and a new
@@ -130,7 +149,7 @@ skill added while a Session runs appears only in a new one.
 installer asks which agents to install for, then open a new chat or a new
 `agent` Session before rerunning this check.
 
-### A collection that predates `writing-for-agents`
+### A collection from before the glossary rename
 
 - Under `~/.cursor/plugins/cache/`: refresh the plugin in the Cursor IDE's
   plugin UI.
@@ -176,7 +195,7 @@ does not read that store while `COPILOT_HOME` is set. Then run
 check: a skill added while a Session runs is not picked up without one of
 the two.
 
-### A collection that predates `writing-for-agents`
+### A collection from before the glossary rename
 
 - Under `~/.copilot/installed-plugins/<marketplace>/<plugin>/`:
   `copilot plugin update <plugin>@<marketplace>`.
@@ -203,7 +222,7 @@ the two.
 `npx skills@latest add -g mattpocock/skills`, selecting their agent when the
 installer asks.
 
-### A collection that predates `writing-for-agents`
+### A collection from before the glossary rename
 
 - Under a plugin cache: give the update route from the section of the
   Harness that owns that cache.

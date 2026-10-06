@@ -123,11 +123,11 @@ _Avoid_: outstanding nit, unresolved comment, leftover
 ## Skill dependencies
 
 **Borrowed skill**:
-A skill from another collection that a Role depends on but does not ship. From Matt Pocock's collection: `setup-matt-pocock-skills`, `grill-with-docs`, `improve-codebase-architecture`, `to-spec`, `to-tickets`, `wayfinder` (all User-invoked), and `code-review`, `writing-for-agents` and `grilling` (agent-invocable).
+A skill from another collection that a Role depends on but does not ship. From Matt Pocock's collection: `setup-matt-pocock-skills`, `grill-with-docs`, `improve-codebase-architecture`, `to-spec`, `to-tickets`, `wayfinder` (all User-invoked), and `code-review`, `writing-for-agents`, `grilling`, `domain-modeling`, `codebase-design`, `research` and `prototype` (agent-invocable).
 _Avoid_: external skill, third-party skill, dependency
 
 **User-invoked**:
-A property of a skill whose author blocked agents from starting it, so only a human typing the slash command can. All Borrowed skills except `code-review`, `writing-for-agents` and `grilling` are user-invoked. In Claude Code, Cursor and Copilot CLI this is `disable-model-invocation: true` in the frontmatter; in Codex, `policy.allow_implicit_invocation: false`.
+A property of a skill whose author blocked agents from starting it, so only a human typing the slash command can. All Borrowed skills except `code-review`, `writing-for-agents`, `grilling`, `domain-modeling`, `codebase-design`, `research` and `prototype` are user-invoked. In Claude Code, Cursor and Copilot CLI this is `disable-model-invocation: true` in the frontmatter; in Codex, `policy.allow_implicit_invocation: false`.
 _Avoid_: manual, disabled, blocked
 
 **Present**:

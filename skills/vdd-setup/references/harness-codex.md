@@ -28,7 +28,7 @@
   repair, tell the user to start a new Codex Session before they rerun this
   check.
 - **The shared scripts check.** It applies on this Harness.
-- **The `Stop` hook registration.** It applies on this Harness, as check 7
+- **The `Stop` hook registration.** It applies on this Harness, as check 8
   in `SKILL.md` says.
 
 Trust your live tools over this file when they disagree.

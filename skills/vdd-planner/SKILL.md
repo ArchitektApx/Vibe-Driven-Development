@@ -26,11 +26,13 @@ and you leave the file as it is.
 
 ## Borrowed skills and the tracker
 
-This role depends on five skills from Matt Pocock's collection. Four of them,
-`grill-with-docs`, `improve-codebase-architecture`, `to-spec` and `to-tickets`,
-are user-invoked, so your own skill list stays silent about them and the check
-below is what answers for them. The fifth, `writing-for-agents`, you invoke
-yourself, and it does appear in your skill list when the collection is wired.
+This role depends on eight skills from Matt Pocock's collection. Four of
+them, `grill-with-docs`, `improve-codebase-architecture`, `to-spec` and
+`to-tickets`, are user-invoked, so your own skill list stays silent about them
+and the check below is what answers for them. `writing-for-agents` you invoke
+yourself, and the user-invoked skills invoke `grilling`, `domain-modeling` and
+`codebase-design`; those four do appear in your skill list when the
+collection is wired.
 
 Check that the collection is wired to this Harness by looking in your own skill
 list for a skill from it that you *can* invoke: `writing-for-agents`,

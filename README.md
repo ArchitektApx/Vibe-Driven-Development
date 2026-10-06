@@ -31,7 +31,7 @@ Works on <br>
 **tl;dr:** an opinionated wrapper around Matt Pocock's [skills](https://github.com/mattpocock/skills). It splits planning, plan review, implementation and code review across separate Claude Code / Codex / Cursor / GitHub Copilot CLI sessions that adversarially check each other's work.
 
 > [!IMPORTANT]
-> Matt Pocock's skill collection is a hard requirement: without it the Planner stops at its first handoff. See [Install](#-install).
+> Matt Pocock's skill collection, v1.3.1 or later, is a hard requirement: without it the Planner stops at its first handoff. See [Install](#-install). Upgrading from VDD 0.14? Follow the [migration steps](CHANGELOG.md#migrating-from-014).
 
 ## 📚 Contents
 
@@ -77,7 +77,7 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
 - A repository to work in
 - The ability to run two agent sessions side by side (two terminals is enough): the Planner, in your foreground, and the Orchestrator, which runs the rest.
 - A coding agent with subagents. Claude Code, Cursor, Codex and GitHub Copilot CLI all have the primitive the Orchestrator needs to spawn the Plan-Reviewer, the Coder and the Code-Reviewer, each in a fresh context, and to resume the same one round after round. If your host asks for approval per command, grant session approval before you start the Workflow, so you are not answering prompts through the whole run.
-- Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection. In Claude Code: `/plugin install mattpocock-skills` (official marketplace). In Codex, Cursor, GitHub Copilot CLI and any other agent: `npx skills@latest add -g mattpocock/skills`, selecting your agent when it asks. The Roles borrow these:
+- Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection, v1.3.1 or later. In Claude Code: Matt Pocock's own marketplace, `/plugin marketplace add mattpocock/skills` then `/plugin install mattpocock-skills@mattpocock`. In Codex, Cursor, GitHub Copilot CLI and any other agent: `npx skills@latest add -g mattpocock/skills`, selecting your agent when it asks. The Roles borrow these:
 
   | Borrowed skill | Started by | Needed by |
   |----------------|-----------|-----------|
@@ -89,7 +89,11 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
   | `wayfinder` | 🧑 you | Wayfinder |
   | `code-review` | 🤖 the agent | Code-Reviewer |
   | `writing-for-agents` | 🤖 the agent | Planner, Plan-Reviewer, Code-Reviewer |
-  | `grilling` | 🤖 the agent | Brainstormer |
+  | `grilling` | 🤖 the agent | Planner, Wayfinder, Brainstormer |
+  | `domain-modeling` | 🤖 the agent | Planner, Wayfinder |
+  | `codebase-design` | 🤖 the agent | Planner |
+  | `research` | 🤖 the agent | Wayfinder |
+  | `prototype` | 🤖 the agent | Wayfinder |
 
 **Optional:** the doorbell. In Claude Code, Codex, Cursor and GitHub Copilot CLI the Roles ring each other through the Doorbell file in `.scratch/<slug>/` instead of you copying a line between terminals, and also print the line, which you paste only if the other session does not wake. Everything works without a doorbell: the Roles print the line for you to paste.
 
@@ -103,11 +107,14 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
 /plugin install vdd@vibe-driven-development
 ```
 
-Start a new session in your repository and type `/vdd:vdd-setup`. Install Matt Pocock's collection from the official marketplace:
+Start a new session in your repository and type `/vdd:vdd-setup`. Install Matt Pocock's collection from his own marketplace:
 
 ```
-/plugin install mattpocock-skills
+/plugin marketplace add mattpocock/skills
+/plugin install mattpocock-skills@mattpocock
 ```
+
+Then turn on auto-update for the `mattpocock` marketplace under `/plugin` > Marketplaces, so the collection stays current. Auto-update is off by default for every marketplace but Anthropic's own.
 
 </details>
 
