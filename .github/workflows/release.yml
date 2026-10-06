@@ -1,0 +1,96 @@
+name: Release
+
+# Push a vX.Y.Z tag on a commit on master to publish a GitHub release whose
+# body is that version's section of CHANGELOG.md. A workflow_dispatch is a dry
+# run: it checks the manifests and extracts the notes, and writes nothing.
+# docs/agents/LANDING-A-CHANGE.md#releasing has the steps.
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+# The release job below is the only place any workflow grants contents: write,
+# and it runs on a tag push only. verify.yml enforces both.
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+# No run: script holds a ${{ }} expression, so a tag name never reaches a
+# script as interpolated text. Scripts read $GITHUB_* and env: variables only.
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      notes: ${{ steps.extract.outputs.notes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Tag pushes carry no branch, so a branches: filter cannot hold them to
+      # master. Only released code is published, and betas never are.
+      - name: The tag is a release version on master
+        if: github.event_name == 'push'
+        run: |
+          git fetch --quiet origin +refs/heads/master:refs/remotes/origin/master
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "::error::Tag $GITHUB_REF_NAME points to a commit that is not on master. Releases are tagged on master only."
+            exit 1
+          fi
+          if ! printf '%s\n' "$GITHUB_REF_NAME" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Tag $GITHUB_REF_NAME is not vX.Y.Z. Pre-release tags are not released."
+            exit 1
+          fi
+
+      # A release never lies about its version: both manifests carry it, and on
+      # a tag push the tag names it too.
+      - name: The manifests agree on the version
+        run: |
+          name=$(jq -r '.name' .claude-plugin/plugin.json)
+          version=$(jq -r '.version' .claude-plugin/plugin.json)
+          entry=$(jq -r --arg n "$name" '.plugins[] | select(.name == $n) | .version' .claude-plugin/marketplace.json)
+          if [ -z "$version" ] || [ "$version" = null ] || [ "$version" != "$entry" ]; then
+            echo "::error::plugin.json has version '$version' and its marketplace.json entry '$entry'. Both must carry the release version."
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: The tag matches the manifests
+        if: github.event_name == 'push'
+        run: |
+          if [ "${GITHUB_REF_NAME#v}" != "$VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match the manifests' version $VERSION."
+            exit 1
+          fi
+
+      # The release body is the version's own section. A missing section, or
+      # one holding only blank lines, fails here rather than shipping an empty
+      # release.
+      - name: Extract the release notes from CHANGELOG.md
+        id: extract
+        run: |
+          awk -v h="## [$VERSION]" 'index($0, h) == 1 {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
+          grep -q '[^[:space:]]' notes.md || { echo "::error::CHANGELOG.md has no content under ## [$VERSION]"; exit 1; }
+          cat notes.md
+          { echo 'notes<<VDD_RELEASE_NOTES_EOF'; cat notes.md; echo 'VDD_RELEASE_NOTES_EOF'; } >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: notes
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      NOTES: ${{ needs.notes.outputs.notes }}
+    steps:
+      - name: Create the GitHub release
+        run: |
+          printf '%s\n' "$NOTES" > notes.md
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --notes-file notes.md
