@@ -15,7 +15,7 @@ The Planner's grilling step produced the glossary and the decision records
 below, and they are committed so every clone reads the same vocabulary and the
 same decisions:
 
-- `CONTEXT.md` is the glossary. Use its terms exactly when editing the skills,
+- `GLOSSARY.md` is the glossary. Use its terms exactly when editing the skills,
   so the ten `SKILL.md` files keep one vocabulary.
 - `docs/adr/` holds the ADRs, which follow `ADR-FORMAT.md` in the
   `domain-modeling` skill. Read `0001` before proposing that a Role run
@@ -179,4 +179,4 @@ Default vocabulary, label strings equal role names. See `docs/agents/triage-labe
 
 ### Domain docs
 
-Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
