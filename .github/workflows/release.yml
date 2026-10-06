@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 # The release job below is the only place any workflow grants contents: write,
-# and it runs on a tag push only. verify.yml enforces both.
+# which verify.yml checks. Its if: keeps it to a tag push.
 permissions:
   contents: read
 

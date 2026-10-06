@@ -103,8 +103,14 @@ PR; preserve them through any refactor of `.github/`.
   among them. The `Reject executable surface` step checks it, finding the
   files with `find` so a plain copy of the tree is checked like a checkout.
 - **`verify.yml` triggers on `pull_request`.** It runs PR-head content, so
-  `pull_request_target` would hand fork PRs write access and secrets. Its
-  `permissions` stay `contents: read`.
+  `pull_request_target` would hand fork PRs write access and secrets. It also
+  runs on a push to every branch, so a branch shows its check before a PR
+  exists. Its `permissions` stay `contents: read`.
+- **`release.yml` alone grants write access.** `release.yml` triggers only on
+  a version tag push and on `workflow_dispatch`, and its release job is the
+  only place any workflow grants `contents: write`, so a refactor cannot
+  quietly widen write access. The `Only release.yml grants write access` step
+  checks it.
 - **Manifests parse and agree.** `.claude-plugin/plugin.json` and the plugin's
   entry in `.claude-plugin/marketplace.json` share name, version and
   `source: "./"`. A broken manifest breaks install for every user; there is no
