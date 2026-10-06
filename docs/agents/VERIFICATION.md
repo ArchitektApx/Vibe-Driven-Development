@@ -18,7 +18,7 @@ sense to someone who followed the conversation fails here.
 
 ## Vocabulary
 
-Every term is the one `CONTEXT.md` defines, and none from its `_Avoid_` lines.
+Every term is the one `GLOSSARY.md` defines, and none from its `_Avoid_` lines.
 A word the glossary lacks is a proposal for the glossary, not a coinage in one
 skill file.
 

@@ -65,7 +65,7 @@ In Codex, type `$vdd:vdd-start-loop` instead, and in Cursor `/vdd-start-loop`. G
 
 That one command runs the environment check, walks you through anything the check finds missing, and starts the loop with you and the Planner.
 
-VDD and the Matt Pocock skills create multiple working files along the way that are not gitignored by default (`docs/agents/`, `docs/adr/`, `CONTEXT.md`, appending to `AGENTS.md`/`CLAUDE.md`). If you'd rather keep them out of your history, you just can safely add them to `.gitignore` and/or prune the additions to your `AGENTS.md`/`CLAUDE.md`.
+VDD and the Matt Pocock skills create multiple working files along the way that are not gitignored by default (`docs/agents/`, `docs/adr/`, `GLOSSARY.md`, appending to `AGENTS.md`/`CLAUDE.md`). If you'd rather keep them out of your history, you just can safely add them to `.gitignore` and/or prune the additions to your `AGENTS.md`/`CLAUDE.md`.
 
 ## 🔌 Install
 
@@ -314,7 +314,7 @@ Neither Role starts the next one. You carry a decided idea file to `/vdd:vdd-sta
 
 <div align="center">
 
-Built with its own workflow. Glossary in [`CONTEXT.md`](CONTEXT.md), decisions in [`docs/adr/`](docs/adr/), house rules in [`AGENTS.md`](AGENTS.md).
+Built with its own workflow. Glossary in [`GLOSSARY.md`](GLOSSARY.md), decisions in [`docs/adr/`](docs/adr/), house rules in [`AGENTS.md`](AGENTS.md).
 
 MIT · [ArchitektApx](https://github.com/ArchitektApx)
 
