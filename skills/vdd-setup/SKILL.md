@@ -36,44 +36,20 @@ Check, in order:
    author, so they never appear in your own skill list even when correctly
    installed. Answer for them on the two separate conditions below.
 
-   **Present.** Search the roots your Harness file lists, and only those: a
-   skill found in a store your Harness does not read is not there for this
-   Harness. On Generic, nobody knows which stores the Harness reads, so search
-   the union of every Harness file's roots:
-
-   ```
-   ~/.agents/skills
-   ./.agents/skills
-   ~/.claude/skills
-   ./.claude/skills
-   ~/.claude/plugins/cache/*/mattpocock-skills
-   ~/.codex/skills
-   ./.codex/skills
-   ~/.codex/plugins/cache
-   ~/.cursor/skills
-   ./.cursor/skills
-   ~/.cursor/plugins/cache
-   ~/.copilot/skills
-   ./.github/skills
-   ~/.copilot/installed-plugins
-   ```
-
-   On Generic each root moves with the variables that move it on the Harness
-   it comes from. Copilot CLI's rule that a set `COPILOT_HOME` drops
-   `~/.agents/skills` does not apply to Generic.
+   **Present.** Search the roots your Harness file writes out, and only
+   those: a skill found in a store your Harness does not read is not there
+   for this Harness. On Generic, nobody knows which stores the Harness reads,
+   so search the union of every Harness's roots, which the search file below
+   writes out.
 
    Setup runs from the repository root, and `./` is that root as it stands.
-   Search for the files, not the directories, so that a dangling symlink reads
-   as absent, and match on the trailing path `<skill>/SKILL.md` at any depth.
    Run the search on every Harness, in place of any search tool your Harness
    gives you: [the find loop](references/present-search-posix.md) in a POSIX
    shell, Git Bash on native Windows included, and
    [the PowerShell search](references/present-search-windows.md) in
    PowerShell. Each applies the relocation variables and follows symlinked
    skill directories the same way everywhere, and a Harness's own search tool
-   may do neither. In Git Bash the find loop reads `$HOME`, which differs from
-   `%USERPROFILE%` only when the user set `HOME` themselves, and that gap is
-   accepted.
+   may do neither.
 
    **Resolvable.** Present means the file sits in a store this Harness reads;
    it does not mean this Session has loaded it. Answer this one from your own
@@ -98,7 +74,8 @@ Check, in order:
    - **Present and Resolvable.** Passed, say nothing further.
    - **Present but not Resolvable.** The skill sits in a store this Harness
      reads, and this Session has not loaded it.
-   - **Not Present.** Tell the user to install the whole collection.
+   - **Not Present.** Tell the user to install the whole collection, with the
+     commands the repairs below name for your Harness.
 
    A fourth case passes too: **Resolvable with no search hit.** This Session
    can run the collection, and the search found some of the nine in no store
@@ -117,24 +94,11 @@ Check, in order:
    an old collection rather than a missing one, and telling that user to
    install a collection they already have is the wrong advice.
 
-   In either failing state, and on that old-collection shape, read your
-   Harness's section of [the repairs](references/repairs.md), the Generic
-   section on Generic, take the route for the store the files came from, and
-   give the user the commands it names.
-
-   Name what a failure costs each Role, in these words. A missing or
-   unresolvable `grill-with-docs`, `improve-codebase-architecture`, `to-spec` or
-   `to-tickets` blocks the Planner. A missing or unresolvable `code-review`
-   blocks the Code-Reviewer. A missing or unresolvable `wayfinder` blocks the Wayfinder. A
-   missing or unresolvable `writing-for-agents` degrades the Planner, the
-   Plan-Reviewer and the Code-Reviewer instead of blocking them: each drops
-   its writing pass, records that in the file it writes, and carries on. A
-   missing or unresolvable `grilling` degrades the Brainstormer the same way:
-   it talks the idea through without grilling. The Brainstormer and the
-   Wayfinder check their own Borrowed skill when they start, so each of those
-   two failures surfaces again at the Role. The Coder is the only Role that
-   borrows nothing, and a user resuming mid-workflow is stopped by the
-   `code-review` finding alone.
+   In either failing state, and on that old-collection shape, read
+   [the repairs](references/repairs.md) before you report: what the failure
+   costs each Role, and your Harness's section, the Generic section on
+   Generic. Take the route for the store the files came from, and give the
+   user the commands it names.
 
 2. **Tracker configured.** `to-spec`, `to-tickets` and `code-review` all read
    `docs/agents/issue-tracker.md` to learn where specs and tickets live, and
@@ -152,18 +116,13 @@ Check, in order:
    but the Roles are written for local markdown under `.scratch/<slug>/`.
 
 3. **Git repository.** The workflow needs one. If this directory is not a repository, ask before running `git init`.
-4. **Gitignore.** The loop's working files are scratch space, and `.gitignore`
-   is what keeps them out of the user's history. Ensure `.gitignore` covers
-   `LOOP.md` and `.scratch/`; add either one that is missing. `.scratch/` is
-   the Borrowed tracker directory, and VDD is what invokes it here, so it is
-   scratch space like the rest. It is also where the three review files are
-   written, so its entry covers them.
+4. **Gitignore.** Ensure `.gitignore` covers `LOOP.md` and `.scratch/`, the
+   loop's scratch space, which also holds the review files; add either one
+   that is missing.
 
    Then remove the four entries VDD no longer maintains: `PLAN.md`,
-   `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`. A user upgrading from an
-   earlier release has them, and no file can appear at any of those paths in
-   this release. Name in your report which of the four you removed, because
-   this edits a file the user tracks.
+   `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`. Name in your report which
+   of the four you removed, because this edits a file the user tracks.
 
    Remove a line only when the whole line, trimmed of surrounding whitespace,
    equals one of those four names. A line that merely contains one of them,
@@ -176,10 +135,23 @@ Check, in order:
    the user has named the slug, because from here you cannot know which feature
    is stale.
 6. **Shared scripts.** Where your Harness file says this check applies, read
-   [how to install the shared scripts](references/script-install.md) and
-   follow it. Where your Harness file says nothing about it, and on Generic,
-   skip it silently: a Generic loop relays every Doorbell by hand and runs no
-   script.
+   how to install the shared scripts and follow it: on native Windows, when
+   your Harness reports the platform as Windows,
+   [`script-install-windows.md`](references/script-install-windows.md), which
+   copies [`doorbell-wait.ps1`](references/doorbell-wait.ps1) and
+   [`vdd-codex-stop.ps1`](references/vdd-codex-stop.ps1); on macOS and Linux,
+   WSL included, [`script-install-unix.md`](references/script-install-unix.md),
+   which copies [`doorbell-wait.sh`](references/doorbell-wait.sh) and
+   [`vdd-codex-stop.sh`](references/vdd-codex-stop.sh). A command your
+   Harness refuses is no reason to skip this check: the file says how to
+   escalate it. Where your Harness file says nothing about this check, and on
+   Generic, skip it silently: a Generic loop relays every Doorbell by hand and
+   runs no script.
+7. **The Codex `Stop` hook.** On Codex, once the shared scripts check has run,
+   register the hook that wakes a waiting Codex Planner or Orchestrator: on
+   native Windows
+   [`codex-stop-hook-windows.md`](references/codex-stop-hook-windows.md), on
+   macOS and Linux [`codex-stop-hook-unix.md`](references/codex-stop-hook-unix.md).
 
 Finish with a short status report: what passed, what you fixed, what the user still has to do.
 
@@ -189,48 +161,3 @@ Finish with a short status report: what passed, what you fixed, what the user st
 - Codex: [`references/harness-codex.md`](references/harness-codex.md)
 - Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
 - Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
-
-## Reference files
-
-- [`references/present-search-posix.md`](references/present-search-posix.md):
-  the substitution table that spells each root and its relocation variable in
-  `sh`, how to write the `set --` line, the find loop, and why the loop runs
-  `find -L`, filters with `grep` and takes one skill per invocation.
-- [`references/present-search-windows.md`](references/present-search-windows.md):
-  the same search in PowerShell, for Windows PowerShell 5.1 and PowerShell 7:
-  the four lines that resolve the relocated stores, the substitution table,
-  the search, and why it matches the parent directory name and passes
-  `-FollowSymlink` on PowerShell 6 and later.
-- [`references/resolvable-probes.md`](references/resolvable-probes.md): the
-  sibling names to probe after `writing-for-agents` misses, how to read a bare
-  `code-review` hit, and the question to put to the user when nothing hits.
-- [`references/repairs.md`](references/repairs.md): the repair for each failing
-  state, keyed by Harness, then by the store the files were found in, and the
-  update route for a collection that predates `writing-for-agents`.
-- [`references/harness-claude-code.md`](references/harness-claude-code.md),
-  [`references/harness-codex.md`](references/harness-codex.md),
-  [`references/harness-cursor.md`](references/harness-cursor.md) and
-  [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md): the
-  typed skill names, what each Harness lists under the name `code-review`, the
-  roots its Present search covers and the variable that relocates each, on
-  Codex the restart a new skill needs and the `Stop` hook registration, and
-  that the shared scripts check applies.
-- [`references/script-install.md`](references/script-install.md): the shared
-  directory, its `XDG_DATA_HOME` default and its native Windows location
-  under `%LOCALAPPDATA%`, the scripts installed on each, the byte comparison
-  in `sh` and in PowerShell, the install or update and its consent step, a
-  denied write, and its line in the status report.
-- [`references/codex-stop-hook.md`](references/codex-stop-hook.md), read only
-  where the Codex Harness file sends you: what the Codex `Stop` hook does, the
-  registration check across `~/.codex/hooks.json` and `~/.codex/config.toml`,
-  the exact entry and why it is exact, with the native Windows entry carrying
-  `command` and `commandWindows`, the edit and its consent step, the trust
-  step, and its line in the status report.
-- [`references/doorbell-wait.sh`](references/doorbell-wait.sh) and
-  [`references/vdd-codex-stop.sh`](references/vdd-codex-stop.sh): the Doorbell
-  wait and the Codex `Stop` hook, and
-  [`references/doorbell-wait.ps1`](references/doorbell-wait.ps1) and
-  [`references/vdd-codex-stop.ps1`](references/vdd-codex-stop.ps1), the same
-  two in PowerShell for native Windows, which the shared scripts check copies
-  into the shared directory with the shell's copy command, never read and
-  written out with a file tool.

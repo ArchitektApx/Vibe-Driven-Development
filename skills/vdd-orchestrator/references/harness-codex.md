@@ -6,24 +6,33 @@
 - **The Spawn prompt's skill name.** `$vdd:vdd-<role>`:
   `$vdd:vdd-plan-reviewer`, `$vdd:vdd-coder` or `$vdd:vdd-code-reviewer`. A
   child spawned with that name in its task loads the plugin's skill.
-- **The return.** A child's completion arrives as a message of type
-  `FINAL_ANSWER` with a `Task name`, a `Sender` and a `Payload`. The `Payload`
-  is the return to parse.
+- **The return.** After every spawn and every follow-up, wait for that child
+  inside your turn with `collaboration.wait_agent`, a timeout of several
+  minutes, and wait again until its completion arrives. A child that finishes
+  after your turn has ended does not wake this Session. The completion
+  arrives as a message of type `FINAL_ANSWER` with a `Task name`, a `Sender`
+  and a `Payload`. The `Payload` is the return to parse.
 - **The context size.** Codex reports none for a subagent, in any field of the
-  spawn, wait, follow-up or completion results. The no-size path of "The
-  Coder's context" applies from the first Coder return.
-- **Starting with no review file on disk.** Arm at 0, as
-  [`doorbell-file.md`](doorbell-file.md) says, by writing your
-  armed file holding `Orchestrator 0` before your first turn ends, so the
-  Planner's round-1 Doorbell already in the Doorbell file fires at once.
-- **Relaying to the Planner.** Through the Doorbell file: ring as
-  [`doorbell-file.md`](doorbell-file.md) says, and wait as "The
-  wait" below says. Nothing confirms that the Planner's Session is reachable,
-  so every relay also prints, worded: "If the Planner's Session does not
-  wake, paste this into it:" followed by the exact Doorbell.
+  spawn, wait, follow-up or completion results. From the first Coder return,
+  whatever the `Fresh Coder:` line says, the no-size path of the fresh-Coder
+  file that `SKILL.md` links applies: tell the user once that the check cannot
+  run and that they can ask for a fresh Coder at any round. On that request,
+  spawn as that file says.
+- **The Doorbell file.** You ring and wait through it, as the Doorbell file
+  for your platform says, `doorbell-file-unix.md` or on native Windows
+  `doorbell-file-windows.md`, which `SKILL.md` links, and as "The wait" below
+  says.
+- **Starting with no review file on disk.** Arm at 0, as the Doorbell file
+  for your platform says, by writing your armed file holding
+  `Orchestrator 0` before your first turn ends, so the Planner's round-1
+  Doorbell already in the Doorbell file fires at once.
+- **Relaying to the Planner.** Ring, and wait as "The wait" below says.
+  Nothing confirms that the Planner's Session is reachable, so every relay
+  also prints, worded: "If the Planner's Session does not wake, paste this
+  into it:" followed by the exact Doorbell.
 - **The wait.** A background shell cannot wake an idle Codex Session, so the
   `Stop` hook Setup installs waits for you. This rule replaces the arming
-  rules of "Your wait" in [`doorbell-file.md`](doorbell-file.md):
+  rules of "Your wait" in the Doorbell file for your platform:
   end every turn in which you expect a Planner Doorbell by writing your armed
   file, `.scratch/<feature-slug>/armed-<id>`, holding the one line
   `Orchestrator <count>`, where `<count>` is the count you last acted on as
@@ -57,10 +66,10 @@
   file, waits on the Doorbell file with no model turn, and continues this
   Session with the newest Doorbell line, or `TIMEOUT`, as your next prompt.
   Handle it as a line your wait printed, under "On wake" in
-  [`doorbell-file.md`](doorbell-file.md), and `TIMEOUT` as that
-  file says. The hook runs at the end of your own turns only, never a hosted
-  Role's. A hook that is missing or untrusted never wakes you, and the line
-  the Planner printed is the fallback.
+  the Doorbell file for your platform, and `TIMEOUT` as that file says. The
+  hook runs at the end of your own turns only, never a hosted Role's. A hook
+  that is missing or untrusted never wakes you, and the line the Planner
+  printed is the fallback.
 - **Esc and typed prompts.** Esc ends the hook's wait together with the turn.
   A prompt the user types while the hook waits arrives when it exits, and Esc
   sends it at once. Either way the rule above covers it: the next turn ends

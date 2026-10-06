@@ -10,6 +10,10 @@
 - **The bundled `code-review`.** Claude Code ships a `code-review` skill of its
   own, which reviews against something else. A bare `code-review` with any
   other description is that one.
+- **The `code-review` sub-agents.** Spawn both in one message with the Agent
+  tool's `run_in_background` set to the JSON boolean `false`, unquoted: a
+  quoted `"false"` starts them in the background. They run side by side, and
+  the calls return with both reports inside your turn.
 - **Typed skill names.** Where you ask the user to invoke a skill, give the
   form they type: `/setup-matt-pocock-skills`, `/vdd:vdd-start-loop`.
 

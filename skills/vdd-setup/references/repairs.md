@@ -1,5 +1,23 @@
 # Repairing a Borrowed-skills failure
 
+## What a failure costs
+
+Name what the failure costs each Role, in these words. A missing or
+unresolvable `grill-with-docs`, `improve-codebase-architecture`, `to-spec` or
+`to-tickets` blocks the Planner. A missing or unresolvable `code-review`
+blocks the Code-Reviewer. A missing or unresolvable `wayfinder` blocks the
+Wayfinder. A missing or unresolvable `writing-for-agents` degrades the
+Planner, the Plan-Reviewer and the Code-Reviewer instead of blocking them:
+each drops its writing pass, records that in the file it writes, and carries
+on. A missing or unresolvable `grilling` degrades the Brainstormer the same
+way: it talks the idea through without grilling. The Brainstormer and the
+Wayfinder check their own Borrowed skill when they start, so each of those
+two failures surfaces again at the Role. The Coder is the only Role that
+borrows nothing, and a user resuming mid-workflow is stopped by the
+`code-review` finding alone.
+
+## The repair
+
 Read the section for your Harness, or the Generic section on Generic, and in
 it the route for the store the files were found in. The path the search
 printed names the store. A store that a variable relocated takes the route of

@@ -1,58 +1,18 @@
 # Running the Present search in a POSIX shell
 
-Your Harness file lists the roots your Present search covers, and on Generic
-check 1 lists the union. This file spells those roots for `sh` and holds the
-loop that searches them. It lists no roots of its own.
-
-## The substitution table
-
-Spell each root by replacing its prefix as below, and keep the quotes the
-table gives. Where two prefixes match a root, the longer one wins, so the
-Claude cache root always takes its own row and never the `~/.claude` row:
-
-| Root prefix | `sh` spelling |
-|---|---|
-| `~/.claude` | `"${CLAUDE_CONFIG_DIR:-$HOME/.claude}"` |
-| `~/.claude/plugins/cache`, the Claude cache root | `"${CLAUDE_CODE_PLUGIN_CACHE_DIR:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins}/cache"` |
-| `~/.codex` | `"${CODEX_HOME:-$HOME/.codex}"` |
-| `~/.copilot` | `"${COPILOT_HOME:-$HOME/.copilot}"` |
-| any other `~` | `"$HOME"` |
-| `./` | `./`, unchanged |
-
-The rest of the root follows the closing quote. The Claude cache root's
-`/*/mattpocock-skills` goes outside the quotes, so that `sh` expands the
-glob.
-
-## Writing and running the search
-
-1. Take every root your Harness file lists, or every root of the union on
-   Generic.
-2. Spell each one with the substitution table.
-3. Write them, separated by spaces, after `set --` on one line.
-4. On Copilot CLI, leave `~/.agents/skills` off that line and add this line
-   after it, which appends the root only when `COPILOT_HOME` is empty or
-   unset:
-
-   ```sh
-   [ -n "$COPILOT_HOME" ] || set -- "$@" "$HOME/.agents/skills"
-   ```
-
-   Generic keeps `"$HOME/.agents/skills"` on its `set --` line whatever
-   `COPILOT_HOME` holds.
-5. Run your `set --` line, the Copilot CLI line where it applies, and the
-   loop below as one command. A Harness may start a fresh shell for each
-   command, and a `set --` run on its own is gone by the time the loop runs.
+Your Harness file writes out the roots your Present search covers, as a
+`set --` line and, on Copilot CLI, a second line. On Generic, use the union of
+every Harness's roots instead:
 
 ```sh
-for s in setup-matt-pocock-skills grill-with-docs improve-codebase-architecture to-spec to-tickets wayfinder code-review writing-for-agents grilling; do
-  find -L "$@" -name SKILL.md 2>/dev/null | grep "/$s/SKILL.md$"
-done
+set -- "$HOME/.agents/skills" ./.agents/skills "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills" ./.claude/skills "${CLAUDE_CODE_PLUGIN_CACHE_DIR:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins}/cache"/*/mattpocock-skills "${CODEX_HOME:-$HOME/.codex}/skills" ./.codex/skills "${CODEX_HOME:-$HOME/.codex}/plugins/cache" "$HOME/.cursor/skills" ./.cursor/skills "$HOME/.cursor/plugins/cache" "${COPILOT_HOME:-$HOME/.copilot}/skills" ./.github/skills "${COPILOT_HOME:-$HOME/.copilot}/installed-plugins"
 ```
 
-On Claude Code the whole command reads:
+Run those lines and the loop below as one command. A Harness may start a
+fresh shell for each command, and a `set --` run on its own is gone by the
+time the loop runs.
 
 ```sh
-set -- "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills" ./.claude/skills "${CLAUDE_CODE_PLUGIN_CACHE_DIR:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins}/cache"/*/mattpocock-skills
 for s in setup-matt-pocock-skills grill-with-docs improve-codebase-architecture to-spec to-tickets wayfinder code-review writing-for-agents grilling; do
   find -L "$@" -name SKILL.md 2>/dev/null | grep "/$s/SKILL.md$"
 done
@@ -81,9 +41,11 @@ copy as Present. `~/.codex/plugins/cache/` is where Codex installs a plugin,
 one directory per marketplace, plugin and version.
 
 Claude Code, Codex and Copilot CLI each move some of their stores when the
-user sets one of the variables in the table, and the table moves the search
-with them, so the search reads the stores the Harness reads in that state.
-Each spelling carries a default, so an unset variable leaves the plain path.
+user sets one of their variables, and the roots move the search with them,
+so the search reads the stores the Harness reads in that state. Each root
+carries a default, so an unset variable leaves the plain path. In Git Bash
+on native Windows the loop reads `$HOME`, which differs from `%USERPROFILE%`
+only when the user set `HOME` themselves, and that gap is accepted.
 
 ## Why `grep` and not `-path`
 
