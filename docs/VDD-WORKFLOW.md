@@ -75,8 +75,9 @@ Put it where your Harness reads its instructions; the path above is Claude Code'
 - the base branch and the feature branch
 - whether an open minor holds up Sign-off (`fix`, or `leave` it listed)
 - whether VDD opens the PR at the end (yes, ask at Sign-off, or manual)
+- how the Coder continues between rounds (fresh every round, resumed, or on Claude Code fresh once its context passes a limit)
 
-It writes the answers to `LOOP.md`, which every Role reads first, so none asks again. It then prints a summary of the Loop file and hands over to the Planner.
+It writes the answers to `LOOP.md`, which every Role reads first, so none asks again. It then prints a summary of the Loop file, which says you can ask the Orchestrator to start any Role fresh at its next round, and hands over to the Planner.
 
 #### 🔔 Sessions and Doorbells
 

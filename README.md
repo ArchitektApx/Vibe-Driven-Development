@@ -76,7 +76,7 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
 
 - A repository to work in
 - The ability to run two agent sessions side by side (two terminals is enough): the Planner, in your foreground, and the Orchestrator, which runs the rest.
-- A coding agent with subagents. Claude Code, Cursor, Codex and GitHub Copilot CLI all have the primitive the Orchestrator needs to spawn the Plan-Reviewer, the Coder and the Code-Reviewer, each in a fresh context, and to resume the same one round after round. If your host asks for approval per command, grant session approval before you start the Workflow, so you are not answering prompts through the whole run.
+- A coding agent with subagents. Claude Code, Cursor, Codex and GitHub Copilot CLI all have the primitive the Orchestrator needs to spawn the Plan-Reviewer, the Coder and the Code-Reviewer, each in a fresh context, and to resume or respawn each one round after round. If your host asks for approval per command, grant session approval before you start the Workflow, so you are not answering prompts through the whole run.
 - Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection, v1.3.1 or later. In Claude Code: Matt Pocock's own marketplace, `/plugin marketplace add mattpocock/skills` then `/plugin install mattpocock-skills@mattpocock`. In Codex, Cursor, GitHub Copilot CLI and any other agent: `npx skills@latest add -g mattpocock/skills`, selecting your agent when it asks. The Roles borrow these:
 
   | Borrowed skill | Started by | Needed by |
