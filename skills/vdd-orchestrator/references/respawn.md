@@ -27,8 +27,23 @@ under `never`.
 
 ## The user's request
 
-The user can ask for the Coder to be respawned at any round, whatever the
-line says. Its next round is then a respawn.
+The user can ask for any hosted Role to be respawned, whatever the line says:
+
+- the Plan-Reviewer when the Planner's next Doorbell arrives;
+- the Coder at its next round;
+- the Code-Reviewer at its next round.
+
+The request holds until that spawn. A respawn the user chooses in answer to a
+`BLOCKED` is a request, and it spawns the Role now for the round it did not
+finish.
+
+## What stays a resume
+
+Whatever the line says, these resume the same subagent:
+
+- the answer to a `QUESTION`;
+- the one resume that restates the return contract;
+- the user's answer to a `BLOCKED`, where the user chooses resume.
 
 ## The spawn line
 

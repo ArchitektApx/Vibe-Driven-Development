@@ -148,10 +148,11 @@ The file holds these lines and stops.
 
 This Session is the Planner. Print a closing summary of the Loop file you
 wrote. It names the Harness, and says the user corrects it by saying so now,
-before the Planner starts. On a correction, read the Harness file the index
-links for the corrected Harness, if any, and ask step 8 again, once, with that
-file's recommendation and limit. Rewrite `LOOP.md` with the corrected
-`Harness:` line and that answer, and print this step again.
+before the Planner starts. It also says the user can ask the Orchestrator to
+respawn any hosted Role at any round. On a correction, read the Harness file
+the index links for the corrected Harness, if any, and ask step 8 again, once,
+with that file's recommendation and limit. Rewrite `LOOP.md` with the
+corrected `Harness:` line and that answer, and print this step again.
 
 Then carry straight on: immediately invoke the `vdd-planner` skill in this same
 Session. If you cannot invoke skills, tell the user to invoke `vdd-planner`
