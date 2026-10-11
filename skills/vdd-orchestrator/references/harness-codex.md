@@ -1,8 +1,10 @@
 # Orchestrator on Codex
 
 - **Spawn and resume.** `collaboration.spawn_agent` spawns a fresh child.
-  `collaboration.followup_task` addressed to that child resumes the same child
-  with its context intact.
+  Pass `fork_turns: "none"` on every hosted-Role spawn, a Role's first spawn,
+  a respawn and a spawn after a restart alike, so the Role starts without
+  your conversation. `collaboration.followup_task` addressed to that child
+  resumes the same child with its context intact, and takes no `fork_turns`.
 - **The Spawn prompt's skill name.** `$vdd:vdd-<role>`:
   `$vdd:vdd-plan-reviewer`, `$vdd:vdd-coder` or `$vdd:vdd-code-reviewer`. A
   child spawned with that name in its task loads the plugin's skill.
