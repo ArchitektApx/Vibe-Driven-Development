@@ -31,6 +31,8 @@ it. Then stop and wait.
 
 ## Step 1: the Borrowed review
 
+When `CODEREVIEW.md` exists, you must read it before you review.
+
 Confirm `git log <base>..HEAD --oneline` lists at least one commit. An empty
 list means the Coder has yet to commit: a blocker finding on its own; stop,
 write it, hand back. Then run Matt Pocock's `code-review` skill, with the base
@@ -104,8 +106,8 @@ In this order:
 1. `SIGNED OFF` as the literal first line, when no blocker and no major is
    `open`, and on `Minors: fix`, when no minor is `open` either. Those two
    words are the whole line.
-2. A `Round <n>` line, where `<n>` counts the reviews you have written in this
-   loop.
+2. A `Round <n>` line. `<n>` is the previous file's `Round` plus one, or 1
+   when there is none. It wins over the round your Spawn prompt names.
 3. The `## code-review` section from step 1.
 4. `## Findings`, numbered. Each one carries a severity (blocker / major /
    minor), a state in parentheses after the severity (`minor (open)`), a
@@ -149,10 +151,9 @@ the message:
 - `VDD Code-Reviewer: CODEREVIEW.md written, round <n>: <b> blocker, <m> major, <p> minor. Read it.`
 - on sign-off: `VDD Code-Reviewer: CODEREVIEW.md SIGNED OFF, round <n>.`
 
-`<n>` is how many times you have produced your Working file in this loop; read
-it from the `Round` line you just wrote. The three counts are counts of
-findings in state `open`, so the message says how much work is left rather than
-how much you wrote down.
+`<n>` is the round on the `Round` line you just wrote. The three counts are
+counts of findings in state `open`, so the message says how much work is left
+rather than how much you wrote down.
 
 Print it at the end of your turn.
 

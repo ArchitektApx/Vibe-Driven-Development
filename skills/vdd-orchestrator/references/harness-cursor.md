@@ -7,11 +7,7 @@
   `vdd-coder` or `vdd-code-reviewer`. A child loads the skill by reading its
   `SKILL.md`.
 - **The context size.** None reaches the parent: a Task result carries the
-  reply and the agent ID only. From the first Coder return, whatever the
-  `Fresh Coder:` line says, the no-size path of the fresh-Coder file that
-  `SKILL.md` links applies: tell the user once that the check cannot run and
-  that they can ask for a fresh Coder at any round. On that request, spawn as
-  that file says.
+  reply and the agent ID only.
 - **The Doorbell file.** You ring and wait through it, as the Doorbell file
   for your platform says, `doorbell-file-unix.md` or on native Windows
   `doorbell-file-windows.md`, which `SKILL.md` links.

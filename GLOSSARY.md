@@ -113,8 +113,12 @@ The `Minors:` line in the Loop file, `fix` or `leave`, given by the user at Work
 _Avoid_: minors setting, strictness, thoroughness flag
 
 **Fresh Coder line**:
-The `Fresh Coder:` line in the Loop file, `over <n>` or `never`, given by the user at Workflow start and read by the Orchestrator on every Coder return. On `over <n>` a Coder whose reported context size passed `<n>`, or reported none, is spawned fresh for its next round with `FIXES.md` and the commits as its state; the reviewers are resumed regardless.
+The `Fresh Coder:` line in the Loop file, `never`, `every round` or `over <n>`, given by the user at Workflow start and read by the Orchestrator before each Coder round. It says when the Coder is respawned: never, every round after the first, or once its reported context size passed `<n>`.
 _Avoid_: restart rule, context limit, respawn flag
+
+**Respawn**:
+A hosted Role spawned anew at a later round of the same Loop, in place of a resume. It starts from the Spawn prompt, that round's number and its Working files. The Fresh Coder line and the user's request cause it. A spawn after a restart is not a respawn; restart is the word for the Orchestrator's Session coming back.
+_Avoid_: fresh spawn, restart
 
 **Open minor**:
 A minor the latest review lists as `open`; a minor the reviewer marked `fixed` or `accepted` is closed. On a Minors answer of `fix` an open minor holds up Sign-off, and on `leave` it does not.

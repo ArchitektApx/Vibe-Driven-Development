@@ -45,9 +45,9 @@ frontier: any Ticket whose blocking Tickets are all done. For each one:
 3. Tick the acceptance checkboxes in the Ticket file, but only for what you
    actually verified.
 4. Write its `FIXES.md` entry and save the file before the next Ticket opens.
-   A Coder spawned fresh mid-loop inherits `FIXES.md` and the commits and
-   nothing else, so an entry deferred to the end leaves it blind on the
-   Ticket it takes over.
+   A respawned Coder inherits `FIXES.md` and the commits and nothing else,
+   so an entry deferred to the end leaves it blind on the Ticket it takes
+   over.
 5. Commit on the feature branch.
 
 The round ends when every Ticket is done or recorded in `FIXES.md` as broken.
@@ -163,7 +163,8 @@ the conflict and what you did about it into `FIXES.md`.
 Cumulative across the whole loop: every round adds to what is already there.
 
 Header lines: `Base: <base branch>`, `Branch: <feature branch>`, and
-`Round <n>` with the latest round number.
+`Round <n>`, where `<n>` is `CODEREVIEW.md`'s `Round` plus one, or 1 when
+there is no `CODEREVIEW.md`.
 
 Round 1 body: one section per Ticket, each with the files you touched, the
 decisions you had to make, anything you deviated on and why, and the
@@ -207,8 +208,7 @@ Doorbell.
 
 - `VDD Coder: FIXES.md written, round <n>. Read it.`
 
-`<n>` is how many times you have produced your Working file in this loop; read
-it from the `Round` line in `FIXES.md`.
+`<n>` is the round on the `Round` line in `FIXES.md`.
 
 Print it at the end of your turn.
 

@@ -21,6 +21,7 @@ in a Planner Session; do not guess a slug.
 ## What to read
 
 Read `.scratch/<slug>/spec.md` and every file in `.scratch/<slug>/issues/`.
+When `PLAN-REVIEW.md` exists, you must read it before you review.
 
 Review them adversarially. Verify every claim they make against the actual
 codebase: the modules, interfaces and existing behaviour they assume, and the
@@ -62,8 +63,9 @@ In this order:
 1. `SIGNED OFF` as the literal first line, when no blocker and no major is
    `open`, and on `Minors: fix`, when no minor is `open` either. Those two
    words are the whole line.
-2. A `Round <n>` line, where `<n>` counts the reviews you have written in this
-   loop. The Planner reads its own round number from yours. When
+2. A `Round <n>` line. `<n>` is the previous file's `Round` plus one, or 1
+   when there is none. It wins over the round your Spawn prompt names. The
+   Planner reads its own round number from yours. When
    `writing-for-agents` did not resolve, say so on the line directly after this
    one, so a review with that check skipped does not read like a review that
    passed it.
@@ -110,10 +112,9 @@ Doorbell.
 - `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>: <b> blocker, <m> major, <p> minor. Read it.`
 - on sign-off: `VDD Plan-Reviewer: PLAN-REVIEW.md SIGNED OFF, round <n>.`
 
-`<n>` is how many times you have produced your Working file in this loop; read
-it from the `Round` line you just wrote. The three counts are counts of
-findings in state `open`, so the message says how much work is left rather than
-how much you wrote down.
+`<n>` is the round on the `Round` line you just wrote. The three counts are
+counts of findings in state `open`, so the message says how much work is left
+rather than how much you wrote down.
 
 Print it at the end of your turn.
 

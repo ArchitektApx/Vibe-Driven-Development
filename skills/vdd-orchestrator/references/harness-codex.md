@@ -1,8 +1,10 @@
 # Orchestrator on Codex
 
 - **Spawn and resume.** `collaboration.spawn_agent` spawns a fresh child.
-  `collaboration.followup_task` addressed to that child resumes the same child
-  with its context intact.
+  Pass `fork_turns: "none"` on every hosted-Role spawn, a Role's first spawn,
+  a respawn and a spawn after a restart alike, so the Role starts without
+  your conversation. `collaboration.followup_task` addressed to that child
+  resumes the same child with its context intact, and takes no `fork_turns`.
 - **The Spawn prompt's skill name.** `$vdd:vdd-<role>`:
   `$vdd:vdd-plan-reviewer`, `$vdd:vdd-coder` or `$vdd:vdd-code-reviewer`. A
   child spawned with that name in its task loads the plugin's skill.
@@ -13,11 +15,7 @@
   arrives as a message of type `FINAL_ANSWER` with a `Task name`, a `Sender`
   and a `Payload`. The `Payload` is the return to parse.
 - **The context size.** Codex reports none for a subagent, in any field of the
-  spawn, wait, follow-up or completion results. From the first Coder return,
-  whatever the `Fresh Coder:` line says, the no-size path of the fresh-Coder
-  file that `SKILL.md` links applies: tell the user once that the check cannot
-  run and that they can ask for a fresh Coder at any round. On that request,
-  spawn as that file says.
+  spawn, wait, follow-up or completion results.
 - **The Doorbell file.** You ring and wait through it, as the Doorbell file
   for your platform says, `doorbell-file-unix.md` or on native Windows
   `doorbell-file-windows.md`, which `SKILL.md` links, and as "The wait" below

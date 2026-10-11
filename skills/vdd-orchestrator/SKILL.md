@@ -180,6 +180,9 @@ three shapes above. On a second miss, raise the return to the user as a
 
 ## Acting on a `DOORBELL`
 
+When the user asks for a respawn, read [`respawn.md`](references/respawn.md):
+the next resume of that Role becomes one.
+
 **From the Planner.** Resume the existing Plan-Reviewer subagent when there
 is one, carrying the Planner's Doorbell as the resume message. When there is
 none, round 1 or the first round after a restart, spawn the Plan-Reviewer
@@ -200,18 +203,14 @@ your reply, and only then spawn the Coder.
 one when the code Loop has already had a round.
 
 **From the Code-Reviewer.** No relay. On open findings, resume the Coder, or
-spawn it fresh when "The Coder's context" below says so. On `SIGNED OFF`,
-follow "The PR-Author" below. The Code-Reviewer is resumed round after round
-for the life of the code Loop, so it keeps the context of its own rounds.
+respawn it when "The Coder's context" below says so. On `SIGNED OFF`,
+follow "The PR-Author" below.
 
 ## The Coder's context
 
-Where your Harness file says no context size reaches you, its no-size path
-applies from the first Coder return, whatever this line says. Otherwise,
-`Fresh Coder: never`: resume the Coder every round. `Fresh Coder: over <n>`,
-or when the user asks for a fresh Coder: read
-[when the Coder is spawned fresh](references/fresh-coder.md) before you act
-on the first Coder return or on the request.
+`Fresh Coder: never`: resume the Coder every round. On any other value, a
+missing line included, read [`respawn.md`](references/respawn.md) before you
+act on the first Coder return.
 
 ## Acting on a `QUESTION`
 
@@ -221,8 +220,9 @@ context is intact; it did not restart.
 
 ## Acting on a `BLOCKED`
 
-Put it to the user in your own session, verbatim, and wait. Resume or fresh
-spawn is their call, and their answer is the resume message.
+Put it to the user in your own session, verbatim, and wait. Resume or respawn
+is their call, as [`respawn.md`](references/respawn.md) says, and a resume
+carries their answer as its message.
 
 ## Receiving a message from the Planner
 

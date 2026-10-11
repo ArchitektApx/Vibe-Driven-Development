@@ -5,6 +5,37 @@ All notable changes to Vibe Driven Development are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+**TL;DR:** The Coder can start fresh every round, which costs less on most
+agents, any Role can start fresh when you ask, and Roles on Codex no longer
+carry the Orchestrator's conversation.
+
+### Added
+
+- **Start any Role fresh when you ask.** At any round, ask the Orchestrator to
+  start the Plan-Reviewer, the Coder or the Code-Reviewer fresh for its next
+  round. A reviewer that starts fresh reads its previous review first, so
+  every finding keeps its number and state.
+
+### Changed
+
+- **The Coder can start fresh every round.** Start-Loop now asks on every
+  agent how the Coder continues between rounds: fresh every round, resumed
+  every round, or, on Claude Code, fresh once its context passes a limit.
+  Fresh every round is recommended on Claude Code, Cursor and Copilot CLI,
+  where a resumed Coder pays again for its whole earlier context on most
+  rounds. Resuming stays recommended on Codex.
+- **A lower limit on Claude Code.** The context limit Start-Loop offers is
+  now 200k, down from 350k.
+
+### Fixed
+
+- **Roles on Codex started with someone else's conversation.** Every Role
+  the Orchestrator started carried the Orchestrator's whole conversation, and
+  the Code-Reviewer's two review passes carried the Code-Reviewer's. Each now
+  starts from its own instructions alone, so the reviews stay independent.
+
 ## [0.15.0] - 2026-10-07
 
 **TL;DR:** Automatic Doorbells on every supported agent, native Windows

@@ -1,7 +1,8 @@
 # Code-Reviewer on Codex
 
 - **The `code-review` sub-agents.** Spawn both with
-  `collaboration.spawn_agent`, then wait for them inside your turn with
+  `collaboration.spawn_agent` and `fork_turns: "none"`, so neither inherits
+  your context, then wait for them inside your turn with
   `collaboration.wait_agent`, a timeout of several minutes, until both
   completions have arrived. A sub-agent that finishes after your turn has
   ended does not wake you, and its report is lost.
