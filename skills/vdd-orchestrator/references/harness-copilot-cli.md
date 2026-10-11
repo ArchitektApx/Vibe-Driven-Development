@@ -20,11 +20,7 @@
 - **The Spawn prompt's skill name.** `vdd-<role>`, bare: `vdd-plan-reviewer`,
   `vdd-coder` or `vdd-code-reviewer`. A child loads it with the `skill` tool.
 - **The context size.** None reaches the parent: the `task` and `read_agent`
-  results carry no context or token figure. From the first Coder return,
-  whatever the `Fresh Coder:` line says, the no-size path of the fresh-Coder
-  file that `SKILL.md` links applies: tell the user once that the check cannot
-  run and that they can ask for a fresh Coder at any round. On that request,
-  spawn as that file says.
+  results carry no context or token figure.
 - **The Doorbell file.** You ring and wait through it, as the Doorbell file
   for your platform says, `doorbell-file-unix.md` or on native Windows
   `doorbell-file-windows.md`, which `SKILL.md` links.

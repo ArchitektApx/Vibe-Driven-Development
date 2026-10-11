@@ -112,14 +112,18 @@ Sign-off.
 
 ## 8. The Fresh Coder question
 
-Ask the user once whether the Orchestrator should spawn the Coder fresh when
-its context grows past a limit. Present these two answers, in this order:
+Ask the user once when the Orchestrator should respawn the Coder, spawning it
+anew for a round in place of resuming the one before. Present these answers,
+in this order:
 
-- A limit. Writes `Fresh Coder: over <n>`, with the number the user names.
-  Offer a number only where your Harness file gives one.
+- Every round. Writes `Fresh Coder: every round`.
 - Never. Writes `Fresh Coder: never`.
+- Over a limit. Writes `Fresh Coder: over <n>`. Offer it only where your
+  Harness file gives a number, and write that number unless the user names
+  another.
 
-Where your Harness file says to skip this question, follow it instead.
+Mark the answer your Harness file recommends "(recommended)". With no Harness
+file, as on Generic, recommend nothing.
 
 ## 9. Write `LOOP.md`
 
@@ -145,10 +149,9 @@ The file holds these lines and stops.
 This Session is the Planner. Print a closing summary of the Loop file you
 wrote. It names the Harness, and says the user corrects it by saying so now,
 before the Planner starts. On a correction, read the Harness file the index
-links for the corrected Harness, if any, and redo step 8 where the corrected
-Harness handles it differently: the question skipped on one Harness is asked
-on another, and the number offered changes. Rewrite `LOOP.md` with the
-corrected `Harness:` line and that answer, and print this step again.
+links for the corrected Harness, if any, and ask step 8 again, once, with that
+file's recommendation and limit. Rewrite `LOOP.md` with the corrected
+`Harness:` line and that answer, and print this step again.
 
 Then carry straight on: immediately invoke the `vdd-planner` skill in this same
 Session. If you cannot invoke skills, tell the user to invoke `vdd-planner`

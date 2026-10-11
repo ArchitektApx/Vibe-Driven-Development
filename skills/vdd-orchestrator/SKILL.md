@@ -200,18 +200,16 @@ your reply, and only then spawn the Coder.
 one when the code Loop has already had a round.
 
 **From the Code-Reviewer.** No relay. On open findings, resume the Coder, or
-spawn it fresh when "The Coder's context" below says so. On `SIGNED OFF`,
+respawn it when "The Coder's context" below says so. On `SIGNED OFF`,
 follow "The PR-Author" below. The Code-Reviewer is resumed round after round
 for the life of the code Loop, so it keeps the context of its own rounds.
 
 ## The Coder's context
 
-Where your Harness file says no context size reaches you, its no-size path
-applies from the first Coder return, whatever this line says. Otherwise,
-`Fresh Coder: never`: resume the Coder every round. `Fresh Coder: over <n>`,
-or when the user asks for a fresh Coder: read
-[when the Coder is spawned fresh](references/fresh-coder.md) before you act
-on the first Coder return or on the request.
+`Fresh Coder: never`: resume the Coder every round. On any other value, a
+missing line included, or when the user asks for a respawn, read
+[when a hosted Role is respawned](references/respawn.md) before you act on the
+first Coder return or on the request.
 
 ## Acting on a `QUESTION`
 
