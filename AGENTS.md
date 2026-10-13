@@ -89,6 +89,7 @@ exception edits the step in the same PR so the reviewer sees both.
   excepted.
 - Every file under a skill's `references/` is linked directly from its
   `SKILL.md`, a Harness file from `## Harnesses`.
+- Every file under a skill's `references/` is at most 8 KB.
 - Under `skills/` every tracked file is `.md`, `agents/openai.yaml` or `.py`.
 - Outside `skills/`, `.github/`, `tests/` and `docs/` every tracked file is
   `.md`, a manifest `.json` under `.claude-plugin/` or `.codex-plugin/`,

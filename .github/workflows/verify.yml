@@ -164,6 +164,20 @@ jobs:
             process.exit(rc);
           '
 
+      # A Harness reads a long file in parts, and some truncate one, so a Role
+      # can miss the end of a Reference file it reads in a single call. Every
+      # file under a skill's references/ stays at or under 8 KB.
+      - name: Reference files are at most 8 KB
+        run: |
+          rc=0
+          while IFS= read -r f; do
+            size=$(wc -c < "$f")
+            if [ "$size" -gt 8192 ]; then
+              echo "$f: $size bytes, over 8 KB"; rc=1
+            fi
+          done < <(find skills -type f -path '*/references/*')
+          exit $rc
+
       # A Role reads the Harness file its `## Harnesses` section links. A
       # skill that ships one and leaves a Harness out of the section sends
       # that reader nowhere.
