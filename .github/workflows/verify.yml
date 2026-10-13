@@ -1,7 +1,8 @@
 name: Verify
 
 # pull_request, never pull_request_target: this checks out and runs content
-# from the PR head, so it must not have write access or secrets.
+# from the PR head, so it must not have write access or secrets. A push to
+# any branch runs it too, so a branch shows its check before a PR exists.
 on:
   push:
     branches: ['**']
@@ -57,6 +58,8 @@ jobs:
             }
           '
 
+      # A Harness finds a skill by the name and description in its
+      # frontmatter, so a SKILL.md without them is a skill nobody loads.
       - name: Check every skill has frontmatter
         run: |
           rc=0

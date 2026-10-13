@@ -9,11 +9,11 @@ Everything from the environment check to the pull request, on one Feature slug. 
 _Avoid_: phase, pipeline, run
 
 **Role**:
-One of the ten jobs the plugin ships (Planner, Orchestrator, Plan-Reviewer, Coder, Code-Reviewer, PR-Author, plus Setup and Start-Loop inside the Workflow; Brainstormer and Wayfinder before it). Each ships as one skill file. The Planner, the Brainstormer and the Wayfinder run in the user's session; the Orchestrator hosts the Plan-Reviewer, the Coder and the Code-Reviewer and invokes the PR-Author.
+One of the ten jobs the plugin ships, each as one skill: the Planner, the Orchestrator, the Plan-Reviewer, the Coder, the Code-Reviewer, the PR-Author, Setup and Start-Loop inside the Workflow, and the Brainstormer and the Wayfinder before it. ADR 0001 says where each runs.
 _Avoid_: agent, persona, mode
 
 **Orchestrator**:
-The Role that puts Model approval to the user before its first spawn, hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, carries Doorbells between the Planner and the Loop it hosts, relays a Role's question to the user and resumes the same subagent with the answer, and invokes the PR-Author in its own session at Sign-off. Runs in its own session, opened when the Planner rings its first Doorbell.
+The Role that hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents in its own Session, carries Doorbells between the Planner and the Loop it hosts, relays a hosted Role's question to the user and resumes it with the answer, and invokes the PR-Author at Sign-off.
 _Avoid_: dispatcher, controller, coordinator
 
 **PR-Author**:
@@ -37,7 +37,7 @@ One file per loop of a wayfinding effort under `.scratch/<effort>/handoffs/`, `0
 _Avoid_: brief, epic, chunk
 
 **Session**:
-One of the two conversations the user opens: the Planner's, and the Orchestrator's. A hosted Role runs as a subagent, a fresh conversation the Orchestrator spawns inside its own session, and that freshness is what still makes the review adversarial: a subagent's context begins with its Spawn prompt and holds nothing of its host's reasoning.
+A conversation the user opens: the Planner's and the Orchestrator's inside a Workflow, the Brainstormer's or the Wayfinder's before one. A hosted Role runs as a subagent, a fresh conversation the Orchestrator spawns inside its own Session, whose context begins with its Spawn prompt.
 _Avoid_: instance, window, context
 
 **Harness**:
@@ -45,7 +45,7 @@ The program a Session runs in, which decides how a Role invokes skills, spawns s
 _Avoid_: host, platform, runtime, client, agent, model, provider
 
 **Harness file**:
-`references/harness-<slug>.md` in a Role skill, the Reference file that holds what the skill does differently on one Harness; the slug is the Harness lowercased with spaces as hyphens. A Role reads the one for its Harness once, at the start, through the skill's Harnesses index: the `## Harnesses` section, which names every Harness that has a file in any skill, with a link to this skill's file or the line `none: the inline text is complete`. Every Harness file ends on the drift line, "Trust your live tools over this file when they disagree." Generic has none.
+`references/harness-<slug>.md` in a Role skill, the Reference file that holds what the skill does differently on one Harness. A Role reads the one for its Harness once, at the start, through the skill's `## Harnesses` section. Generic has none.
 _Avoid_: adapter, platform file, harness reference
 
 **Loop**:
@@ -65,7 +65,7 @@ _Avoid_: feature name, ticket name, branch name
 _Avoid_: scratch dir, feature folder, workspace
 
 **Loop file**:
-`LOOP.md` at the repository root. Records the Feature slug, the base branch, the feature branch, the tracker path, the `Minors:` line, the `PR:` line, the `Fresh Coder:` line and the Harness, so every Role reads them instead of asking. It is the one Working file outside the tracker directory, because every Role reads it before it knows a Feature slug and no tracker path resolves until it has. `vdd-start-loop` and `LOOP.md` were named before Workflow and Loop were split, and keep their names.
+`LOOP.md` at the repository root. Records the Workflow's settings, the Feature slug, the branches, the tracker path, the user's answers at Workflow start and the Harness, so every Role reads them instead of asking. It is the one Working file outside the tracker directory, because every Role reads it before it knows a Feature slug.
 _Avoid_: session file, config, manifest
 
 **Spec**:
@@ -93,7 +93,7 @@ The Orchestrator's one blocking prompt, put to the user before its first spawn i
 _Avoid_: model prompt, model config, model check
 
 **Doorbell**:
-A fixed contract naming which Working file was written, which round, and the open findings per severity or `SIGNED OFF`, with no free text. Carried by whichever of four carriers the two ends have: a cross-session message from the Planner to the Orchestrator, the Orchestrator's relay of the Plan-Reviewer's Doorbell back to the Planner, a hosted Role's return value to the Orchestrator, or the Orchestrator's resume message waking a hosted Role. The two cross-session Doorbells, the Planner's to the Orchestrator and the Orchestrator's relay back to the Planner, are appended to the Doorbell file on every Harness but Generic and printed for a paste on Generic. Every ring prints the line on the other Harnesses too, for a paste where the other Session does not wake.
+A fixed line telling a Role that a Working file is ready: which file, which round, and the open findings per severity or `SIGNED OFF`, with no free text. It travels by one of four carriers: the Planner's cross-Session message to the Orchestrator, the Orchestrator's relay back to the Planner, a hosted Role's return value, or the Orchestrator's resume message. The two cross-Session carriers go through the Doorbell file.
 _Avoid_: notification, handoff message, ping
 
 **Doorbell file**:
@@ -131,7 +131,7 @@ A skill from another collection that a Role depends on but does not ship. From M
 _Avoid_: external skill, third-party skill, dependency
 
 **User-invoked**:
-A property of a skill whose author blocked agents from starting it, so only a human typing the slash command can. All Borrowed skills except `code-review`, `writing-for-agents`, `grilling`, `domain-modeling`, `codebase-design`, `research` and `prototype` are user-invoked. In Claude Code, Cursor and Copilot CLI this is `disable-model-invocation: true` in the frontmatter; in Codex, `policy.allow_implicit_invocation: false`.
+A property of a skill whose author blocked agents from starting it, so only a human typing the slash command can.
 _Avoid_: manual, disabled, blocked
 
 **Present**:

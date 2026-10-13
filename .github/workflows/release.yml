@@ -3,7 +3,6 @@ name: Release
 # Push a vX.Y.Z tag on a commit on master to publish a GitHub release whose
 # body is that version's section of CHANGELOG.md. A workflow_dispatch is a dry
 # run: it checks the manifests and extracts the notes, and writes nothing.
-# docs/agents/LANDING-A-CHANGE.md#releasing has the steps.
 on:
   push:
     tags: ['v*.*.*']
