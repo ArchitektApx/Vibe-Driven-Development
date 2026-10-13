@@ -253,6 +253,16 @@ class SetupTest(ToolTest):
         self.assertIn("claude-code, codex, cursor, copilot-cli, generic", result.text)
         self.assertContract(result)
 
+    def test_the_loop_file_spelling_names_the_same_harness(self):
+        """LOOP.md's Harness: line spells the Harness "Claude Code", and three
+        Roles in the vdd-tool acceptance passed that spelling to --harness
+        and were refused (acceptance finding 1): it names the same Harness
+        as the slug."""
+        for spelled, slug in (("Claude Code", "claude-code"), ("Copilot CLI", "copilot-cli"), ("Cursor", "cursor")):
+            result = self.setup(spelled)
+            self.assertEqual(result.code, 0, result)
+            self.assertEqual(result.text, self.setup(slug).text)
+
     def test_old_collection_from_the_description_gives_one_update_route(self):
         """A collection from before the glossary rename gets the update route
         for its store, in place of any install route (a483e69)."""

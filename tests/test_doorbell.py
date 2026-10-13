@@ -182,6 +182,15 @@ class DoorbellTest(ToolTest):
         self.assertEqual(result.lines[0], "Doorbell: " + P1)
         self.assertNext(result, "Spawn the Plan-Reviewer fresh with the Spawn prompt, as your skill says.")
 
+    def test_the_loop_file_spelling_of_the_harness(self):
+        """The Orchestrator's first take on Claude Code and on Cursor passed
+        the Loop file's spelling and was refused (acceptance finding 1)."""
+        self.ring("Planner", P1)
+        result = self.take("Orchestrator", "--restart", harness="Claude Code")
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(result.lines[0], "Doorbell: " + P1)
+        self.assertNext(result, "Spawn the Plan-Reviewer fresh")
+
     def test_a_duplicate_is_its_sender_and_round(self):
         """The shorter restart relay of a round already acted on is a
         duplicate: sender and round decide, the rest of the line does not
