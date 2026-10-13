@@ -27,7 +27,25 @@ reading it. A reason stays when the Role needs it to act; a reason only a
 maintainer needs lives in the commit or the ADR that records it. A slip is
 fixed by removing the text that competed with the right instruction, and only
 when it breaks a step or a call. A `SKILL.md` aims to fit one 240-line read
-window; text every run needs may take it past.
+window; text every run needs may take it past. Work with one right outcome
+goes into the shipped VDD tool, not into a skill (ADR 0010).
+
+## Tests
+
+The VDD tool's tests use the standard library alone and run from any working
+directory:
+
+```sh
+python3 -B -m unittest discover -s tests
+```
+
+On native Windows run it as `py -3 -B -m unittest discover -s tests`. `-B`
+keeps Python from caching the test modules; the tool turns bytecode off
+itself, so a run leaves no `__pycache__` behind. A test drives the tool from
+outside, as a Role or a user sees it. The one exception is the Harness
+contract test, `tests/test_harness_contract.py`, which imports the package to
+check that every Harness module implements the whole interface. A test that
+replaces a guardrail names the commit or finding behind it in its docstring.
 
 ## Landing a change
 
@@ -62,8 +80,22 @@ exception edits the step in the same PR so the reviewer sees both.
   carries `name` and `description`.
 - Every relative link under `skills/` resolves, a `<placeholder>` target
   excepted.
-- Every file under a skill directory is linked directly from its `SKILL.md`,
-  a Harness file from `## Harnesses`; `agents/openai.yaml` is exempt.
+- Every file under a skill's `references/` is linked directly from its
+  `SKILL.md`, a Harness file from `## Harnesses`.
+- Under `skills/` every tracked file is `.md`, `agents/openai.yaml` or `.py`,
+  with the 0.15 `.sh` and `.ps1` scripts allowed until they go.
+- Outside `skills/`, `.github/`, `tests/` and `docs/` every tracked file is
+  `.md`, a manifest `.json` under `.claude-plugin/` or `.codex-plugin/`,
+  `.gitignore`, `.gitattributes` or `LICENSE`.
+- Every tracked file under `skills/` is at mode 644, and no `.py` starts
+  with a shebang.
+- Every `.py` under `skills/` is ASCII only and parses as Python 3.9.
+- Every `.py` under `skills/` imports only the standard library and the
+  tool's own package, and no network module.
+- No `.py` under `skills/` calls `shell=True`, `os.system`, `os.popen`,
+  `eval` or `exec`.
+- The tool's tests run on Ubuntu, Windows and macOS against Python 3.9 and
+  the newest 3.x.
 - A skill has `disable-model-invocation: true` exactly when its
   `agents/openai.yaml` sets `policy.allow_implicit_invocation: false`.
 - A skill that ships a `references/harness-<slug>.md` has a `## Harnesses`

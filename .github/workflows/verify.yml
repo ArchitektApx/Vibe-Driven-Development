@@ -110,10 +110,11 @@ jobs:
             process.exit(rc);
           '
 
-      # A file under a skill directory that its skill file does not link is a
-      # file no reader can be sent to. Each file is linked from the step in
-      # SKILL.md that reads it, a Harness file from ## Harnesses, which is what
-      # makes a direct link enough, so this needs no transitive crawl.
+      # A Reference file that its skill file does not link is a file no reader
+      # can be sent to. Each one is linked from the step in SKILL.md that reads
+      # it, a Harness file from ## Harnesses, which is what makes a direct link
+      # enough, so this needs no transitive crawl. Code under scripts/ is
+      # reached by import and taught by --help, so only references/ counts.
       - name: Every file under a skill is linked from its skill file
         run: |
           node -e '
@@ -142,11 +143,9 @@ jobs:
                 if (!target || external(target)) continue;
                 linked.add(path.normalize(path.join(root, target)));
               }
-              // Codex reads agents/openai.yaml as the policy file of the skill; no reader follows a link to it.
-              const policy = path.normalize(path.join(root, "agents", "openai.yaml"));
-              for (const f of walk(root)) {
-                if (path.normalize(f) === path.normalize(skill)) continue;
-                if (path.normalize(f) === policy) continue;
+              const refs = path.join(root, "references");
+              if (!fs.existsSync(refs)) continue;
+              for (const f of walk(refs)) {
                 if (!linked.has(path.normalize(f))) {
                   console.error(`${f}: no direct link from ${skill}`);
                   rc = 1;
@@ -322,6 +321,29 @@ jobs:
           done < <(find skills -type f -path '*/agents/openai.yaml')
           exit $rc
 
+      # Shipped code runs on every installer's machine through a named
+      # interpreter, so it is held to what that promise allows:
+      # - File kinds as an allow list: under skills/ only .md,
+      #   agents/openai.yaml and .py (the 0.15 .sh and .ps1 until they go);
+      #   elsewhere outside .github/, tests/ and docs/ only .md, the manifests'
+      #   .json, .gitignore, .gitattributes and LICENSE. New code is .py, or a
+      #   deliberate edit of this step.
+      # - Every file under skills/ at mode 644, and no .py with a shebang:
+      #   nothing runs by its own path.
+      # - Every .py ASCII only: a non-ASCII byte reaches a Windows console in
+      #   the ANSI code page as a different character.
+      # - Every .py parses as Python 3.9, the floor Apple's Command Line Tools
+      #   ship.
+      # - Imports from the standard library and the tool's own package only,
+      #   and no network module: nothing is installed and nothing is fetched.
+      # - No shell=True, os.system, os.popen, eval or exec: no shell and no
+      #   evaluated text.
+      # It reads git ls-files -s, so gitignored scratch files never count and a
+      # mode reads the same on every OS. It needs the runner's Python (3.10+
+      # for sys.stdlib_module_names).
+      - name: Shipped code passes the static checks
+        run: python3 .github/scripts/check_shipped_code.py
+
       # release.yml is the one workflow that may write to the repository, and
       # only from a version tag push or a workflow_dispatch. A pull_request
       # trigger there would run PR-head content with write access, and write
@@ -416,3 +438,34 @@ jobs:
             perl -ne 'if (/[^\x09\x0a\x0d\x20-\x7e]/) { print "non-ASCII byte: $ARGV:$.\n"; $bad = 1 } END { exit($bad ? 1 : 0) }' "$f" || rc=1
           done < <(find skills -type f \( -name '*.sh' -o -name '*.ps1' \))
           exit $rc
+
+  # The VDD tool runs on the user's Python, on macOS, Linux and native
+  # Windows, from 3.9 (Apple's Command Line Tools) to the newest release. A
+  # new Python or a Windows path quirk fails a PR here, not a user. -B keeps
+  # the runner from caching the test modules it imports; the tool turns
+  # bytecode off itself. Ubuntu 24.04 for 3.9: later images ship no 3.9 build.
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, python: '3.9' }
+          - { os: ubuntu-latest, python: '3.x' }
+          - { os: windows-latest, python: '3.9' }
+          - { os: windows-latest, python: '3.x' }
+          - { os: macos-latest, python: '3.9' }
+          - { os: macos-latest, python: '3.x' }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Run the tool's tests
+        run: python -B -m unittest discover -s tests

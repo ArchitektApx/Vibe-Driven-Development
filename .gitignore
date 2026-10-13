@@ -2,3 +2,4 @@ LOOP.md
 .scratch/
 AGENTS.local.md
 .local/
+__pycache__/
