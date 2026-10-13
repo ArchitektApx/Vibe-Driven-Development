@@ -56,6 +56,15 @@ class Harness(abc.ABC):
         """Text that continues the "Resolvable from a store Setup does not
         search" line, or an empty string."""
 
+    @abc.abstractmethod
+    def orchestrator_launch(self):
+        """How the user starts the Orchestrator's Session, as one clause."""
+
+    @abc.abstractmethod
+    def wait_next(self, role, wait_command, paste_command):
+        """The Next: step that waits for the other Role's Doorbell: how to run
+        wait_command on this Harness, or hand relay through paste_command."""
+
 
 def get(name):
     """The Harness --harness names, or None."""

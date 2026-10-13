@@ -65,5 +65,14 @@ class Cursor(Harness):
             "does not depend on it."
         )
 
+    def orchestrator_launch(self):
+        return (
+            "in the Cursor IDE, open a new chat and type /vdd-orchestrator in it; in the Cursor CLI, run "
+            "agent in a terminal in this repository, then /vdd-orchestrator in that Session"
+        )
+
+    def wait_next(self, role, wait_command, paste_command):
+        return "Run this as a background shell, then end your turn: %s" % wait_command
+
 
 HARNESS = Cursor()

@@ -42,5 +42,15 @@ class Generic(Harness):
     def no_hit_continuation(self):
         return ""
 
+    def orchestrator_launch(self):
+        return "open a second Session in the same Harness and invoke vdd-orchestrator there"
+
+    def wait_next(self, role, wait_command, paste_command):
+        return (
+            "If your tools can run a command in the background and wake you when it exits, run this that "
+            "way, then end your turn: %s Otherwise ask the user to paste the next Doorbell here, and run "
+            "with it: %s" % (wait_command, paste_command)
+        )
+
 
 HARNESS = Generic()

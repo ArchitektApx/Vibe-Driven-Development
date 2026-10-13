@@ -73,5 +73,14 @@ class ClaudeCode(Harness):
     def no_hit_continuation(self):
         return ""
 
+    def orchestrator_launch(self):
+        return "run claude in a terminal in this repository, then /vdd:vdd-orchestrator in that Session"
+
+    def wait_next(self, role, wait_command, paste_command):
+        return (
+            "Run this in the background with run_in_background set and a timeout of at least 2760000 ms, "
+            "then end your turn: %s" % wait_command
+        )
+
 
 HARNESS = ClaudeCode()

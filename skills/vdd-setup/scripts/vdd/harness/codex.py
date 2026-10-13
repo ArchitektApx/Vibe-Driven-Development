@@ -64,5 +64,11 @@ class Codex(Harness):
     def no_hit_continuation(self):
         return ""
 
+    def orchestrator_launch(self):
+        return "run codex --no-daemon in a terminal in this repository, then $vdd:vdd-orchestrator in that Session"
+
+    def wait_next(self, role, wait_command, paste_command):
+        return "Run this, which arms the Stop hook, then end your turn: %s" % wait_command
+
 
 HARNESS = Codex()

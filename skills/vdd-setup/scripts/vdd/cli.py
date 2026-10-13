@@ -8,6 +8,7 @@ from .out import Failure, Output
 
 # Command group -> (module, one-line summary). Each module has run(argv).
 GROUPS = {
+    "doorbell": ("doorbell", "Ring, wait for and take Doorbells between the Planner and the Orchestrator."),
     "setup": ("setup", "Check this repository and machine for a VDD loop, and make the changes Setup owns."),
 }
 
