@@ -180,7 +180,7 @@ class DoorbellTest(ToolTest):
         self.ring("Planner", P1)
         result = self.take("Orchestrator", "--restart")
         self.assertEqual(result.lines[0], "Doorbell: " + P1)
-        self.assertNext(result, "Spawn the Plan-Reviewer fresh")
+        self.assertNext(result, "Spawn the Plan-Reviewer fresh with the Spawn prompt, as your skill says.")
 
     def test_a_duplicate_is_its_sender_and_round(self):
         """The shorter restart relay of a round already acted on is a

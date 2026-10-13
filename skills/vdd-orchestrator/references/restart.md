@@ -7,13 +7,13 @@ five states holds:
 
 - **No review file on disk.** The Workflow has not reached a review yet. Run
   `doorbell take --role Orchestrator --restart --harness <h>`, do what its
-  `Next:` line says, and nothing else: it names the Planner Doorbell to spawn
-  a fresh Plan-Reviewer with, since one your earlier Session spawned is gone,
+  `Next:` line says, and nothing else: it names the Planner Doorbell that a
+  fresh Plan-Reviewer answers, since one your earlier Session spawned is gone,
   or the wait.
 - **`PLAN-REVIEW.md` present and not signed off.** The plan Loop is open, and
   the Planner may have rung while you were down. Run `doorbell take --role
   Orchestrator --restart --harness <h>` and do what its `Next:` line says: it
-  names the Planner Doorbell to spawn a fresh Plan-Reviewer with, or the
+  names the Planner Doorbell that a fresh Plan-Reviewer answers, or the
   relay `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>. Read it.` to
   ring, after which the Planner owns the next move.
 - **`PLAN-REVIEW.md` signed off, no `CODEREVIEW.md`.** The code Loop has not

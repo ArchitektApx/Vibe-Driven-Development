@@ -475,7 +475,7 @@ def take_restart(place, harness):
         else:
             out.line(
                 "The Planner rang round %d after PLAN-REVIEW.md's round %d." % (newest.doorbell.round, round_number))
-        return out.finish("Spawn the Plan-Reviewer fresh with this Doorbell, as your skill says.")
+        return out.finish("Spawn the Plan-Reviewer fresh with the Spawn prompt, as your skill says.")
     if round_number is None:
         out.line("No Planner Doorbell in the Doorbell file yet.")
         return out.finish(wait_next(role, harness))
