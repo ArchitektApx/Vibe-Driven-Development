@@ -25,37 +25,46 @@ jobs:
           persist-credentials: false
 
       # A broken manifest breaks install for every user, and there is no
-      # staged rollout to catch it.
-      - name: Validate JSON manifests
-        run: |
-          rc=0
-          for f in .claude-plugin/marketplace.json .claude-plugin/plugin.json; do
-            [ -f "$f" ] || { echo "missing manifest: $f"; rc=1; continue; }
-            node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$f" \
-              || { echo "invalid JSON: $f"; rc=1; }
-          done
-          exit $rc
-
-      # The marketplace entry and plugin.json describe the same plugin. If the
-      # names diverge, /plugin install resolves one and the loader reads the
-      # other. Version drift is not fatal but is always a mistake, so it fails
-      # too rather than shipping a release that lies about itself.
-      - name: Marketplace and plugin manifest agree
+      # staged rollout to catch it. The marketplace entry and both plugin
+      # manifests describe the same plugin: Codex reads .codex-plugin/ and
+      # ignores .claude-plugin/plugin.json once its own exists, so a field
+      # changed in one drifts silently. Version drift is always a mistake,
+      # so it fails too rather than shipping a release that lies about itself.
+      - name: Manifests parse and agree
         run: |
           node -e '
             const fs = require("fs");
-            const m = JSON.parse(fs.readFileSync(".claude-plugin/marketplace.json", "utf8"));
-            const p = JSON.parse(fs.readFileSync(".claude-plugin/plugin.json", "utf8"));
+            const read = (f) => {
+              try { return JSON.parse(fs.readFileSync(f, "utf8")); }
+              catch (e) { console.error(`missing or invalid JSON: ${f}: ${e.message}`); process.exit(1); }
+            };
+            const m = read(".claude-plugin/marketplace.json");
+            const p = read(".claude-plugin/plugin.json");
+            const c = read(".codex-plugin/plugin.json");
+            let rc = 0;
             const entry = (m.plugins || []).find(e => e.name === p.name);
             if (!entry) { console.error(`marketplace.json has no plugin named ${p.name}`); process.exit(1); }
             if (entry.version !== p.version) {
-              console.error(`version drift: marketplace ${entry.version} vs plugin.json ${p.version}`);
-              process.exit(1);
+              console.error(`version drift: marketplace ${entry.version} vs plugin.json ${p.version}`); rc = 1;
             }
             if (entry.source !== "./") {
-              console.error(`plugin ${p.name} sources from ${JSON.stringify(entry.source)}, expected "./" (this repo)`);
-              process.exit(1);
+              console.error(`plugin ${p.name} sources from ${JSON.stringify(entry.source)}, expected "./" (this repo)`); rc = 1;
             }
+            // Every field the two plugin manifests both carry agrees, hooks
+            // excepted: only the Codex manifest carries the one hook. The
+            // fields Codex repeats must be there in both.
+            const repeated = ["name", "version", "description", "author", "homepage", "repository", "license", "keywords"];
+            for (const k of repeated) {
+              if (!(k in p) || !(k in c)) {
+                console.error(`${k} is missing from ${k in p ? ".codex-plugin" : ".claude-plugin"}/plugin.json`); rc = 1;
+              }
+            }
+            for (const k of Object.keys(p).filter((k) => k in c && k !== "hooks")) {
+              if (JSON.stringify(p[k]) !== JSON.stringify(c[k])) {
+                console.error(`.codex-plugin/plugin.json ${k} differs from .claude-plugin/plugin.json`); rc = 1;
+              }
+            }
+            process.exit(rc);
           '
 
       # A Harness finds a skill by the name and description in its
@@ -110,10 +119,11 @@ jobs:
             process.exit(rc);
           '
 
-      # A file under a skill directory that its skill file does not link is a
-      # file no reader can be sent to. Each file is linked from the step in
-      # SKILL.md that reads it, a Harness file from ## Harnesses, which is what
-      # makes a direct link enough, so this needs no transitive crawl.
+      # A Reference file that its skill file does not link is a file no reader
+      # can be sent to. Each one is linked from the step in SKILL.md that reads
+      # it, a Harness file from ## Harnesses, which is what makes a direct link
+      # enough, so this needs no transitive crawl. Code under scripts/ is
+      # reached by import and taught by --help, so only references/ counts.
       - name: Every file under a skill is linked from its skill file
         run: |
           node -e '
@@ -142,11 +152,9 @@ jobs:
                 if (!target || external(target)) continue;
                 linked.add(path.normalize(path.join(root, target)));
               }
-              // Codex reads agents/openai.yaml as the policy file of the skill; no reader follows a link to it.
-              const policy = path.normalize(path.join(root, "agents", "openai.yaml"));
-              for (const f of walk(root)) {
-                if (path.normalize(f) === path.normalize(skill)) continue;
-                if (path.normalize(f) === policy) continue;
+              const refs = path.join(root, "references");
+              if (!fs.existsSync(refs)) continue;
+              for (const f of walk(refs)) {
                 if (!linked.has(path.normalize(f))) {
                   console.error(`${f}: no direct link from ${skill}`);
                   rc = 1;
@@ -155,6 +163,20 @@ jobs:
             }
             process.exit(rc);
           '
+
+      # A Harness reads a long file in parts, and some truncate one, so a Role
+      # can miss the end of a Reference file it reads in a single call. Every
+      # file under a skill's references/ stays at or under 8 KB.
+      - name: Reference files are at most 8 KB
+        run: |
+          rc=0
+          while IFS= read -r f; do
+            size=$(wc -c < "$f")
+            if [ "$size" -gt 8192 ]; then
+              echo "$f: $size bytes, over 8 KB"; rc=1
+            fi
+          done < <(find skills -type f -path '*/references/*')
+          exit $rc
 
       # A Role reads the Harness file its `## Harnesses` section links. A
       # skill that ships one and leaves a Harness out of the section sends
@@ -283,13 +305,15 @@ jobs:
             exit 1
           fi
 
-      # This plugin ships prose and shell scripts at mode 644 that a Role runs
-      # through `sh`, or on native Windows through `powershell.exe -NoProfile
-      # -ExecutionPolicy Bypass -File`, and no hooks, MCP servers, symlinks or
-      # executable files.
-      # Those four end up on every installer's machine and none of them is
-      # needed here. If one is ever added deliberately, edit this step in the
-      # same PR so the reviewer sees both.
+      # This plugin ships prose and one Python program at mode 644, run
+      # through a named interpreter (python3, or py -3 on native Windows), and
+      # exactly one hook: the Codex Stop hook inline in .codex-plugin/plugin.json,
+      # which only Codex reads, in the fixed form below. No other hook, no MCP
+      # servers, no symlinks and no executable files: each would end up on
+      # every installer's machine. Codex's trust covers the hook's command
+      # string, so a changed string is a hook every user trusts again. If
+      # anything here changes deliberately, edit this step in the same PR so
+      # the reviewer sees both.
       - name: Reject executable surface
         run: |
           rc=0
@@ -302,9 +326,26 @@ jobs:
           done < <(git ls-files -s | awk '{print $1" "$4}')
           for f in .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
             if grep -qE '"(hooks|mcpServers)"' "$f"; then
-              echo "$f declares hooks or MCP servers; this plugin ships neither"; rc=1
+              echo "$f declares hooks or MCP servers; only .codex-plugin/plugin.json carries the one hook"; rc=1
             fi
           done
+          node -e '
+            const c = JSON.parse(require("fs").readFileSync(".codex-plugin/plugin.json", "utf8"));
+            const hook = {
+              type: "command",
+              command: "[ ! -f LOOP.md ] || python3 \"${PLUGIN_ROOT}/skills/vdd-setup/scripts/vdd.py\" codex-stop || true",
+              commandWindows: "if (Test-Path LOOP.md) { py -3 \"${PLUGIN_ROOT}\\skills\\vdd-setup\\scripts\\vdd.py\" codex-stop }; exit 0",
+              timeout: 2760,
+            };
+            const expected = { hooks: { Stop: [{ hooks: [hook] }] } };
+            let rc = 0;
+            if (JSON.stringify(c.hooks) !== JSON.stringify(expected)) {
+              console.error(".codex-plugin/plugin.json: hooks is not exactly the one Codex Stop hook in its fixed form");
+              rc = 1;
+            }
+            if ("mcpServers" in c) { console.error(".codex-plugin/plugin.json declares MCP servers"); rc = 1; }
+            process.exit(rc);
+          ' || rc=1
           while IFS= read -r f; do
             echo "unexpected hook or MCP config: $f"; rc=1
           done < <(git ls-files | grep -E '(^|/)(hooks\.json|\.mcp\.json|mcp\.json)$' || true)
@@ -321,6 +362,36 @@ jobs:
             fi
           done < <(find skills -type f -path '*/agents/openai.yaml')
           exit $rc
+
+      # Shipped code runs on every installer's machine through a named
+      # interpreter, so it is held to what that promise allows:
+      # - File kinds as an allow list: under skills/ only .md,
+      #   agents/openai.yaml and .py;
+      #   elsewhere outside .github/, tests/ and docs/ only .md, the manifests'
+      #   .json, .gitignore, .gitattributes and LICENSE. New code is .py, or a
+      #   deliberate edit of this step.
+      # - Every file under skills/ at mode 644, and no .py with a shebang:
+      #   nothing runs by its own path.
+      # - Every .py ASCII only: a non-ASCII byte reaches a Windows console in
+      #   the ANSI code page as a different character.
+      # - Every .py parses as Python 3.9, the floor Apple's Command Line Tools
+      #   ship.
+      # - Imports from the standard library and the tool's own package only,
+      #   and no network module: nothing is installed and nothing is fetched.
+      # - No shell=True, os.system, os.popen, eval, exec or __import__, and no
+      #   import of importlib, runpy, posix or nt, any submodule included: no
+      #   shell, no evaluated text and no import by a computed name. posix and
+      #   nt hold the system and popen that os re-exports. The check resolves
+      #   import aliases and refuses getattr on os, subprocess and builtins,
+      #   and ** or extra positional arguments to a subprocess call, where
+      #   shell=True can hide.
+      # - No hooks key in a SKILL.md frontmatter: Claude Code registers one
+      #   when the skill runs, a hook beside the one Codex Stop hook.
+      # It reads git ls-files -s, so gitignored scratch files never count and a
+      # mode reads the same on every OS. It needs the runner's Python (3.10+
+      # for sys.stdlib_module_names).
+      - name: Shipped code passes the static checks
+        run: python3 .github/scripts/check_shipped_code.py
 
       # release.yml is the one workflow that may write to the repository, and
       # only from a version tag push or a workflow_dispatch. A pull_request
@@ -360,59 +431,33 @@ jobs:
           done
           exit $rc
 
-      # A Role runs a shipped shell script in the user's Session, a .sh with
-      # sh and, on native Windows, a .ps1 through `powershell.exe -NoProfile
-      # -ExecutionPolicy Bypass -File`, so a syntax error reaches them as a
-      # script that fails on its first run. find, not git ls-files, so a plain
-      # copy of the tree is checked too.
-      - name: Shell scripts under skills parse
-        run: |
-          rc=0
-          while IFS= read -r f; do
-            sh -n "$f" || { echo "does not parse: $f"; rc=1; }
-          done < <(find skills -type f -name '*.sh')
-          exit $rc
+  # The VDD tool runs on the user's Python, on macOS, Linux and native
+  # Windows, from 3.9 (Apple's Command Line Tools) to the newest release. A
+  # new Python or a Windows path quirk fails a PR here, not a user. -B keeps
+  # the runner from caching the test modules it imports; the tool turns
+  # bytecode off itself. Ubuntu 24.04 for 3.9: later images ship no 3.9 build.
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, python: '3.9' }
+          - { os: ubuntu-latest, python: '3.x' }
+          - { os: windows-latest, python: '3.9' }
+          - { os: windows-latest, python: '3.x' }
+          - { os: macos-latest, python: '3.9' }
+          - { os: macos-latest, python: '3.x' }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      # On native Windows a Role runs a shipped .ps1 through `powershell.exe
-      # -NoProfile -ExecutionPolicy Bypass -File`, which is Windows PowerShell
-      # 5.1 on a machine without PowerShell 7. The 7 parser here accepts
-      # tokens 5.1 cannot parse, so those token kinds fail the step too.
-      # find, not git ls-files, so a plain copy of the tree is checked too.
-      - name: PowerShell scripts under skills parse
-        run: |
-          PS1_FILES=$(find skills -type f -name '*.ps1') pwsh -NoProfile -NonInteractive -Command '
-            $banned = @("AndAnd", "OrOr", "QuestionQuestion", "QuestionQuestionEquals", "QuestionMark", "QuestionDot", "QuestionLBracket")
-            $rc = 0
-            function Find-Banned($tokens) {
-              foreach ($t in $tokens) {
-                if ($banned -contains $t.Kind.ToString()) { $t }
-                if ($t.PSObject.Properties["NestedTokens"] -and $t.NestedTokens) { Find-Banned $t.NestedTokens }
-              }
-            }
-            foreach ($f in ($env:PS1_FILES -split "`n" | Where-Object { $_ -ne "" })) {
-              $tokens = $null
-              $errors = $null
-              [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path -LiteralPath $f).Path, [ref]$tokens, [ref]$errors)
-              foreach ($e in $errors) {
-                Write-Host ("does not parse: {0}:{1}: {2}" -f $f, $e.Extent.StartLineNumber, $e.Message)
-                $rc = 1
-              }
-              foreach ($t in (Find-Banned $tokens)) {
-                Write-Host ("Windows PowerShell 5.1 cannot parse {0}: {1}:{2}: {3}" -f $t.Kind, $f, $t.Extent.StartLineNumber, $t.Text)
-                $rc = 1
-              }
-            }
-            exit $rc
-          '
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
 
-      # Windows PowerShell 5.1 reads a script without a byte order mark in the
-      # ANSI code page, so a non-ASCII byte in a shipped script reaches it as
-      # a different character. find, not git ls-files, so a plain copy of the
-      # tree is checked too.
-      - name: Shell scripts under skills are ASCII
-        run: |
-          rc=0
-          while IFS= read -r f; do
-            perl -ne 'if (/[^\x09\x0a\x0d\x20-\x7e]/) { print "non-ASCII byte: $ARGV:$.\n"; $bad = 1 } END { exit($bad ? 1 : 0) }' "$f" || rc=1
-          done < <(find skills -type f \( -name '*.sh' -o -name '*.ps1' \))
-          exit $rc
+      - name: Run the tool's tests
+        run: python -B -m unittest discover -s tests

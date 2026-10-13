@@ -75,6 +75,7 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
 <summary><b>Requirements</b></summary>
 
 - A repository to work in
+- Python 3.9 or newer, run as `python3` on macOS and Linux and as `py -3` on native Windows. On a Mac, the Command Line Tools that bring git bring a `python3` that is new enough. VDD runs its Setup checks and its Doorbell through a small program it ships, the VDD tool, which needs nothing beyond the standard library.
 - The ability to run two agent sessions side by side (two terminals is enough): the Planner, in your foreground, and the Orchestrator, which runs the rest.
 - A coding agent with subagents. Claude Code, Cursor, Codex and GitHub Copilot CLI all have the primitive the Orchestrator needs to spawn the Plan-Reviewer, the Coder and the Code-Reviewer, each in a fresh context, and to resume or respawn each one round after round. If your host asks for approval per command, grant session approval before you start the Workflow, so you are not answering prompts through the whole run.
 - Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection, v1.3.1 or later. In Claude Code: Matt Pocock's own marketplace, `/plugin marketplace add mattpocock/skills` then `/plugin install mattpocock-skills@mattpocock`. In Codex, Cursor, GitHub Copilot CLI and any other agent: `npx skills@latest add -g mattpocock/skills`, selecting your agent when it asks. The Roles borrow these:
@@ -95,7 +96,7 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
   | `research` | 🤖 the agent | Wayfinder |
   | `prototype` | 🤖 the agent | Wayfinder |
 
-**Optional:** the doorbell. In Claude Code, Codex, Cursor and GitHub Copilot CLI the Roles ring each other through the Doorbell file in `.scratch/<slug>/` instead of you copying a line between terminals, and also print the line, which you paste only if the other session does not wake. Everything works without a doorbell: the Roles print the line for you to paste.
+**Optional:** the doorbell. In Claude Code, Codex, Cursor and GitHub Copilot CLI the Roles ring each other through the Doorbell file in `.scratch/<slug>/` instead of you copying a line between terminals, and also print the line, which you paste only if the other session does not wake. On any other agent, VDD runs as Generic: the Roles wait in the background where your agent can wake them, and otherwise print the line for you to paste. Everything works without a doorbell.
 
 </details>
 
@@ -132,7 +133,7 @@ Start a new Codex session in your repository with `codex --no-daemon`, so it pic
 npx skills@latest add -g mattpocock/skills
 ```
 
-A Codex session cannot be woken by a background shell, so on Codex a waiting Role waits in a `Stop` hook. Setup installs it: after showing you the change, it copies the hook beside the Doorbell wait into `~/.local/share/vdd/` (or `$XDG_DATA_HOME/vdd/`; on Windows `%LOCALAPPDATA%\vdd\`) and adds a `Stop` entry to `~/.codex/hooks.json`. Codex runs no hook you have not trusted, so trust it in `/hooks` when Setup asks; that also turns it on in the session you are in.
+A Codex session cannot be woken by a background shell, so on Codex a waiting Role waits in a `Stop` hook. The hook ships with the plugin, and only Codex reads it; it does nothing in a repository without a VDD loop. Codex runs no hook you have not trusted, so trust VDD's hook once in `/hooks` when Setup asks; the trust holds across updates.
 
 > ⚠️ **Warning**
 >
@@ -140,7 +141,7 @@ A Codex session cannot be woken by a background shell, so on Codex a waiting Rol
 >
 > Apps that run Codex on their own app server, such as T3 Code, stop a session when you close it and need no flag.
 
-To stop using VDD on Codex, delete the `Stop` entry that runs `vdd-codex-stop.sh`, or `vdd-codex-stop.ps1` on Windows, from `~/.codex/hooks.json`.
+The hook goes with the plugin when you uninstall it.
 
 </details>
 
