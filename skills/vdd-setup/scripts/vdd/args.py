@@ -49,6 +49,14 @@ def parse(argv, spec, usage):
                         "Run %s for this command's usage." % usage,
                     )
                 value = argv[i]
+                if value.startswith("--"):
+                    # A shell that drops an empty argument (Windows PowerShell
+                    # 5.1 does) shifts the next option into this value.
+                    raise Failure(
+                        "--%s has no value: the next argument is %s." % (name, value),
+                        "Run the command again with a value after --%s, or --%s=<value> for a value that "
+                        "starts with --." % (name, name),
+                    )
             values[name] = value
         i += 1
     return values

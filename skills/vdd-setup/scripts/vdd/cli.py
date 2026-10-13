@@ -7,7 +7,9 @@ from . import places
 from .out import Failure, Output
 
 # Command group -> (module, one-line summary). Each module has run(argv).
-GROUPS = {}
+GROUPS = {
+    "setup": ("setup", "Check this repository and machine for a VDD loop, and make the changes Setup owns."),
+}
 
 ABOUT = [
     "The VDD tool: the program Vibe Driven Development's Roles run.",
@@ -23,15 +25,10 @@ def top_help():
     for text in ABOUT:
         out.line(text % places.command() if "%s" in text else text)
     out.line()
-    if GROUPS:
-        out.line("Command groups:")
-        for name in sorted(GROUPS):
-            out.line("  %-11s %s" % (name, GROUPS[name][1]))
-        next_step = "Run %s <group> --help for the group your skill names." % places.command()
-    else:
-        out.line("Command groups: none yet.")
-        next_step = "Nothing to run yet."
-    return out.finish(next_step)
+    out.line("Command groups:")
+    for name in sorted(GROUPS):
+        out.line("  %-11s %s" % (name, GROUPS[name][1]))
+    return out.finish("Run %s <group> --help for the group your skill names." % places.command())
 
 
 def unknown(name):

@@ -31,6 +31,31 @@ class Harness(abc.ABC):
     def vdd_skill(self, skill):
         """The form the user types to invoke a VDD skill, such as vdd-setup."""
 
+    @abc.abstractmethod
+    def present_roots(self, cwd):
+        """The roots this Harness reads skills from, as stores.Root, in the
+        current environment and on the current platform, with the relocation
+        variables the Harness honours applied."""
+
+    @abc.abstractmethod
+    def route_not_present(self):
+        """The lines that tell the user to install Matt Pocock's collection."""
+
+    @abc.abstractmethod
+    def route_present_not_resolvable(self, store):
+        """The lines that get this Session to load a collection the search
+        found in store (a stores.Store) and the Session cannot run."""
+
+    @abc.abstractmethod
+    def route_old_collection(self, store):
+        """The lines that update a collection from before the glossary rename
+        found in store, or None when store is None (no search hit)."""
+
+    @abc.abstractmethod
+    def no_hit_continuation(self):
+        """Text that continues the "Resolvable from a store Setup does not
+        search" line, or an empty string."""
+
 
 def get(name):
     """The Harness --harness names, or None."""
