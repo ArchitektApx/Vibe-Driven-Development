@@ -574,6 +574,27 @@ class CodexSetupTest(ToolTest):
                 self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
                 self.assertFalse(any("unknown" in l for l in result.lines), result)
 
+    def test_a_hook_switched_off_in_hooks_is_named(self):
+        """Switching VDD's hook off in /hooks keeps its hooks.state key and
+        adds enabled = false; Setup read that as a trust entry, and on the
+        Windows VM the Codex Doorbells would have waited for a paste
+        (vdd-tool acceptance finding 3)."""
+        for text in (
+            '[hooks.state."vdd@vibe-driven-development:plugin.json#hooks[0]:stop:0:0"]\n'
+            'trusted_hash = "sha256:x"\nenabled = false\n',
+            '[hooks.state]\n"vdd@mk:plugin.json#hooks[0]:stop:0:0" = { trusted_hash = "x", enabled = false }\n',
+            '[hooks]\nstate."vdd@mk:plugin.json#hooks[0]:stop:0:0".enabled = false\n',
+        ):
+            with self.subTest(text=text):
+                self.config(text)
+                result = self.setup()
+                self.assertIn("VDD's hook is switched off in Codex: turn it on in /hooks, or every Doorbell "
+                              "waits for a paste.", result.tells())
+                self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
+                self.assertFalse(any("a trust entry is in" in l for l in result.lines), result)
+        self.config('[hooks.state."vdd@mk:plugin.json#hooks[0]:stop:0:0"]\ntrusted_hash = "x"\nenabled = true\n')
+        self.assertIn("a trust entry is in", self.setup().text)
+
     def test_trust_key_absent_prints_the_trust_line(self):
         for text in ("", '[hooks.state."/x/hooks.json:stop:0:0"]\ntrusted_hash = "a"\n',
                      '[hooks.state."other@mk:plugin.json#hooks[0]:stop:0:0"]\n',

@@ -21,6 +21,7 @@ OLD_PS = re.compile(
     r"\{powershell\.exe -NoProfile -ExecutionPolicy Bypass -File \$f\}$"
 )
 TRUST_KEY = re.compile(r"^vdd@[^:]+:plugin\.json#hooks\[0\]:stop:0:0$")
+DISABLED = re.compile(r"\benabled\s*=\s*false\b")
 
 
 def codex_home():
@@ -142,9 +143,11 @@ def layout(data):
 
 
 def trust_state(path):
-    """present, absent or unknown: whether ~/.codex/config.toml holds the
-    hooks.state key of VDD's hook. A narrow standard-library read of TOML
-    table headers and dotted keys; anything it cannot follow is unknown."""
+    """present, disabled, absent or unknown: whether ~/.codex/config.toml
+    holds the hooks.state key of VDD's hook, and whether that key says
+    enabled = false (a hook switched off in /hooks keeps its key). A narrow
+    standard-library read of TOML table headers and dotted keys; anything it
+    cannot follow is unknown."""
     try:
         with open(path, "rb") as handle:
             text = textfile.decode(handle.read())
@@ -153,6 +156,7 @@ def trust_state(path):
     except OSError:
         return "unknown"
     table = []
+    found = disabled = False
     pending = None  # an open multi-line string or array
     for line in text.split("\n"):
         if pending:
@@ -172,25 +176,31 @@ def trust_state(path):
             if not rest.strip().startswith(close):
                 return "unknown"
             table = path
-            if has_key(table):
-                return "present"
+            found = found or has_key(table)
             continue
         path, rest = parse_key(stripped)
         if path is None or not rest.lstrip().startswith("="):
             return "unknown"
-        if has_key(table + path):
-            return "present"
         value = rest.lstrip()[1:].strip()
+        full = table + path
         pending = open_value(value)
         if pending == "bad":
             return "unknown"
-        if value.startswith("{") and table + path in (["hooks"], ["hooks", "state"]):
+        if has_key(full):
+            found = True
+            if full[3:] == ["enabled"] and value.startswith("false"):
+                disabled = True
+            elif len(full) == 3 and value.startswith("{") and DISABLED.search(value):
+                disabled = True
+        elif value.startswith("{") and full in (["hooks"], ["hooks", "state"]):
             for key in re.findall(r'"((?:[^"\\]|\\.)*)"|\'([^\']*)\'', value):
                 if TRUST_KEY.match(key[0] or key[1]):
-                    return "present"
+                    found = True
     if pending:
         return "unknown"
-    return "absent"
+    if disabled:
+        return "disabled"
+    return "present" if found else "absent"
 
 
 def has_key(path):
@@ -335,6 +345,9 @@ def run(setup):
     state = trust_state(config)
     if state == "present":
         out.line("VDD's Codex hook: a trust entry is in %s." % config_label)
+    elif state == "disabled":
+        out.line("VDD's Codex hook: switched off, %s says enabled = false for it." % config_label)
+        out.tell("VDD's hook is switched off in Codex: turn it on in /hooks, or every Doorbell waits for a paste.")
     elif state == "absent":
         out.tell("Trust VDD's hook in /hooks.")
     else:
