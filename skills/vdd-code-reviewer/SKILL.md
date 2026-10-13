@@ -17,11 +17,11 @@ base branch, the feature branch, the tracker path (`.scratch/<slug>/`), the
 line. If it does not exist, stop and tell the user to invoke `vdd-start-loop`
 in a Planner Session; do not guess a slug.
 
-Read the `Harness:` line of the Loop file. If this skill's Harnesses index
-links a file for that Harness, read it now, once. Otherwise the inline text is
-complete. Take the Harness from the Loop file only, and do not choose it again
-from what this Session shows. A Loop file with no `Harness:` line is Generic,
-and you leave the file as it is.
+Read the `Harness:` line of the Loop file, and read the file this skill's
+Harnesses index links for that Harness now, once. Take the Harness from the
+Loop file only, and do not choose it again from what this Session shows.
+With no `Harness:` line, read `harness-generic.md` and leave the Loop file
+as it is.
 
 Also check that `docs/agents/issue-tracker.md` exists at the repository root.
 The Borrowed `code-review` skill reads it to find the spec and stops without
@@ -55,11 +55,11 @@ Paste the skill's `## Standards` and `## Spec` output verbatim into
 `CODEREVIEW.md`, under a `## code-review` heading.
 
 `code-review` hands the Standards and Spec reviews to two sub-agents, and
-their reports are what you paste. Wait for both inside your turn, with the
-call your Harness file names where it names one, and write `CODEREVIEW.md`
-once both have reported back. Step 1 is done when both reports are in the
-file and nothing you started is still running: work left running holds your
-Doorbell back from the Orchestrator.
+their reports are what you paste. Wait for both,
+the way your Harness file names where it names one, and write
+`CODEREVIEW.md` once both have reported back. Step 1 is done when both
+reports are in the file and nothing you started is still running: work left
+running holds your Doorbell back from the Orchestrator.
 
 If the Borrowed skill is not Resolvable, say so in `CODEREVIEW.md` and review
 the Spec axis by hand.
@@ -175,3 +175,4 @@ you report to the user and do not act on.
 - Codex: [`references/harness-codex.md`](references/harness-codex.md)
 - Cursor: [`references/harness-cursor.md`](references/harness-cursor.md)
 - Copilot CLI: [`references/harness-copilot-cli.md`](references/harness-copilot-cli.md)
+- Generic: [`references/harness-generic.md`](references/harness-generic.md)
