@@ -46,9 +46,3 @@ and stop.
 
 5. **Report.** Give the user a short status report, as the last `Next:` line
    says. Relay every `Tell the user verbatim` line unchanged.
-
-The 0.15 scripts, [`doorbell-wait.sh`](references/doorbell-wait.sh),
-[`doorbell-wait.ps1`](references/doorbell-wait.ps1),
-[`vdd-codex-stop.sh`](references/vdd-codex-stop.sh) and
-[`vdd-codex-stop.ps1`](references/vdd-codex-stop.ps1), ship for 0.15 installs
-until the Codex hook moves; Setup no longer copies them.

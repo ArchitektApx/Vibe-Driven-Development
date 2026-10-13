@@ -10,11 +10,12 @@
   reply and the agent ID only.
 - **The wait.** Run the `doorbell wait` command a `Next:` line names as a
   background shell; the Session wakes when the shell finishes. The IDE Agent
-  and the CLI may each wake twice for one wait: `take` reports the second as
-  already handled. Run `ring` and `take` in the foreground with a
-  `block_until_ms` of 120000, so each finishes inside its call: in the Cursor
-  CLI, a shell moved to the background that finishes while your turn runs
-  stops every later wake in this Session.
+  and the CLI may each wake twice for one wait: on the second, `take` finds no
+  new Doorbell, and while a wait of yours still runs its `Next:` says to end
+  your turn rather than start another. Run `ring` and `take` in the foreground
+  with a `block_until_ms` of 120000, so each finishes inside its call: in the
+  Cursor CLI, a shell moved to the background that finishes while your turn
+  runs stops every later wake in this Session.
 - **A refused command.** When a sandbox refuses a command, rerun it once with
   the Shell call's request to run outside the sandbox. When that is denied
   too, stop with one line naming the command and what it was for; a wait

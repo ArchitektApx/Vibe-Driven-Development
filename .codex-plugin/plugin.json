@@ -1,0 +1,34 @@
+{
+  "name": "vdd",
+  "version": "0.16.0-beta.1",
+  "description": "Role skills for the Vibe Driven Development workflow: a Planner session plans, and an Orchestrator session hosts the Plan-Reviewer, the Coder and the Code-Reviewer, adversarially reviewing the plan and then the implementation. Start a loop with vdd-start-loop; the Planner ends in a spec and tickets the Orchestrator hosts a Coder to implement. Before a loop, a Brainstormer keeps ideas and a Wayfinder plans a change across several loops.",
+  "author": {
+    "name": "ArchitektApx"
+  },
+  "homepage": "https://github.com/ArchitektApx/Vibe-Driven-Development",
+  "repository": "https://github.com/ArchitektApx/Vibe-Driven-Development",
+  "license": "MIT",
+  "keywords": [
+    "workflow",
+    "planning",
+    "code-review",
+    "adversarial",
+    "multi-session"
+  ],
+  "hooks": {
+    "hooks": {
+      "Stop": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "[ ! -f LOOP.md ] || python3 \"${PLUGIN_ROOT}/skills/vdd-setup/scripts/vdd.py\" codex-stop || true",
+              "commandWindows": "if (Test-Path LOOP.md) { py -3 \"${PLUGIN_ROOT}\\skills\\vdd-setup\\scripts\\vdd.py\" codex-stop }; exit 0",
+              "timeout": 2760
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

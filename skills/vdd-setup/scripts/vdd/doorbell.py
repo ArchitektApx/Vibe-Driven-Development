@@ -4,15 +4,18 @@ The Doorbell file, <tracker>/doorbells, holds one line per ring,
 "<HH:MM:SS> to: <Role> <Doorbell line>", LF, append-only, after a version
 header. Each Role's state file, <tracker>/doorbell-state-<role>, records what
 that Role has handled: how many lines addressed to it, and the sender and
-round of each Doorbell it acted on. The model carries no count and no record.
+round of each Doorbell it acted on. A running wait keeps
+<tracker>/doorbell-wait-<role> fresh, so the Role holds one wait at a time.
+The model carries no count, no record and no wait.
 """
 
 import os
 import re
+import signal
 import time
 
 from . import args, loopfile, places, textfile
-from .out import Failure, Output
+from .out import Failure, Output, refused
 
 ROLES = ("Planner", "Orchestrator")
 OTHER = {"Planner": "Orchestrator", "Orchestrator": "Planner"}
@@ -24,6 +27,8 @@ STATE_PREFIX = "vdd doorbell-state "
 STATE_VERSION = "1"
 ARMED_PREFIX = "vdd codex-armed "
 ARMED_VERSION = "1"
+WAIT_PREFIX = "vdd doorbell-wait "
+WAIT_VERSION = "1"
 
 ADDRESS = re.compile(r"^([0-9]{2}:[0-9]{2}:[0-9]{2}) to: (Planner|Orchestrator) (.*)$")
 ROUND = r"(?P<round>[1-9][0-9]*)"
@@ -33,6 +38,8 @@ REVIEW_WRITTEN = re.compile(
 )
 REVIEW_SIGNED_OFF = re.compile(r"^VDD Plan-Reviewer: PLAN-REVIEW\.md SIGNED OFF, round " + ROUND + r"\.$")
 REVIEW_RESTART = re.compile(r"^VDD Plan-Reviewer: PLAN-REVIEW\.md written, round " + ROUND + r"\. Read it\.$")
+SIGNED_OFF_NEXT = "Nothing to wait for: the plan Loop is over. Go on as your skill says."
+# A Codex thread id: CODEX_THREAD_ID, and session_id in the hook input.
 THREAD_ID = re.compile(r"^[0-9A-Za-z_-]+$")
 
 # How often a wait reads the Doorbell file and how long it waits in all; the
@@ -42,6 +49,9 @@ TIMEOUT_SECONDS = 2700.0
 # How long a read retries on PermissionError: on Windows a sharing violation
 # and a denial look alike.
 LOCK_RETRY_SECONDS = 2.0
+# A wait marker untouched for this many polls, plus the grace, is stale.
+STALE_POLLS = 3
+STALE_GRACE_SECONDS = 5.0
 
 
 class Doorbell:
@@ -155,9 +165,20 @@ class Place:
         return state
 
     def save_state(self, role, state):
+        """Write the state file whole, or raise a refused Failure and record
+        nothing: a Doorbell is printed only once it is recorded as handled."""
         lines = [STATE_PREFIX + STATE_VERSION, "count %d" % state.count]
         lines += ["handled %s %d" % key for key in sorted(state.handled)]
-        write_file(self.state_path(role), ("\n".join(lines) + "\n").encode("utf-8"))
+        try:
+            textfile.write(self.state_path(role), ("\n".join(lines) + "\n").encode("utf-8"))
+        except OSError as error:
+            raise refused(
+                [
+                    "Could not write the Doorbell state file %s: %s" % (self.state_path(role), error),
+                    "Nothing was recorded as handled.",
+                ],
+                "Otherwise tell the user the Doorbell state file cannot be written, and stop.",
+            )
 
     def append(self, role, text):
         os.makedirs(self.dir, exist_ok=True)
@@ -174,20 +195,6 @@ class State:
     def __init__(self):
         self.count = 0
         self.handled = set()
-
-
-def write_file(path, data):
-    temp = "%s.%d.tmp" % (path, os.getpid())
-    with open(temp, "wb") as handle:
-        handle.write(data)
-    for attempt in range(20):
-        try:
-            os.replace(temp, path)
-            return
-        except PermissionError:
-            if attempt == 19:
-                raise
-            time.sleep(0.1)
 
 
 def pending(entries, state):
@@ -226,12 +233,13 @@ def ring_command(role, line, harness):
     return command('ring --role %s --line "%s"' % (role, line), harness) + " --write"
 
 
-def paste_command(role, harness):
-    return command('take --role %s --pasted "<the line the user pastes>"' % role, harness)
+def paste_command(role, harness, entry=None):
+    return '%s doorbell take --role %s --pasted "<the line the user pastes>" --harness %s' % (
+        places.command(entry), role, harness.name)
 
 
-def wait_next(role, harness):
-    return harness.wait_next(role, wait_command(role, harness), paste_command(role, harness))
+def wait_next(role, harness, entry=None):
+    return harness.wait_next(role, wait_command(role, harness, entry), paste_command(role, harness, entry))
 
 
 # --- the commands ---
@@ -246,9 +254,10 @@ HELP = [
     "doorbell wait --role <Planner|Orchestrator> --harness <h>",
     "  Wait for a Doorbell addressed to your Role. Start it only as a Next: line names it. It reads the",
     "  Doorbell file every 10 seconds and exits when a new Doorbell is waiting, naming the take command,",
-    "  or prints TIMEOUT after 45 minutes. On codex it arms the Stop hook instead and returns at once.",
+    "  or prints TIMEOUT after 45 minutes. While it runs, ring and take name no second wait: their Next:",
+    "  says your wait still runs. On codex it arms the Stop hook instead and returns at once.",
     "",
-    "doorbell take --role <Planner|Orchestrator> --harness <h> [--pasted \"<line>\"] [--restart]",
+    "doorbell take --role <Planner|Orchestrator> --harness <h> [--pasted \"<line>\"] [--restart | --resumed]",
     "  Take the newest Doorbell addressed to your Role and record it, and every line before it, as handled.",
     "  Run it in the foreground on a wake, or with --pasted for a line the user pasted. A Doorbell already",
     "  handled (same sender and round) is reported and not acted on twice. A line that is not a Doorbell is",
@@ -257,6 +266,10 @@ HELP = [
     "  Orchestrator handled before, since a Plan-Reviewer an earlier Session started is gone. With no",
     "  PLAN-REVIEW.md it names the newest Planner Doorbell to act on, or the wait; with one, it compares the",
     "  Doorbell file with its Round line and names the relay to ring or the Doorbell to act on.",
+    "  --resumed: the Planner's first take in a resumed Session. A wait an earlier Session started wakes",
+    "  that Session, so it names a wait of your own; what you handled before stays handled.",
+    "  Once PLAN-REVIEW.md is signed off and the Planner has rung no later round, take and ring name no",
+    "  wait: the plan Loop is over.",
     "",
     "--harness takes claude-code, codex, cursor, copilot-cli or generic: the Harness LOOP.md's Harness: line",
     "names (generic when it has none). Run every command from the repository root.",
@@ -269,6 +282,7 @@ SPEC = {
     "write": args.FLAG,
     "pasted": args.VALUE,
     "restart": args.FLAG,
+    "resumed": args.FLAG,
 }
 
 
@@ -303,7 +317,7 @@ def run(argv):
         return ring(role, values["line"], harness, values["write"])
     if sub == "wait":
         return wait(role, harness)
-    return take(role, harness, values["pasted"], values["restart"])
+    return take(role, harness, values["pasted"], values["restart"], values["resumed"])
 
 
 def ring(role, line, harness, write):
@@ -326,11 +340,9 @@ def ring(role, line, harness, write):
         try:
             place.append(to, line)
         except OSError as error:
-            raise Failure(
+            raise refused(
                 "Could not write the Doorbell file %s: %s" % (place.file, error),
-                "If a sandbox refused it and your tools offer a way to rerun the command outside the sandbox, "
-                "rerun it once that way. Otherwise print the Doorbell line for the user to paste into the "
-                "%s's Session, and stop." % to,
+                "Otherwise print the Doorbell line for the user to paste into the %s's Session, and stop." % to,
             )
         out.line("Rung: the Doorbell file now holds it, addressed to the %s." % to)
     if role == "Planner" and doorbell.round == 1:
@@ -351,16 +363,24 @@ def ring(role, line, harness, write):
     if new:
         return out.finish("A Doorbell for you is already waiting. Run: %s" % take_command(role, harness))
     if role == "Orchestrator" and doorbell.signed_off:
-        return out.finish("Nothing to wait for: the plan Loop is over. Go on as your skill says.")
-    return out.finish(wait_next(role, harness))
+        return out.finish(SIGNED_OFF_NEXT)
+    return out.finish(wait_or_hold(place, role, harness))
 
 
-def take(role, harness, pasted, restart):
+def take(role, harness, pasted, restart, resumed=False):
     place = Place()
     if restart:
         if role != "Orchestrator":
             raise Failure("--restart is the Orchestrator's.", "Run take without --restart.")
         return take_restart(place, harness)
+    if resumed:
+        if role != "Planner":
+            raise Failure(
+                "--resumed is the Planner's.",
+                "Place the Workflow as your skill says; your take on a start is take --restart.",
+            )
+        # A wait an earlier Session started wakes that Session, not this one.
+        clear_marker(place, role)
     entries = place.entries(role, LOCK_RETRY_SECONDS)
     state = place.load_state(role)
     out = Output()
@@ -375,7 +395,7 @@ def take(role, harness, pasted, restart):
     place.save_state(role, state)
     if not new:
         out.line("No new Doorbell for the %s." % role)
-        return out.finish(wait_next(role, harness))
+        return out.finish(wait_or_hold(place, role, harness))
     out.line("Doorbell: %s" % new[-1].text)
     return out.finish("Act on this Doorbell as your skill says.")
 
@@ -401,7 +421,27 @@ def after_nothing(place, role, harness, entries, state):
     _, new = pending(entries, state)
     if new:
         return "A Doorbell for you is waiting in the Doorbell file. Run: %s" % take_command(role, harness)
-    return wait_next(role, harness)
+    return wait_or_hold(place, role, harness)
+
+
+def review_round(place):
+    """(lines of PLAN-REVIEW.md or None, its Round number or None)."""
+    review = textfile.lines(os.path.join(place.dir, "PLAN-REVIEW.md"))
+    for line in review or []:
+        match = re.match(r"^Round ([0-9]+)\s*$", line)
+        if match:
+            return review, int(match.group(1))
+    return review, None
+
+
+def plan_signed_off(place):
+    """PLAN-REVIEW.md opens with SIGNED OFF and the Planner has rung no round
+    after its Round: the plan Loop is over and neither Role waits."""
+    review, round_number = review_round(place)
+    if not review or review[0].strip() != "SIGNED OFF" or round_number is None:
+        return False
+    rung = [e.doorbell.round for e in place.entries("Orchestrator") if e.doorbell]
+    return not rung or max(rung) <= round_number
 
 
 def take_restart(place, harness):
@@ -413,13 +453,7 @@ def take_restart(place, harness):
     before = place.load_state(role)
     state = State()
     out = Output()
-    review = textfile.lines(os.path.join(place.dir, "PLAN-REVIEW.md"))
-    round_number = None
-    for line in review or []:
-        match = re.match(r"^Round ([0-9]+)\s*$", line)
-        if match:
-            round_number = int(match.group(1))
-            break
+    review, round_number = review_round(place)
     if review is not None and round_number is None:
         raise Failure(
             "PLAN-REVIEW.md has no Round line in %s." % place.dir,
@@ -432,6 +466,8 @@ def take_restart(place, harness):
     if newest:
         state.handled.add(newest.doorbell.key())
     place.save_state(role, state)
+    # A wait an earlier Session started wakes that Session, not this one.
+    clear_marker(place, role)
     if newest and (round_number is None or newest.doorbell.round > round_number):
         out.line("Doorbell: %s" % newest.text)
         if round_number is None:
@@ -459,13 +495,15 @@ def timings():
     return poll, total
 
 
-def watch(place, role, floor=0):
+def watch(place, role, floor=0, beat=None):
     """Wait until a new Doorbell addressed to role is pending. Returns True on
     one, False on the timeout. Raises Failure or OSError when the file cannot
-    be read."""
+    be read. beat, when given, runs once per poll."""
     poll, total = timings()
     deadline = time.monotonic() + total
     while True:
+        if beat:
+            beat()
         entries = place.entries(role, LOCK_RETRY_SECONDS)
         state = place.load_state(role)
         state.count = max(state.count, floor)
@@ -477,17 +515,137 @@ def watch(place, role, floor=0):
         time.sleep(max(0.0, min(poll, deadline - time.monotonic())))
 
 
+# --- the wait marker ---
+#
+# A running wait keeps <tracker>/doorbell-wait-<role> fresh: a version line,
+# then the wait's own token and its poll interval. It touches the file once a
+# poll while the token is its own and removes it on exit, so take and ring
+# know a wait of the Role still runs and never name a second one. A marker
+# older than a few polls is stale: its wait was killed without cleaning up.
+
+def marker_path(place, role):
+    return os.path.join(place.dir, "doorbell-wait-" + role.lower())
+
+
+def read_marker(place, role):
+    """(token, poll seconds, age in seconds), or None when there is no
+    readable marker."""
+    path = marker_path(place, role)
+    try:
+        lines = textfile.lines(path, LOCK_RETRY_SECONDS)
+        age = time.time() - os.path.getmtime(path)
+    except OSError:
+        return None
+    if not lines or not lines[0].startswith(WAIT_PREFIX):
+        return None
+    version = lines[0][len(WAIT_PREFIX):].strip()
+    if version != WAIT_VERSION:
+        raise Failure(
+            "%s has format version %s, which this copy of the VDD tool does not know." % (path, version),
+            "Tell the user this copy of the VDD tool is out of date and to rerun Setup.",
+        )
+    parts = lines[1].split() if len(lines) > 1 else []
+    try:
+        poll = float(parts[1]) if len(parts) == 2 else None
+    except ValueError:
+        poll = None
+    if poll is None:
+        return None
+    return parts[0], poll, age
+
+
+def wait_runs(place, role):
+    marker = read_marker(place, role)
+    if marker is None:
+        return False
+    _, poll, age = marker
+    return age <= STALE_POLLS * poll + STALE_GRACE_SECONDS
+
+
+def wait_or_hold(place, role, harness):
+    """The Next: step that waits: the Harness's wait, or, while a wait of the
+    Role still runs, ending the turn; after the plan Sign-off, none."""
+    if plan_signed_off(place):
+        return SIGNED_OFF_NEXT
+    if harness.name != "codex" and wait_runs(place, role):
+        return (
+            "Your wait for the %s's Doorbell still runs and wakes you when one arrives: end your turn, "
+            "and start no other wait." % OTHER[role]
+        )
+    return wait_next(role, harness)
+
+
+def own_marker(place, role, token):
+    try:
+        lines = textfile.lines(marker_path(place, role)) or []
+    except OSError:
+        return False
+    return len(lines) > 1 and lines[1].split()[:1] == [token]
+
+
+def clear_marker(place, role, token=None):
+    """Remove the marker: any marker, or with token only the wait's own."""
+    if token is not None and not own_marker(place, role, token):
+        return
+    try:
+        os.remove(marker_path(place, role))
+    except OSError:
+        pass
+
+
+class Marker:
+    """The marker of the wait this process runs."""
+
+    def __init__(self, place, role, poll):
+        self.place = place
+        self.role = role
+        self.token = "%d-%s" % (os.getpid(), os.urandom(6).hex())
+        data = "%s%s\n%s %s\n" % (WAIT_PREFIX, WAIT_VERSION, self.token, poll)
+        try:
+            os.makedirs(place.dir, exist_ok=True)
+            textfile.write(marker_path(place, role), data.encode("ascii"))
+        except OSError:
+            pass
+
+    def beat(self):
+        if own_marker(self.place, self.role, self.token):
+            try:
+                os.utime(marker_path(self.place, self.role), None)
+            except OSError:
+                pass
+
+    def clear(self):
+        clear_marker(self.place, self.role, self.token)
+
+
+def end_on_signal():
+    """Turn SIGTERM and SIGHUP into SystemExit, so a wait its Harness stops
+    still removes its marker."""
+    def stop(signum, frame):
+        raise SystemExit(1)
+    for name in ("SIGTERM", "SIGHUP"):
+        if hasattr(signal, name):
+            try:
+                signal.signal(getattr(signal, name), stop)
+            except (OSError, ValueError):
+                pass
+
+
 def wait(role, harness):
     place = Place()
     if harness.name == "codex":
         return arm(place, role, harness)
+    end_on_signal()
+    marker = Marker(place, role, timings()[0])
     try:
-        found = watch(place, role)
+        found = watch(place, role, beat=marker.beat)
     except OSError as error:
         raise Failure(
-            "The wait could not read the Doorbell file: %s" % error,
+            "The wait could not read its files: %s" % error,
             hand_relay(role, harness),
         )
+    finally:
+        marker.clear()
     out = Output()
     if found:
         out.line("A Doorbell for the %s is waiting." % role)
@@ -496,11 +654,11 @@ def wait(role, harness):
     return out.finish(timeout_next(role, harness))
 
 
-def timeout_next(role, harness):
+def timeout_next(role, harness, entry=None):
     return (
         "Ask the user whether to keep waiting. On yes: %s On no, ask the user to paste the %s's next "
         "Doorbell here, then run: %s"
-        % (wait_next(role, harness), OTHER[role], paste_command(role, harness))
+        % (wait_next(role, harness, entry), OTHER[role], paste_command(role, harness, entry))
     )
 
 
@@ -522,13 +680,16 @@ def arm(place, role, harness):
             "Cannot arm the Codex Stop hook: CODEX_THREAD_ID is empty or not a thread id.",
             hand_relay(role, harness),
         )
-    state = place.load_state(role)
-    entries = place.entries(role, LOCK_RETRY_SECONDS)
+    try:
+        state = place.load_state(role)
+        entries = place.entries(role, LOCK_RETRY_SECONDS)
+    except OSError as error:
+        raise Failure("The wait could not read its files: %s" % error, hand_relay(role, harness))
     count = min(state.count, len(entries))
     data = "%s%s\n%s %d\n" % (ARMED_PREFIX, ARMED_VERSION, role, count)
     try:
         os.makedirs(place.dir, exist_ok=True)
-        write_file(armed_path(place, thread), data.encode("utf-8"))
+        textfile.write(armed_path(place, thread), data.encode("utf-8"))
     except OSError as error:
         raise Failure("Cannot write the armed file: %s" % error, hand_relay(role, harness))
     out = Output()

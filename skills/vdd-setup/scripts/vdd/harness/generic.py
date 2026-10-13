@@ -42,6 +42,9 @@ class Generic(Harness):
     def no_hit_continuation(self):
         return ""
 
+    def codex_hook_steps(self):
+        return False
+
     def orchestrator_launch(self):
         return "open a second Session in the same Harness and invoke vdd-orchestrator there"
 

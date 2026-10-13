@@ -1,5 +1,6 @@
 """Seam 1: the setup command, driven from outside."""
 
+import json
 import os
 import shutil
 import stat
@@ -400,7 +401,22 @@ class SetupTest(ToolTest):
         result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("Not changed: the Shared copy of the VDD tool", result.text)
-        self.assertNext(result, "outside the sandbox")
+        self.assertNext(result, "outside the sandbox, rerun it once that way.", "did not land and what it was for, and stop.")
+        self.assertTrue(result.last.startswith("Next: If a sandbox refused it"), result)
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
+    def test_an_unreadable_gitignore_ends_on_the_escalation_not_a_traceback(self):
+        path = self.box.write(".gitignore", "node_modules\n")
+        os.chmod(path, 0)
+        self.addCleanup(os.chmod, path, stat.S_IRUSR | stat.S_IWUSR)
+        for extra in ((), ("--write",)):
+            with self.subTest(extra=extra):
+                result = self.setup("claude-code", "writing-for-agents", "yes", *extra)
+                self.assertNotEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertIn("Could not read .gitignore", result.text)
+                self.assertNotIn("Traceback", result.text)
+                self.assertNext(result, "outside the sandbox", "stop")
 
 
 def vddtest_tree(base):
@@ -419,3 +435,160 @@ def vddtest_tree(base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+OLD_SH = 'sh "/x/vdd/vdd-codex-stop.sh" || true'
+OLD_PS = "$f='C:\\Users\\a''b\\AppData\\Local\\vdd\\vdd-codex-stop.ps1';if(Test-Path -LiteralPath $f){powershell.exe -NoProfile -ExecutionPolicy Bypass -File $f}"
+USER_GROUP = {"matcher": "", "hooks": [{"type": "command", "command": "notify-send done", "timeout": 5}]}
+
+
+class CodexSetupTest(ToolTest):
+    """Setup on Codex: the hooks.json migration and the trust check."""
+
+    def setUp(self):
+        ToolTest.setUp(self)
+        subprocess.run(["git", "init", "-q"], cwd=self.box.proj, check=True)
+        self.codex = os.path.join(self.box.home, ".codex")
+        os.makedirs(self.codex)
+
+    def setup(self, *extra, harness="codex"):
+        return self.box.run("setup", "--harness", harness, "--listed", "writing-for-agents",
+                            "--glossary-named", "yes", *extra)
+
+    def hooks(self, data):
+        text = json.dumps(data, indent=2) + "\n"
+        with open(os.path.join(self.codex, "hooks.json"), "w") as handle:
+            handle.write(text)
+        return text
+
+    def read_hooks(self):
+        with open(os.path.join(self.codex, "hooks.json")) as handle:
+            return handle.read()
+
+    def config(self, text):
+        with open(os.path.join(self.codex, "config.toml"), "w") as handle:
+            handle.write(text)
+
+    def vdd_group(self, command=OLD_SH, **extra):
+        handler = {"type": "command", "command": command, "timeout": 2760}
+        handler.update(extra)
+        return {"hooks": [handler]}
+
+    def test_removes_vdd_s_old_entry_after_showing_the_diff(self):
+        """Finding 1: the model built the hooks.json entry itself. Setup no
+        longer writes one; it removes the old one in code (spec)."""
+        before = self.hooks({"model": "x", "hooks": {"Stop": [self.vdd_group(), USER_GROUP], "PreToolUse": []}})
+        result = self.setup()
+        self.assertIn("Planned change: ~/.codex/hooks.json removes VDD's old Stop hook entry", result.text)
+        self.assertIn("-            \"command\": \"sh \\\"/x/vdd/vdd-codex-stop.sh\\\" || true\",", result.lines)
+        self.assertTrue(any("Hooks need review" in t for t in result.tells()), result)
+        self.assertIn("Trust VDD's hook in /hooks.", result.tells())
+        self.assertEqual(self.read_hooks(), before)
+        result = self.setup("--write")
+        self.assertEqual(result.code, 0, result)
+        after = json.loads(self.read_hooks())
+        self.assertEqual(after, {"model": "x", "hooks": {"Stop": [USER_GROUP], "PreToolUse": []}})
+        self.assertEqual(os.listdir(self.codex), ["hooks.json"])
+        self.assertEqual(sorted(os.listdir(self.box.proj)), [".git", ".gitignore"])
+        self.assertIn("Nothing left to change.", self.setup("--write").text)
+
+    def test_the_015_windows_template_is_removed_and_the_stop_key_stays(self):
+        """Spec: only VDD's handler and its emptied group go; every other key
+        stays, Stop included."""
+        self.hooks({"hooks": {"Stop": [self.vdd_group(OLD_PS, commandWindows=OLD_PS)]}})
+        result = self.setup("--write")
+        self.assertEqual(json.loads(self.read_hooks()), {"hooks": {"Stop": []}})
+        self.assertFalse(any("Hooks need review" in t for t in result.tells()))
+
+    def test_the_diff_shows_only_vdd_s_removal_whatever_the_file_s_layout(self):
+        """The dry-run diff is what the user consents to: a user's group the
+        migration does not touch never shows in it."""
+        user = {"hooks": [{"type": "command", "command": "echo mine"}]}
+        data = {"hooks": {"PreToolUse": [user], "Stop": [self.vdd_group()]}}
+        two_space = json.dumps(data, indent=2) + "\n"
+        files = {
+            "compact": '{"hooks": {"PreToolUse": [%s],\n "Stop": [%s]}}\n' % (
+                json.dumps(user), json.dumps(self.vdd_group())),
+            "two-space": two_space,
+            "two-space CRLF": two_space.replace("\n", "\r\n"),
+            "two-space BOM": "\ufeff" + two_space,
+        }
+        for name, text in files.items():
+            with self.subTest(file=name):
+                with open(os.path.join(self.codex, "hooks.json"), "wb") as handle:
+                    handle.write(text.encode("utf-8"))
+                result = self.setup()
+                changed = [l for l in result.lines if l[:1] in "+-" and l[:3] not in ("+++", "---")]
+                self.assertTrue(changed, result)
+                self.assertFalse(any("echo mine" in l or "PreToolUse" in l for l in changed), result)
+                added = [l for l in changed if l.startswith("+")]
+                self.assertEqual(added, ['+    "Stop": []'], result)
+                relaid = [l for l in result.lines if "rewritten in two-space JSON layout" in l]
+                self.assertEqual(len(relaid), 0 if name == "two-space" else 1, result)
+
+    def test_any_other_vdd_handler_is_reported_and_left(self):
+        before = self.hooks({"hooks": {"Stop": [self.vdd_group("python3 /mine/vdd-codex-stop.py")]}})
+        result = self.setup("--write")
+        self.assertIn("naming vdd-codex-stop that Setup did not write stays: python3 /mine/vdd-codex-stop.py", result.text)
+        self.assertEqual(self.read_hooks(), before)
+
+    def test_an_old_template_with_another_timeout_stays(self):
+        before = self.hooks({"hooks": {"Stop": [{"hooks": [{"type": "command", "command": OLD_SH, "timeout": 60}]}]}})
+        self.setup("--write")
+        self.assertEqual(self.read_hooks(), before)
+
+    def test_a_hooks_json_that_does_not_parse_is_left_and_reported(self):
+        with open(os.path.join(self.codex, "hooks.json"), "w") as handle:
+            handle.write("{ not json")
+        result = self.setup("--write")
+        self.assertTrue(any("left ~/.codex/hooks.json untouched" in t for t in result.tells()), result)
+        self.assertEqual(self.read_hooks(), "{ not json")
+
+    def test_a_registration_in_config_toml_is_reported(self):
+        self.config('[[hooks.Stop]]\n[[hooks.Stop.hooks]]\ncommand = "sh /x/vdd-codex-stop.sh"\n')
+        self.assertIn("a registration naming vdd-codex-stop stays", self.setup().text)
+
+    def test_trust_key_present_prints_no_trust_line(self):
+        """The trust check looks for the hooks.state key of VDD's hook and
+        never claims the hook is trusted (spec; ticket 29)."""
+        for text in (
+            '[hooks.state."vdd@anything:plugin.json#hooks[0]:stop:0:0"]\ntrusted_hash = "sha256:x"\n',
+            '[hooks.state]\n"vdd@mk:plugin.json#hooks[0]:stop:0:0" = { trusted_hash = "sha256:x" }\n',
+            '[hooks]\nstate."vdd@mk:plugin.json#hooks[0]:stop:0:0".trusted_hash = "sha256:x"\n',
+            'model = "o"\n[hooks.state."/x/hooks.json:stop:0:0"]\ntrusted_hash = "a"\n'
+            '[hooks.state."vdd@mk:plugin.json#hooks[0]:stop:0:0"]\ntrusted_hash = "b"\n',
+        ):
+            with self.subTest(text=text):
+                self.config(text)
+                result = self.setup()
+                self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
+                self.assertFalse(any("unknown" in l for l in result.lines), result)
+
+    def test_trust_key_absent_prints_the_trust_line(self):
+        for text in ("", '[hooks.state."/x/hooks.json:stop:0:0"]\ntrusted_hash = "a"\n',
+                     '[hooks.state."other@mk:plugin.json#hooks[0]:stop:0:0"]\n',
+                     'notes = """\n[hooks.state."vdd@mk:plugin.json#hooks[0]:stop:0:0"]\n"""\n'):
+            with self.subTest(text=text):
+                self.config(text)
+                self.assertIn("Trust VDD's hook in /hooks.", self.setup().tells())
+
+    def test_an_unparsable_config_says_unknown_and_asks(self):
+        self.config('[hooks.state\nx = "y\n')
+        result = self.setup()
+        self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
+        self.assertTrue(any("could not tell whether VDD's hook is trusted" in t for t in result.tells()), result)
+
+    def test_codex_home_moves_the_files(self):
+        home = os.path.join(self.box.root, "ch")
+        os.makedirs(home)
+        with open(os.path.join(home, "hooks.json"), "w") as handle:
+            json.dump({"hooks": {"Stop": [self.vdd_group()]}}, handle)
+        result = self.box.run("setup", "--harness", "codex", "--listed", "writing-for-agents",
+                              "--glossary-named", "yes", env=self.box.env(CODEX_HOME=home))
+        self.assertIn("removes VDD's old Stop hook entry", result.text)
+
+    def test_other_harnesses_skip_the_codex_steps(self):
+        self.hooks({"hooks": {"Stop": [self.vdd_group()]}})
+        result = self.setup(harness="claude-code")
+        self.assertNotIn("hooks.json", result.text)
+        self.assertNotIn("Trust VDD's hook", result.text)

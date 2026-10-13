@@ -64,26 +64,32 @@ behaviour alone.
 of `.github/`. The comment at each step gives its reason, and a deliberate
 exception edits the step in the same PR so the reviewer sees both.
 
-- No hooks, no MCP servers, no symlinks, no executable files. A Role runs a
-  shipped script with `sh`, or on native Windows with `powershell.exe
-  -NoProfile -ExecutionPolicy Bypass -File`.
+- One hook: the Codex `Stop` hook inline in `.codex-plugin/plugin.json`, in
+  its fixed form. No other hook, a `hooks` key in a `SKILL.md` frontmatter
+  included, no MCP servers, no symlinks, no executable files.
+- A Role runs the VDD tool through a named interpreter: `python3`, or
+  `py -3` on native Windows.
+- The VDD tool writes only inside the project (its `.gitignore` and
+  `.scratch/<slug>/`), in the Shared directory (`vdd.py` and `vdd/`), and on
+  Codex in `~/.codex/hooks.json` (removing an older VDD's entry), and writes
+  no bytecode.
 - A Codex policy file, `agents/openai.yaml`, has the top-level keys
   `interface` and `policy` and no other.
 - `verify.yml` triggers on `pull_request`, never `pull_request_target`, and
   on a push to every branch. Its `permissions` stay `contents: read`.
 - `release.yml` alone grants `contents: write`, only on a version tag push or
   `workflow_dispatch`.
-- `.claude-plugin/plugin.json` and the plugin's entry in
-  `.claude-plugin/marketplace.json` share name, version and `source: "./"`.
-  Bump both versions in the same commit.
+- `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json` and the
+  plugin's entry in `.claude-plugin/marketplace.json` share name and version,
+  the entry's `source` is `"./"`, and the two plugin manifests share every
+  other field they both carry. Bump all three versions in the same commit.
 - Skill names are unique, and every `SKILL.md` opens with frontmatter that
   carries `name` and `description`.
 - Every relative link under `skills/` resolves, a `<placeholder>` target
   excepted.
 - Every file under a skill's `references/` is linked directly from its
   `SKILL.md`, a Harness file from `## Harnesses`.
-- Under `skills/` every tracked file is `.md`, `agents/openai.yaml` or `.py`,
-  with the 0.15 `.sh` and `.ps1` scripts allowed until they go.
+- Under `skills/` every tracked file is `.md`, `agents/openai.yaml` or `.py`.
 - Outside `skills/`, `.github/`, `tests/` and `docs/` every tracked file is
   `.md`, a manifest `.json` under `.claude-plugin/` or `.codex-plugin/`,
   `.gitignore`, `.gitattributes` or `LICENSE`.
@@ -93,7 +99,8 @@ exception edits the step in the same PR so the reviewer sees both.
 - Every `.py` under `skills/` imports only the standard library and the
   tool's own package, and no network module.
 - No `.py` under `skills/` calls `shell=True`, `os.system`, `os.popen`,
-  `eval` or `exec`.
+  `eval`, `exec` or `__import__`, under any alias, or imports `importlib`,
+  `runpy`, `posix` or `nt`, any submodule included.
 - The tool's tests run on Ubuntu, Windows and macOS against Python 3.9 and
   the newest 3.x.
 - A skill has `disable-model-invocation: true` exactly when its
@@ -101,10 +108,6 @@ exception edits the step in the same PR so the reviewer sees both.
 - A skill that ships a `references/harness-<slug>.md` has a `## Harnesses`
   entry for every slug any skill ships: a link to its own file, or `none: the
   inline text is complete`.
-- Every `.sh` under `skills/` passes `sh -n`, every `.ps1` passes the
-  PowerShell parser with no token Windows PowerShell 5.1 cannot parse, and
-  neither holds a byte outside tab, line feed, carriage return and printable
-  ASCII.
 - `CLAUDE.md` is the one line `@AGENTS.md`.
 
 ## Gotchas

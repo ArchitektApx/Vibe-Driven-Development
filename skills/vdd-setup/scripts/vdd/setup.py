@@ -5,8 +5,8 @@ import os
 import re
 import subprocess
 
-from . import args, borrowed, install, places, stores, textfile
-from .out import Failure, Output
+from . import args, borrowed, codex_setup, install, places, stores, textfile
+from .out import Failure, Output, escalate, refused
 
 USAGE_NAME = "setup --help"
 
@@ -146,9 +146,7 @@ class Setup:
         out = self.out
         if self.failed:
             return out.finish(
-                "A write was refused. If a sandbox refused it and your tools offer a way to rerun the "
-                "command outside the sandbox, rerun the same command once that way. Otherwise tell the "
-                "user which change did not land and go on.",
+                escalate("Otherwise tell the user which change did not land and what it was for, and stop."),
                 1,
             )
         if verdict.ask_user:
@@ -342,7 +340,10 @@ class Setup:
 
     def gitignore(self):
         path = os.path.join(self.cwd, ".gitignore")
-        before, after, added, removed = plan_gitignore(path)
+        try:
+            before, after, added, removed = plan_gitignore(path)
+        except OSError as error:
+            self.refuse_read(".gitignore", error)
         if not added and not removed:
             self.out.line(".gitignore: covers LOOP.md and .scratch/. Passed.")
             return
@@ -356,7 +357,7 @@ class Setup:
         if not self.write:
             return
         try:
-            write_atomic(path, after)
+            textfile.write(path, after)
             _, check, again_added, again_removed = plan_gitignore(path)
             if again_added or again_removed:
                 raise OSError("the file does not hold the change after the write")
@@ -381,7 +382,10 @@ class Setup:
 
     def shared_copy(self):
         shared = places.shared_dir()
-        state = install.state(shared)
+        try:
+            state = install.state(shared)
+        except OSError as error:
+            self.refuse_read("the Shared copy of the VDD tool in %s" % shared, error)
         if state == install.CURRENT:
             self.out.line("Shared copy of the VDD tool in %s: current. Passed." % shared)
             return
@@ -400,10 +404,18 @@ class Setup:
             self.failed.append("shared")
             self.out.line("Not changed: the Shared copy of the VDD tool (%s)." % error)
 
+    def refuse_read(self, what, error):
+        """Stop the run on a file Setup cannot read, keeping what it printed."""
+        raise refused(
+            self.out.lines + ["Could not read %s: %s" % (what, error)],
+            "Otherwise tell the user Setup could not read %s, and stop." % what,
+        )
+
     # --- the Harness's own steps ---
 
     def harness_steps(self):
-        pass
+        if self.harness.codex_hook_steps():
+            codex_setup.run(self)
 
 
 def quote(value):
@@ -453,11 +465,3 @@ def plan_gitignore(path):
         after += newline
     after += "".join(entry + newline for entry in added)
     return before, after.encode("utf-8", "surrogateescape"), added, removed
-
-
-def write_atomic(path, data):
-    directory = os.path.dirname(path)
-    temp = os.path.join(directory, ".%s.vdd-new" % os.path.basename(path))
-    with open(temp, "wb") as handle:
-        handle.write(data)
-    os.replace(temp, path)

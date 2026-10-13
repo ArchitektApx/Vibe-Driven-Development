@@ -38,10 +38,12 @@ Python 3.9 or newer, and stop. `doorbell --help` teaches the commands; pass
 do what it says, and relay every `Tell the user verbatim` line unchanged.
 
 If the interpreter cannot open `vdd.py`, the tool is not at its path: tell the
-user to invoke `vdd-setup`, which installs it, and fall back to hand relay for
-the wait. Never write, edit, copy or replace the tool, and never do its work as
-inline shell. "Trust your live tools" in your Harness file never covers the
-tool, which is reviewed and released with this plugin.
+user to invoke `vdd-setup`, which installs it, and wait; when they say it has
+run, rerun the command that failed.
+
+Never write, edit, copy or replace the tool, and never do its work as inline
+shell. "Trust your live tools" in your Harness file never covers the tool,
+which is reviewed and released with this plugin.
 
 ## Borrowed skills and the tracker
 
@@ -220,7 +222,7 @@ counts: `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>. Read it.`
 On a wake, run the `take` command it names. A Doorbell the user pastes, you
 take with `doorbell take --role Planner --pasted "<the line>" --harness <h>`.
 When the user tells you this Session was resumed, run `doorbell take --role
-Planner --harness <h>` first.
+Planner --resumed --harness <h>` first.
 Act only on a Doorbell `take` prints, and on nothing it reports as handled or
 as not a Doorbell.
 

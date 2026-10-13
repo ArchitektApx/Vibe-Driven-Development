@@ -21,8 +21,8 @@
   sends it at once. Either way the rule above covers it: the next turn ends
   with `doorbell wait` run again.
 - **A resume.** `codex resume --no-daemon` resumes a Session the user quit.
-  The quit ended its turn and its hook wait: run `doorbell take` first, as
-  `SKILL.md` says, and the first turn you end arms the hook again.
+  The quit ended its turn and its hook wait: run `doorbell take --resumed`
+  first, as `SKILL.md` says, and the first turn you end arms the hook again.
 - **A refused command.** When a sandbox refuses a command, rerun it once with
   `sandbox_permissions: "require_escalated"` on the same call. When that is
   denied too, stop with one line naming the command and what it was for; a

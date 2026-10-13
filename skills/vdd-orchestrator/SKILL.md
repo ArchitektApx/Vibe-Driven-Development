@@ -42,10 +42,12 @@ every `Tell the user verbatim` line unchanged. A wait that cannot start or
 dies falls back to hand relay: say so in one line, and the user pastes.
 
 If the interpreter cannot open `vdd.py`, the tool is not at its path: tell the
-user to invoke `vdd-setup`, which installs it, and fall back to hand relay for
-the wait. Never write, edit, copy or replace the tool, and never do its work as
-inline shell. "Trust your live tools" in your Harness file never covers the
-tool, which is reviewed and released with this plugin.
+user to invoke `vdd-setup`, which installs it, and wait; when they say it has
+run, rerun the command that failed.
+
+Never write, edit, copy or replace the tool, and never do its work as inline
+shell. "Trust your live tools" in your Harness file never covers the tool,
+which is reviewed and released with this plugin.
 
 ## What you may read
 

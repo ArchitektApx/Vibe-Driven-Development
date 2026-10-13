@@ -10,7 +10,7 @@
   the shell exits.
 - **A resume.** `copilot --continue` and `copilot --resume` resume a Session.
   When the user names one of them, or tells you this Session was resumed,
-  run `doorbell take` first, as `SKILL.md` says.
+  run `doorbell take --resumed` first, as `SKILL.md` says.
 - **A refused command.** Copilot CLI offers no way to rerun a command outside
   its sandbox, so a refusal counts as a denial: stop with one line naming the
   command and what it was for; a wait falls back to hand relay instead.

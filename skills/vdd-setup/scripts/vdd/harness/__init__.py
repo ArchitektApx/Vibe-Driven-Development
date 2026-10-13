@@ -3,17 +3,8 @@ interface below. Adding a Harness is one module here, one Harness file per
 skill that keeps them, and its tests."""
 
 import abc
-import importlib
 
 NAMES = ("claude-code", "codex", "cursor", "copilot-cli", "generic")
-
-_MODULES = {
-    "claude-code": "claude_code",
-    "codex": "codex",
-    "cursor": "cursor",
-    "copilot-cli": "copilot_cli",
-    "generic": "generic",
-}
 
 
 class Harness(abc.ABC):
@@ -61,17 +52,32 @@ class Harness(abc.ABC):
         """How the user starts the Orchestrator's Session, as one clause."""
 
     @abc.abstractmethod
+    def codex_hook_steps(self):
+        """Whether Setup's Codex hook steps (the hooks.json migration and the
+        trust check) apply."""
+
+    @abc.abstractmethod
     def wait_next(self, role, wait_command, paste_command):
         """The Next: step that waits for the other Role's Doorbell: how to run
         wait_command on this Harness, or hand relay through paste_command."""
 
 
 def get(name):
-    """The Harness --harness names, or None."""
-    module = _MODULES.get(name)
-    if module is None:
+    """The Harness --harness names, or None. Plain relative imports: the
+    static check refuses an import by a computed name."""
+    if name == "claude-code":
+        from . import claude_code as module
+    elif name == "codex":
+        from . import codex as module
+    elif name == "cursor":
+        from . import cursor as module
+    elif name == "copilot-cli":
+        from . import copilot_cli as module
+    elif name == "generic":
+        from . import generic as module
+    else:
         return None
-    return importlib.import_module("." + module, __name__).HARNESS
+    return module.HARNESS
 
 
 def all_harnesses():

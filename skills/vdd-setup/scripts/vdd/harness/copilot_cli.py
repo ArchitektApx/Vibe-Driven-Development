@@ -83,6 +83,9 @@ class CopilotCli(Harness):
     def no_hit_continuation(self):
         return ""
 
+    def codex_hook_steps(self):
+        return False
+
     def orchestrator_launch(self):
         return "run copilot in a terminal in this repository, then /vdd:vdd-orchestrator in that Session"
 

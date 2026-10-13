@@ -65,6 +65,9 @@ class Cursor(Harness):
             "does not depend on it."
         )
 
+    def codex_hook_steps(self):
+        return False
+
     def orchestrator_launch(self):
         return (
             "in the Cursor IDE, open a new chat and type /vdd-orchestrator in it; in the Cursor CLI, run "

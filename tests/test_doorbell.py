@@ -237,8 +237,8 @@ class DoorbellTest(ToolTest):
 
     def test_a_crlf_and_non_utf8_doorbell_file(self):
         """Every file is read as bytes, decoded UTF-8 with replacement, CRLF
-        as LF: the Windows default encoding broke a line in the first attempt
-        (drafts/python-scripts-carry.md)."""
+        as LF: on Windows the default encoding is the ANSI code page, which
+        misreads a UTF-8 line, and a line a Windows tool wrote ends in CRLF."""
         self.append(b"# vdd doorbells 1\r\n10:00:00 to: Planner \xff\xfe junk\r\n10:00:01 to: Planner " + R1.encode() + b"\r\n")
         result = self.take("Planner")
         self.assertIn("Doorbell: " + R1, result.lines)
@@ -366,6 +366,208 @@ class DoorbellTest(ToolTest):
         result = self.wait("Planner")
         self.assertNotEqual(result.code, 0)
         self.assertNext(result, "paste", "--pasted")
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
+    def test_a_wait_that_cannot_read_its_state_falls_back_to_hand_relay_on_every_harness(self):
+        self.ring("Orchestrator", R1)
+        self.take("Planner")
+        path = self.box.path(".scratch", "x", "doorbell-state-planner")
+        os.chmod(path, 0)
+        self.addCleanup(os.chmod, path, stat.S_IRUSR | stat.S_IWUSR)
+        env = self.box.env(VDD_WAIT_POLL_SECONDS="0.05", VDD_WAIT_TIMEOUT_SECONDS="0.2", CODEX_THREAD_ID="019a-Th_1")
+        for harness in ("claude-code", "codex"):
+            with self.subTest(harness=harness):
+                result = self.wait("Planner", harness=harness, env=env)
+                self.assertNotEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertNotIn("Traceback", result.text)
+                self.assertIn("could not read its files", result.text)
+                self.assertNext(result, "paste", "--pasted")
+                self.assertNotIn("stop.", result.last)
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
+    def test_a_take_that_cannot_record_ends_on_the_escalation_and_records_nothing(self):
+        self.ring("Planner", P1)
+        tracker = self.box.path(".scratch", "x")
+        os.chmod(tracker, stat.S_IRUSR | stat.S_IXUSR)
+        self.addCleanup(os.chmod, tracker, stat.S_IRWXU)
+        for extra in ((), ("--pasted", P1), ("--restart",)):
+            with self.subTest(extra=extra):
+                if extra == ("--restart",):
+                    os.chmod(tracker, stat.S_IRWXU)
+                    self.box.write(os.path.join(".scratch", "x", "PLAN-REVIEW.md"), "Round 1\n")
+                    os.chmod(tracker, stat.S_IRUSR | stat.S_IXUSR)
+                result = self.take("Orchestrator", *extra)
+                self.assertNotEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertNotIn("Traceback", result.text)
+                self.assertNotIn("Doorbell: ", result.text)
+                self.assertIn("Nothing was recorded as handled.", result.text)
+                self.assertNext(result, "outside the sandbox", "stop")
+                self.assertFalse(os.path.exists(os.path.join(tracker, "doorbell-state-orchestrator")))
+        os.chmod(tracker, stat.S_IRWXU)
+        result = self.take("Orchestrator")
+        self.assertIn("Doorbell: " + P1, result.text)
+
+    # --- one wait at a time ---
+
+    def marker(self, role):
+        return self.box.path(".scratch", "x", "doorbell-wait-" + role.lower())
+
+    def start_wait(self, role, poll="0.05", timeout="60", harness="cursor"):
+        """A wait in the background, as a Harness runs it; returns once its
+        marker is on disk and its first read is done."""
+        env = self.fast(poll=poll, timeout=timeout)
+        proc = subprocess.Popen(
+            [sys.executable, ENTRY, "doorbell", "wait", "--role", role, "--harness", harness],
+            cwd=self.box.proj, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+        self.addCleanup(lambda: proc.poll() is None and (proc.kill(), proc.communicate()))
+        deadline = time.monotonic() + 20
+        while not os.path.exists(self.marker(role)):
+            self.assertIsNone(proc.poll(), "the wait exited before it marked itself")
+            self.assertLess(time.monotonic(), deadline, "the wait never marked itself")
+            time.sleep(0.05)
+        time.sleep(0.5)
+        self.assertIsNone(proc.poll())
+        return proc
+
+    HOLD = "still runs and wakes you when one arrives: end your turn, and start no other wait."
+
+    def test_a_second_wake_while_a_wait_runs_names_no_second_wait(self):
+        """Cursor may wake twice for one wait. On the second wake take finds
+        nothing new and, with the Role's next wait running, names no second
+        one: "Hold exactly one wait", and a duplicate "as a second completion
+        event leaves the wait you hold as it is" (5f3f4e7; finding 17 of the
+        round 4 review)."""
+        self.ring("Orchestrator", R1)
+        self.assertIn("Doorbell: " + R1, self.take("Planner", harness="cursor").text)
+        ring = self.ring("Planner", P2, harness="cursor")
+        self.assertNext(ring, "doorbell wait --role Planner")
+        proc = self.start_wait("Planner")
+        second = self.take("Planner", harness="cursor")
+        self.assertIn("No new Doorbell", second.text)
+        self.assertNext(second, self.HOLD)
+        self.assertNotIn("doorbell wait", second.last)
+        self.ring("Orchestrator", R2_SIGNED)
+        out, _ = proc.communicate(timeout=20)
+        self.assertIn(b"doorbell take --role Planner", out)
+        self.assertFalse(os.path.exists(self.marker("Planner")))
+        self.assertIn("Doorbell: " + R2_SIGNED, self.take("Planner", harness="cursor").text)
+
+    def test_a_paste_while_a_wait_runs_names_no_second_wait(self):
+        """A paste moves the count past the line the running wait has not read
+        yet; that wait keeps running, so the next ring ends the turn rather
+        than naming a second wait (finding 17 of the round 4 review)."""
+        self.ring("Planner", P1)
+        self.take("Orchestrator", harness="cursor")
+        self.ring("Orchestrator", R1, harness="cursor")
+        proc = self.start_wait("Orchestrator", poll="30")
+        self.ring("Planner", P2)
+        pasted = self.take("Orchestrator", "--pasted", P2, harness="cursor")
+        self.assertIn("Doorbell: " + P2, pasted.text)
+        ring = self.ring("Orchestrator", "VDD Plan-Reviewer: PLAN-REVIEW.md written, round 2: 0 blocker, 1 major, 0 minor. Read it.", harness="cursor")
+        self.assertNext(ring, self.HOLD)
+        self.assertIsNone(proc.poll())
+
+    @unittest.skipIf(WINDOWS, "Windows ends a process without running its cleanup")
+    def test_a_stopped_wait_removes_its_marker(self):
+        proc = self.start_wait("Planner")
+        proc.terminate()
+        proc.communicate(timeout=20)
+        self.assertFalse(os.path.exists(self.marker("Planner")))
+        self.assertNext(self.take("Planner", harness="cursor"), "doorbell wait --role Planner")
+
+    def test_a_stale_marker_counts_as_no_wait(self):
+        """A wait killed without cleaning up leaves its marker; once it is a
+        few polls old it counts as no wait, so the Role starts a new one."""
+        self.box.write(os.path.join(".scratch", "x", "doorbell-wait-planner"), "vdd doorbell-wait 1\n1-ab 10.0\n")
+        self.assertNext(self.take("Planner", harness="cursor"), self.HOLD)
+        old = time.time() - 3600
+        os.utime(self.marker("Planner"), (old, old))
+        for harness in ("cursor", "claude-code", "copilot-cli", "generic"):
+            with self.subTest(harness=harness):
+                self.assertNext(self.take("Planner", harness=harness), "doorbell wait --role Planner --harness " + harness)
+
+    def test_an_unknown_marker_version_is_refused(self):
+        self.box.write(os.path.join(".scratch", "x", "doorbell-wait-planner"), "vdd doorbell-wait 7\n1-ab 10.0\n")
+        result = self.take("Planner")
+        self.assertNotEqual(result.code, 0)
+        self.assertIn("rerun Setup", result.text)
+
+    def test_the_restart_clears_the_marker_of_an_earlier_session(self):
+        """A wait an earlier Session started wakes that Session, so the
+        restart names a wait of its own."""
+        self.box.write(os.path.join(".scratch", "x", "doorbell-wait-orchestrator"), "vdd doorbell-wait 1\n1-ab 10.0\n")
+        result = self.take("Orchestrator", "--restart", harness="cursor")
+        self.assertNext(result, "doorbell wait --role Orchestrator")
+        self.assertFalse(os.path.exists(self.marker("Orchestrator")))
+
+    def test_the_resumed_planner_names_a_wait_of_its_own(self):
+        """A wait an earlier Session left (detached on Copilot CLI, or killed
+        with its Session on Windows) keeps a fresh marker that wakes no one.
+        The resume's take clears it whatever its token and names a wait,
+        without acting again on a Doorbell already handled (spec, user story
+        31; finding 26 of the round 5 review)."""
+        self.ring("Orchestrator", R1)
+        self.assertIn("Doorbell: " + R1, self.take("Planner", harness="cursor").text)
+        for harness in ("cursor", "claude-code", "copilot-cli", "generic"):
+            with self.subTest(harness=harness):
+                self.box.write(os.path.join(".scratch", "x", "doorbell-wait-planner"), "vdd doorbell-wait 1\n1-ab 10.0\n")
+                self.assertNext(self.take("Planner", harness=harness), self.HOLD)
+                result = self.take("Planner", "--resumed", harness=harness)
+                self.assertEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertIn("No new Doorbell", result.text)
+                self.assertNotIn("Doorbell: " + R1, result.text)
+                self.assertNext(result, "doorbell wait --role Planner --harness " + harness)
+                self.assertFalse(os.path.exists(self.marker("Planner")))
+        self.ring("Orchestrator", R2_SIGNED)
+        self.box.write(os.path.join(".scratch", "x", "doorbell-wait-planner"), "vdd doorbell-wait 1\n1-ab 10.0\n")
+        result = self.take("Planner", "--resumed", harness="cursor")
+        self.assertIn("Doorbell: " + R2_SIGNED, result.text)
+        self.assertFalse(os.path.exists(self.marker("Planner")))
+
+    def test_resumed_is_the_planner_s(self):
+        result = self.take("Orchestrator", "--resumed")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertNext(result, "--restart")
+
+    # --- after the plan Sign-off ---
+
+    def signed_off(self, round_number):
+        self.box.write(os.path.join(".scratch", "x", "PLAN-REVIEW.md"), "SIGNED OFF\nRound %d\n" % round_number)
+
+    def test_after_the_sign_off_take_names_no_wait(self):
+        """Once PLAN-REVIEW.md is signed off, a take with nothing new names no
+        wait for either Role, as the Sign-off ring already did; a Planner
+        round rung after the Sign-off opens the wait again (finding 31 of the
+        round 8 review)."""
+        self.ring("Planner", P1)
+        self.ring("Planner", P2)
+        self.take("Orchestrator")
+        self.signed_off(2)
+        for harness in ("claude-code", "codex", "cursor", "copilot-cli", "generic"):
+            for role in ("Planner", "Orchestrator"):
+                with self.subTest(harness=harness, role=role):
+                    result = self.take(role, harness=harness)
+                    self.assertEqual(result.code, 0, result)
+                    self.assertContract(result)
+                    self.assertNotIn("Doorbell: ", result.text)
+                    self.assertNext(result, "Nothing to wait for: the plan Loop is over")
+                    self.assertNotIn("doorbell wait", result.last)
+        result = self.take("Orchestrator", "--pasted", P2, harness="codex")
+        self.assertIn("Already handled", result.text)
+        self.assertNext(result, "Nothing to wait for")
+        self.ring("Planner", "VDD Planner: .scratch/x/ ready, round 3. Read spec.md and issues/.")
+        self.assertNext(self.take("Planner"), "doorbell wait --role Planner")
+
+    def test_an_unsigned_review_still_names_the_wait(self):
+        self.review(2)
+        self.assertNext(self.take("Planner"), "doorbell wait --role Planner")
+        self.box.write(os.path.join(".scratch", "x", "PLAN-REVIEW.md"), "Round 2\nSIGNED OFF\n")
+        self.assertNext(self.take("Orchestrator"), "doorbell wait --role Orchestrator")
 
     def test_codex_wait_writes_the_armed_file(self):
         self.ring("Orchestrator", R1)

@@ -27,8 +27,8 @@ class EntryTest(ToolTest):
 
     def test_output_is_utf8_with_lf_whatever_the_console(self):
         """Printed through sys.stdout.buffer as UTF-8 with LF, every CR
-        removed: a Windows console's code page mangled a non-ASCII line in the
-        first attempt at this tool (drafts/python-scripts-carry.md)."""
+        removed: printed through sys.stdout, a non-ASCII line reaches a
+        Windows console in its code page as different characters, or raises."""
         result = self.box.run("café\r\nx", env=self.box.env(PYTHONIOENCODING="cp1252"))
         self.assertIn("Unknown command: café x".encode("utf-8"), result.data)
         self.assertContract(result)

@@ -73,6 +73,9 @@ class ClaudeCode(Harness):
     def no_hit_continuation(self):
         return ""
 
+    def codex_hook_steps(self):
+        return False
+
     def orchestrator_launch(self):
         return "run claude in a terminal in this repository, then /vdd:vdd-orchestrator in that Session"
 

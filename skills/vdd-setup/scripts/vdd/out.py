@@ -10,6 +10,10 @@ is always in the text.
 import sys
 
 TELL = 'Tell the user verbatim: "%s"'
+ESCALATE = (
+    "If a sandbox refused it and your tools offer a way to rerun the command outside the sandbox, "
+    "rerun it once that way."
+)
 
 
 def one_line(text):
@@ -50,6 +54,17 @@ class Failure(Exception):
         for text in self.lines:
             out.line(text)
         return out.finish(self.next_step, 1)
+
+
+def escalate(otherwise):
+    """The Next: step after a refused command: the one escalated retry, then
+    what to do otherwise."""
+    return ESCALATE + " " + otherwise
+
+
+def refused(lines, otherwise):
+    """A Failure for a file operation the system refused."""
+    return Failure(lines, escalate(otherwise))
 
 
 def write(lines):
