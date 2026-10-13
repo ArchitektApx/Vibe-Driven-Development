@@ -137,9 +137,9 @@ Spawn every hosted Role with this literal template, filled in by
 substitution alone. The only things that change are the Role, its skill name
 (`vdd-plan-reviewer`, `vdd-coder` or `vdd-code-reviewer`, in the form your
 Harness file gives), the round number, and that Role's Working files, named
-with their paths, which its own skill states on the first mention of each. Every other line is fixed text, sent whether or not it
-applies to the Role you are spawning: no section is assembled or omitted per
-Role.
+with their paths, which its own skill states on the first mention of each.
+Every other line is fixed text, sent whether or not it applies to the Role
+you are spawning: no section is assembled or omitted per Role.
 
 ```
 You are the <Role> in a Vibe Driven Development loop. An Orchestrator hosts this Workflow.

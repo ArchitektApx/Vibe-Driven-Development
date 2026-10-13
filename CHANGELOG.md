@@ -7,34 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**TL;DR:** The Coder can start fresh every round, which costs less on most
-agents, any Role can start fresh when you ask, and Roles on Codex no longer
-carry the Orchestrator's conversation.
+**TL;DR:** VDD now needs Python 3.9 or newer: Setup and the Doorbell run in
+the VDD tool, a small program VDD ships, which makes both faster and more
+reliable. The Codex hook ships with the plugin, Start-Loop recommends how
+the Coder restarts for the least cost on your agent, and code reviews on
+Claude Code and Codex are fixed.
 
-### Added
+### Migrating from 0.15
 
-- **Start any Role fresh when you ask.** At any round, ask the Orchestrator to
-  start the Plan-Reviewer, the Coder or the Code-Reviewer fresh for its next
-  round. A reviewer that starts fresh reads its previous review first, so
-  every finding keeps its number and state.
+1. **Install Python 3.9 or newer** if your machine has none. On a Mac, the
+   Command Line Tools that bring git bring one. On Windows, VDD runs it as
+   `py -3`, which every python.org install provides. Without it, a Role says
+   so and stops.
+2. **On Codex, trust VDD's hook once in `/hooks`.** It now ships with the
+   plugin, and Setup migrates the 0.15 hook.
+3. **Optionally, delete the old scripts** `doorbell-wait.*` and
+   `vdd-codex-stop.*` in `~/.local/share/vdd/` (`%LOCALAPPDATA%\vdd\` on
+   Windows) once no loop on an older VDD is running.
 
 ### Changed
 
-- **The Coder can start fresh every round.** Start-Loop now asks on every
-  agent how the Coder continues between rounds: fresh every round, resumed
-  every round, or, on Claude Code, fresh once its context passes a limit.
-  Fresh every round is recommended on Claude Code, Cursor and Copilot CLI,
-  where a resumed Coder pays again for its whole earlier context on most
-  rounds. Resuming stays recommended on Codex.
-- **A lower limit on Claude Code.** The context limit Start-Loop offers is
-  now 200k, down from 350k.
+- **Setup runs in the VDD tool.** It is faster and more precise: it shows
+  the exact changes before it makes them, and its repair advice is the exact
+  commands for your agent.
+- **Doorbells run in the VDD tool.** It keeps track of what each Role has
+  handled, so a Doorbell is acted on once, even when it arrives twice or a
+  session restarts, and a mistyped one is refused before the other session
+  sees it.
+- **Coder restarts tuned to your agent.** Start-Loop recommends how the
+  Coder continues between rounds by what costs least with your agent's
+  cache: a fresh Coder every round on Claude Code, Cursor and Copilot CLI,
+  one Coder for all rounds on Codex. On Claude Code you can also restart it
+  once its context passes a token count.
+
+#### Internal
+
+- CI runs the VDD tool's tests on macOS, Linux and Windows against Python
+  3.9 and the newest 3.x, and checks the shipped code for shell calls,
+  network modules and computed imports.
 
 ### Fixed
 
-- **Roles on Codex started with someone else's conversation.** Every Role
-  the Orchestrator started carried the Orchestrator's whole conversation, and
-  the Code-Reviewer's two review passes carried the Code-Reviewer's. Each now
-  starts from its own instructions alone, so the reviews stay independent.
+- **Late or polled code reviews on Claude Code.** The Code-Reviewer's two
+  review passes sometimes reported late, or the Code-Reviewer spent tokens
+  polling for them. Both are fixed.
+- **Roles on Codex started as forks of their parent.** Codex starts a
+  subagent as a fork carrying its parent's whole conversation by default, so
+  every Role the Orchestrator started, and the Code-Reviewer's review
+  passes, carried context that was not theirs: the reviews were less
+  independent and cost more
+  ([mattpocock/skills#1257](https://github.com/mattpocock/skills/issues/1257)).
+  VDD now starts each from its own instructions alone.
 
 ## [0.15.0] - 2026-10-07
 

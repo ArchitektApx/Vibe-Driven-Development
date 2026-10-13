@@ -45,7 +45,7 @@ The program a Session runs in, which decides how a Role invokes skills, spawns s
 _Avoid_: host, platform, runtime, client, agent, model, provider
 
 **Harness file**:
-`references/harness-<slug>.md` in a Role skill, the Reference file that holds what the skill does differently on one Harness. A Role reads the one for its Harness once, at the start, through the skill's `## Harnesses` section. Generic has none.
+`references/harness-<slug>.md` in a Role skill, the Reference file that holds what the skill does differently on one Harness: the calls the model makes with its Harness's own tools, and judgment that differs by Harness. A Role reads the one for its Harness once, at the start, through the skill's `## Harnesses` section. Generic has one like the others in the Planner, the Orchestrator and the Code-Reviewer; Start-Loop carries Generic's path inline.
 _Avoid_: adapter, platform file, harness reference
 
 **Loop**:
@@ -97,12 +97,16 @@ A fixed line telling a Role that a Working file is ready: which file, which roun
 _Avoid_: notification, handoff message, ping
 
 **Doorbell file**:
-`.scratch/<feature slug>/doorbells`, the append-only Working file in the tracker directory that carries a cross-session Doorbell. Holds one line per ring, addressed to the Role that receives it. On Codex a waiting Role also writes an armed file beside it, `armed-<thread id>`, which the `Stop` hook claims.
+`.scratch/<feature slug>/doorbells`, the append-only Working file in the tracker directory that carries a cross-session Doorbell. Holds one line per ring, addressed to the Role that receives it. Only the VDD tool writes it, with each Role's record of what it handled beside it; on Codex the tool also writes an armed file, `codex-armed-<thread id>`, which the `Stop` hook claims.
 _Avoid_: doorbell log, mailbox, inbox
 
 **Shared directory**:
-`${XDG_DATA_HOME:-$HOME/.local/share}/vdd/` on macOS and Linux and `%LOCALAPPDATA%\vdd\` on native Windows, outside the project, where Setup copies the scripts the plugin ships and from which the Planner, the Orchestrator and the Codex `Stop` hook run them through a named shell: `sh`, or `powershell.exe -NoProfile -ExecutionPolicy Bypass -File` on native Windows. One per machine, shared by every Workflow on every Harness but Generic.
+`${XDG_DATA_HOME:-$HOME/.local/share}/vdd/` on macOS and Linux and `%LOCALAPPDATA%\vdd\` on native Windows, outside the project, where Setup copies the VDD tool and from which the Planner and the Orchestrator run it. One per machine, shared by every Workflow on every Harness.
 _Avoid_: install directory, scripts folder, hooks directory
+
+**VDD tool**:
+The Python program the plugin ships in the Setup skill, `scripts/vdd.py` and its package, and Setup copies into the Shared directory. A Role calls it by subcommand, through `python3` or `py -3`, and learns each command from `--help`; every run ends with the next step.
+_Avoid_: script, CLI, helper
 
 **Sign-off**:
 The literal line `SIGNED OFF` at the top of a review file. The only thing that ends a Loop, withheld while a blocker or a major is open and, on a Minors answer of `fix`, while any minor is open; hedged approval is not sign-off.

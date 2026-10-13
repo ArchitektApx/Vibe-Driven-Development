@@ -1,6 +1,6 @@
 # Vibe Driven Development
 
-A collection of Agent Skills, under `skills/`, and the scripts they run,
+A collection of Agent Skills, under `skills/`, and the VDD tool they run,
 shipped as a plugin for Claude Code, Codex, Cursor and Copilot CLI. Together
 they give a coding project a workflow to brainstorm ideas, chart larger
 changes, and plan, implement and review each change.

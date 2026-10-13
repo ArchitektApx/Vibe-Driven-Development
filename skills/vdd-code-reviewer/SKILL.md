@@ -54,12 +54,12 @@ which name to try first.
 Paste the skill's `## Standards` and `## Spec` output verbatim into
 `CODEREVIEW.md`, under a `## code-review` heading.
 
-`code-review` hands the Standards and Spec reviews to two sub-agents, and
-their reports are what you paste. Wait for both,
-the way your Harness file names where it names one, and write
-`CODEREVIEW.md` once both have reported back. Step 1 is done when both
-reports are in the file and nothing you started is still running: work left
-running holds your Doorbell back from the Orchestrator.
+`code-review` hands the Standards and Spec reviews to two sub-agents, whose
+reports are what you paste. Wait for both, the way your Harness file names
+where it names one, and write `CODEREVIEW.md` once both have reported back.
+Step 1 is done when both reports are in the file and nothing you started is
+still running: work left running holds your Doorbell back from the
+Orchestrator.
 
 If the Borrowed skill is not Resolvable, say so in `CODEREVIEW.md` and review
 the Spec axis by hand.
