@@ -11,9 +11,9 @@ from vddtest import SCRIPTS, WINDOWS, ToolTest
 import vddtest
 
 SKILLS = (
-    "setup-matt-pocock-skills", "grill-with-docs", "improve-codebase-architecture", "to-spec",
+    "setup-matt-pocock-skills", "grill-with-docs", "to-spec",
     "to-tickets", "wayfinder", "code-review", "writing-for-agents", "grilling", "domain-modeling",
-    "codebase-design", "research", "prototype",
+    "research", "prototype",
 )
 INSTALL_CLAUDE = "/plugin marketplace add mattpocock/skills"
 
@@ -97,10 +97,20 @@ class SetupTest(ToolTest):
         self.assertIn("Not Present: writing-for-agents.", result.text)
         self.assertTrue(any(INSTALL_CLAUDE in t for t in result.tells()), result)
 
+    def test_codebase_design_still_proves_the_collection_wired(self):
+        """improve-codebase-architecture and codebase-design left the Borrowed
+        skills, but codebase-design stays a sibling whose hit proves the
+        collection is wired."""
+        result = self.setup(listed="codebase-design")
+        self.assertIn("Not Present: writing-for-agents.", result.text)
+        for name in ("improve-codebase-architecture", "codebase-design", "general-improvement"):
+            self.assertNotIn(name, result.text.replace("--listed codebase-design", ""))
+        self.assertNotIn("improve-codebase-architecture", self.box.run("setup", "--help").text)
+
     def test_present_and_resolvable_passes_with_no_repair(self):
         self.skills_in(self.store(".claude", "skills"))
         result = self.setup(listed="writing-for-agents", glossary="yes")
-        self.assertIn("Borrowed skills: all 13 Present and Resolvable. Passed.", result.text)
+        self.assertIn("Borrowed skills: all 11 Present and Resolvable. Passed.", result.text)
         self.assertEqual(self.route_lines(result), [], result)
 
     def test_present_with_nothing_listed_asks_the_user_to_invoke_writing_for_agents(self):
@@ -112,7 +122,7 @@ class SetupTest(ToolTest):
     def test_the_users_answer_resolves(self):
         self.skills_in(self.store(".claude", "skills"))
         result = self.setup("claude-code", "", "absent", "--user-answer", "resolves")
-        self.assertIn("all 13 Present and Resolvable", result.text)
+        self.assertIn("all 11 Present and Resolvable", result.text)
 
     def test_present_but_not_resolvable_gives_the_route_for_the_store(self):
         self.skills_in(self.store(".claude", "skills"))
@@ -159,7 +169,7 @@ class SetupTest(ToolTest):
             except (OSError, NotImplementedError) as error:
                 self.skipTest("cannot create a symlink here: %s" % error)
         result = self.setup(listed="writing-for-agents", glossary="yes")
-        self.assertIn("all 13 Present and Resolvable", result.text)
+        self.assertIn("all 11 Present and Resolvable", result.text)
 
     def test_a_dangling_symlink_reads_as_absent(self):
         os.makedirs(os.path.join(self.box.home, ".claude", "skills"))
@@ -176,7 +186,7 @@ class SetupTest(ToolTest):
         self.skills_in(os.path.join("cfg", "skills"))
         env = self.box.env(CLAUDE_CONFIG_DIR=os.path.join(self.box.root, "cfg"))
         result = self.setup("claude-code", "writing-for-agents", "yes", env=env)
-        self.assertIn("all 13 Present and Resolvable", result.text)
+        self.assertIn("all 11 Present and Resolvable", result.text)
         self.skills_in(self.store(".claude", "skills"))
         result = self.setup("claude-code", "", "absent", "--user-answer", "does-not-resolve", env=env)
         self.assertNotIn("~/.claude/skills", result.text)
@@ -192,7 +202,7 @@ class SetupTest(ToolTest):
         (180854c)."""
         self.skills_in(self.store(".agents", "skills"))
         result = self.setup("copilot-cli", "writing-for-agents", "yes")
-        self.assertIn("all 13 Present and Resolvable", result.text)
+        self.assertIn("all 11 Present and Resolvable", result.text)
 
     def test_copilot_home_set_skips_the_agents_store_and_adds_it_by_hand(self):
         """With COPILOT_HOME set, ~/.agents/skills is not read, and the -g
@@ -207,7 +217,7 @@ class SetupTest(ToolTest):
         self.assertIn("copilot skill add '%s'" % os.path.join(self.box.home, ".agents", "skills"), route[0])
         self.skills_in(os.path.join("copilot", "skills"))
         result = self.setup("copilot-cli", "writing-for-agents", "yes", env=env)
-        self.assertIn("all 13 Present and Resolvable", result.text)
+        self.assertIn("all 11 Present and Resolvable", result.text)
 
     def test_copilot_plugin_routes(self):
         self.skills_in(self.store(".copilot", "installed-plugins", "mk", "mattpocock-skills", "skills"))
@@ -245,7 +255,7 @@ class SetupTest(ToolTest):
         self.skills_in(self.store(".cursor", "skills"))
         self.assertIn("Not Present: " + ", ".join(SKILLS), self.setup("claude-code").text)
         result = self.setup("generic", "writing-for-agents", "yes")
-        self.assertIn("all 13 Present and Resolvable", result.text)
+        self.assertIn("all 11 Present and Resolvable", result.text)
 
     def test_unknown_harness_names_the_five(self):
         result = self.setup("nonsense")

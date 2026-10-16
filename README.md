@@ -84,7 +84,6 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
   |----------------|-----------|
   | `setup-matt-pocock-skills` | 🧑 you, once per repository, when Setup asks |
   | `grill-with-docs` | 🧑 you, when the Planner asks |
-  | `improve-codebase-architecture` | 🧑 you, when the Planner asks |
   | `to-spec` | 🧑 you, when the Planner asks |
   | `to-tickets` | 🧑 you, when the Planner asks |
   | `wayfinder` | 🧑 you, when the Wayfinder asks |
@@ -92,9 +91,10 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
   | `writing-for-agents` | 🤖 the Role itself |
   | `grilling` | 🤖 the Role itself |
   | `domain-modeling` | 🤖 the Role itself |
-  | `codebase-design` | 🤖 the Role itself |
   | `research` | 🤖 the Role itself |
   | `prototype` | 🤖 the Role itself |
+
+  `improve-codebase-architecture` is yours to run when you want the codebase reviewed: take the candidates you keep to `vdd-wayfinder` when there are many or the change is large, or to a loop when it is focused.
 
 </details>
 

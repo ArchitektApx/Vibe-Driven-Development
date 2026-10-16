@@ -4,7 +4,7 @@
   form they type: `/<name>` for a Borrowed skill, such as `/grill-with-docs`
   or `/to-tickets .scratch/<slug>/spec.md`, and `/vdd-<role>` for a VDD
   skill, unprefixed, such as `/vdd-setup`.
-- **The wait.** Run the `doorbell wait` command a `Next:` line names as a
+- **The wait.** Run the wait command a `Next:` line names as a
   background shell; the Session wakes when the shell finishes. The IDE Agent
   and the CLI may each wake twice for one wait: on the second, `take` finds no
   new Doorbell, and while a wait of yours still runs its `Next:` says to end
@@ -15,7 +15,7 @@
 - **A resume.** In the Cursor CLI, `agent --continue`, `agent --resume` and
   `agent resume` resume a Session; in the IDE, a reopened chat does. When the
   user names one of them, or tells you this Session was resumed, run
-  `doorbell take --resumed` first, as `SKILL.md` says.
+  the `--resumed` take first, as `SKILL.md` says.
 - **A refused command.** When a sandbox refuses a command, rerun it once with
   the Shell call's request to run outside the sandbox. When that is denied
   too, stop with one line naming the command and what it was for; a wait

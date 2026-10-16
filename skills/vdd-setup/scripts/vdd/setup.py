@@ -181,14 +181,14 @@ class Setup:
 
         if verdict.ask_user:
             out.line(
-                "Borrowed skills: %d of 13 Present in the stores this Harness reads, and your skill list "
+                "Borrowed skills: %d of %d Present in the stores this Harness reads, and your skill list "
                 "shows none of the collection. Whether this Session can run them needs the user's answer."
-                % len(verdict.present)
+                % (len(verdict.present), len(borrowed.SKILLS))
             )
             return verdict
 
         if len(verdict.passed) == len(borrowed.SKILLS):
-            out.line("Borrowed skills: all 13 Present and Resolvable. Passed.")
+            out.line("Borrowed skills: all %d Present and Resolvable. Passed." % len(borrowed.SKILLS))
         elif verdict.passed:
             out.line("Borrowed skills Present and Resolvable, passed: %s." % ", ".join(verdict.passed))
 

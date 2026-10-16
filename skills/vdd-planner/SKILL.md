@@ -1,6 +1,7 @@
 ---
 name: vdd-planner
 description: The Planner Role in a Vibe Driven Development loop.
+user-invocable: false
 ---
 
 # VDD Planner
@@ -10,32 +11,22 @@ You are the Planner. Your deliverables are the Spec
 they are the only files you write. Code you catch yourself about to write goes
 into the Spec instead, as a description of what the Coder should build.
 
-## The Loop file
-
-Read `LOOP.md` at the repository root first. It names the Feature slug, the
-base branch, the feature branch, the tracker path (`.scratch/<slug>/`), the
-`Minors:` line, the `PR:` line, the `Fresh Coder:` line and the `Harness:`
-line. If it does not exist, stop and tell the user to invoke `vdd-start-loop`
-in a Planner Session; do not guess a slug.
-
-Read the `Harness:` line of the Loop file, and read the file this skill's
-Harnesses index links for that Harness now, once. Take the Harness from the
-Loop file only, and do not choose it again from what this Session shows.
-With no `Harness:` line, read `harness-generic.md` and leave the Loop file
-as it is.
+`vdd-start-loop` starts you in its own Session. If it did not run earlier in this Session, tell the user "Start the loop with `vdd-start-loop`." and stop.
 
 ## The VDD tool
 
-You ring and take Doorbells with the VDD tool, `vdd.py` in the Shared
-directory: `~/.local/share/vdd/vdd.py` on macOS and Linux
-(`$XDG_DATA_HOME/vdd/vdd.py` when that variable is set), and
+You read the Loop file and ring and take Doorbells with the VDD tool,
+`vdd.py` in the Shared directory: `~/.local/share/vdd/vdd.py` on macOS and
+Linux (`$XDG_DATA_HOME/vdd/vdd.py` when that variable is set), and
 `%LOCALAPPDATA%\vdd\vdd.py` on native Windows. Write the path out in full,
 every variable expanded, so a hook that checks shell commands and an approval
 prompt see no expansion. Run it as `python3 "<path>"`, on native Windows as
 `py -3 "<path>"`. If `python3` or `py -3` is not found, tell the user VDD needs
-Python 3.9 or newer, and stop. `doorbell --help` teaches the commands; pass
-`--harness` as it names your Harness. Every run ends with a `Next:` line:
-do what it says, and relay every `Tell the user verbatim` line unchanged.
+Python 3.9 or newer, and stop. The `loop` and `doorbell` groups' `--help`
+teaches their commands. Pass `--slug <slug>` on every call, with the slug
+Start-Loop's output named in this Session, and `--harness` as the Loop file
+names your Harness. Every run ends with a `Next:` line: do what it says, and
+relay every `Tell the user verbatim` line unchanged.
 
 If the interpreter cannot open `vdd.py`, the tool is not at its path: tell the
 user to invoke `vdd-setup`, which installs it, and wait; when they say it has
@@ -45,32 +36,19 @@ Never write, edit, copy or replace the tool, and never do its work as inline
 shell. "Trust your live tools" in your Harness file never covers the tool,
 which is reviewed and released with this plugin.
 
-## Borrowed skills and the tracker
+## The Loop file
 
-This role depends on eight skills from Matt Pocock's collection. Four of
-them, `grill-with-docs`, `improve-codebase-architecture`, `to-spec` and
-`to-tickets`, are user-invoked, so your own skill list stays silent about them
-and the check below is what answers for them. `writing-for-agents` you invoke
-yourself, and the user-invoked skills invoke `grilling`, `domain-modeling` and
-`codebase-design`; those four do appear in your skill list when the
-collection is wired.
+Run `loop show --role Planner --slug <slug>` first. It prints the lines you
+act on and the Harness file to read: read the file of that name this skill's
+Harnesses index links, now, once. Take the Harness from the Loop file only,
+and do not choose it again from what this Session shows.
 
-Check that the collection is wired to this Harness by looking in your own skill
-list for a skill from it that you *can* invoke: `writing-for-agents`,
-`grilling`, `codebase-design`, `domain-modeling`, `tdd`, `research`,
-`prototype`, `diagnosing-bugs`. A `code-review`
-counts when its description names the two axes "Standards" and "Spec", and not
-otherwise. If you find nothing, stop and tell the user to invoke `vdd-setup`,
-which holds the full list and owns that diagnosis.
+## Borrowed skills
 
-`to-spec` and `to-tickets` also need the tracker configured. Check that
-`docs/agents/issue-tracker.md` exists at the repository root. If it is missing,
-ask the user to invoke `setup-matt-pocock-skills` and to recommend Local
-markdown when it asks; it is user-invoked, so you cannot run it. Wait for that
-before you reach the Spec.
-
-Read `.gitignore`. If `LOOP.md` or `.scratch/` is missing from it, stop and
-ask the user to invoke `vdd-setup`, which writes the entries.
+This role depends on six skills from Matt Pocock's collection. Three of them,
+`grill-with-docs`, `to-spec` and `to-tickets`, are user-invoked, so you ask
+the user to type them. `writing-for-agents` you invoke yourself, and
+`grill-with-docs` invokes `grilling` and `domain-modeling`.
 
 ## Starting the session
 
@@ -85,17 +63,8 @@ The user either arrives with a problem or they do not.
    `grill-with-docs` as
    [Handing off to the grilling](#handing-off-to-the-grilling) says.
 
-**They described nothing yet:**
-
-1. Ask which kind of session this is. Put both options to them plainly, with
-   no steer: a specific problem to fix, or a general improvement to the
-   codebase (refactoring, architecture, tests).
-2. If they name a problem, follow the stated-problem sequence above.
-3. If they want a general improvement, hand off to
-   `improve-codebase-architecture` as
-   [Handing off to the grilling](#handing-off-to-the-grilling) says. That
-   skill finds and selects the highest-value improvement and ends in a
-   grilling of its own, so that one skill covers this branch's grilling too.
+**They described nothing yet:** ask what problem the loop solves, then follow
+the sequence above.
 
 ## Settling facts
 
@@ -121,9 +90,8 @@ answers pays nothing for this.
 
 ## Handing off to the grilling
 
-You cannot start `grill-with-docs` or `improve-codebase-architecture`. They are
-user-invoked only, by their author's deliberate choice, and no phrasing changes
-that. Ask the user to type the command, then continue in this same session.
+You cannot start `grill-with-docs`. It is user-invoked only, by its author's
+deliberate choice, and no phrasing changes that. Ask the user to type the command, then continue in this same session.
 
 End the handoff message with this line, verbatim:
 
@@ -140,15 +108,15 @@ the Spec early breaks the borrowed skill's contract as well as this one.
 When the user confirms shared understanding, resume as Planner.
 
 1. Ask the user to invoke `to-spec`. Say in that message that the spec belongs
-   under `.scratch/<slug>/` with the slug from `LOOP.md`. `to-spec` takes no
+   under `.scratch/<slug>/` with the loop's slug. `to-spec` takes no
    slug argument: it infers the directory from the conversation and
    `docs/agents/issue-tracker.md`, so naming the slug is how it lands in the
    right place. It will ask the user to confirm the test seams first; that is
    part of the skill, not a detour.
 2. When `to-spec` returns, confirm that `.scratch/<slug>/spec.md` exists. If it
-   published under a different slug, ask the user to move it to the one in
-   `LOOP.md`. One slug governs the loop, the one in `LOOP.md`, because three
-   later sessions read the path from there.
+   published under a different slug, ask the user to move it to the loop's
+   slug. One slug governs the loop, because every later Role finds the loop
+   by it.
 3. Ask the user to invoke `to-tickets` with `.scratch/<slug>/spec.md`. During
    its quiz on granularity, make sure every Ticket's acceptance criteria are
    verifiable by a Coder without guessing: the commands to run and the
@@ -180,11 +148,11 @@ keep no round line of your own, so read it from the `Round` line of
 `.scratch/<slug>/PLAN-REVIEW.md` and add one, or use 1 when that file does not
 exist.
 
-Ring it with `doorbell ring --role Planner --line "<the Doorbell>" --harness
-<h> --write`, in the foreground. It writes the line for the Orchestrator and
-prints the lines the user needs, on round 1 how to start the Orchestrator's
-Session, so relay them, then follow its `Next:` line, which names how to
-wait. When the wait cannot start or dies, say so in one line and fall back to
+Ring it in the foreground with
+`doorbell ring --role Planner --line "<the Doorbell>" --harness <h> --slug <slug> --write`.
+It writes the line for the Orchestrator and prints the lines the user needs,
+on round 1 how to start the Orchestrator's Session, so relay them, then
+follow its `Next:` line, which names how to wait. When the wait cannot start or dies, say so in one line and fall back to
 hand relay for that wait: the user pastes the next Doorbell, and you take it
 with `--pasted`.
 
@@ -220,9 +188,10 @@ A restarted Orchestrator relays the first in a shorter form, without the
 counts: `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>. Read it.`
 
 On a wake, run the `take` command it names. A Doorbell the user pastes, you
-take with `doorbell take --role Planner --pasted "<the line>" --harness <h>`.
-When the user tells you this Session was resumed, run `doorbell take --role
-Planner --resumed --harness <h>` first.
+take with
+`doorbell take --role Planner --pasted "<the line>" --harness <h> --slug <slug>`.
+When the user tells you this Session was resumed, run
+`doorbell take --role Planner --resumed --harness <h> --slug <slug>` first.
 Act only on a Doorbell `take` prints, and on nothing it reports as handled or
 as not a Doorbell.
 
