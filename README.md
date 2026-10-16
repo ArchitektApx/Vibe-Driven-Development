@@ -31,7 +31,7 @@ Works on <br>
 **tl;dr:** an opinionated wrapper around Matt Pocock's [skills](https://github.com/mattpocock/skills). It splits planning, plan review, implementation and code review across separate Claude Code / Codex / Cursor / GitHub Copilot CLI sessions that adversarially check each other's work.
 
 > [!IMPORTANT]
-> Matt Pocock's skill collection, v1.3.1 or later, is a hard requirement: without it the Planner stops at its first handoff. See [Install](#-install). Upgrading from VDD 0.14? Follow the [migration steps](CHANGELOG.md#migrating-from-014).
+> Matt Pocock's skill collection, v1.3.1 or later, is a hard requirement: without it the Planner stops at its first handoff. See [Install](#-install). Updating from an older VDD? When an update needs anything from you, its entry in the [changelog](CHANGELOG.md) says what.
 
 ## 📚 Contents
 
@@ -65,7 +65,7 @@ In Codex, type `$vdd:vdd-start-loop` instead, and in Cursor `/vdd-start-loop`. G
 
 That one command runs the environment check, walks you through anything the check finds missing, and starts the loop with you and the Planner.
 
-VDD and the Matt Pocock skills create multiple working files along the way that are not gitignored by default (`docs/agents/`, `docs/adr/`, `GLOSSARY.md`, appending to `AGENTS.md`/`CLAUDE.md`). If you'd rather keep them out of your history, you just can safely add them to `.gitignore` and/or prune the additions to your `AGENTS.md`/`CLAUDE.md`.
+VDD and the Matt Pocock skills create multiple working files along the way that are not gitignored by default (`docs/agents/`, `docs/adr/`, `GLOSSARY.md`, appending to `AGENTS.md`/`CLAUDE.md`). To keep them out of your history, add them to `.gitignore` and prune the additions to your `AGENTS.md`/`CLAUDE.md`.
 
 ## 🔌 Install
 
@@ -75,28 +75,26 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
 <summary><b>Requirements</b></summary>
 
 - A repository to work in
-- Python 3.9 or newer, run as `python3` on macOS and Linux and as `py -3` on native Windows. On a Mac, the Command Line Tools that bring git bring a `python3` that is new enough. VDD runs its Setup checks and its Doorbell through a small program it ships, the VDD tool, which needs nothing beyond the standard library.
+- Python 3.9 or newer, run as `python3` on macOS and Linux and as `py -3` on native Windows. On a Mac, the Command Line Tools that bring git bring a `python3` that is new enough. VDD needs no Python packages.
 - The ability to run two agent sessions side by side (two terminals is enough): the Planner, in your foreground, and the Orchestrator, which runs the rest.
-- A coding agent with subagents. Claude Code, Cursor, Codex and GitHub Copilot CLI all have the primitive the Orchestrator needs to spawn the Plan-Reviewer, the Coder and the Code-Reviewer, each in a fresh context, and to resume or respawn each one round after round. If your host asks for approval per command, grant session approval before you start the Workflow, so you are not answering prompts through the whole run.
+- A coding agent with subagents: Claude Code, Codex, Cursor or GitHub Copilot CLI. If your agent asks for approval per command, grant session approval before you start a loop, so you are not answering prompts through the whole run.
 - Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection, v1.3.1 or later. In Claude Code: Matt Pocock's own marketplace, `/plugin marketplace add mattpocock/skills` then `/plugin install mattpocock-skills@mattpocock`. In Codex, Cursor, GitHub Copilot CLI and any other agent: `npx skills@latest add -g mattpocock/skills`, selecting your agent when it asks. The Roles borrow these:
 
-  | Borrowed skill | Started by | Needed by |
-  |----------------|-----------|-----------|
-  | `setup-matt-pocock-skills` | 🧑 you | once per repository |
-  | `grill-with-docs` | 🧑 you | Planner |
-  | `improve-codebase-architecture` | 🧑 you | Planner |
-  | `to-spec` | 🧑 you | Planner |
-  | `to-tickets` | 🧑 you | Planner |
-  | `wayfinder` | 🧑 you | Wayfinder |
-  | `code-review` | 🤖 the agent | Code-Reviewer |
-  | `writing-for-agents` | 🤖 the agent | Planner, Plan-Reviewer, Code-Reviewer |
-  | `grilling` | 🤖 the agent | Planner, Wayfinder, Brainstormer |
-  | `domain-modeling` | 🤖 the agent | Planner, Wayfinder |
-  | `codebase-design` | 🤖 the agent | Planner |
-  | `research` | 🤖 the agent | Wayfinder |
-  | `prototype` | 🤖 the agent | Wayfinder |
-
-**Optional:** the doorbell. In Claude Code, Codex, Cursor and GitHub Copilot CLI the Roles ring each other through the Doorbell file in `.scratch/<slug>/` instead of you copying a line between terminals, and also print the line, which you paste only if the other session does not wake. On any other agent, VDD runs as Generic: the Roles wait in the background where your agent can wake them, and otherwise print the line for you to paste. Everything works without a doorbell.
+  | Borrowed skill | Started by |
+  |----------------|-----------|
+  | `setup-matt-pocock-skills` | 🧑 you, once per repository, when Setup asks |
+  | `grill-with-docs` | 🧑 you, when the Planner asks |
+  | `improve-codebase-architecture` | 🧑 you, when the Planner asks |
+  | `to-spec` | 🧑 you, when the Planner asks |
+  | `to-tickets` | 🧑 you, when the Planner asks |
+  | `wayfinder` | 🧑 you, when the Wayfinder asks |
+  | `code-review` | 🤖 the Role itself |
+  | `writing-for-agents` | 🤖 the Role itself |
+  | `grilling` | 🤖 the Role itself |
+  | `domain-modeling` | 🤖 the Role itself |
+  | `codebase-design` | 🤖 the Role itself |
+  | `research` | 🤖 the Role itself |
+  | `prototype` | 🤖 the Role itself |
 
 </details>
 
@@ -208,22 +206,7 @@ You type five commands yourself. Every other Role is started by the loop.
 | 💡 Brainstormer | `/vdd:vdd-brainstormer` | `$vdd:vdd-brainstormer` | `/vdd-brainstormer` | `/vdd:vdd-brainstormer` |
 | 🗺 Wayfinder | `/vdd:vdd-wayfinder` | `$vdd:vdd-wayfinder` | `/vdd-wayfinder` | `/vdd:vdd-wayfinder` |
 
-Start a loop opens the Planner in your session. Open the Orchestrator in a second session when the Planner asks you to; it runs the rest of the loop. The environment check verifies that the borrowed skills are installed, the issue tracker is configured, the gitignore entries for `LOOP.md` and `.scratch/` exist, and no stale `LOOP.md` is left over from a previous loop. Starting a loop runs it for you, so run it by hand only to check a repository before its first loop. The Brainstormer and the Wayfinder are optional and come before the loop; see [Before the loop](#-before-the-loop).
-
-<details>
-<summary><b>Roles the loop starts for you</b></summary>
-
-You do not type these. Start a loop opens the Planner, the Orchestrator hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, and it invokes the PR-Author at Sign-off.
-
-| Role | Claude Code | Codex | Cursor | Copilot CLI |
-|------|-------------|-------|--------|-------------|
-| 🧠 Planner | `vdd:vdd-planner` | `vdd:vdd-planner` | `vdd-planner` | `vdd:vdd-planner` |
-| 🔍 Plan-Reviewer | `vdd:vdd-plan-reviewer` | `vdd:vdd-plan-reviewer` | `vdd-plan-reviewer` | `vdd:vdd-plan-reviewer` |
-| 💻 Coder | `vdd:vdd-coder` | `vdd:vdd-coder` | `vdd-coder` | `vdd:vdd-coder` |
-| 🧪 Code-Reviewer | `vdd:vdd-code-reviewer` | `vdd:vdd-code-reviewer` | `vdd-code-reviewer` | `vdd:vdd-code-reviewer` |
-| 🚢 PR-Author | `vdd:vdd-create-pr` | `vdd:vdd-create-pr` | `vdd-create-pr` | `vdd:vdd-create-pr` |
-
-</details>
+Start a loop opens the Planner in your session. Open the Orchestrator in a second session when the Planner asks you to; it runs the rest of the loop. Starting a loop runs the environment check for you, so run it by hand only to check a repository before its first loop. The Brainstormer and the Wayfinder are optional and come before the loop; see [Before the loop](#-before-the-loop).
 
 ## 🧪 Beta channel
 
@@ -295,7 +278,7 @@ Back to the release: `copilot plugin marketplace remove --force vibe-driven-deve
 
 ## 🔁 Workflow
 
-The loop runs in three phases: the Planner and the Plan-Reviewer argue the spec into shape, the Coder and the Code-Reviewer do the same with the code, and the PR-Author ships it. [**docs/VDD-WORKFLOW.md**](docs/VDD-WORKFLOW.md#-the-vibe-driven-development-workflow) walks a loop round by round, names what each Role reads, writes and rings, and carries the model recommendations and the tips that keep loops converging.
+The loop runs in three phases: the Planner and the Plan-Reviewer argue the spec into shape, the Coder and the Code-Reviewer do the same with the code, and the PR-Author ships it. [**docs/VDD-WORKFLOW.md**](docs/VDD-WORKFLOW.md#-the-vibe-driven-development-workflow) walks a loop round by round: what each Role does, what it asks of you, the model recommendations and the tips that keep loops converging.
 
 ## 🧭 Before the loop
 
@@ -316,7 +299,7 @@ Two optional Roles come before the loop. Both run in your own session, outside a
 | 💡 Brainstormer | you have more ideas than you can judge, or one you are unsure of | `.scratch/_brainstorming/`: one file per idea and an index, each idea talked through, tested or grilled until it is `decided` or `dropped` |
 | 🗺 Wayfinder | a change is too big or too foggy for one loop | `.scratch/<effort>/handoffs/`: an overview and one handoff per loop, which that loop's Planner plans from |
 
-Neither Role starts the next one. You carry a decided idea file to `/vdd:vdd-start-loop` or `/vdd:vdd-wayfinder` yourself, and the Wayfinder's `00-overview.md` ends with the prompt that starts each loop. [**docs/VDD-WORKFLOW.md**](docs/VDD-WORKFLOW.md#-before-the-loop) has the details.
+[**docs/VDD-WORKFLOW.md**](docs/VDD-WORKFLOW.md#-before-the-loop) explains each one and how to take its result into a loop.
 
 ---
 

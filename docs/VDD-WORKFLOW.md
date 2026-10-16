@@ -22,7 +22,9 @@ The commands on this page are Claude Code's. On the other Harnesses:
 |-|-------------|-------|--------|-------------|
 | Skill | `/vdd:vdd-start-loop` | `$vdd:vdd-start-loop` | `/vdd-start-loop` | `/vdd:vdd-start-loop` |
 | Open the Orchestrator | `claude` | `codex --no-daemon` | a new chat, or `agent` | `copilot` |
-| Doorbell | rings through the Doorbell file; the line also prints in case the other session does not wake | rings through the Doorbell file, waited on by the `Stop` hook the plugin ships, which you trust once in `/hooks`; the line also prints in case the other session does not wake | rings through the Doorbell file; the line also prints in case the other session does not wake | rings through the Doorbell file; the line also prints in case the other session does not wake |
+| Doorbell | rings by itself | rings by itself once you trust VDD's hook in `/hooks` | rings by itself | rings by itself |
+
+If the other session does not wake, paste the line the Role prints.
 
 ## 🔁 The Vibe Driven Development Workflow
 
@@ -46,23 +48,29 @@ The Planner and the Coder explore the codebase before they write, so token cost 
 
 | Role | Vary the model | Vary the thinking level |
 |------|----------------|-------------------------|
-| 🧠 Planner, 💻 Coder | Claude Sonnet 5 | Claude Opus 5, High |
-| 🔍 Plan-Reviewer, 🧪 Code-Reviewer | Claude Fable 5 | Claude Opus 5, X-High |
+| 🧠 Planner, 💻 Coder | Claude Sonnet 5.5 | Claude Opus 5.5, Medium |
+| 🔍 Plan-Reviewer, 🧪 Code-Reviewer | Claude Opus 5.5 | Claude Opus 5.5, High |
 
 When the Planner's or the Coder's work is complex, buy judgement there too.
 
-You pick the Planner's model when you open its session. The Orchestrator only spawns Roles, relays Doorbells and counts rounds, so a mid-tier model like Claude Sonnet 5 is enough for it. Before its first spawn it prints Model approval: a model per hosted Role, filled from what your environment says about models, such as the file below. You approve or correct the list once, and it holds for every spawn in the session.
+You pick the Planner's model when you open its session. The Orchestrator only spawns Roles, relays Doorbells and counts rounds, so a mid-tier model like Claude Sonnet 5.5 is enough for it. Before its first spawn it prints Model approval: a model per hosted Role, filled from what your environment says about models, such as the file below. You approve or correct the list once, and it holds for every spawn in the session.
 
 An example, `~/.claude/AGENT_SELECTION.md`:
 
 ```markdown
 # Agent Model Selection
 
-Default subagents to haiku. Upgrade only when task requires judgment:
-- haiku (claude-haiku-4-5-20251001): file reading, data gathering, counting, scanning, search, formatting
-- sonnet (claude-sonnet-5): analysis, writing, simple coding tasks, moderate reasoning
-- opus (claude-opus-5): architecture decisions, complex coding work including vdd-coder, novel debugging, cross-cutting synthesis
-- fable (claude-fable-5): fast-output tier, vdd-plan-reviewer and vdd-code-reviewer
+Choose each subagent's model by the tier the task fits. When a task sits
+between two tiers, take the higher one.
+
+- haiku (claude-haiku-5-5): mechanical tasks with a clear answer, such as
+  searching, reading files, counting and formatting.
+- sonnet (claude-sonnet-5-5): scoped tasks whose goal and approach are
+  settled, such as a clearly specified change, tests or docs. The vdd-coder
+  on routine work.
+- opus (claude-opus-5-5): tasks that need judgment, such as code and plan
+  review, architecture and debugging an unclear cause. The vdd-plan-reviewer,
+  the vdd-code-reviewer, and the vdd-coder on complex work.
 ```
 
 Put it where your Harness reads its instructions; the path above is Claude Code's. User-level configuration lasts. Repository-level configuration costs a `.gitignore` entry or a change to a tracked file.
@@ -77,13 +85,13 @@ Put it where your Harness reads its instructions; the path above is Claude Code'
 - whether VDD opens the PR at the end (yes, ask at Sign-off, or manual)
 - how the Coder continues between rounds (fresh every round, resumed, or on Claude Code fresh once its context passes a limit)
 
-It writes the answers to `LOOP.md`, which every Role reads first, so none asks again. It then prints a summary of the Loop file, which says you can ask the Orchestrator to start any Role fresh at its next round, and hands over to the Planner.
+It writes the answers to `LOOP.md`, which every Role reads first, so none asks again. To check a repository before its first loop, run `/vdd:vdd-setup` on its own. It looks at the borrowed skills, the issue tracker and the gitignore entries, and tells you how to fix anything missing. It then prints a summary of the Loop file, which says you can ask the Orchestrator to start any Role fresh at its next round, and hands over to the Planner.
 
 #### 🔔 Sessions and Doorbells
 
 The session you started the loop in is the Planner. When the Planner rings its first Doorbell, open the Orchestrator in a second terminal in the repository with plain `claude` and `/vdd:vdd-orchestrator`. It hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, each in a fresh context, and invokes the PR-Author at the end. You open no other session.
 
-A Role that finishes its turn rings its counterpart instead of waiting for you. The Planner rings the Orchestrator, and the Orchestrator relays each Plan-Reviewer round back. The message names only the working file, the round and the open findings per severity. The receiver reads the file and ignores the message, so nothing leaks between the two contexts. A waiting session may ask, after 45 minutes, whether to keep waiting.
+A Role that finishes its turn rings its counterpart instead of waiting for you. The Planner rings the Orchestrator, and the Orchestrator relays each Plan-Reviewer round back. A waiting session may ask, after 45 minutes, whether to keep waiting.
 
 #### 🧠 The Planner
 

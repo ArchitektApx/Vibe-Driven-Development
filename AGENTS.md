@@ -11,14 +11,6 @@ Every change goes through a VDD loop, opened with `/vdd:vdd-start-loop`;
 a change that leaves every Role's behaviour alone, a typo fix for example,
 may skip it.
 
-## ADRs
-
-ADRs follow `ADR-FORMAT.md` in the `domain-modeling` skill, without its
-sentence limit. When a decision in `docs/adr/` changes, rewrite the ADR that
-owns it in place to state the decision that holds now, with the discarded
-option under `## Considered options`. An ADR states the decision and its
-reason, never the wording or mechanics of the skill that carries it out.
-
 ## House style
 
 In a skill, a sentence earns its place by changing what a Role does.
