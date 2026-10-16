@@ -399,5 +399,233 @@ class FindTest(LoopTest):
         self.assertIn("PR: ask at sign-off", self.file())
 
 
+
+class LeftoverTest(LoopTest):
+    def question(self, result):
+        return [line for line in result.lines if line.startswith("Question 1, leftover")][0]
+
+    def test_an_open_loop_offers_three_answers_and_continue_writes_nothing(self):
+        self.box.write_loop("demo")
+        self.box.write(os.path.join(".scratch", "demo", "spec.md"), "spec\n")
+        before = self.tree()
+        result = self.new()
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("open loop", result.text)
+        question = self.question(result)
+        for answer in ("Continue the earlier Workflow", "Start fresh on this slug", "Use a different slug"):
+            self.assertIn(answer, question)
+        self.assertNext(result, "--leftover continue", "loop aside --slug demo --write")
+        state = self.file(name="loop-state")
+        result = self.new("demo", "--leftover", "continue")
+        self.assertEqual(result.code, 0, result)
+        self.assertNext(result, "vdd-planner", "--slug demo")
+        self.assertEqual(self.tree(), before)
+        self.assertEqual(self.file(name="loop-state"), state)
+
+    def test_write_without_continue_refuses_on_any_existing_directory(self):
+        for setup in ("open", "closed", "files"):
+            with self.subTest(setup=setup):
+                slug = "d-" + setup
+                if setup == "files":
+                    self.box.write(os.path.join(".scratch", slug, "spec.md"), "spec\n")
+                else:
+                    self.box.write_loop(slug, states=("open",) if setup == "open" else ("open", "closed"))
+                before = {name: self.box.read(name) for name in self.tree()}
+                result = self.new(slug, *ANSWERS, write=True)
+                self.assertNotEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertEqual({name: self.box.read(name) for name in self.tree()}, before)
+
+    def test_a_closed_loop_offers_start_fresh_or_a_different_slug_only(self):
+        self.box.write_loop("demo", states=("open", "closed"))
+        result = self.new()
+        self.assertEqual(result.code, 0, result)
+        question = self.question(result)
+        self.assertNotIn("Continue", question)
+        self.assertIn("Start fresh on this slug", question)
+        self.assertIn("Use a different slug", question)
+        self.assertNotIn("--leftover continue", result.last)
+        self.assertNext(result, "loop aside --slug demo --write")
+        refused = self.new("demo", "--leftover", "continue", *ANSWERS, write=True)
+        self.assertNotEqual(refused.code, 0, refused)
+        self.assertIn("closed loop", refused.text)
+
+    def test_a_directory_with_no_state_file_continues_keeping_every_file(self):
+        self.box.write(os.path.join(".scratch", "demo", "spec.md"), "spec\n")
+        self.box.write(os.path.join(".scratch", "demo", "issues", "01-x.md"), "ticket\n")
+        result = self.new()
+        self.assertEqual(result.code, 0, result)
+        question = self.question(result)
+        for answer in ("Continue the earlier Workflow", "Start fresh on this slug", "Use a different slug"):
+            self.assertIn(answer, question)
+        asked = self.new("demo", "--leftover", "continue")
+        self.assertEqual(asked.code, 0, asked)
+        self.assertTrue(any(line.startswith("Question 4, Fresh Coder") for line in asked.lines), asked)
+        self.assertNext(asked, "--leftover continue", "--write")
+        written = self.new("demo", "--leftover", "continue", *ANSWERS, write=True)
+        self.assertEqual(written.code, 0, written)
+        self.assertEqual(self.box.read(os.path.join(".scratch", "demo", "spec.md")), "spec\n")
+        self.assertEqual(self.box.read(os.path.join(".scratch", "demo", "issues", "01-x.md")), "ticket\n")
+        self.assertIn("Format: 2\n", self.file())
+        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 1\nloop open\n")
+
+    def test_a_damaged_state_file_reads_as_a_directory_with_no_state_file(self):
+        """CODEREVIEW round 1, finding 2: a damaged loop-state stopped loop
+        new and loop aside alike, leaving the slug no way out."""
+        self.box.write_loop("demo")
+        self.box.write(os.path.join(".scratch", "demo", "loop-state"), "junk\n")
+        result = self.new()
+        self.assertEqual(result.code, 0, result)
+        question = self.question(result)
+        for answer in ("Continue the earlier Workflow", "Start fresh on this slug", "Use a different slug"):
+            self.assertIn(answer, question)
+        written = self.new("demo", "--leftover", "continue", *ANSWERS, write=True)
+        self.assertEqual(written.code, 0, written)
+        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 1\nloop open\n")
+        self.box.write(os.path.join(".scratch", "demo", "loop-state"), "junk\n")
+        moved = self.loop("aside", "--slug", "demo", "--write")
+        self.assertEqual(moved.code, 0, moved)
+        self.assertIn(".scratch/demo-2/", moved.text)
+        self.assertFalse(os.path.exists(self.box.path(".scratch", "demo")))
+
+    def test_continue_appends_to_a_readable_state_file_and_refuses_a_newer_one(self):
+        """CODEREVIEW round 2, finding 6: continue rewrote a readable
+        loop-state whole, losing its history, and overwrote a newer tool's."""
+        self.box.write(os.path.join(".scratch", "demo", "loop-state"), "vdd loop-state 1\nloop open\nloop closed\n")
+        written = self.new("demo", "--leftover", "continue", *ANSWERS, write=True)
+        self.assertEqual(written.code, 0, written)
+        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 1\nloop open\nloop closed\nloop open\n")
+        newer = "vdd loop-state 2\nloop closed\nrounds 3\n"
+        self.box.write(os.path.join(".scratch", "later", "loop-state"), newer)
+        refused = self.new("later", "--leftover", "continue", *ANSWERS, write=True)
+        self.assertNotEqual(refused.code, 0, refused)
+        self.assertEqual(self.box.read(os.path.join(".scratch", "later", "loop-state")), newer)
+        self.assertFalse(os.path.exists(self.box.path(".scratch", "later", "loop.md")))
+
+    def test_continue_with_no_directory_is_refused(self):
+        result = self.new("demo", "--leftover", "continue", *ANSWERS, write=True)
+        self.assertNotEqual(result.code, 0, result)
+        self.assertFalse(os.path.exists(self.box.path(".scratch", "demo")))
+
+
+class AsideTest(LoopTest):
+    def test_aside_takes_the_lowest_free_n_and_deletes_nothing(self):
+        """The leftover-tracker reference: "Delete nothing on any of the
+        three answers", and the move takes the lowest n from 2 that is free."""
+        self.box.write(os.path.join(".scratch", "demo", "spec.md"), "first\n")
+        result = self.loop("aside", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn(".scratch/demo-2/", result.text)
+        self.assertEqual(self.box.read(os.path.join(".scratch", "demo-2", "spec.md")), "first\n")
+        self.assertFalse(os.path.exists(self.box.path(".scratch", "demo")))
+        self.box.write(os.path.join(".scratch", "demo", "spec.md"), "second\n")
+        result = self.loop("aside", "--slug", "demo", "--write")
+        self.assertIn(".scratch/demo-3/", result.text)
+        self.assertEqual(self.box.read(os.path.join(".scratch", "demo-2", "spec.md")), "first\n")
+        self.assertEqual(self.box.read(os.path.join(".scratch", "demo-3", "spec.md")), "second\n")
+        self.assertEqual(self.tree(), [os.path.join(".scratch", "demo-2", "spec.md"),
+                                       os.path.join(".scratch", "demo-3", "spec.md")])
+
+    def test_aside_without_write_moves_nothing(self):
+        self.box.write_loop("demo")
+        before = self.tree()
+        result = self.loop("aside", "--slug", "demo")
+        self.assertEqual(result.code, 0, result)
+        self.assertNext(result, "--write")
+        self.assertEqual(self.tree(), before)
+
+    def test_aside_closes_an_open_loop_and_deletes_its_armed_files(self):
+        self.box.write_loop("demo")
+        self.box.write(os.path.join(".scratch", "demo", "codex-armed-T1"), "vdd codex-armed 1\nPlanner 0\n")
+        self.box.write(os.path.join(".scratch", "demo", "doorbells"), "# vdd doorbells 1\n")
+        result = self.loop("aside", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertFalse(os.path.exists(self.box.path(".scratch", "demo-2", "codex-armed-T1")))
+        self.assertTrue(os.path.exists(self.box.path(".scratch", "demo-2", "doorbells")))
+        self.assertIn("State: closed", self.loop("show", "--slug", "demo-2").lines)
+        self.assertNotEqual(self.loop("show").code, 0)
+
+    def test_the_new_loop_wins_on_its_branch_and_two_closed_ones_refuse(self):
+        self.box.write_loop("demo")
+        self.loop("aside", "--slug", "demo", "--write")
+        self.box.git("checkout", "-q", "-b", "demo")
+        result = self.new("demo", "--base", "main", *ANSWERS, write=True)
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(self.loop("show").lines[0], "Slug: demo")
+        self.loop("aside", "--slug", "demo", "--write")
+        refused = self.loop("show")
+        self.assertNotEqual(refused.code, 0, refused)
+        self.assertIn("demo-2", refused.text)
+        self.assertIn("demo-3", refused.text)
+
+
+@unittest.skipIf(os.name == "nt", "a POSIX shell script stands in for git")
+class PreflightTest(LoopTest):
+    def stub(self, ls_remote_code=0):
+        """A git on PATH that runs the real one, except for ls-remote, which
+        prints fatal: failed to store and exits with ls_remote_code; and a gh
+        that passes auth status."""
+        import shutil
+        real = shutil.which("git")
+        bin_dir = os.path.join(self.box.root, "bin")
+        os.makedirs(bin_dir, exist_ok=True)
+        git = os.path.join(bin_dir, "git")
+        with open(git, "w") as handle:
+            handle.write(
+                "#!/bin/sh\n"
+                "if [ \"$1\" = ls-remote ]; then echo 'fatal: failed to store' >&2; exit %d; fi\n"
+                "exec '%s' \"$@\"\n" % (ls_remote_code, real)
+            )
+        os.chmod(git, 0o755)
+        gh = os.path.join(bin_dir, "gh")
+        with open(gh, "w") as handle:
+            handle.write("#!/bin/sh\nexit 0\n")
+        os.chmod(gh, 0o755)
+        return self.box.env(PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""))
+
+    def write_yes(self, env, slug="demo"):
+        return self.box.run("loop", "new", "--slug", slug, "--harness", "claude-code", "--minors", "fix",
+                            "--pr", "yes", "--fresh-coder", "never", "--write", env=env)
+
+    def test_the_push_check_judges_the_exit_code_only(self):
+        """9e820de: git ls-remote printed fatal: failed to store on a call
+        that exited 0, and a check that read stderr reported a working remote
+        as broken."""
+        self.box.git("remote", "add", "origin", "https://github.com/example/repo.git")
+        result = self.write_yes(self.stub(0))
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("Preflight, can push, remote origin: passed.", result.lines)
+        self.assertIn("Preflight, can open a PR, remote origin: passed.", result.lines)
+        self.assertEqual(result.tells(), [])
+
+    def test_a_failed_check_warns_and_still_writes(self):
+        self.box.git("remote", "add", "origin", "https://example.com/repo.git")
+        result = self.write_yes(self.stub(2))
+        self.assertEqual(result.code, 0, result)
+        tells = result.tells()
+        self.assertEqual(len(tells), 2, result)
+        self.assertIn("can push", tells[0])
+        self.assertIn("can open a PR", tells[1])
+        self.assertIn("PR: yes\n", self.file())
+
+    def test_no_preflight_unless_pr_yes(self):
+        result = self.new("demo", *ANSWERS, write=True)
+        self.assertNotIn("Preflight", result.text)
+
+    def test_the_remote_the_base_branch_tracks_else_the_single_else_origin(self):
+        env = self.stub(0)
+        self.box.git("remote", "add", "upstream", "https://github.com/example/up.git")
+        result = self.write_yes(env, "one")
+        self.assertIn("Preflight, can push, remote upstream: passed.", result.lines)
+        self.box.git("remote", "add", "fork", "https://github.com/example/fork.git")
+        result = self.write_yes(env, "two")
+        self.assertIn("Preflight, can push, remote origin: failed (no remote origin is configured).", result.lines)
+        self.box.git("config", "branch.main.remote", "fork")
+        result = self.write_yes(env, "three")
+        self.assertIn("Preflight, can push, remote fork: passed.", result.lines)
+
+
 if __name__ == "__main__":
     unittest.main()

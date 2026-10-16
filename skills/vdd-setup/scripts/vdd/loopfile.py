@@ -135,6 +135,10 @@ def refuse_root(root):
 
 # --- the state file ---
 
+class Damaged(Failure):
+    """A state file whose header this tool never wrote."""
+
+
 def read_state(directory):
     """OPEN or CLOSED from the state file in directory, or None when there is
     none. A file with no loop line reads as CLOSED."""
@@ -143,7 +147,7 @@ def read_state(directory):
     if lines is None:
         return None
     if not lines or not lines[0].startswith(STATE_PREFIX):
-        raise Failure(
+        raise Damaged(
             "%s is not a loop state file this tool wrote." % path,
             "Tell the user the loop state file is damaged, and stop.",
         )
@@ -161,6 +165,22 @@ def read_state(directory):
     return state
 
 
+def needs_new_state(directory):
+    """Whether a new loop in directory writes its state file whole: there is
+    none, or a damaged one. False for a readable one, which a new loop appends
+    to. A newer format version refuses, before anything is written."""
+    try:
+        return read_state(directory) is None
+    except Damaged:
+        return True
+
+
+def start_state(directory):
+    """Write a new state file holding one open loop, replacing a damaged one."""
+    textfile.write(os.path.join(directory, STATE_NAME),
+                   (STATE_PREFIX + STATE_VERSION + "\nloop %s\n" % OPEN).encode("utf-8"))
+
+
 def append_state(directory, state):
     """Append "loop <state>" to the state file, writing its header first when
     the file is new."""
@@ -175,12 +195,16 @@ def append_state(directory, state):
 
 def kind(root, slug):
     """What .scratch/<slug> is: None when it does not exist, OPEN or CLOSED
-    for a loop, NO_STATE for any other existing path."""
+    for a loop, NO_STATE for any other existing path, a damaged state file
+    included. A state file of a newer format version still refuses."""
     directory = tracker_dir(root, slug)
     if not os.path.lexists(directory):
         return None
     if os.path.isdir(directory) and os.path.isfile(os.path.join(directory, NAME)):
-        state = read_state(directory)
+        try:
+            state = read_state(directory)
+        except Damaged:
+            return NO_STATE
         if state is not None:
             return state
     return NO_STATE

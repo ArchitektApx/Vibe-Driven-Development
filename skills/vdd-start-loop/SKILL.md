@@ -72,6 +72,14 @@ not print. When its `Next:` line asks for something else, the base branch on
 a detached HEAD for one, ask the user for it and run step 4 again with that
 answer.
 
+When it reports a leftover `.scratch/<slug>/`, read
+[the answers for a leftover tracker directory](references/leftover-tracker.md)
+and put its question first. Then, as its `Next:` line says: on continue, run
+step 4 again with `--leftover continue`; on start fresh, run `loop aside
+--slug <slug> --write`, then step 4 again; on a different slug, go back to
+step 3. Continue on an open loop ends Start-Loop: do what its `Next:` line
+says.
+
 ## 6. Write
 
 Run the command its `Next:` line names, with the user's answers in place of

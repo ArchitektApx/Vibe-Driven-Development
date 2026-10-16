@@ -3,17 +3,23 @@ changed, closed and reopened only here."""
 
 import os
 
-from . import args, loopfile, places, textfile
+from . import args, loopfile, places, preflight, textfile
 from .out import Failure, Output, refused
 
-SUBCOMMANDS = ("new", "show", "set")
+SUBCOMMANDS = ("new", "aside", "show", "set")
 
 HELP = [
     "loop new --slug <slug> --harness <h> [--base <branch>] [--branch <branch>] [--minors <a>] [--pr <a>]",
-    "         [--fresh-coder <a>] [--write]",
+    "         [--fresh-coder <a>] [--leftover continue] [--write]",
     "  Start a loop. Without --write it checks the slug, reads the base branch, proposes the feature branch",
     "  and prints the questions for the user, changing nothing. Ask them, then run it again with the answers",
-    "  and --write: it writes .scratch/<slug>/loop.md and marks the loop open.",
+    "  and --write: it writes .scratch/<slug>/loop.md and marks the loop open. On PR: yes it checks that a",
+    "  push and gh would work, and warns without blocking. When .scratch/<slug>/ already exists it reports",
+    "  what is there and the answers it allows; the user's continue is --leftover continue.",
+    "",
+    "loop aside --slug <slug> --write",
+    "  Move .scratch/<slug>/ to .scratch/<slug>-<n>/, the lowest free n from 2, closing an open loop first.",
+    "  It deletes nothing. The user's start fresh on a leftover tracker directory.",
     "",
     "loop show [--slug <slug>] [--role <Role>]",
     "  Print the Loop file's lines as every Role acts on them: a missing or malformed line as its default,",
@@ -43,6 +49,7 @@ SPEC = {
     "fresh-coder": args.VALUE,
     "harness-line": args.VALUE,
     "role": args.VALUE,
+    "leftover": args.VALUE,
     "write": args.FLAG,
     # Named only to refuse them: a running loop's identity never changes.
     "feature": args.VALUE,
@@ -81,6 +88,8 @@ def run(argv):
     root = os.getcwd()
     if sub == "new":
         return new(root, values, harness)
+    if sub == "aside":
+        return aside(root, values)
     if sub == "show":
         return show(root, values)
     return set_lines(root, values)
@@ -110,11 +119,17 @@ def new(root, values, harness):
     loopfile.check_slug(slug)
     check_answers(values, ANSWERS)
     out = Output()
-    if loopfile.kind(root, slug) is not None:
-        raise Failure(
-            ".scratch/%s/ already exists. Nothing was written." % slug,
-            "Ask the user for a different slug, then run the command again with it.",
+    leftover = loopfile.kind(root, slug)
+    continuing = check_leftover(slug, leftover, values["leftover"])
+    if leftover == loopfile.OPEN and continuing:
+        out.line("Continuing the open loop %s: every file in .scratch/%s/ stays as it is. Nothing was written."
+                 % (slug, slug))
+        return out.finish(
+            "This Session is the Planner: invoke vdd-planner now, and pass --slug %s on every VDD tool call."
+            % slug
         )
+    if leftover is not None and not continuing:
+        return report_leftover(slug, leftover, harness, values["write"], out)
     base = values["base"]
     if not base:
         base = loopfile.current_branch(root)
@@ -149,7 +164,7 @@ def new(root, values, harness):
         args.require(values, [option for option, _ in ANSWERS], usage())
         for option, name in ANSWERS:
             fields[name] = values[option]
-        return write_new(root, slug, fields, out)
+        return write_new(root, slug, fields, out, continuing)
     out.line("Slug: %s" % slug)
     out.line("Base branch: %s (from %s)." % (base, source))
     out.line("Feature branch: %s%s." % (branch, " (proposed: the slug)" if not values["branch"] else ""))
@@ -209,29 +224,149 @@ def fresh_coder_question(harness):
 def new_command(slug, harness, base, branch, values):
     parts = [places.command(), "loop new", "--slug", slug, "--harness", harness.name, "--base", base,
              "--branch", branch]
+    if values["leftover"]:
+        parts += ["--leftover", values["leftover"]]
     for option, _ in ANSWERS:
         value = values[option]
         parts += ["--" + option, quoted(value) if value is not None else '"<answer>"']
     return " ".join(parts)
 
 
-def write_new(root, slug, fields, out):
+def write_new(root, slug, fields, out, continuing=False):
     directory = loopfile.tracker_dir(root, slug)
+    new_state = loopfile.needs_new_state(directory)
+    if fields["PR"] == "yes":
+        warn_preflight(root, fields["Base branch"], out)
     try:
         loopfile.write(directory, fields)
-        loopfile.append_state(directory, loopfile.OPEN)
+        if new_state:
+            loopfile.start_state(directory)
+        else:
+            loopfile.append_state(directory, loopfile.OPEN)
     except OSError as error:
         raise refused(
             "Could not write the Loop file in %s: %s" % (directory, error),
             "Otherwise tell the user the Loop file could not be written, and stop.",
         )
-    out.line("Written: .scratch/%s/%s, and the loop is open." % (slug, loopfile.NAME))
+    out.line("Written: .scratch/%s/%s, and the loop is open.%s"
+             % (slug, loopfile.NAME, " Every other file there stays." if continuing else ""))
     for name in loopfile.ORDER:
         out.line("%s: %s" % (name, fields[name]))
     return out.finish(
         "Give the user the closing summary your skill names. The loop's slug is %s: pass --slug %s on every "
         "VDD tool call from here on." % (slug, slug)
     )
+
+
+# --- a leftover tracker directory ---
+
+ANSWER_CONTINUE = (
+    "\"Continue the earlier Workflow\" (--leftover continue): only when it was interrupted. Every file stays "
+    "where it is."
+)
+ANSWER_FRESH = (
+    "\"Start fresh on this slug\" (loop aside, then loop new again): the directory moves to "
+    ".scratch/%s-<n>/, closed, and nothing is deleted."
+)
+ANSWER_OTHER = "\"Use a different slug\" (loop new with the other slug): every file stays where it is."
+
+
+def check_leftover(slug, leftover, answer):
+    """Whether the user's answer continues the leftover; refuses an answer
+    its kind does not allow."""
+    if answer is None:
+        return False
+    if answer != "continue":
+        raise Failure("--leftover takes continue.", "Run %s for this command's usage." % usage())
+    if leftover is None:
+        raise Failure(
+            "There is no .scratch/%s/ to continue. Nothing was written." % slug,
+            "Run the same command without --leftover.",
+        )
+    if leftover == loopfile.CLOSED:
+        raise Failure(
+            ".scratch/%s/ holds a closed loop, and a finished loop is not continued. Nothing was written." % slug,
+            "Ask the user again: start fresh on this slug, or use a different slug.",
+        )
+    return True
+
+
+def report_leftover(slug, leftover, harness, write, out):
+    if leftover == loopfile.OPEN:
+        out.line(".scratch/%s/ holds an open loop: an earlier Workflow on this slug that did not finish." % slug)
+        answers = [ANSWER_CONTINUE, ANSWER_FRESH % slug, ANSWER_OTHER]
+    elif leftover == loopfile.CLOSED:
+        out.line(".scratch/%s/ holds a closed loop: an earlier Workflow on this slug that finished." % slug)
+        answers = [ANSWER_FRESH % slug, ANSWER_OTHER]
+    else:
+        out.line(".scratch/%s/ exists and holds no loop the VDD tool started: a loop from before this version, "
+                 "or a directory another tool made." % slug)
+        answers = [ANSWER_CONTINUE + " The questions follow, and the Loop file is written into it.",
+                   ANSWER_FRESH % slug, ANSWER_OTHER]
+    out.line("Its Spec, Tickets and review files are still in there. Nothing was written.")
+    out.line("Question 1, leftover: Answers, in this order: " + " ".join(answers))
+    aside_command = "%s loop aside --slug %s --write" % (places.command(), slug)
+    on_continue = "" if leftover == loopfile.CLOSED else " On continue, run the same command with --leftover continue."
+    return out.finish(
+        "Ask the user the Question line above, with what each answer does to the files.%s On start fresh, run "
+        "%s, then this command again. On a different slug, run loop new with that slug."
+        % (on_continue, aside_command),
+        1 if write else 0,
+    )
+
+
+def warn_preflight(root, base, out):
+    remote, checks = preflight.run(root, base)
+    for name, passed, why in checks:
+        if passed:
+            out.line("Preflight, %s, remote %s: passed." % (name, remote))
+        else:
+            out.line("Preflight, %s, remote %s: failed (%s)." % (name, remote, why))
+            out.tell(
+                "Warning: the %s check failed: %s. The loop goes on; fix it before Sign-off, or the "
+                "PR-Author prints the body for you to open the PR." % (name, why)
+            )
+
+
+# --- aside ---
+
+def aside(root, values):
+    loopfile.refuse_root(root)
+    args.require(values, ["slug"], usage())
+    slug = values["slug"]
+    loopfile.check_slug(slug)
+    leftover = loopfile.kind(root, slug)
+    if leftover is None:
+        raise Failure(
+            ".scratch/%s/ does not exist: nothing to move aside." % slug,
+            "Run loop new for the slug instead.",
+        )
+    number = 2
+    while os.path.lexists(loopfile.tracker_dir(root, "%s-%d" % (slug, number))):
+        number += 1
+    target = "%s-%d" % (slug, number)
+    out = Output()
+    closing = leftover == loopfile.OPEN
+    if not values["write"]:
+        out.line("Would move .scratch/%s/ to .scratch/%s/%s." % (
+            slug, target, ", closing its open loop first" if closing else ""))
+        return out.finish("Run the same command with --write.")
+    directory = loopfile.tracker_dir(root, slug)
+    try:
+        if closing:
+            loopfile.append_state(directory, loopfile.CLOSED)
+            for name in loopfile.delete_armed(directory):
+                out.line("Deleted the Codex armed file %s." % name)
+            out.line("Closed the loop %s." % slug)
+        os.rename(directory, loopfile.tracker_dir(root, target))
+    except OSError as error:
+        raise refused(
+            "Could not move .scratch/%s/ aside: %s" % (slug, error),
+            "Otherwise tell the user the directory could not be moved, and stop.",
+        )
+    out.line("Moved: .scratch/%s/ is now .scratch/%s/. Nothing was deleted." % (slug, target))
+    out.tell("The earlier Workflow's files are now in .scratch/%s/." % target)
+    return out.finish("Run loop new for %s again, as your skill says." % slug)
 
 
 # --- show ---
