@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 the VDD tool, a small program VDD ships, which makes both faster and more
 reliable. The Codex hook ships with the plugin, Start-Loop recommends how
 the Coder restarts for the least cost on your agent, and code reviews on
-Claude Code and Codex are fixed.
+Claude Code and Codex are fixed. Each loop keeps its settings in its own
+directory, and every loop starts with Start-Loop.
 
 ### Migrating from 0.15
 
@@ -20,10 +21,16 @@ Claude Code and Codex are fixed.
    `py -3`, which every python.org install provides. Without it, a Role says
    so and stops.
 2. **On Codex, trust VDD's hook once in `/hooks`.** It now ships with the
-   plugin, and Setup migrates the 0.15 hook.
+   plugin, and Setup migrates the 0.15 hook. If you trusted it on an earlier
+   0.16 beta, Codex asks once more, because the hook changed.
 3. **Optionally, delete the old scripts** `doorbell-wait.*` and
    `vdd-codex-stop.*` in `~/.local/share/vdd/` (`%LOCALAPPDATA%\vdd\` on
    Windows) once no loop on an older VDD is running.
+4. **Finish or restart a loop in flight.** A loop now keeps its settings in
+   its own directory, and VDD no longer reads `LOOP.md` at the repository
+   root: every Role stops while it is there, and Setup tells you so. Delete
+   `LOOP.md`. To carry on the loop it belonged to, run `/vdd:vdd-start-loop`
+   with its slug and answer continue.
 
 ### Changed
 
@@ -39,6 +46,25 @@ Claude Code and Codex are fixed.
   cache: a fresh Coder every round on Claude Code, Cursor and Copilot CLI,
   one Coder for all rounds on Codex. On Claude Code you can also restart it
   once its context passes a token count.
+- **Each loop keeps its settings in its own directory.** VDD writes and reads
+  them in `.scratch/<slug>/` for you, so two loops in one repository never
+  share them, and there is no `LOOP.md` to delete after a loop. A finished
+  loop is closed and its files stay as its record. To fix something before
+  you merge, ask the Orchestrator to reopen it.
+- **Start-Loop asks less.** It no longer asks whether to delete an old
+  `LOOP.md`. When an earlier loop used your slug, it offers only what fits:
+  continue an interrupted loop, start fresh with the old files moved aside
+  and nothing deleted, or pick another slug.
+- **Every loop starts with `/vdd:vdd-start-loop`.** The Planner, the
+  Plan-Reviewer, the Coder and the Code-Reviewer stop with one line when you
+  start them by hand, and Claude Code and Copilot CLI no longer list them in
+  the `/` menu. You can still start the PR-Author by hand after Sign-off.
+- **The Planner asks for the problem.** Started with nothing described, it
+  asks what problem the loop solves. `improve-codebase-architecture` is yours
+  to run before a loop or the Wayfinder, and Setup no longer requires it or
+  `codebase-design`.
+- **The Codex hook starts Python only for a wait.** Outside a Codex
+  session's wait for a Doorbell it ends at once, under zsh too.
 
 #### Internal
 

@@ -17,7 +17,7 @@ The Role that hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subage
 _Avoid_: dispatcher, controller, coordinator
 
 **PR-Author**:
-Runs in the Orchestrator's session on Sign-off and is the only Role that pushes. Reads the `PR:` line in `LOOP.md` and either opens the PR or prints the assembled body for the user. On `PR: no` it does not run.
+Runs in the Orchestrator's session on Sign-off and is the only Role that pushes. Reads the Loop file's `PR:` line and either opens the PR or prints the assembled body for the user. On `PR: no` it does not run.
 _Avoid_: extra session, autopilot, bot
 
 **Brainstormer**:
@@ -53,7 +53,7 @@ A Role and its reviewer exchanging a working file until sign-off. The workflow h
 _Avoid_: cycle, iteration, phase
 
 **Working file**:
-Scratch space for handoff between sessions, gitignored, never part of the user's project. The Loop file sits at the repository root; every other Working file sits in the tracker directory, the Spec and the Tickets alongside `PLAN-REVIEW.md`, `FIXES.md`, `CODEREVIEW.md` and the Doorbell file. Matt Pocock's local-markdown issue tracker counts as a Working file because VDD is what invokes it.
+Scratch space for handoff between sessions, gitignored, never part of the user's project. Every Working file sits in the tracker directory: the Loop file, the Spec and the Tickets alongside `PLAN-REVIEW.md`, `FIXES.md`, `CODEREVIEW.md` and the Doorbell file. Matt Pocock's local-markdown issue tracker counts as a Working file because VDD is what invokes it.
 _Avoid_: artifact, output, deliverable
 
 **Feature slug**:
@@ -61,11 +61,11 @@ The kebab-case name of one Loop's piece of work, chosen by the user when the Loo
 _Avoid_: feature name, ticket name, branch name
 
 **Tracker directory**:
-`.scratch/<feature slug>/`, created by the Borrowed skill `to-spec` and named by the Loop file's `Tracker:` line. Holds every Working file except the Loop file, so one Workflow's Spec, Tickets and review files stay together and the next Workflow on another slug overwrites none of them. Gitignored, so it survives on the machine that ran the Workflow and reaches no clone.
+`.scratch/<feature slug>/`, the directory of one Loop. Holds every Working file, the Loop file included, so one Workflow's Spec, Tickets and review files stay together and the next Workflow on another slug overwrites none of them. Gitignored, so it survives on the machine that ran the Workflow and reaches no clone.
 _Avoid_: scratch dir, feature folder, workspace
 
 **Loop file**:
-`LOOP.md` at the repository root. Records the Workflow's settings, the Feature slug, the branches, the tracker path, the user's answers at Workflow start and the Harness, so every Role reads them instead of asking. It is the one Working file outside the tracker directory, because every Role reads it before it knows a Feature slug.
+`.scratch/<feature slug>/loop.md`, in the tracker directory. Records the Workflow's settings, the Feature slug, the branches, the user's answers at Workflow start and the Harness, so every Role reads them instead of asking. Only the VDD tool writes, changes and reads it, and it closes and reopens the Loop; whether the Loop is open or closed is kept in the Loop's state file beside it. A finished Loop is closed, not deleted, so its files stay as the record. A `LOOP.md` at the repository root is a Loop file from before 0.16 and is not read.
 _Avoid_: session file, config, manifest
 
 **Spec**:
@@ -85,7 +85,7 @@ A file under a Role skill's `references/` directory, read when a pointer in that
 _Avoid_: resource file, sibling file, appendix
 
 **Spawn prompt**:
-The prompt the Orchestrator spawns a hosted Role with. Names the Working files outright, tells the Role to invoke its skill, declares that an Orchestrator hosts this Workflow, and states the three prefixed return shapes. Carries the return contract; no Role skill does.
+The prompt the Orchestrator spawns a hosted Role with. Names the Loop's slug and the Working files outright, tells the Role to invoke its skill, declares that an Orchestrator hosts this Workflow, and states the three prefixed return shapes. Carries the return contract; no Role skill does.
 _Avoid_: system prompt, task prompt, instructions
 
 **Model approval**:
@@ -131,7 +131,7 @@ _Avoid_: outstanding nit, unresolved comment, leftover
 ## Skill dependencies
 
 **Borrowed skill**:
-A skill from another collection that a Role depends on but does not ship. From Matt Pocock's collection: `setup-matt-pocock-skills`, `grill-with-docs`, `improve-codebase-architecture`, `to-spec`, `to-tickets`, `wayfinder` (all User-invoked), and `code-review`, `writing-for-agents`, `grilling`, `domain-modeling`, `codebase-design`, `research` and `prototype` (agent-invocable).
+A skill from another collection that a Role depends on but does not ship. From Matt Pocock's collection: `setup-matt-pocock-skills`, `grill-with-docs`, `to-spec`, `to-tickets`, `wayfinder` (all User-invoked), and `code-review`, `writing-for-agents`, `grilling`, `domain-modeling`, `research` and `prototype` (agent-invocable).
 _Avoid_: external skill, third-party skill, dependency
 
 **User-invoked**:

@@ -33,7 +33,7 @@ If the other session does not wake, paste the line the Role prints.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="workflow-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="workflow-light.svg">
-  <img alt="The VDD workflow: you start the loop as the Planner, and an Orchestrator session runs the rest. The Planner and its hosted Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the hosted Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the Orchestrator invokes the PR-Author, which opens the PR or hands it to you. Every file named here lives in the tracker directory .scratch/&lt;slug&gt;/, beside the spec and the tickets; only LOOP.md sits at the repository root." src="workflow-light.svg" width="900">
+  <img alt="The VDD workflow: you start the loop as the Planner, and an Orchestrator session runs the rest. The Planner and its hosted Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the hosted Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the Orchestrator invokes the PR-Author, which opens the PR or hands it to you. Every file named here lives in the tracker directory .scratch/&lt;slug&gt;/, beside the spec, the tickets and the Loop file." src="workflow-light.svg" width="900">
 </picture>
 
 </div>
@@ -85,17 +85,17 @@ Put it where your Harness reads its instructions; the path above is Claude Code'
 - whether VDD opens the PR at the end (yes, ask at Sign-off, or manual)
 - how the Coder continues between rounds (fresh every round, resumed, or on Claude Code fresh once its context passes a limit)
 
-It writes the answers to `LOOP.md`, which every Role reads first, so none asks again. To check a repository before its first loop, run `/vdd:vdd-setup` on its own. It looks at the borrowed skills, the issue tracker and the gitignore entries, and tells you how to fix anything missing. It then prints a summary of the Loop file, which says you can ask the Orchestrator to start any Role fresh at its next round, and hands over to the Planner.
+The VDD tool writes the answers to the loop's Loop file, `.scratch/<slug>/loop.md`, which every Role reads first, so none asks again. If an earlier loop used the slug, you choose to continue it, start fresh (its directory is moved aside to `.scratch/<slug>-2/`, nothing deleted) or pick another slug. To check a repository before its first loop, run `/vdd:vdd-setup` on its own. It looks at the borrowed skills, the issue tracker and the gitignore entries, and tells you how to fix anything missing. It then prints a summary of the Loop file, which says you can ask the Orchestrator to start any Role fresh at its next round, and hands over to the Planner.
 
 #### 🔔 Sessions and Doorbells
 
-The session you started the loop in is the Planner. When the Planner rings its first Doorbell, open the Orchestrator in a second terminal in the repository with plain `claude` and `/vdd:vdd-orchestrator`. It hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, each in a fresh context, and invokes the PR-Author at the end. You open no other session.
+The session you started the loop in is the Planner. When the Planner rings its first Doorbell, open the Orchestrator in a second terminal in the repository with plain `claude` and `/vdd:vdd-orchestrator <slug>`, as the Planner prints it. It hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subagents, each in a fresh context, and invokes the PR-Author at the end. You open no other session.
 
 A Role that finishes its turn rings its counterpart instead of waiting for you. The Planner rings the Orchestrator, and the Orchestrator relays each Plan-Reviewer round back. A waiting session may ask, after 45 minutes, whether to keep waiting.
 
 #### 🧠 The Planner
 
-The Planner takes a problem you bring, or an improvement it finds in the codebase, and grills you until you agree what the work is. It then hands you `/to-spec` and `/to-tickets`, which publish `.scratch/<slug>/spec.md` and the tickets in `.scratch/<slug>/issues/`. It passes both through `writing-for-agents`, so the Coder gets documents written for the way it reads. The Planner never writes code.
+The Planner takes the problem you bring, or asks what it is when you bring none, and grills you until you agree what the work is. It then hands you `/to-spec` and `/to-tickets`, which publish `.scratch/<slug>/spec.md` and the tickets in `.scratch/<slug>/issues/`. It passes both through `writing-for-agents`, so the Coder gets documents written for the way it reads. The Planner never writes code.
 
 #### 🔍 The Plan-Reviewer
 
@@ -109,7 +109,7 @@ The Orchestrator starts this phase when `PLAN-REVIEW.md` signs off. You open not
 
 #### 💻 The Coder
 
-The Coder works on the feature branch from `LOOP.md`, which defaults to the slug. It takes the tickets in dependency order: implements one, runs its acceptance criteria, commits it, and writes what it did to `FIXES.md`. If it is on neither the base nor the feature branch, or holds a Ticket it finds wrong or impossible, it asks; the Orchestrator relays the question to you and your answer back.
+The Coder works on the feature branch from the Loop file, which defaults to the slug. It takes the tickets in dependency order: implements one, runs its acceptance criteria, commits it, and writes what it did to `FIXES.md`. If it is on neither the base nor the feature branch, or holds a Ticket it finds wrong or impossible, it asks; the Orchestrator relays the question to you and your answer back.
 
 #### 🧪 The Code-Reviewer
 
@@ -117,7 +117,7 @@ The Code-Reviewer runs Matt Pocock's `code-review` over the branch against the s
 
 ### 🚢 Phase 3: Ship
 
-On Sign-off the Orchestrator runs the PR-Author in its own session, which follows the `PR:` line in `LOOP.md`:
+On Sign-off the Orchestrator runs the PR-Author in its own session, which follows the Loop file's `PR:` line:
 
 - `PR: yes` shows you the body, pushes the branch and opens the PR.
 - `PR: ask at sign-off` asks you then.
@@ -127,7 +127,7 @@ On Sign-off the Orchestrator runs the PR-Author in its own session, which follow
 Then:
 
 1. If the PR is not open, open it from the feature branch with the printed body. The commits are there, one per ticket plus any no ticket owned. The working files are gitignored and stay behind.
-2. Delete `LOOP.md`. Keep `.scratch/<slug>/`, which holds the spec, the tickets and the three review files as the loop's record. It is gitignored, so it stays on this machine.
+2. The loop is closed by then, and `.scratch/<slug>/` keeps the Loop file, the spec, the tickets and the three review files as its record. It is gitignored, so it stays on this machine. To fix something before you merge, a finding from an outside review for example, ask the Orchestrator to reopen the loop.
 3. Start the next loop with fresh sessions.
 
 ## 🧭 Before the loop

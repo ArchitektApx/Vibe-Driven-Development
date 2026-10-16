@@ -9,5 +9,6 @@ may not exist there and would go stale when they change.
 
 ## Considered options
 
-**Recording the approved selection in `LOOP.md`.** Rejected: it would freeze
-the selection across the restart where the user most wants to change it.
+**Recording the approved selection in the Loop file.** Rejected: it would
+freeze the selection across the restart where the user most wants to change
+it.
