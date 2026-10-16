@@ -42,6 +42,9 @@ class Generic(Harness):
     def no_hit_continuation(self):
         return ""
 
+    def fresh_coder(self):
+        return (None, None)
+
     def codex_hook_steps(self):
         return False
 

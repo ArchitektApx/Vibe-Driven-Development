@@ -52,6 +52,11 @@ class Harness(abc.ABC):
         """How the user starts the Orchestrator's Session, as one clause."""
 
     @abc.abstractmethod
+    def fresh_coder(self):
+        """The Fresh Coder question on this Harness: (the answer it
+        recommends, the limit it offers as "over <n>k"), each None for none."""
+
+    @abc.abstractmethod
     def codex_hook_steps(self):
         """Whether Setup's Codex hook steps (the hooks.json migration and the
         trust check) apply."""

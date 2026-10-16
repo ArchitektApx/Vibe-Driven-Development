@@ -8,6 +8,7 @@ from .out import Failure, Output, refused
 GROUPS = {
     "codex-stop": "The Codex Stop hook. Codex runs it at a turn end; a Role never does.",
     "doorbell": "Ring, wait for and take Doorbells between the Planner and the Orchestrator.",
+    "loop": "Start a loop, and show, change, close or reopen its Loop file.",
     "setup": "Check this repository and machine for a VDD loop, and make the changes Setup owns.",
 }
 
@@ -38,6 +39,8 @@ def load(name):
         from . import codex_hook as module
     elif name == "doorbell":
         from . import doorbell as module
+    elif name == "loop":
+        from . import loop as module
     else:
         from . import setup as module
     return module

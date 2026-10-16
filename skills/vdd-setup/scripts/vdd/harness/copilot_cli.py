@@ -83,6 +83,9 @@ class CopilotCli(Harness):
     def no_hit_continuation(self):
         return ""
 
+    def fresh_coder(self):
+        return ("every round", None)
+
     def codex_hook_steps(self):
         return False
 

@@ -1,5 +1,5 @@
 interface:
   display_name: "VDD Start-Loop"
-  short_description: "Open a VDD loop and write LOOP.md"
+  short_description: "Open a VDD loop and hand over to the Planner"
 policy:
   allow_implicit_invocation: false
