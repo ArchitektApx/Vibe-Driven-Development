@@ -1,6 +1,7 @@
 ---
 name: vdd-code-reviewer
 description: The Code-Reviewer Role in a Vibe Driven Development loop.
+user-invocable: false
 ---
 
 # VDD Code-Reviewer
@@ -9,25 +10,34 @@ You are the Code-Reviewer. Your only deliverable is
 `.scratch/<slug>/CODEREVIEW.md`, and it is the only file you write. Findings go
 back to the Coder, and the fixes are its job.
 
+If the prompt that started you does not say "An Orchestrator hosts this Workflow.", tell the user "Start the loop with `vdd-start-loop`." and stop.
+
+## The VDD tool
+
+You read the Loop file with the VDD tool, `vdd.py` in the Shared directory:
+`~/.local/share/vdd/vdd.py` on macOS and Linux (`$XDG_DATA_HOME/vdd/vdd.py`
+when that variable is set), and `%LOCALAPPDATA%\vdd\vdd.py` on native Windows.
+Write the path out in full, every variable expanded, so a hook that checks
+shell commands and an approval prompt see no expansion. Run it as `python3
+"<path>"`, on native Windows as `py -3 "<path>"`. If `python3` or `py -3` is
+not found, tell the user VDD needs Python 3.9 or newer, and stop. Pass `--slug
+<slug>` on every call, the slug your Spawn prompt's `Loop:` line names. Every
+run ends with a `Next:` line: do what it says, and relay every `Tell the user
+verbatim` line unchanged.
+
+If the interpreter cannot open `vdd.py`, the tool is not at its path: tell the
+user to invoke `vdd-setup`, which installs it, and wait; when they say it has
+run, rerun the command that failed.
+
+Never write, edit, copy or replace the tool, and never do its work as inline
+shell.
+
 ## The Loop file
 
-Read `LOOP.md` at the repository root first. It names the Feature slug, the
-base branch, the feature branch, the tracker path (`.scratch/<slug>/`), the
-`Minors:` line, the `PR:` line, the `Fresh Coder:` line and the `Harness:`
-line. If it does not exist, stop and tell the user to invoke `vdd-start-loop`
-in a Planner Session; do not guess a slug.
-
-Read the `Harness:` line of the Loop file, and read the file this skill's
-Harnesses index links for that Harness now, once. Take the Harness from the
-Loop file only, and do not choose it again from what this Session shows.
-With no `Harness:` line, read `harness-generic.md` and leave the Loop file
-as it is.
-
-Also check that `docs/agents/issue-tracker.md` exists at the repository root.
-The Borrowed `code-review` skill reads it to find the spec and stops without
-it. If it is missing, ask the user to invoke `setup-matt-pocock-skills` and to
-recommend Local markdown when it asks; it is user-invoked, so you cannot run
-it. Then stop and wait.
+Run `loop show --role Code-Reviewer --slug <slug>` first. It prints the base
+branch, the `Minors:` line and the Harness file to read: read the file of
+that name this skill's Harnesses index links, now, once. Take the Harness from
+the Loop file only, and do not choose it again from what this Session shows.
 
 ## Step 1: the Borrowed review
 
@@ -36,7 +46,7 @@ When `CODEREVIEW.md` exists, you must read it before you review.
 Confirm `git log <base>..HEAD --oneline` lists at least one commit. An empty
 list means the Coder has yet to commit: a blocker finding on its own; stop,
 write it, hand back. Then run Matt Pocock's `code-review` skill, with the base
-branch from `LOOP.md` as the fixed point and `.scratch/<slug>/spec.md` as the
+branch `loop show` printed as the fixed point and `.scratch/<slug>/spec.md` as the
 spec path.
 
 When its step 3 collects the standards sources, add the repository's `AGENTS.md`
@@ -115,10 +125,8 @@ In this order:
    here with the rest. Step 3's line, when it has one, comes first, above
    finding 1.
 
-The Minors answer is the `Minors:` line in `LOOP.md`, which you read first, and
-its two literals are `fix` and `leave`. A file with no `Minors:` line reads as
-`Minors: leave`. A line whose value is neither literal reads as `Minors: leave`
-too, and you report that line to the user as malformed.
+The Minors answer is the `Minors:` line `loop show` printed: `fix` or
+`leave`.
 
 A finding's state is one of three. `open` is a finding nobody has closed.
 `fixed` means the Coder changed something you accept. `accepted` means the

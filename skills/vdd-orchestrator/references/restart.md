@@ -1,18 +1,20 @@
 # Placing a Workflow that was already under way
 
-Read `LOOP.md`, then each of `.scratch/<slug>/PLAN-REVIEW.md`,
+Run `loop show --role Orchestrator --slug <slug>`, then read each of `.scratch/<slug>/PLAN-REVIEW.md`,
 `.scratch/<slug>/CODEREVIEW.md` and `.scratch/<slug>/FIXES.md` down to and
 including its `Round` line. Those lines place the Workflow, and one of these
 five states holds:
 
 - **No review file on disk.** The Workflow has not reached a review yet. Run
-  `doorbell take --role Orchestrator --restart --harness <h>`, do what its
+  `doorbell take --role Orchestrator --restart --harness <h> --slug <slug>`,
+  do what its
   `Next:` line says, and nothing else: it names the Planner Doorbell that a
   fresh Plan-Reviewer answers, since one your earlier Session spawned is gone,
   or the wait.
 - **`PLAN-REVIEW.md` present and not signed off.** The plan Loop is open, and
-  the Planner may have rung while you were down. Run `doorbell take --role
-  Orchestrator --restart --harness <h>` and do what its `Next:` line says: it
+  the Planner may have rung while you were down. Run
+  `doorbell take --role Orchestrator --restart --harness <h> --slug <slug>`
+  and do what its `Next:` line says: it
   names the Planner Doorbell that a fresh Plan-Reviewer answers, or the
   relay `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>. Read it.` to
   ring, after which the Planner owns the next move.

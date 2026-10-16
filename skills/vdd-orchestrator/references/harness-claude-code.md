@@ -11,7 +11,7 @@
   `vdd:vdd-coder` or `vdd:vdd-code-reviewer`.
 - **The context size.** It sits in the trailer under the Agent tool's result
   for the finished subagent.
-- **The wait.** Run the `doorbell wait` command a `Next:` line names in the
+- **The wait.** Run the wait command a `Next:` line names in the
   background in your shell tool, Bash or PowerShell, with `run_in_background`
   set and an explicit `timeout` of at least 2760000 ms: the default timeout
   is below the wait's 45 minutes and would end it early. The Session wakes

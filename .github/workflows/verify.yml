@@ -295,6 +295,25 @@ jobs:
             process.exit(rc);
           '
 
+      # The Plan-Reviewer, the Coder and the Code-Reviewer refuse to run unless
+      # the prompt that started them says "An Orchestrator hosts this
+      # Workflow.", and the Orchestrator's Spawn prompt is the one prompt that
+      # says it (ticket 76). An edit to either side makes every spawn refuse,
+      # so the Spawn prompt and the three skills' check carry it word for word.
+      - name: The Spawn prompt and the hosted skills share the start sentence
+        run: |
+          rc=0
+          sentence='An Orchestrator hosts this Workflow.'
+          if ! grep -qF "You are the <Role> in a Vibe Driven Development loop. $sentence" skills/vdd-orchestrator/SKILL.md; then
+            echo "skills/vdd-orchestrator/SKILL.md: the Spawn prompt lacks: $sentence"; rc=1
+          fi
+          for f in skills/vdd-plan-reviewer/SKILL.md skills/vdd-coder/SKILL.md skills/vdd-code-reviewer/SKILL.md; do
+            if ! grep -qF "If the prompt that started you does not say \"$sentence\"" "$f"; then
+              echo "$f: the start check lacks: $sentence"; rc=1
+            fi
+          done
+          exit $rc
+
       # CLAUDE.md is read by Claude Code and wins precedence over AGENTS.md,
       # so a house rule added only to AGENTS.md would silently never reach
       # Claude Code, and a rule added to both would be read twice.

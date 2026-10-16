@@ -8,7 +8,7 @@
   `SKILL.md`.
 - **The context size.** None reaches the parent: a Task result carries the
   reply and the agent ID only.
-- **The wait.** Run the `doorbell wait` command a `Next:` line names as a
+- **The wait.** Run the wait command a `Next:` line names as a
   background shell; the Session wakes when the shell finishes. The IDE Agent
   and the CLI may each wake twice for one wait: on the second, `take` finds no
   new Doorbell, and while a wait of yours still runs its `Next:` says to end
