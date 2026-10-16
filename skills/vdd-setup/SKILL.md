@@ -9,8 +9,7 @@ Verify this repository and session are ready for a Vibe Driven Development
 loop, fix what you can, and report the rest.
 
 This check is machine-level and repository-level. It knows nothing about a
-particular feature; `vdd-start-loop` handles per-loop state and writes
-`LOOP.md`.
+particular feature; `vdd-start-loop` handles per-loop state.
 
 The checks run in the VDD tool, `scripts/vdd.py` in the directory this skill
 was loaded from, which your Harness named when it loaded the skill. Run it as
@@ -39,8 +38,8 @@ and stop.
    check, every planned change, and every line for the user.
 
 4. **Do what its `Next:` line says.** Ask the user the questions it names,
-   and before you delete a stale `LOOP.md` or run `git init`, wait for their
-   yes; do either with your own tools. Show the user the planned changes:
+   and before you run `git init`, wait for their yes; run it with your own
+   tools. Show the user the planned changes:
    showing them is the consent step, so ask no separate question. Then run
    the same command with `--write`, which makes the changes and checks each.
 

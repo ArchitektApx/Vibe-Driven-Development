@@ -53,7 +53,7 @@ class SetupTest(ToolTest):
         self.assertTrue(any("blocks the Planner" in t for t in result.tells()))
         self.assertTrue(any("docs/agents/issue-tracker.md" in l for l in result.lines))
         self.assertTrue(any("Code-Reviewer (code-review) are blocked" in t for t in result.tells()))
-        self.assertIn("Planned change: .gitignore adds LOOP.md", result.text)
+        self.assertNotIn("LOOP.md", result.text)
         self.assertIn("Planned change: .gitignore adds .scratch/", result.text)
         self.assertIn("Planned change: install the VDD tool", result.text)
         self.assertNext(result, "--write")
@@ -254,7 +254,7 @@ class SetupTest(ToolTest):
         self.assertContract(result)
 
     def test_the_loop_file_spelling_names_the_same_harness(self):
-        """LOOP.md's Harness: line spells the Harness "Claude Code", and three
+        """The Loop file's Harness: line spells the Harness "Claude Code", and three
         Roles in the vdd-tool acceptance passed that spelling to --harness
         and were refused (acceptance finding 1): it names the same Harness
         as the slug."""
@@ -336,19 +336,33 @@ class SetupTest(ToolTest):
                 self.assertEqual(self.proj_files(), [".git", "sub"])
                 self.assertFalse(os.path.exists(self.box.shared))
 
-    def test_stale_loop_file_asks_before_deleting(self):
+    def test_a_root_loop_file_is_reported_with_its_fix_and_no_question(self):
+        """A root LOOP.md is a format-1 Loop file: Setup reports it with the
+        fix and asks no delete question, its other checks still run, and its
+        exit code stays 0; loop new is where a loop start stops."""
         self.box.write("LOOP.md", "x\n")
-        result = self.setup()
-        self.assertIn("LOOP.md: one from an earlier loop is here.", result.text)
-        self.assertNext(result, "delete LOOP.md")
+        result = self.setup("claude-code", "writing-for-agents", "yes")
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn(
+            "Delete `LOOP.md`. To carry on the loop it belongs to, run `vdd-start-loop` with its slug and answer "
+            "continue.",
+            result.tells(),
+        )
+        self.assertNotIn("LOOP.md", result.last)
+        self.assertIn("Planned change: .gitignore adds .scratch/", result.text)
+        self.assertIn("Planned change: install the VDD tool", result.text)
+        written = self.setup("claude-code", "writing-for-agents", "yes", "--write")
+        self.assertEqual(written.code, 0, written)
         self.assertTrue(os.path.exists(self.box.path("LOOP.md")))
+        self.assertTrue(os.path.exists(self.box.shared))
 
     # --- --write ---
 
     def test_write_makes_the_changes_and_a_second_run_changes_nothing(self):
         result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
         self.assertEqual(result.code, 0, result)
-        self.assertEqual(self.box.read(".gitignore"), "LOOP.md\n.scratch/\n")
+        self.assertEqual(self.box.read(".gitignore"), ".scratch/\n")
         self.assertEqual(vddtest_tree(SCRIPTS), vddtest_tree(self.box.shared))
         before = (self.box.read(".gitignore"), vddtest_tree(self.box.shared))
         again = self.setup("claude-code", "writing-for-agents", "yes", "--write")
@@ -378,26 +392,36 @@ class SetupTest(ToolTest):
         result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
         self.assertIn("Changed: .gitignore removes PLAN.md", result.text)
         self.assertIn("Changed: .gitignore removes FIXES.md", result.text)
-        self.assertEqual(self.box.read(".gitignore"), "docs/PLAN.md\n!PLAN.md\nLOOP.md\n.scratch/\n")
+        self.assertEqual(self.box.read(".gitignore"), "docs/PLAN.md\n!PLAN.md\n.scratch/\n")
 
     def test_gitignore_keeps_crlf_and_a_missing_last_newline(self):
         self.box.write(".gitignore", "node_modules\r\n/dist")
         self.setup("claude-code", "writing-for-agents", "yes", "--write")
-        self.assertEqual(self.box.read(".gitignore"), "node_modules\r\n/dist\r\nLOOP.md\r\n.scratch/\r\n")
+        self.assertEqual(self.box.read(".gitignore"), "node_modules\r\n/dist\r\n.scratch/\r\n")
+
+    def test_a_loop_md_entry_is_neither_added_nor_removed(self):
+        """Setup stops adding LOOP.md and never removes an entry the user
+        has, so an old root file stays out of git add."""
+        result = self.setup("claude-code", "writing-for-agents", "yes")
+        self.assertNotIn("LOOP.md", result.text)
+        self.box.write(".gitignore", "LOOP.md\n")
+        result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(self.box.read(".gitignore"), "LOOP.md\n.scratch/\n")
 
     def test_a_gitignore_that_starts_with_a_bom(self):
-        """A leading byte order mark is not part of line 1, so LOOP.md on line
-        1 counts and a retired entry there goes (finding 21 of the round 4
-        review)."""
-        self.box.write(".gitignore", b"\xef\xbb\xbfLOOP.md\n.scratch/\n")
+        """A leading byte order mark is not part of line 1, so .scratch/ on
+        line 1 counts and a retired entry there goes (finding 21 of the round
+        4 review)."""
+        self.box.write(".gitignore", b"\xef\xbb\xbf.scratch/\n")
         result = self.setup("claude-code", "writing-for-agents", "yes")
-        self.assertIn(".gitignore: covers LOOP.md and .scratch/. Passed.", result.text)
+        self.assertIn(".gitignore: covers .scratch/. Passed.", result.text)
         self.assertNotIn(".gitignore adds", result.text)
-        self.box.write(".gitignore", b"\xef\xbb\xbfPLAN.md\r\nLOOP.md\r\n")
+        self.box.write(".gitignore", b"\xef\xbb\xbfPLAN.md\r\n.scratch/\r\n")
         result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
         self.assertIn("Changed: .gitignore removes PLAN.md", result.text)
-        self.assertNotIn(".gitignore adds LOOP.md", result.text)
-        self.assertEqual(self.box.read(".gitignore"), "LOOP.md\r\n.scratch/\r\n")
+        self.assertNotIn(".gitignore adds", result.text)
+        self.assertEqual(self.box.read(".gitignore"), ".scratch/\r\n")
 
     def test_dry_run_leaves_gitignore_alone(self):
         self.box.write(".gitignore", "PLAN.md\n")
