@@ -6,7 +6,7 @@ import os
 from . import args, loopfile, places, preflight, textfile
 from .out import Failure, Output, refused
 
-SUBCOMMANDS = ("new", "aside", "show", "set")
+SUBCOMMANDS = ("new", "aside", "show", "set", "close", "reopen")
 
 HELP = [
     "loop new --slug <slug> --harness <h> [--base <branch>] [--branch <branch>] [--minors <a>] [--pr <a>]",
@@ -29,6 +29,13 @@ HELP = [
     "loop set [--slug <slug>] [--minors <a>] [--pr <a>] [--fresh-coder <a>] [--harness-line <label>] --write",
     "  Change the Minors:, PR:, Fresh Coder: or Harness: line on the user's word. The feature, the base",
     "  branch and the feature branch never change.",
+    "",
+    "loop close [--slug <slug>] --write",
+    "  Close the loop: it stays on disk as the record, a ring or a wait on it is refused, and its Codex armed",
+    "  files are deleted. The PR-Author and the Orchestrator run it at the end of the Workflow.",
+    "",
+    "loop reopen [--slug <slug>] --write",
+    "  Reopen a closed loop, on the user's request.",
     "",
     "Accepted values: --minors fix or leave; --pr yes, \"ask at sign-off\", manual or no; --fresh-coder",
     "\"every round\", never or \"over <n>k\"; --harness-line Claude Code, Codex, Cursor, Copilot CLI or Generic.",
@@ -92,6 +99,8 @@ def run(argv):
         return aside(root, values)
     if sub == "show":
         return show(root, values)
+    if sub in ("close", "reopen"):
+        return close_or_reopen(root, values, sub)
     return set_lines(root, values)
 
 
@@ -446,4 +455,33 @@ def set_lines(root, values):
             "Could not write the Loop file %s: %s" % (loop.relative, error),
             "Otherwise tell the user the Loop file could not be changed, and stop.",
         )
+    return out.finish("Go on as your skill says, passing --slug %s." % loop.slug)
+
+
+# --- close and reopen ---
+
+def close_or_reopen(root, values, sub):
+    loop = loopfile.find(root, values["slug"])
+    target = loopfile.CLOSED if sub == "close" else loopfile.OPEN
+    out = Output()
+    if loop.state() == target:
+        out.line("The loop %s is already %s. Nothing was written." % (loop.slug, target))
+        return out.finish("Go on as your skill says, passing --slug %s." % loop.slug)
+    if not values["write"]:
+        out.line("Would mark the loop %s %s." % (loop.slug, target))
+        return out.finish("Run the same command with --write.")
+    try:
+        loopfile.append_state(loop.dir, target)
+        if target == loopfile.CLOSED:
+            for name in loopfile.delete_armed(loop.dir):
+                out.line("Deleted the Codex armed file %s." % name)
+    except OSError as error:
+        raise refused(
+            "Could not change the loop state file in .scratch/%s/: %s" % (loop.slug, error),
+            "Otherwise tell the user the loop could not be marked %s, and stop." % target,
+        )
+    if target == loopfile.CLOSED:
+        out.line("Closed: the loop %s. Its files stay in .scratch/%s/ as the record." % (loop.slug, loop.slug))
+    else:
+        out.line("Reopened: the loop %s is open again." % loop.slug)
     return out.finish("Go on as your skill says, passing --slug %s." % loop.slug)

@@ -561,6 +561,52 @@ class AsideTest(LoopTest):
         self.assertIn("demo-3", refused.text)
 
 
+class CloseTest(LoopTest):
+    def setUp(self):
+        LoopTest.setUp(self)
+        self.new("demo", *ANSWERS, write=True)
+
+    def test_help_lists_close_reopen_and_aside(self):
+        text = self.loop("--help").text
+        for command in ("loop close", "loop reopen", "loop aside"):
+            self.assertIn(command, text)
+        self.assertIn("--slug", self.box.run("doorbell", "--help").text)
+
+    def test_close_and_reopen_append_to_the_state_file(self):
+        result = self.loop("close", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 1\nloop open\nloop closed\n")
+        self.assertIn("State: closed", self.loop("show", "--slug", "demo").lines)
+        result = self.loop("reopen", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 1\nloop open\nloop closed\nloop open\n")
+        self.assertIn("State: open", self.loop("show", "--slug", "demo").lines)
+
+    def test_close_without_write_and_twice_change_nothing(self):
+        before = self.file(name="loop-state")
+        self.assertNext(self.loop("close", "--slug", "demo"), "--write")
+        self.assertEqual(self.file(name="loop-state"), before)
+        self.loop("close", "--slug", "demo", "--write")
+        closed = self.file(name="loop-state")
+        result = self.loop("close", "--slug", "demo", "--write")
+        self.assertIn("already closed", result.text)
+        self.assertEqual(self.file(name="loop-state"), closed)
+
+    def test_a_closed_loop_is_not_the_only_open_loop_and_slug_still_reaches_it(self):
+        self.loop("close", "--slug", "demo", "--write")
+        self.assertNotEqual(self.loop("show").code, 0)
+        self.assertEqual(self.loop("show", "--slug", "demo").code, 0)
+
+    def test_close_deletes_the_codex_armed_files(self):
+        for name in ("codex-armed-T1", "codex-armed-T2"):
+            self.box.write(os.path.join(".scratch", "demo", name), "vdd codex-armed 1\nPlanner 0\n")
+        self.box.write(os.path.join(".scratch", "demo", "doorbells"), "# vdd doorbells 1\n")
+        self.loop("close", "--slug", "demo", "--write")
+        left = sorted(os.listdir(self.box.path(".scratch", "demo")))
+        self.assertEqual(left, ["doorbells", "loop-state", "loop.md"])
+
+
 @unittest.skipIf(os.name == "nt", "a POSIX shell script stands in for git")
 class PreflightTest(LoopTest):
     def stub(self, ls_remote_code=0):

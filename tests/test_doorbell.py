@@ -15,17 +15,19 @@ P2 = "VDD Planner: .scratch/x/ ready, round 2. Read spec.md and issues/."
 R1 = "VDD Plan-Reviewer: PLAN-REVIEW.md written, round 1: 0 blocker, 2 major, 1 minor. Read it."
 R1_RESTART = "VDD Plan-Reviewer: PLAN-REVIEW.md written, round 1. Read it."
 R2_SIGNED = "VDD Plan-Reviewer: PLAN-REVIEW.md SIGNED OFF, round 2."
-LOOP = "# VDD Loop\n\nFeature: x\nBase branch: main\nFeature branch: x\nTracker: .scratch/x/\nHarness: %s\n"
+ROOT_FIX = (
+    "Delete `LOOP.md`. To carry on the loop it belongs to, run `vdd-start-loop` with its slug and answer continue."
+)
 
 
 class DoorbellTest(ToolTest):
     def setUp(self):
         ToolTest.setUp(self)
-        self.box.write("LOOP.md", LOOP % "Claude Code")
-        os.makedirs(self.box.path(".scratch", "x"))
+        self.box.write_loop("x")
 
-    def db(self, *args, env=None, harness="claude-code"):
-        return self.box.run("doorbell", *(list(args) + ["--harness", harness]), env=env)
+    def db(self, *args, env=None, harness="claude-code", slug="x"):
+        tail = ["--harness", harness] + (["--slug", slug] if slug else [])
+        return self.box.run("doorbell", *(list(args) + tail), env=env)
 
     def ring(self, role, line, harness="claude-code", write=True):
         extra = ["--write"] if write else []
@@ -90,11 +92,12 @@ class DoorbellTest(ToolTest):
 
     def test_round_one_ring_names_the_launch_per_harness(self):
         cases = {
-            "claude-code": ("run claude in a terminal", "/vdd:vdd-orchestrator", "picks up the Doorbell below"),
-            "codex": ("codex --no-daemon", "$vdd:vdd-orchestrator", "picks up the Doorbell below"),
-            "cursor": ("agent in a terminal", "/vdd-orchestrator", "picks up the Doorbell below"),
-            "copilot-cli": ("run copilot in a terminal", "/vdd:vdd-orchestrator", "picks up the Doorbell below"),
-            "generic": ("open a second Session in the same Harness", "vdd-orchestrator", "Paste the Doorbell below"),
+            "claude-code": ("run claude in a terminal", "/vdd:vdd-orchestrator x in", "picks up the Doorbell below"),
+            "codex": ("codex --no-daemon", "$vdd:vdd-orchestrator x in", "picks up the Doorbell below"),
+            "cursor": ("agent in a terminal", "/vdd-orchestrator x in", "picks up the Doorbell below"),
+            "copilot-cli": ("run copilot in a terminal", "/vdd:vdd-orchestrator x in", "picks up the Doorbell below"),
+            "generic": ("open a second Session in the same Harness", "vdd-orchestrator there and give it the slug x",
+                        "Paste the Doorbell below"),
         }
         for harness, (launch, skill, pickup) in cases.items():
             with self.subTest(harness=harness):
@@ -275,11 +278,70 @@ class DoorbellTest(ToolTest):
         state = self.box.read(os.path.join(".scratch", "x", "doorbell-state-orchestrator"))
         self.assertTrue(state.startswith("vdd doorbell-state 1\n"), state)
 
-    def test_no_loop_file(self):
-        os.remove(self.box.path("LOOP.md"))
-        result = self.take("Planner")
+    def test_no_loop(self):
+        result = self.db("take", "--role", "Planner", slug="y")
         self.assertNotEqual(result.code, 0)
-        self.assertIn("vdd-start-loop", result.last)
+        self.assertIn(".scratch/y/ does not exist", result.text)
+
+    def test_a_root_loop_file_refuses_every_doorbell_command(self):
+        """No Doorbell command reads a format-1 root LOOP.md: each refuses
+        with the fix, --slug or not."""
+        self.box.write("LOOP.md", "# VDD Loop\n\nFeature: x\nTracker: .scratch/x/\nHarness: Claude Code\n")
+        for slug in ("x", None):
+            for args in (("ring", "--role", "Planner", "--line", P1, "--write"), ("take", "--role", "Planner"),
+                         ("wait", "--role", "Planner")):
+                with self.subTest(args=args, slug=slug):
+                    result = self.db(*args, slug=slug, env=self.fast())
+                    self.assertNotEqual(result.code, 0, result)
+                    self.assertContract(result)
+                    self.assertEqual(result.tells(), [ROOT_FIX])
+        self.assertFalse(os.path.exists(self.box.path(".scratch", "x", "doorbells")))
+
+    # --- the loop by slug, and a closed loop ---
+
+    def test_every_command_a_next_line_names_carries_the_slug(self):
+        """PLAN-REVIEW finding 1: a Role runs a Next: command verbatim, so
+        each one names the loop it ran on, the fallbacks included."""
+        self.ring("Planner", P1)
+        self.take("Orchestrator")
+        nexts = [self.ring("Orchestrator", R1).last]
+        self.ring("Planner", P2)
+        nexts.append(self.wait("Orchestrator").last)
+        self.take("Orchestrator")
+        nexts.append(self.take("Orchestrator").last)
+        nexts.append(self.wait("Planner", env=self.fast(timeout="0.2")).last)
+        nexts.append(self.take("Planner", "--pasted", "nonsense", harness="generic").last)
+        nexts.append(self.wait("Planner", harness="codex", env=self.box.env(CODEX_THREAD_ID="")).last)
+        for line in nexts:
+            with self.subTest(line=line):
+                commands = line.count("doorbell ")
+                self.assertGreater(commands, 0, line)
+                self.assertEqual(line.count("--slug x"), commands, line)
+
+    def test_without_slug_the_only_open_loop(self):
+        result = self.db("ring", "--role", "Planner", "--line", P1, "--write", slug=None)
+        self.assertEqual(result.code, 0, result)
+        self.assertNext(result, "--slug x")
+        self.box.write_loop("y")
+        result = self.db("ring", "--role", "Planner", "--line", P2, "--write", slug=None)
+        self.assertNotEqual(result.code, 0, result)
+        self.assertIn("x, y", result.text)
+        self.assertNext(result, "--slug")
+
+    def test_a_closed_loop_refuses_ring_and_wait_until_reopened(self):
+        closed = self.box.run("loop", "close", "--slug", "x", "--write")
+        self.assertEqual(closed.code, 0, closed)
+        for args in (("ring", "--role", "Planner", "--line", P1, "--write"), ("wait", "--role", "Orchestrator")):
+            with self.subTest(args=args):
+                result = self.db(*args, env=self.fast())
+                self.assertNotEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertIn("closed", result.text)
+        self.assertFalse(os.path.exists(self.box.path(".scratch", "x", "doorbells")))
+        self.assertEqual(self.take("Orchestrator").code, 0)
+        self.box.run("loop", "reopen", "--slug", "x", "--write")
+        self.assertEqual(self.ring("Planner", P1).code, 0)
+        self.assertIn("A Doorbell for the Orchestrator is waiting.", self.wait("Orchestrator").text)
 
     # --- take --restart ---
 

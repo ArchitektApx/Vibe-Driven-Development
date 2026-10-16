@@ -71,10 +71,10 @@ class Cursor(Harness):
     def codex_hook_steps(self):
         return False
 
-    def orchestrator_launch(self):
+    def orchestrator_launch(self, slug):
         return (
-            "in the Cursor IDE, open a new chat and type /vdd-orchestrator in it; in the Cursor CLI, run "
-            "agent in a terminal in this repository, then /vdd-orchestrator in that Session"
+            "in the Cursor IDE, open a new chat and type /vdd-orchestrator %s in it; in the Cursor CLI, run "
+            "agent in a terminal in this repository, then /vdd-orchestrator %s in that Session" % (slug, slug)
         )
 
     def wait_next(self, role, wait_command, paste_command):

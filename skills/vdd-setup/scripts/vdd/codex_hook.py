@@ -50,14 +50,14 @@ def hook():
     if claimed is None:
         return
     role, count = claimed
-    place = doorbell.Place(cwd)
+    place = doorbell.Place(cwd, os.path.basename(loop.tracker_dir()))
     entry = places.shared_entry()
     harness = codex_harness.HARNESS
     if doorbell.watch(place, role, floor=count):
         reason = "A Doorbell for the %s is waiting. Next: run %s" % (
-            role, doorbell.take_command(role, harness, entry))
+            role, doorbell.take_command(role, harness, place.slug, entry))
     else:
-        reason = "TIMEOUT. Next: " + doorbell.timeout_next(role, harness, entry)
+        reason = "TIMEOUT. Next: " + doorbell.timeout_next(role, harness, place.slug, entry)
     reason = "".join(c for c in reason if ord(c) >= 32 and ord(c) != 127)
     text = json.dumps({"decision": "block", "reason": reason}, ensure_ascii=True)
     sys.stdout.buffer.write((text + "\n").encode("ascii"))

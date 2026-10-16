@@ -1,6 +1,7 @@
 """The Doorbell between the Planner and the Orchestrator: ring, wait, take.
 
-The Doorbell file, <tracker>/doorbells, holds one line per ring,
+A loop's tracker directory is .scratch/<slug>/, the loop --slug names or
+the lookup finds. The Doorbell file, <tracker>/doorbells, holds one line per ring,
 "<HH:MM:SS> to: <Role> <Doorbell line>", LF, append-only, after a version
 header. Each Role's state file, <tracker>/doorbell-state-<role>, records what
 that Role has handled: how many lines addressed to it, and the sender and
@@ -106,14 +107,31 @@ class Entry:
 
 
 class Place:
-    """The files of one loop: LOOP.md's tracker, the Doorbell file, the
+    """The files of one loop: its tracker directory, the Doorbell file, the
     state files."""
 
-    def __init__(self, root=None):
-        self.loop = loopfile.require(root or os.getcwd())
-        self.tracker = self.loop.tracker
-        self.dir = self.loop.tracker_dir()
+    def __init__(self, root, slug):
+        self.root = root
+        self.slug = slug
+        self.tracker = ".scratch/" + slug
+        self.dir = loopfile.tracker_dir(root, slug)
         self.file = os.path.join(self.dir, FILE_NAME)
+
+    @classmethod
+    def find(cls, slug=None):
+        """The Place of the loop --slug names, or the lookup finds."""
+        loop = loopfile.find(os.getcwd(), slug)
+        place = cls(loop.root, loop.slug)
+        place.loop = loop
+        return place
+
+    def require_open(self, what):
+        """Refuse ring and wait on a closed loop: no Session would ever answer."""
+        if not self.loop.is_open():
+            raise Failure(
+                "The loop %s is closed, so %s would never be answered. Nothing was written." % (self.slug, what),
+                "Tell the user the loop %s is closed. To carry on, they ask the Orchestrator to reopen it." % self.slug,
+            )
 
     def state_path(self, role):
         return os.path.join(self.dir, "doorbell-state-" + role.lower())
@@ -216,48 +234,48 @@ def tell_not_doorbells(out, entries):
 
 # --- the command lines ---
 
-def command(group_args, harness):
-    return "%s doorbell %s --harness %s" % (places.command(), group_args, harness.name)
+# Every command the tool prints for a Role to run names the loop it ran on.
 
-
-def take_command(role, harness, entry=None):
+def take_command(role, harness, slug, entry=None):
     """The take command, naming the copy at entry (the running one by default)."""
-    return "%s doorbell take --role %s --harness %s" % (places.command(entry), role, harness.name)
+    return "%s doorbell take --role %s --harness %s --slug %s" % (places.command(entry), role, harness.name, slug)
 
 
-def wait_command(role, harness, entry=None):
-    return "%s doorbell wait --role %s --harness %s" % (places.command(entry), role, harness.name)
+def wait_command(role, harness, slug, entry=None):
+    return "%s doorbell wait --role %s --harness %s --slug %s" % (places.command(entry), role, harness.name, slug)
 
 
-def ring_command(role, line, harness):
-    return command('ring --role %s --line "%s"' % (role, line), harness) + " --write"
+def ring_command(role, line, harness, slug):
+    return '%s doorbell ring --role %s --line "%s" --harness %s --slug %s --write' % (
+        places.command(), role, line, harness.name, slug)
 
 
-def paste_command(role, harness, entry=None):
-    return '%s doorbell take --role %s --pasted "<the line the user pastes>" --harness %s' % (
-        places.command(entry), role, harness.name)
+def paste_command(role, harness, slug, entry=None):
+    return '%s doorbell take --role %s --pasted "<the line the user pastes>" --harness %s --slug %s' % (
+        places.command(entry), role, harness.name, slug)
 
 
-def wait_next(role, harness, entry=None):
-    return harness.wait_next(role, wait_command(role, harness, entry), paste_command(role, harness, entry))
+def wait_next(role, harness, slug, entry=None):
+    return harness.wait_next(role, wait_command(role, harness, slug, entry), paste_command(role, harness, slug, entry))
 
 
 # --- the commands ---
 
 HELP = [
-    "doorbell ring --role <Planner|Orchestrator> --line \"<Doorbell>\" --harness <h> --write",
+    "doorbell ring --role <Planner|Orchestrator> --line \"<Doorbell>\" --harness <h> --slug <slug> --write",
     "  Ring the other Role: append the Doorbell line to the Doorbell file, addressed to it. Run it in the",
     "  foreground. It refuses a line that matches no Doorbell template for your Role and names the template.",
     "  Without --write it prints what it would append and changes nothing; ringing the same line twice",
     "  appends it once.",
     "",
-    "doorbell wait --role <Planner|Orchestrator> --harness <h>",
+    "doorbell wait --role <Planner|Orchestrator> --harness <h> --slug <slug>",
     "  Wait for a Doorbell addressed to your Role. Start it only as a Next: line names it. It reads the",
     "  Doorbell file every 10 seconds and exits when a new Doorbell is waiting, naming the take command,",
     "  or prints TIMEOUT after 45 minutes. While it runs, ring and take name no second wait: their Next:",
     "  says your wait still runs. On codex it arms the Stop hook instead and returns at once.",
     "",
-    "doorbell take --role <Planner|Orchestrator> --harness <h> [--pasted \"<line>\"] [--restart | --resumed]",
+    "doorbell take --role <Planner|Orchestrator> --harness <h> --slug <slug> [--pasted \"<line>\"]",
+    "              [--restart | --resumed]",
     "  Take the newest Doorbell addressed to your Role and record it, and every line before it, as handled.",
     "  Run it in the foreground on a wake, or with --pasted for a line the user pasted. A Doorbell already",
     "  handled (same sender and round) is reported and not acted on twice. A line that is not a Doorbell is",
@@ -271,8 +289,11 @@ HELP = [
     "  Once PLAN-REVIEW.md is signed off and the Planner has rung no later round, take and ring name no",
     "  wait: the plan Loop is over.",
     "",
-    "--harness takes claude-code, codex, cursor, copilot-cli or generic: the Harness LOOP.md's Harness: line",
-    "names (generic when it has none). Run every command from the repository root.",
+    "  ring and wait refuse on a closed loop.",
+    "",
+    "--harness takes claude-code, codex, cursor, copilot-cli or generic: the Harness the Loop file's Harness:",
+    "line names. --slug names the loop; pass it on every call. Without it the tool takes the loop whose feature",
+    "branch is checked out, else the only open loop. Run every command from the repository root.",
 ]
 
 SPEC = {
@@ -283,6 +304,7 @@ SPEC = {
     "pasted": args.VALUE,
     "restart": args.FLAG,
     "resumed": args.FLAG,
+    "slug": args.VALUE,
 }
 
 
@@ -312,22 +334,23 @@ def run(argv):
     role = values["role"]
     if role not in ROLES:
         raise Failure("--role takes Planner or Orchestrator.", "Run %s for the usage." % usage())
+    place = Place.find(values["slug"])
     if sub == "ring":
         args.require(values, ["line"], usage())
-        return ring(role, values["line"], harness, values["write"])
+        return ring(place, role, values["line"], harness, values["write"])
     if sub == "wait":
-        return wait(role, harness)
-    return take(role, harness, values["pasted"], values["restart"], values["resumed"])
+        return wait(place, role, harness)
+    return take(place, role, harness, values["pasted"], values["restart"], values["resumed"])
 
 
-def ring(role, line, harness, write):
-    place = Place()
+def ring(place, role, line, harness, write):
     to = OTHER[role]
     doorbell = parse(line, to, place.tracker)
     if doorbell is None:
         lines = ["Not a Doorbell the %s rings: %s" % (role, line), "The %s rings:" % role]
         lines += ["  " + t for t in templates_to(to, place.tracker)]
         raise Failure(lines, "Fill in the template exactly and ring again. Nothing was written.")
+    place.require_open("a ring")
     out = Output()
     last = place.entries(to)
     already = bool(last) and last[-1].text == line
@@ -346,7 +369,7 @@ def ring(role, line, harness, write):
             )
         out.line("Rung: the Doorbell file now holds it, addressed to the %s." % to)
     if role == "Planner" and doorbell.round == 1:
-        launch = harness.orchestrator_launch()
+        launch = harness.orchestrator_launch(place.slug)
         out.tell("Start the Orchestrator now: %s." % launch)
         if harness.name == "generic":
             out.tell("Paste the Doorbell below into it once it is up.")
@@ -361,14 +384,13 @@ def ring(role, line, harness, write):
     entries = place.entries(role)
     _, new = pending(entries, place.load_state(role))
     if new:
-        return out.finish("A Doorbell for you is already waiting. Run: %s" % take_command(role, harness))
+        return out.finish("A Doorbell for you is already waiting. Run: %s" % take_command(role, harness, place.slug))
     if role == "Orchestrator" and doorbell.signed_off:
         return out.finish(SIGNED_OFF_NEXT)
     return out.finish(wait_or_hold(place, role, harness))
 
 
-def take(role, harness, pasted, restart, resumed=False):
-    place = Place()
+def take(place, role, harness, pasted, restart, resumed=False):
     if restart:
         if role != "Orchestrator":
             raise Failure("--restart is the Orchestrator's.", "Run take without --restart.")
@@ -420,7 +442,7 @@ def take_pasted(place, role, harness, entries, state, line, out):
 def after_nothing(place, role, harness, entries, state):
     _, new = pending(entries, state)
     if new:
-        return "A Doorbell for you is waiting in the Doorbell file. Run: %s" % take_command(role, harness)
+        return "A Doorbell for you is waiting in the Doorbell file. Run: %s" % take_command(role, harness, place.slug)
     return wait_or_hold(place, role, harness)
 
 
@@ -478,13 +500,13 @@ def take_restart(place, harness):
         return out.finish("Spawn the Plan-Reviewer fresh with the Spawn prompt, as your skill says.")
     if round_number is None:
         out.line("No Planner Doorbell in the Doorbell file yet.")
-        return out.finish(wait_next(role, harness))
+        return out.finish(wait_next(role, harness, place.slug))
     relay = "VDD Plan-Reviewer: PLAN-REVIEW.md written, round %d. Read it." % round_number
     if newest:
         out.line("The newest Planner Doorbell, round %d, is already handled." % newest.doorbell.round)
     else:
         out.line("No Planner Doorbell in the Doorbell file.")
-    return out.finish("Relay the restart line to the Planner. Run: %s" % ring_command(role, relay, harness))
+    return out.finish("Relay the restart line to the Planner. Run: %s" % ring_command(role, relay, harness, place.slug))
 
 
 # --- the wait ---
@@ -572,7 +594,7 @@ def wait_or_hold(place, role, harness):
             "Your wait for the %s's Doorbell still runs and wakes you when one arrives: end your turn, "
             "and start no other wait." % OTHER[role]
         )
-    return wait_next(role, harness)
+    return wait_next(role, harness, place.slug)
 
 
 def own_marker(place, role, token):
@@ -631,8 +653,8 @@ def end_on_signal():
                 pass
 
 
-def wait(role, harness):
-    place = Place()
+def wait(place, role, harness):
+    place.require_open("a wait")
     if harness.name == "codex":
         return arm(place, role, harness)
     end_on_signal()
@@ -642,30 +664,30 @@ def wait(role, harness):
     except OSError as error:
         raise Failure(
             "The wait could not read its files: %s" % error,
-            hand_relay(role, harness),
+            hand_relay(role, harness, place.slug),
         )
     finally:
         marker.clear()
     out = Output()
     if found:
         out.line("A Doorbell for the %s is waiting." % role)
-        return out.finish("Run: %s" % take_command(role, harness))
+        return out.finish("Run: %s" % take_command(role, harness, place.slug))
     out.line("TIMEOUT")
-    return out.finish(timeout_next(role, harness))
+    return out.finish(timeout_next(role, harness, place.slug))
 
 
-def timeout_next(role, harness, entry=None):
+def timeout_next(role, harness, slug, entry=None):
     return (
         "Ask the user whether to keep waiting. On yes: %s On no, ask the user to paste the %s's next "
         "Doorbell here, then run: %s"
-        % (wait_next(role, harness, entry), OTHER[role], paste_command(role, harness, entry))
+        % (wait_next(role, harness, slug, entry), OTHER[role], paste_command(role, harness, slug, entry))
     )
 
 
-def hand_relay(role, harness):
+def hand_relay(role, harness, slug):
     return (
         "Tell the user in one line that this wait cannot run, so they paste the %s's next Doorbell here. "
-        "With the pasted line, run: %s" % (OTHER[role], paste_command(role, harness))
+        "With the pasted line, run: %s" % (OTHER[role], paste_command(role, harness, slug))
     )
 
 
@@ -678,20 +700,20 @@ def arm(place, role, harness):
     if not THREAD_ID.match(thread):
         raise Failure(
             "Cannot arm the Codex Stop hook: CODEX_THREAD_ID is empty or not a thread id.",
-            hand_relay(role, harness),
+            hand_relay(role, harness, place.slug),
         )
     try:
         state = place.load_state(role)
         entries = place.entries(role, LOCK_RETRY_SECONDS)
     except OSError as error:
-        raise Failure("The wait could not read its files: %s" % error, hand_relay(role, harness))
+        raise Failure("The wait could not read its files: %s" % error, hand_relay(role, harness, place.slug))
     count = min(state.count, len(entries))
     data = "%s%s\n%s %d\n" % (ARMED_PREFIX, ARMED_VERSION, role, count)
     try:
         os.makedirs(place.dir, exist_ok=True)
         textfile.write(armed_path(place, thread), data.encode("utf-8"))
     except OSError as error:
-        raise Failure("Cannot write the armed file: %s" % error, hand_relay(role, harness))
+        raise Failure("Cannot write the armed file: %s" % error, hand_relay(role, harness, place.slug))
     out = Output()
     out.line("Armed: the Codex Stop hook waits for the %s's next Doorbell when this turn ends." % role)
     return out.finish("End your turn now.")

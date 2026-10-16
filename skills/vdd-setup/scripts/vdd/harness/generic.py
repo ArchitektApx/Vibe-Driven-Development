@@ -48,8 +48,11 @@ class Generic(Harness):
     def codex_hook_steps(self):
         return False
 
-    def orchestrator_launch(self):
-        return "open a second Session in the same Harness and invoke vdd-orchestrator there"
+    def orchestrator_launch(self, slug):
+        return (
+            "open a second Session in the same Harness, invoke vdd-orchestrator there and give it the slug %s"
+            % slug
+        )
 
     def wait_next(self, role, wait_command, paste_command):
         return (

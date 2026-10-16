@@ -72,8 +72,8 @@ def require(values, names, usage):
 
 
 def harness_of(values, usage):
-    """The Harness the --harness option names, as the slug or as LOOP.md's
-    Harness: line spells it ("Claude Code", "Copilot CLI")."""
+    """The Harness the --harness option names, as the slug or as the Loop
+    file's Harness: line spells it ("Claude Code", "Copilot CLI")."""
     name = values.get("harness")
     if name is None:
         require(values, ["harness"], usage)
