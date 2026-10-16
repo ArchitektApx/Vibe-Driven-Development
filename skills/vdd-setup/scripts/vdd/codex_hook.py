@@ -1,11 +1,14 @@
 """The Codex Stop hook: codex-stop.
 
-Codex runs it at every turn end of a Session whose cwd holds a LOOP.md (the
-hook string's shell guard keeps Python from starting otherwise). It reads the
-hook input on standard input, claims (deletes) the armed file `doorbell wait
---harness codex` wrote for this Session, waits on the Doorbell file as `wait`
+Codex runs it at every turn end of a Session whose project holds an armed
+Codex wait, .scratch/<slug>/codex-armed-<session id> (the hook string's shell
+guard keeps Python from starting otherwise). It reads the hook input on
+standard input and finds this Session's armed file, which `doorbell wait
+--harness codex` wrote, in any loop's tracker directory: the loop is that
+directory. It claims (deletes) the file, waits on the Doorbell file as `wait`
 does, and on a pending Doorbell or TIMEOUT prints Codex's block decision, so
-Codex continues the Session with the reason as its prompt.
+Codex continues the Session with the reason as its prompt. It reads no Loop
+file: only a Codex wait writes an armed file.
 
 It exits 0 on every path, exceptions included: Codex reads exit 2 as a block
 and repeats it without limit. Everything it needs is imported here, at start,
@@ -35,9 +38,6 @@ def run(argv):
 
 def hook():
     cwd = os.getcwd()
-    loop = loopfile.read(cwd)
-    if loop is None or not loop.is_codex() or not loop.tracker_ok():
-        return
     data = sys.stdin.buffer.read() if hasattr(sys.stdin, "buffer") else b""
     try:
         event = json.loads(textfile.decode(data))
@@ -46,22 +46,52 @@ def hook():
     session = event.get("session_id") if isinstance(event, dict) else None
     if not isinstance(session, str) or not doorbell.THREAD_ID.match(session):
         return
-    claimed = claim(os.path.join(loop.tracker_dir(), "codex-armed-" + session))
+    found = armed_files(cwd, session)
+    if not found:
+        return
+    # Two loops armed for one Session: the newer wait is the live one, and
+    # the older file would keep the guard true for nothing.
+    found.sort()
+    for _, path, _ in found[:-1]:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    _, path, slug = found[-1]
+    claimed = claim(path)
     if claimed is None:
         return
     role, count = claimed
-    place = doorbell.Place(cwd, os.path.basename(loop.tracker_dir()))
+    place = doorbell.Place(cwd, slug)
     entry = places.shared_entry()
     harness = codex_harness.HARNESS
     if doorbell.watch(place, role, floor=count):
         reason = "A Doorbell for the %s is waiting. Next: run %s" % (
-            role, doorbell.take_command(role, harness, place.slug, entry))
+            role, doorbell.take_command(role, harness, slug, entry))
     else:
-        reason = "TIMEOUT. Next: " + doorbell.timeout_next(role, harness, place.slug, entry)
+        reason = "TIMEOUT. Next: " + doorbell.timeout_next(role, harness, slug, entry)
     reason = "".join(c for c in reason if ord(c) >= 32 and ord(c) != 127)
     text = json.dumps({"decision": "block", "reason": reason}, ensure_ascii=True)
     sys.stdout.buffer.write((text + "\n").encode("ascii"))
     sys.stdout.buffer.flush()
+
+
+def armed_files(root, session):
+    """[(modification time, path, slug)] of .scratch/*/codex-armed-<session>."""
+    found = []
+    scratch = loopfile.scratch(root)
+    try:
+        names = os.listdir(scratch)
+    except OSError:
+        return found
+    for name in names:
+        path = os.path.join(scratch, name, loopfile.ARMED_PREFIX + session)
+        try:
+            if os.path.isfile(path):
+                found.append((os.path.getmtime(path), path, name))
+        except OSError:
+            pass
+    return found
 
 
 def claim(path):

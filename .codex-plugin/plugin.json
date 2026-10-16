@@ -22,8 +22,8 @@
           "hooks": [
             {
               "type": "command",
-              "command": "[ ! -f LOOP.md ] || python3 \"${PLUGIN_ROOT}/skills/vdd-setup/scripts/vdd.py\" codex-stop || true",
-              "commandWindows": "if (Test-Path LOOP.md) { py -3 \"${PLUGIN_ROOT}\\skills\\vdd-setup\\scripts\\vdd.py\" codex-stop }; exit 0",
+              "command": "[ ! -d .scratch ] || [ -z \"$(find .scratch -mindepth 2 -maxdepth 2 -name 'codex-armed-*' 2>/dev/null)\" ] || python3 \"${PLUGIN_ROOT}/skills/vdd-setup/scripts/vdd.py\" codex-stop || true",
+              "commandWindows": "if (Test-Path .scratch\\*\\codex-armed-*) { py -3 \"${PLUGIN_ROOT}\\skills\\vdd-setup\\scripts\\vdd.py\" codex-stop }; exit 0",
               "timeout": 2760
             }
           ]

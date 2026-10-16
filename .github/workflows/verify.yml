@@ -311,7 +311,10 @@ jobs:
       # which only Codex reads, in the fixed form below. No other hook, no MCP
       # servers, no symlinks and no executable files: each would end up on
       # every installer's machine. Codex's trust covers the hook's command
-      # string, so a changed string is a hook every user trusts again. If
+      # string, so a changed string is a hook every user trusts again. The
+      # guard tests for an armed Codex wait with find, not a bare glob: zsh,
+      # the macOS default shell, aborts on an unmatched glob with exit 1, which
+      # Codex shows as "Hook failed" at every turn end. If
       # anything here changes deliberately, edit this step in the same PR so
       # the reviewer sees both.
       - name: Reject executable surface
@@ -333,8 +336,8 @@ jobs:
             const c = JSON.parse(require("fs").readFileSync(".codex-plugin/plugin.json", "utf8"));
             const hook = {
               type: "command",
-              command: "[ ! -f LOOP.md ] || python3 \"${PLUGIN_ROOT}/skills/vdd-setup/scripts/vdd.py\" codex-stop || true",
-              commandWindows: "if (Test-Path LOOP.md) { py -3 \"${PLUGIN_ROOT}\\skills\\vdd-setup\\scripts\\vdd.py\" codex-stop }; exit 0",
+              command: "[ ! -d .scratch ] || [ -z \"$(find .scratch -mindepth 2 -maxdepth 2 -name '\''codex-armed-*'\'' 2>/dev/null)\" ] || python3 \"${PLUGIN_ROOT}/skills/vdd-setup/scripts/vdd.py\" codex-stop || true",
+              commandWindows: "if (Test-Path .scratch\\*\\codex-armed-*) { py -3 \"${PLUGIN_ROOT}\\skills\\vdd-setup\\scripts\\vdd.py\" codex-stop }; exit 0",
               timeout: 2760,
             };
             const expected = { hooks: { Stop: [{ hooks: [hook] }] } };
