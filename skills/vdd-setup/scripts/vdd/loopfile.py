@@ -120,9 +120,38 @@ def check_slug(slug):
         )
 
 
+def project_root(cwd):
+    """The directory the loops live under: the repository's top level, so a
+    command run from a subdirectory, the tracker directory included, finds
+    them; the working directory outside git."""
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError:
+        return cwd
+    top = textfile.decode(proc.stdout).strip()
+    if proc.returncode != 0 or not top:
+        return cwd
+    return os.path.normpath(top)
+
+
+def has_root_file(root):
+    """Whether root holds a file named exactly LOOP.md. A listing, not a path
+    test: on a case-insensitive file system the path LOOP.md also finds a
+    loop.md."""
+    try:
+        return ROOT_FILE in os.listdir(root)
+    except OSError:
+        return False
+
+
 def refuse_root(root):
     """Refuse while a format-1 root LOOP.md exists."""
-    if os.path.exists(os.path.join(root, ROOT_FILE)):
+    if has_root_file(root):
         raise Failure(
             [
                 "LOOP.md at the repository root is a Loop file from before this version of VDD (format 1). "

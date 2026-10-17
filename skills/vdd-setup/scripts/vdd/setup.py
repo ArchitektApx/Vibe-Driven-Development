@@ -370,7 +370,7 @@ class Setup:
     def root_loop_file(self):
         """A root LOOP.md is a format-1 Loop file: reported with its fix, never
         deleted. loop new is where a loop start stops on it."""
-        if not os.path.exists(os.path.join(self.cwd, loopfile.ROOT_FILE)):
+        if not loopfile.has_root_file(self.cwd):
             return
         self.out.line("LOOP.md: a Loop file from before this version of VDD (format 1) is at the repository root. "
                       "No command reads it, and every loop command refuses while it is there.")

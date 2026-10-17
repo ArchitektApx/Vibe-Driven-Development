@@ -297,6 +297,20 @@ class DoorbellTest(ToolTest):
                     self.assertEqual(result.tells(), [ROOT_FIX])
         self.assertFalse(os.path.exists(self.box.path(".scratch", "x", "doorbells")))
 
+    def test_a_command_run_from_the_tracker_directory_acts_on_the_loop(self):
+        """A Role's shell can be left in the tracker directory after a cd;
+        the Doorbell finds the loop from the repository root all the same."""
+        self.box.init_git("main")
+        where = self.box.path(".scratch", "x")
+        rung = self.box.run("doorbell", "ring", "--role", "Planner", "--line", P1, "--write",
+                            "--harness", "claude-code", "--slug", "x", cwd=where)
+        self.assertEqual(rung.code, 0, rung)
+        taken = self.box.run("doorbell", "take", "--role", "Orchestrator", "--harness", "claude-code",
+                             "--slug", "x", cwd=where)
+        self.assertEqual(taken.code, 0, taken)
+        self.assertIn(P1, taken.text)
+        self.assertFalse(os.path.exists(os.path.join(where, ".scratch")))
+
     # --- the loop by slug, and a closed loop ---
 
     def test_every_command_a_next_line_names_carries_the_slug(self):

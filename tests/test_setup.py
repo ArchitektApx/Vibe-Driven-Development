@@ -346,6 +346,14 @@ class SetupTest(ToolTest):
                 self.assertEqual(self.proj_files(), [".git", "sub"])
                 self.assertFalse(os.path.exists(self.box.shared))
 
+    def test_a_loop_md_in_lowercase_is_not_reported_as_a_root_loop_file(self):
+        """Only a file named exactly LOOP.md is a format-1 Loop file; on a
+        case-insensitive file system a path test would match loop.md too."""
+        self.box.write("loop.md", "x\n")
+        result = self.setup("claude-code", "writing-for-agents", "yes")
+        self.assertEqual(result.code, 0, result)
+        self.assertNotIn("LOOP.md", result.text)
+
     def test_a_root_loop_file_is_reported_with_its_fix_and_no_question(self):
         """A root LOOP.md is a format-1 Loop file: Setup reports it with the
         fix and asks no delete question, its other checks still run, and its

@@ -92,7 +92,7 @@ def run(argv):
     if values["help"]:
         return run(["--help"])
     harness = args.harness_of(values, usage()) if values["harness"] is not None or sub == "new" else None
-    root = os.getcwd()
+    root = loopfile.project_root(os.getcwd())
     if sub == "new":
         return new(root, values, harness)
     if sub == "aside":

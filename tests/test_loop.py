@@ -398,6 +398,37 @@ class FindTest(LoopTest):
                 self.assertEqual(result.tells(), [ROOT_FIX])
         self.assertIn("PR: ask at sign-off", self.file())
 
+    def test_a_command_run_below_the_repository_root_acts_on_the_loop(self):
+        """A Role's shell can be left in a subdirectory after a cd, the
+        tracker directory included. There a check for LOOP.md by path also
+        matched the loop's own loop.md on a case-insensitive file system, so
+        loop close refused and told the user to delete LOOP.md."""
+        self.box.write_loop("demo")
+        os.makedirs(self.box.path("src"))
+        for where in (self.box.path(".scratch", "demo"), self.box.path("src")):
+            with self.subTest(where=os.path.relpath(where, self.box.proj)):
+                shown = self.box.run("loop", "show", "--slug", "demo", cwd=where)
+                self.assertEqual(shown.code, 0, shown)
+                self.assertEqual(shown.lines[0], "Slug: demo")
+                self.assertEqual(self.box.run("loop", "show", cwd=where).lines[0], "Slug: demo")
+                closed = self.box.run("loop", "close", "--slug", "demo", "--write", cwd=where)
+                self.assertEqual(closed.code, 0, closed)
+                self.assertEqual(closed.tells(), [])
+                self.assertTrue(self.file(name="loop-state").endswith("loop closed\n"))
+                reopened = self.box.run("loop", "reopen", "--slug", "demo", "--write", cwd=where)
+                self.assertEqual(reopened.code, 0, reopened)
+        self.assertEqual(sorted(os.listdir(self.box.path(".scratch"))), ["demo"])
+        self.assertFalse(os.path.exists(self.box.path("src", ".scratch")))
+
+    def test_only_a_file_named_exactly_loop_md_in_capitals_refuses(self):
+        """A case-insensitive file system answers a path test for LOOP.md
+        with any spelling of it, so the check reads the directory listing."""
+        self.box.write_loop("demo")
+        self.box.write("Loop.md", "notes\n")
+        result = self.loop("show", "--slug", "demo")
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(result.tells(), [])
+
 
 
 class LeftoverTest(LoopTest):

@@ -120,7 +120,7 @@ class Place:
     @classmethod
     def find(cls, slug=None):
         """The Place of the loop --slug names, or the lookup finds."""
-        loop = loopfile.find(os.getcwd(), slug)
+        loop = loopfile.find(loopfile.project_root(os.getcwd()), slug)
         place = cls(loop.root, loop.slug)
         place.loop = loop
         return place
