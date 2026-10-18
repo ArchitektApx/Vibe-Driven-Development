@@ -1,7 +1,7 @@
 """Command-line options: --name value, --name=value, and --flag."""
 
 from .out import Failure
-from . import harness
+from . import harness, places
 
 VALUE = "value"
 FLAG = "flag"
@@ -60,6 +60,28 @@ def parse(argv, spec, usage):
             values[name] = value
         i += 1
     return values
+
+
+def unknown_command(typed, usage):
+    """Raise the Failure for a word in a command's place that names no
+    command. typed is the command as far as it was read ("loop --slug"); usage
+    is the --help command that lists the commands there. An option in that
+    place is out of order, not a command from a newer skill, so it gets the
+    order and not "rerun Setup"."""
+    word = typed.split(" ")[-1]
+    if word.startswith("-"):
+        raise Failure(
+            "Option before its command: %s" % word,
+            "Put every option after the group and its command, as in %s loop show --role <Role> --slug <slug>, "
+            "and run it again. Run %s for the commands." % (places.command(), usage),
+        )
+    raise Failure(
+        [
+            "Unknown command: %s" % typed,
+            "This copy of the VDD tool may be older than the skill that called it: rerun Setup.",
+        ],
+        "Tell the user this copy of the VDD tool is out of date and to rerun Setup, then retry.",
+    )
 
 
 def require(values, names, usage):

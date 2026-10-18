@@ -81,13 +81,7 @@ def run(argv):
         return out.finish("Run the loop command your skill or the last Next: line names.")
     sub, rest = argv[0], argv[1:]
     if sub not in SUBCOMMANDS:
-        raise Failure(
-            [
-                "Unknown command: loop %s" % sub,
-                "This copy of the VDD tool may be older than the skill that called it: rerun Setup.",
-            ],
-            "Tell the user this copy of the VDD tool is out of date and to rerun Setup, then retry.",
-        )
+        args.unknown_command("loop " + sub, usage())
     values = args.parse(rest, SPEC, usage())
     if values["help"]:
         return run(["--help"])

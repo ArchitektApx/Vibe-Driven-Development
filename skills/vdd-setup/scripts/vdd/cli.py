@@ -1,7 +1,7 @@
 """Dispatch and the top level of --help. Each command group lives in its own
 module, imported only when that group runs."""
 
-from . import places
+from . import args, places
 from .out import Failure, Output, refused
 
 # Command group -> one-line summary.
@@ -46,22 +46,12 @@ def load(name):
     return module
 
 
-def unknown(name):
-    raise Failure(
-        [
-            "Unknown command: %s" % name,
-            "This copy of the VDD tool may be older than the skill that called it: rerun Setup.",
-        ],
-        "Tell the user this copy of the VDD tool is out of date and to rerun Setup, then retry.",
-    )
-
-
 def main(argv):
     try:
         if not argv or argv[0] in ("-h", "--help", "help"):
             return top_help()
         if argv[0] not in GROUPS:
-            unknown(argv[0])
+            args.unknown_command(argv[0], "%s --help" % places.command())
         return load(argv[0]).run(argv[1:])
     except Failure as failure:
         return failure.emit()
