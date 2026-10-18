@@ -6,7 +6,7 @@ import unittest
 
 from vddtest import ToolTest
 
-ANSWERS = ["--minors", "fix", "--pr", "ask at sign-off", "--fresh-coder", "every round"]
+ANSWERS = ["--minors", "fix", "--pr", "ask at sign-off"]
 ROOT_FIX = (
     "Delete `LOOP.md`. To carry on the loop it belongs to, run `vdd-start-loop` with its slug and answer continue."
 )
@@ -66,11 +66,9 @@ class NewTest(LoopTest):
         self.assertIn("Base branch: main (from the checked-out branch).", result.lines)
         questions = [line for line in result.lines if line.startswith("Question ")]
         self.assertEqual([q.split(":")[0] for q in questions],
-                         ["Question 1, feature branch", "Question 2, Minors", "Question 3, PR",
-                          "Question 4, Fresh Coder"])
-        fresh = questions[3]
-        self.assertIn('"Every round" (recommended)', fresh)
-        self.assertIn("over 200k", fresh)
+                         ["Question 1, feature branch", "Question 2, Minors", "Question 3, PR"])
+        self.assertNotIn("Fresh Coder", result.text)
+        self.assertNotIn("--fresh-coder", result.last)
         self.assertNext(result, "loop new --slug demo", "--write")
 
     def test_write_writes_the_loop_file_and_the_state_file(self):
@@ -80,9 +78,9 @@ class NewTest(LoopTest):
         self.assertEqual(
             self.file(),
             "# VDD Loop\n\nFormat: 2\nFeature: demo\nBase branch: main\nFeature branch: demo\nMinors: fix\n"
-            "PR: ask at sign-off\nFresh Coder: every round\nHarness: Claude Code\n",
+            "PR: ask at sign-off\nHarness: Claude Code\n",
         )
-        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 1\nloop open\n")
+        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 2\nloop open\n")
         self.assertNext(result, "--slug demo")
 
     def test_write_needs_every_answer(self):
@@ -90,28 +88,21 @@ class NewTest(LoopTest):
         self.assertNotEqual(result.code, 0, result)
         self.assertFalse(os.path.exists(self.box.path(".scratch", "demo")))
 
-    def test_the_fresh_coder_question_per_harness(self):
-        cases = {
-            "codex": ('"Never" (recommended)', False),
-            "cursor": ('"Every round" (recommended)', False),
-            "copilot-cli": ('"Every round" (recommended)', False),
-            "generic": (None, False),
-        }
-        for harness, (recommended, limit) in cases.items():
-            with self.subTest(harness=harness):
-                result = self.new(harness=harness)
-                fresh = [line for line in result.lines if line.startswith("Question 4, Fresh Coder")][0]
-                if recommended:
-                    self.assertIn(recommended, fresh)
-                    self.assertEqual(fresh.count("(recommended)"), 1)
-                else:
-                    self.assertNotIn("recommended", fresh)
-                self.assertNotIn("over ", fresh)
+    def test_the_respawn_question_left_loop_new(self):
+        """The Respawn policy moved into the state file, asked at Model
+        approval (Ticket 02): loop new takes no --fresh-coder, in a dry run or
+        with --write."""
+        for extra in ((), ("--write",)):
+            with self.subTest(extra=extra):
+                result = self.new("demo", *(ANSWERS + ["--fresh-coder", "never"] + list(extra)))
+                self.assertNotEqual(result.code, 0, result)
+                self.assertIn("Unknown option: --fresh-coder", result.text)
+        self.assertFalse(os.path.exists(self.box.path(".scratch", "demo")))
 
     def test_answers_given_are_not_asked(self):
         result = self.new("demo", "--branch", "feat/demo", "--minors", "leave")
         names = [line.split(":")[0] for line in result.lines if line.startswith("Question ")]
-        self.assertEqual(names, ["Question 1, PR", "Question 2, Fresh Coder"])
+        self.assertEqual(names, ["Question 1, PR"])
 
     def test_the_harness_line_is_the_display_name(self):
         for harness, label in (("codex", "Codex"), ("copilot-cli", "Copilot CLI"), ("generic", "Generic")):
@@ -159,7 +150,7 @@ class NewTest(LoopTest):
         self.assertIn("Base branch: main\n", self.file())
 
     def test_an_answer_outside_the_accepted_values_is_refused(self):
-        result = self.new("demo", "--minors", "Fix", "--pr", "yes", "--fresh-coder", "never", write=True)
+        result = self.new("demo", "--minors", "Fix", "--pr", "yes", write=True)
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("fix or leave", result.text)
 
@@ -181,7 +172,6 @@ class ShowTest(LoopTest):
             "Feature branch: demo",
             "Minors: fix",
             "PR: ask at sign-off",
-            "Fresh Coder: every round",
             "Harness: Claude Code",
             "Harness file: harness-claude-code.md",
         ])
@@ -193,7 +183,7 @@ class ShowTest(LoopTest):
             "Plan-Reviewer": ["Minors", "Harness"],
             "Coder": ["Base branch", "Feature branch", "Harness"],
             "Code-Reviewer": ["Base branch", "Minors", "Harness"],
-            "Orchestrator": ["Feature", "Base branch", "Feature branch", "Minors", "PR", "Fresh Coder", "Harness"],
+            "Orchestrator": ["Feature", "Base branch", "Feature branch", "Minors", "PR", "Harness"],
             "PR-Author": ["Base branch", "Feature branch", "PR", "Harness"],
         }
         for role, names in roles.items():
@@ -219,8 +209,8 @@ class ShowTest(LoopTest):
     def test_a_missing_line_and_a_malformed_line_each_name_their_fault(self):
         """Respawn finding 1: a missing line was reported as malformed. Each
         line reads as its default, with the right word, and the user is told."""
-        defaults = {"Minors": "leave", "PR": "ask at sign-off", "Fresh Coder": "never", "Harness": "Generic"}
-        bad = {"Minors": "maybe", "PR": "sometimes", "Fresh Coder": "Every Round", "Harness": "Vim"}
+        defaults = {"Minors": "leave", "PR": "ask at sign-off", "Harness": "Generic"}
+        bad = {"Minors": "maybe", "PR": "sometimes", "Harness": "Vim"}
         original = self.file()
         for name, default in defaults.items():
             for fault, value in (("missing", None), ("malformed", bad[name])):
@@ -243,13 +233,6 @@ class ShowTest(LoopTest):
 
     def test_the_accepted_values(self):
         cases = {
-            ("Fresh Coder", "over 300k"): True,
-            ("Fresh Coder", "over 1k"): True,
-            ("Fresh Coder", "every round"): True,
-            ("Fresh Coder", "never"): True,
-            ("Fresh Coder", "over 0k"): False,
-            ("Fresh Coder", "over 200000"): False,
-            ("Fresh Coder", "Every Round"): False,
             ("Minors", "Fix"): False,
             ("Minors", "leave"): True,
             ("PR", "Ask at sign-off"): False,
@@ -303,16 +286,14 @@ class SetTest(LoopTest):
         self.assertIn("Harness: Codex\n", self.file())
         self.assertIn("Harness file: harness-codex.md", self.loop("show", "--slug", "demo").lines)
 
-    def test_a_harness_correction_asks_the_fresh_coder_question_again(self):
-        """Start-Loop's Harness correction: the corrected Harness's Fresh Coder
-        recommendation and limit, asked once more before the write."""
+    def test_set_refuses_fresh_coder(self):
+        """The Coder's respawn line left the Loop file (Ticket 02): loop set
+        refuses it as an unknown option and writes nothing."""
         before = self.file()
-        result = self.loop("set", "--slug", "demo", "--harness-line", "Codex")
-        self.assertEqual(result.code, 0, result)
+        result = self.loop("set", "--slug", "demo", "--fresh-coder", "never", "--write")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertIn("Unknown option: --fresh-coder", result.text)
         self.assertEqual(self.file(), before)
-        question = [line for line in result.lines if line.startswith("Question 1, Fresh Coder")][0]
-        self.assertIn('"Never" (recommended)', question)
-        self.assertNext(result, "--harness-line Codex", '--fresh-coder "<answer>"', "--write")
 
     def test_set_without_write_changes_nothing(self):
         before = self.file()
@@ -338,12 +319,49 @@ class SetTest(LoopTest):
 
     def test_set_refuses_a_value_outside_the_accepted_values(self):
         before = self.file()
-        for option, value in (("--minors", "Fix"), ("--pr", "maybe"), ("--fresh-coder", "over 0k"),
-                              ("--harness-line", "claude-code")):
+        for option, value in (("--minors", "Fix"), ("--pr", "maybe"), ("--harness-line", "claude-code")):
             with self.subTest(option=option):
                 result = self.loop("set", "--slug", "demo", option, value, "--write")
                 self.assertNotEqual(result.code, 0, result)
         self.assertEqual(self.file(), before)
+
+
+class VersionOneTest(LoopTest):
+    """A loop 0.16.0-beta.3 started: state file version 1 and a Loop file
+    with the Coder's respawn line. Every loop command still reads it
+    (Ticket 02)."""
+
+    def setUp(self):
+        LoopTest.setUp(self)
+        text = (
+            "# VDD Loop\n\nFormat: 2\nFeature: demo\nBase branch: main\nFeature branch: demo\nMinors: fix\n"
+            "PR: ask at sign-off\nFresh Coder: over 300k\nHarness: Claude Code\n"
+        )
+        self.box.write_loop("demo", text=text, version=1)
+
+    def test_show_reads_it_and_ignores_the_respawn_line(self):
+        result = self.loop("show", "--slug", "demo")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("State: open", result.lines)
+        self.assertFalse([line for line in result.lines if line.startswith("Fresh Coder")], result)
+        self.assertEqual(result.tells(), [])
+
+    def test_close_then_reopen_work(self):
+        closed = self.loop("close", "--slug", "demo", "--write")
+        self.assertEqual(closed.code, 0, closed)
+        self.assertIn("State: closed", self.loop("show", "--slug", "demo").lines)
+        reopened = self.loop("reopen", "--slug", "demo", "--write")
+        self.assertEqual(reopened.code, 0, reopened)
+        self.assertIn("State: open", self.loop("show", "--slug", "demo").lines)
+        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 1\nloop open\nloop closed\nloop open\n")
+
+    def test_a_newer_state_version_is_refused_as_out_of_date(self):
+        self.box.write(os.path.join(".scratch", "demo", "loop-state"), "vdd loop-state 3\nloop open\n")
+        result = self.loop("show", "--slug", "demo")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("out of date", result.text)
+        self.assertIn("rerun Setup", result.text)
 
 
 class FindTest(LoopTest):
@@ -505,14 +523,14 @@ class LeftoverTest(LoopTest):
             self.assertIn(answer, question)
         asked = self.new("demo", "--leftover", "continue")
         self.assertEqual(asked.code, 0, asked)
-        self.assertTrue(any(line.startswith("Question 4, Fresh Coder") for line in asked.lines), asked)
+        self.assertTrue(any(line.startswith("Question 3, PR") for line in asked.lines), asked)
         self.assertNext(asked, "--leftover continue", "--write")
         written = self.new("demo", "--leftover", "continue", *ANSWERS, write=True)
         self.assertEqual(written.code, 0, written)
         self.assertEqual(self.box.read(os.path.join(".scratch", "demo", "spec.md")), "spec\n")
         self.assertEqual(self.box.read(os.path.join(".scratch", "demo", "issues", "01-x.md")), "ticket\n")
         self.assertIn("Format: 2\n", self.file())
-        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 1\nloop open\n")
+        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 2\nloop open\n")
 
     def test_a_damaged_state_file_reads_as_a_directory_with_no_state_file(self):
         """CODEREVIEW round 1, finding 2: a damaged loop-state stopped loop
@@ -526,7 +544,7 @@ class LeftoverTest(LoopTest):
             self.assertIn(answer, question)
         written = self.new("demo", "--leftover", "continue", *ANSWERS, write=True)
         self.assertEqual(written.code, 0, written)
-        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 1\nloop open\n")
+        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 2\nloop open\n")
         self.box.write(os.path.join(".scratch", "demo", "loop-state"), "junk\n")
         moved = self.loop("aside", "--slug", "demo", "--write")
         self.assertEqual(moved.code, 0, moved)
@@ -536,11 +554,11 @@ class LeftoverTest(LoopTest):
     def test_continue_appends_to_a_readable_state_file_and_refuses_a_newer_one(self):
         """CODEREVIEW round 2, finding 6: continue rewrote a readable
         loop-state whole, losing its history, and overwrote a newer tool's."""
-        self.box.write(os.path.join(".scratch", "demo", "loop-state"), "vdd loop-state 1\nloop open\nloop closed\n")
+        self.box.write(os.path.join(".scratch", "demo", "loop-state"), "vdd loop-state 2\nloop open\nloop closed\n")
         written = self.new("demo", "--leftover", "continue", *ANSWERS, write=True)
         self.assertEqual(written.code, 0, written)
-        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 1\nloop open\nloop closed\nloop open\n")
-        newer = "vdd loop-state 2\nloop closed\nrounds 3\n"
+        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 2\nloop open\nloop closed\nloop open\n")
+        newer = "vdd loop-state 3\nloop closed\nrounds 3\n"
         self.box.write(os.path.join(".scratch", "later", "loop-state"), newer)
         refused = self.new("later", "--leftover", "continue", *ANSWERS, write=True)
         self.assertNotEqual(refused.code, 0, refused)
@@ -620,11 +638,11 @@ class CloseTest(LoopTest):
         result = self.loop("close", "--slug", "demo", "--write")
         self.assertEqual(result.code, 0, result)
         self.assertContract(result)
-        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 1\nloop open\nloop closed\n")
+        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 2\nloop open\nloop closed\n")
         self.assertIn("State: closed", self.loop("show", "--slug", "demo").lines)
         result = self.loop("reopen", "--slug", "demo", "--write")
         self.assertEqual(result.code, 0, result)
-        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 1\nloop open\nloop closed\nloop open\n")
+        self.assertEqual(self.file(name="loop-state"), "vdd loop-state 2\nloop open\nloop closed\nloop open\n")
         self.assertIn("State: open", self.loop("show", "--slug", "demo").lines)
 
     def test_close_without_write_and_twice_change_nothing(self):
@@ -677,7 +695,7 @@ class PreflightTest(LoopTest):
 
     def write_yes(self, env, slug="demo"):
         return self.box.run("loop", "new", "--slug", slug, "--harness", "claude-code", "--minors", "fix",
-                            "--pr", "yes", "--fresh-coder", "never", "--write", env=env)
+                            "--pr", "yes", "--write", env=env)
 
     def test_the_push_check_judges_the_exit_code_only(self):
         """9e820de: git ls-remote printed fatal: failed to store on a call
