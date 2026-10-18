@@ -53,7 +53,7 @@ A Role and its reviewer exchanging a working file until sign-off. The workflow h
 _Avoid_: cycle, iteration, phase
 
 **Working file**:
-Scratch space for handoff between sessions, gitignored, never part of the user's project. Every Working file sits in the tracker directory: the Loop file, the Spec and the Tickets alongside `PLAN-REVIEW.md`, `FIXES.md`, `CODEREVIEW.md` and the Doorbell file. Matt Pocock's local-markdown issue tracker counts as a Working file because VDD is what invokes it.
+Scratch space for handoff between sessions, gitignored, never part of the user's project. Every Working file sits in the tracker directory: the Loop file, the Spec and the Tickets, the three review files `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`, the Recap `RECAP.md`, and the Doorbell file. Matt Pocock's local-markdown issue tracker counts as a Working file because VDD is what invokes it.
 _Avoid_: artifact, output, deliverable
 
 **Feature slug**:
@@ -109,20 +109,24 @@ The Python program the plugin ships in the Setup skill, `scripts/vdd.py` and its
 _Avoid_: script, CLI, helper
 
 **Sign-off**:
-The literal line `SIGNED OFF` at the top of a review file. The only thing that ends a Loop, withheld while a blocker or a major is open and, on a Minors answer of `fix`, while any minor is open; hedged approval is not sign-off.
+A reviewer's round recorded as `SIGNED OFF`, the status line the VDD tool writes under the review file's title. The only thing that ends a Loop, withheld while a blocker or a major is open and, on a Minors answer of `fix`, while any minor is open; hedged approval is not sign-off.
 _Avoid_: approval, LGTM, done
 
 **Minors answer**:
 The `Minors:` line in the Loop file, `fix` or `leave`, given by the user at Workflow start and read by both reviewers. It decides whether an open minor holds up Sign-off.
 _Avoid_: minors setting, strictness, thoroughness flag
 
-**Fresh Coder line**:
-The `Fresh Coder:` line in the Loop file, `never`, `every round` or `over <n>`, given by the user at Workflow start and read by the Orchestrator before each Coder round. It says when the Coder is respawned: never, every round after the first, or once its reported context size passed `<n>`.
+**Respawn policy**:
+When a hosted Role is respawned: `never`, `every round` after its first, or `over <n>`, once its token count passed `<n>` (Claude Code only). Set per hosted Role in the Loop's state file: the Coder's is asked at Model approval, the reviewers' start at `never`, and any of them changes on the user's word.
 _Avoid_: restart rule, context limit, respawn flag
 
 **Respawn**:
-A hosted Role spawned anew at a later round of the same Loop, in place of a resume. It starts from the Spawn prompt, that round's number and its Working files. The Fresh Coder line and the user's request cause it. A spawn after a restart is not a respawn; restart is the word for the Orchestrator's Session coming back.
+A hosted Role spawned anew at a later round of the same Loop, in place of a resume. It starts from the Spawn prompt, that round's number and its Working files. Its Respawn policy and the user's request cause it. A spawn after a restart is not a respawn; restart is the word for the Orchestrator's Session coming back.
 _Avoid_: fresh spawn, restart
+
+**Recap**:
+`.scratch/<feature slug>/RECAP.md`, the account of one Loop that only the VDD tool writes: every closed finding with what was wrong and how it was resolved, and each Ticket's record. No Role reads it during the Loop; it is for the user afterwards.
+_Avoid_: log, history, archive
 
 **Open minor**:
 A minor the latest review lists as `open`; a minor the reviewer marked `fixed` or `accepted` is closed. On a Minors answer of `fix` an open minor holds up Sign-off, and on `leave` it does not.

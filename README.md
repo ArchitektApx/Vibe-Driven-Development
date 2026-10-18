@@ -280,6 +280,8 @@ Back to the release: `copilot plugin marketplace remove --force vibe-driven-deve
 
 The loop runs in three phases: the Planner and the Plan-Reviewer argue the spec into shape, the Coder and the Code-Reviewer do the same with the code, and the PR-Author ships it. [**docs/VDD-WORKFLOW.md**](docs/VDD-WORKFLOW.md#-the-vibe-driven-development-workflow) walks a loop round by round: what each Role does, what it asks of you, the model recommendations and the tips that keep loops converging.
 
+Before its first spawn the Orchestrator asks you to approve a model for each Role, and with that Model approval, once per loop, whether the Coder starts fresh each round. When the loop is done, `.scratch/<slug>/RECAP.md` is its record: each ticket, and every closed finding with what was wrong and how it was resolved.
+
 ## 🧭 Before the loop
 
 Two optional Roles come before the loop. Both run in your own session, outside any loop, and end in files, never in code. For one change you already understand, skip both and run `/vdd:vdd-start-loop`.

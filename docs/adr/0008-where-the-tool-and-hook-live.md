@@ -24,3 +24,7 @@ Harnesses read those too and run their hooks without asking.
 **Roles running the tool from the plugin root.** Rejected: only Claude Code
 substitutes the root into skill text, and Codex deletes an old version's
 directory under a running Session.
+
+**A copy in the project.** Rejected: a relative allow rule for it would run
+whatever file a cloned repository ships at that path, and an absolute one is
+a rule per project.
