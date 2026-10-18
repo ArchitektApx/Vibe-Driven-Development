@@ -117,7 +117,7 @@ The `Minors:` line in the Loop file, `fix` or `leave`, given by the user at Work
 _Avoid_: minors setting, strictness, thoroughness flag
 
 **Respawn policy**:
-When a hosted Role is respawned: `never`, `every round` after its first, or `over <n>`, once its token count passed `<n>` (Claude Code only). Set per hosted Role in the Loop's state file: the Coder's is asked at Model approval, the reviewers' start at `never`, and any of them changes on the user's word.
+When a hosted Role is respawned: `never`, `every round` after its first, or `over <n>`, once its token count passed `<n>` (Claude Code only). The Coder's is asked at Model approval, the reviewers' start at `never`, and any of them changes on the user's word.
 _Avoid_: restart rule, context limit, respawn flag
 
 **Respawn**:
@@ -125,7 +125,7 @@ A hosted Role spawned anew at a later round of the same Loop, in place of a resu
 _Avoid_: fresh spawn, restart
 
 **Recap**:
-`.scratch/<feature slug>/RECAP.md`, the account of one Loop that only the VDD tool writes: every closed finding with what was wrong and how it was resolved, and each Ticket's record. No Role reads it during the Loop; it is for the user afterwards.
+`.scratch/<feature slug>/RECAP.md`, the account of one Loop: every closed finding with what was wrong and how it was resolved, and each Ticket's record. No Role reads it during the Loop; it is for the user afterwards.
 _Avoid_: log, history, archive
 
 **Open minor**:

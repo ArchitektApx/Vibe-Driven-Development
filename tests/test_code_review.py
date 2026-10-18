@@ -103,7 +103,7 @@ class CodeReviewTest(ToolTest):
         self.put("CODEREVIEW.md", text)
         return started
 
-    def round_two(self, not_carried="- Standards: `f` could take a flag: no caller needs one.\n"):
+    def round_two(self, not_carried="- `f` could take a flag: no caller needs one.\n"):
         self.round_one(not_carried=not_carried)
         checked = self.review("check")
         self.assertEqual(checked.code, 0, checked)
@@ -237,13 +237,13 @@ class AgentDocumentTest(CodeReviewTest):
 
 class CheckTest(CodeReviewTest):
     def test_round_one_moves_the_not_carried_lines(self):
-        self.round_one(not_carried="- Spec: the helper could be\n  shorter: it reads fine.\n")
+        self.round_one(not_carried="- the helper could be\n  shorter: it reads fine.\n")
         result = self.review("check")
         self.assertEqual(result.code, 0, result)
         self.assertIn("VDD Code-Reviewer: CODEREVIEW.md written, round 1: 0 blocker, 1 major, 2 minor. Read it.",
                       result.lines)
         recap = self.read("RECAP.md")
-        self.assertIn("- Code round 1, Spec: the helper could be shorter: it reads fine.", recap)
+        self.assertIn("- Code round 1: the helper could be shorter: it reads fine.", recap)
         self.assertNotIn("the helper could be", self.read("CODEREVIEW.md"))
 
     def test_kept_open_after_an_answer_needs_the_reviewer_line(self):
@@ -269,7 +269,28 @@ class CheckTest(CodeReviewTest):
         self.round_one(not_carried="the helper could be shorter\n")
         result = self.review("check")
         self.assertNotEqual(result.code, 0, result)
-        self.assertIn('under ## Not carried every line starts with "- "', result.text)
+        self.assertIn('under ## Not carried every line starts with "- ": "- <the problem, in one line>: '
+                      '<why not>"', result.text)
+
+    def test_an_axis_less_not_carried_line_passes_into_the_recap(self):
+        """Code review round 4, finding 14, replacing the axis rule of round
+        1's finding 1 and round 3's finding 8: ticket 73's line names no
+        axis, and the Recap puts only the round in front of it."""
+        self.round_one(not_carried="- the helper could be shorter: it reads fine.\n")
+        result = self.review("check")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("- Code round 1: the helper could be shorter: it reads fine.", self.read("RECAP.md"))
+
+    def test_not_carried_refuses_an_empty_line(self):
+        """Code review round 3, finding 8: a "- " line with nothing after it
+        would put an empty line into the Recap."""
+        self.round_one(not_carried="- \n")
+        before = self.read("CODEREVIEW.md")
+        result = self.review("check")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertIn('this Not carried line is empty. Write "- <the problem, in one line>: <why not>"', result.text)
+        self.assertEqual(self.read("CODEREVIEW.md"), before)
+        self.assertFalse(os.path.exists(self.box.path(".scratch", "demo", "RECAP.md")))
 
     def test_an_empty_not_carried_and_a_wrapped_line_pass(self):
         """Ticket 73: a wrapped "- " line is joined, never refused."""
@@ -291,7 +312,7 @@ class CheckTest(CodeReviewTest):
             text = text.replace("### 3. minor (open)", "### 3. minor (accepted)").replace(
                 "the Spec keeps the README as it is.\n",
                 "the Spec keeps the README as it is.\n\nResolution: accepted the pushback.\n")
-        text = text.replace(NOT_CARRIED_GUIDE, NOT_CARRIED_GUIDE + "\n- Spec: one more: not needed.\n")
+        text = text.replace(NOT_CARRIED_GUIDE, NOT_CARRIED_GUIDE + "\n- one more: not needed.\n")
         self.put("CODEREVIEW.md", text)
 
     def test_a_passing_round_two_moves_the_closed_findings(self):
@@ -306,8 +327,8 @@ class CheckTest(CodeReviewTest):
         self.assertIn("### 2. minor, fixed in round 2: src/b.py:9", code)
         self.assertNotIn("Coder:", code)
         notes = recap.split("## Not carried")[1]
-        self.assertIn("- Code round 1, Standards: `f` could take a flag: no caller needs one.", notes)
-        self.assertIn("- Code round 2, Spec: one more: not needed.", notes)
+        self.assertIn("- Code round 1: `f` could take a flag: no caller needs one.", notes)
+        self.assertIn("- Code round 2: one more: not needed.", notes)
         review = self.read("CODEREVIEW.md")
         self.assertIn("\nOpen: 0 blocker, 0 major, 1 minor.\n", review)
         self.assertNotIn("### 1.", review)

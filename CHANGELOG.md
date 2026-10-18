@@ -33,7 +33,8 @@ directory, every loop starts with Start-Loop, and a finished loop leaves a
    `LOOP.md`. To carry on the loop it belonged to, run `/vdd:vdd-start-loop`
    with its slug and answer continue.
 5. **On a 0.16 beta, finish a loop you started on 0.16.0-beta.3 with that
-   version.** The reviewers and the Coder refuse it on this one and say so.
+   version.** The Planner, the reviewers, the Coder and the PR-Author
+   refuse it on this one and say so.
    Reinstall 0.16.0-beta.3 to finish it, or move it aside with the command
    they print and start the loop again.
 
@@ -55,8 +56,7 @@ directory, every loop starts with Start-Loop, and a finished loop leaves a
   the Orchestrator to restart any Role every round, or once.
 - **Review files hold what is still open.** `PLAN-REVIEW.md` and
   `CODEREVIEW.md` list only the open findings, each code finding with the
-  Coder's answer under it, and `FIXES.md` holds the current round only. VDD
-  writes each round's frame and checks the Role's file before it rings, so a
+  Coder's answer under it, and `FIXES.md` holds the current round only. A
   miscounted or skipped finding is caught in the Role's own turn. The
   Code-Reviewer no longer pastes the `code-review` reports; each problem
   they raise becomes a finding or one line saying why not.
@@ -65,11 +65,10 @@ directory, every loop starts with Start-Loop, and a finished loop leaves a
   wrong and how it was resolved, and the review notes the Code-Reviewer did
   not carry. The PR-Author reads it only for a testing or review section
   your PR template or your past PRs ask for.
-- **The Orchestrator reads no review file.** VDD tells it where the loop
-  stands after a restart, which Role to start or
-  resume next and with which files, and what to do when a Role ends a round
-  without finishing it. Say "pause" between rounds and it stops before the
-  next step.
+- **A restarted Orchestrator picks up where the loop stood.** It starts or
+  resumes the right Role with the right files, and a Role that ends a round
+  without finishing it is sent back once before you are asked. Say "pause"
+  between rounds and it stops before the next step.
 - **Each loop keeps its settings in its own directory.** VDD writes and reads
   them in `.scratch/<slug>/` for you, so two loops in one repository never
   share them, and there is no `LOOP.md` to delete after a loop. A finished

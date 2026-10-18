@@ -107,11 +107,16 @@ class DoorbellTest(ToolTest):
 
     def test_ring_refuses_on_a_version_one_loop(self):
         """A version 1 loop has no plan review lines to compose a Doorbell
-        from, so ring refuses it as every round command does."""
+        from, so ring refuses it as every round command does. Code review
+        round 1, finding 4: the reason holds for a ring, which writes no
+        review file."""
         self.box.write_loop("x", version=1)
         result = self.db("ring", "--role", "Planner", "--write")
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("0.16.0-beta.3", result.text)
+        self.assertIn("doorbell ring does not run on it: this version reads no rounds from a version 1 loop.",
+                      result.text)
+        self.assertNotIn("review file", result.text)
 
     def test_ring_without_write_changes_nothing(self):
         result = self.ring("Planner", P1, write=False)

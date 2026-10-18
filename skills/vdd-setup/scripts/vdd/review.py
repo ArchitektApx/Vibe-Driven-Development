@@ -406,23 +406,30 @@ def lint_kept_open(round_, parsed, lint_):
 
 def not_carried(parsed, lint_):
     """The Not carried lines, a wrapped line joined: [(text, [line numbers])].
-    A line that is neither a "- " line nor an indented continuation is
-    refused when lint_ is given."""
+    A line that is neither a "- " line nor an indented continuation, and a
+    "- " line with nothing after it, are refused when lint_ is given."""
     section = parsed.section("Not carried")
     items = []
     if section is None:
         return items
+    firsts = []
     for line in section.body:
         if not line.frame or not line.text.strip():
             continue
         if line.text.startswith("- "):
             items.append([line.text[2:].strip(), [line.number]])
+            firsts.append(line)
         elif line.text[:1] in (" ", "\t") and items:
-            items[-1][0] += " " + line.text.strip()
+            items[-1][0] = (items[-1][0] + " " + line.text.strip()).strip()
             items[-1][1].append(line.number)
         elif lint_ is not None:
             lint_.at(line, "under ## Not carried every line starts with \"- \": \"- <the problem, in one line>: "
                      "<why not>\". A wrapped line goes on an indented next line.")
+    if lint_ is not None:
+        for (text, _), line in zip(items, firsts):
+            if not text:
+                lint_.at(line, "this Not carried line is empty. Write \"- <the problem, in one line>: <why not>\", "
+                         "or remove it.")
     return items
 
 
@@ -574,16 +581,8 @@ def recap_findings(round_, closed):
 
 
 def recap_not_carried(round_, items):
-    """Each Not carried line with its round and axis in front: the axis the
-    line names (Standards or Spec), else none."""
-    lines = []
-    for text, _ in items:
-        axis, sep, rest = text.partition(":")
-        if sep and axis.strip() in ("Standards", "Spec"):
-            lines.append("- Code round %d, %s: %s" % (round_.number, axis.strip(), rest.strip()))
-        else:
-            lines.append("- Code round %d: %s" % (round_.number, text))
-    return lines
+    """Each Not carried line with its round in front."""
+    return ["- Code round %d: %s" % (round_.number, text) for text, _ in items]
 
 
 def check(round_, write):

@@ -49,8 +49,13 @@ HELP = [
     "print. --slug names the loop; pass it on every call. Run every command from the repository root.",
 ]
 
-SPEC = {"role": args.VALUE, "slug": args.VALUE, "harness": args.VALUE, "policy": args.VALUE, "once": args.FLAG,
-        "tokens": args.VALUE, "write": args.FLAG}
+COMMON = {"slug": args.VALUE, "harness": args.VALUE}
+SPECS = {
+    "start": dict(COMMON),
+    "return": dict(COMMON, role=args.VALUE),
+    "respawn": dict(COMMON, role=args.VALUE, policy=args.VALUE, once=args.FLAG, write=args.FLAG),
+    "tokens": dict(COMMON, role=args.VALUE, tokens=args.VALUE),
+}
 
 
 def usage():
@@ -66,7 +71,7 @@ def run(argv):
     sub, rest = argv[0], argv[1:]
     if sub not in SUBCOMMANDS:
         args.unknown_command("orchestrator " + sub, usage())
-    values = args.parse(rest, SPEC, usage())
+    values = args.parse(rest, SPECS[sub], usage())
     if values["help"]:
         return run(["--help"])
     flow = Flow.find(values, "orchestrator %s" % sub)

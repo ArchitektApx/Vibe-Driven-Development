@@ -274,6 +274,37 @@ class ReturnTest(OrchestratorTest):
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("Unknown option: --line", result.text)
 
+    def test_start_return_and_tokens_refuse_write(self):
+        """Code review round 1, finding 2: only respawn writes, so the other
+        three refuse --write rather than ignore it."""
+        self.live("spawn Coder 1 session 1", "code 1 start a", "code 1 end b")
+        before = (self.files(), self.state())
+        for argv in (("start", "--slug", "demo", "--write"),
+                     ("return", "--role", "Coder", "--slug", "demo", "--harness", "claude-code", "--write"),
+                     ("tokens", "--role", "Coder", "--tokens", "1000", "--slug", "demo", "--write")):
+            with self.subTest(argv[0]):
+                result = self.orch(*argv)
+                self.assertNotEqual(result.code, 0, result)
+                self.assertIn("Unknown option: --write", result.text)
+        self.assertEqual((self.files(), self.state()), before)
+
+    def test_a_planner_doorbell_naming_the_wrong_tracker_is_not_acted_on(self):
+        """Ticket 72, a start Doorbell naming the wrong tracker: a Planner
+        line naming .scratch/other/ in demo's Doorbell file is no Doorbell
+        for demo, so neither take nor return acts on it."""
+        self.rings("VDD Planner: .scratch/other/ ready, round 1. Read spec.md and issues/.")
+        self.stage("orchestrator session 1")
+        took = self.box.run("doorbell", "take", "--role", "Orchestrator", "--harness", "claude-code", "--slug", "demo")
+        self.assertIn("is not a Doorbell, so it was not acted on", took.text)
+        self.assertNotIn("Doorbell: VDD Planner", took.text)
+        self.assertNotIn("orchestrator return --role Planner", took.text)
+        before = self.state()
+        result = self.back("Planner")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertIn("there is nothing to act on", result.text)
+        self.assertNotIn("Spawning", result.text)
+        self.assertEqual(self.state(), before)
+
     def test_the_planner_s_doorbell_spawns_then_resumes_the_plan_reviewer(self):
         ring = self.box.run("doorbell", "ring", "--role", "Planner", "--harness", "claude-code", "--slug", "demo",
                             "--write")

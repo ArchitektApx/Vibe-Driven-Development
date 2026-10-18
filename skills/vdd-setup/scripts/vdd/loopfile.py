@@ -208,15 +208,15 @@ def state_version(directory):
 
 
 def refuse_v1(loop, command):
-    """Refuse a round command on a loop whose state file is version 1: that
-    loop was started by 0.16.0-beta.3, whose review files have another shape,
-    so the round commands would overwrite them."""
+    """Refuse a command that reads the loop's rounds on a loop whose state
+    file is version 1: that loop was started by 0.16.0-beta.3, and this
+    version reads no rounds from it."""
     if state_version(loop.dir) != "1":
         return
     raise Failure(
         [
             "The loop %s was started by VDD %s, the one release that wrote state file version 1. %s does "
-            "not run on it, so a review file in that version's shape is never overwritten."
+            "not run on it: this version reads no rounds from a version 1 loop."
             % (loop.slug, V1_RELEASE, command),
             TELL % (
                 "The loop %s was started by VDD %s. To finish it, reinstall VDD %s; or move it aside with "

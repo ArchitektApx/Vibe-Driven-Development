@@ -172,8 +172,7 @@ A reviewer has pushed back, and `CODEREVIEW.md` holds the findings still
 open. `coder start` wrote one `FIXES.md` entry per open finding. Address
 every one, and set its `Answer:` to `fixed` or `pushback`. A pushback needs a
 `Why:`, the case you make to the reviewer; a fix needs one only when it
-differs from the fix the finding asks for. The review's `## Standards` and
-`## Spec` findings are findings like any other.
+differs from the fix the finding asks for.
 
 ## Handing off
 
