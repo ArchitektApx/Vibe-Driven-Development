@@ -3,7 +3,7 @@ changed, closed and reopened only here."""
 
 import os
 
-from . import args, loopfile, places, preflight, textfile
+from . import args, loopfile, loopstate, places, preflight, textfile
 from .out import Failure, Output, refused
 
 SUBCOMMANDS = ("new", "aside", "show", "set", "close", "reopen")
@@ -24,7 +24,8 @@ HELP = [
     "loop show [--slug <slug>] [--role <Role>]",
     "  Print the Loop file's lines as every Role acts on them: a missing or malformed line as its default,",
     "  whether the loop is open or closed, and the Harness file to read. --role prints only the lines that",
-    "  Role acts on: Planner, Plan-Reviewer, Coder, Code-Reviewer, Orchestrator or PR-Author.",
+    "  Role acts on: Planner, Plan-Reviewer, Coder, Code-Reviewer, Orchestrator or PR-Author. --role",
+    "  PR-Author refuses until the state file records the code Sign-off.",
     "",
     "loop set [--slug <slug>] [--minors <a>] [--pr <a>] [--harness-line <label>] --write",
     "  Change the Minors:, PR: or Harness: line on the user's word. The feature, the base branch and the",
@@ -380,6 +381,8 @@ def show(root, values):
             "--role takes one of: %s." % ", ".join(loopfile.ROLES),
             "Run the command again with your Role's name.",
         )
+    if role == "PR-Author":
+        require_code_sign_off(loop)
     names = loopfile.ROLES[role] if role else loopfile.IDENTITY + loopfile.SETTINGS
     out = Output()
     out.line("Slug: %s" % loop.slug)
@@ -402,6 +405,21 @@ def show(root, values):
     return out.finish(
         "Pass --slug %s on every VDD tool call from here on, and go on as your skill says." % loop.slug
     )
+
+
+def require_code_sign_off(loop):
+    """The PR-Author runs only once the state file records the code
+    Sign-off: an unsigned review has no PR to open yet."""
+    loopfile.refuse_v1(loop, "loop show --role PR-Author")
+    review = loopstate.State(loop.dir).last_review("code")
+    if review is None or not review.signed_off:
+        where = "no code review is recorded" if review is None else "code round %d's review left findings open" % (
+            review.round)
+        raise Failure(
+            "The code Loop is not signed off: %s. The Loop is not finished, so there is no PR to open yet."
+            % where,
+            "Stop, and tell the user the Loop is not finished: the code review has not signed off.",
+        )
 
 
 # --- set ---

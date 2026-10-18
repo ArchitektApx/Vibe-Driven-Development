@@ -34,18 +34,15 @@ shell.
 ## 1. Read the Loop file
 
 Run `loop show --role PR-Author --slug <slug>`, fresh each run. It prints the
-base branch, the feature branch and the `PR:` line. With no slug in hand, when
-the user started you by hand, run `loop show --role PR-Author` without
-`--slug`, take the slug its `Slug:` line names and pass it from then on; when
-it refuses, ask the user for the slug.
+base branch, the feature branch and the `PR:` line, and refuses until the code
+Loop is signed off: then stop and say the Loop is not finished. With no slug
+in hand, when the user started you by hand, run `loop show --role PR-Author`
+without `--slug`, take the slug its `Slug:` line names and pass it from then
+on; when it refuses for want of a slug, ask the user for the slug.
 
-## 2. Read `CODEREVIEW.md`
+## 2. Closing the loop
 
-Read `.scratch/<slug>/CODEREVIEW.md` from disk. If its first line is not
-`SIGNED OFF`, stop and say the Loop is not finished: an unsigned review has no
-PR to open yet.
-
-Every ending below this check closes the loop: run
+Every ending below closes the loop: run
 `loop close --slug <slug> --write` before you stop, after the body is printed
 or the PR opened.
 
@@ -54,10 +51,9 @@ branch>` stays local, nothing pushed." and stop before step 3.
 
 ## 3. Assemble the title and body
 
-Read `.scratch/<slug>/PLAN-REVIEW.md`, `.scratch/<slug>/FIXES.md` and
-`.scratch/<slug>/spec.md` from disk.
-The Orchestrator's session may hold older copies in context, and you carry no
-state between runs, so every run reads the files as they now stand.
+Read `.scratch/<slug>/spec.md` from disk. The Orchestrator's session may hold
+an older copy in context, and you carry no state between runs, so every run
+reads the file as it now stands.
 
 Assemble the title and body now, before the `PR:` branch in step 4, so every
 path below that prints or shows the body already has it in hand.
@@ -72,18 +68,19 @@ root, in `.github/`, or in `docs/`. Six paths, checked in that order. The
 directory form, `.github/PULL_REQUEST_TEMPLATE/`, is out of scope.
 
 **Template found.** The template alone is the body. Fill its sections from
-the read list; append nothing past what it asks for. A section asking for
-testing or review evidence is filled from `PLAN-REVIEW.md`, `CODEREVIEW.md`
-and `FIXES.md`, which is what keeps all three in the read list.
+the Spec; append nothing past what it asks for. A section asking for testing
+or review evidence is filled from `.scratch/<slug>/RECAP.md`, the loop's
+record of its Tickets and findings; read it then and only then.
 
 **No template.** Run `gh pr list --state merged --limit 10 --json
 title,body`. An empty result, or a call that exits non-zero because `gh` is
 absent or unauthenticated, is what "no PR history" means. On history, match
 the shape of what came back: its sections, its tone, whether it links
 issues. Matching governs here whole. Where the bodies that came back carry a
-section reporting the Workflow, reproduce it like any other section of theirs;
-the rule above bars a section you added, not one the history you were told to
-imitate already has. Without history, VDD's default body is the Spec's Problem
+section reporting testing or review evidence, reproduce it like any other
+section of theirs, filled from `.scratch/<slug>/RECAP.md`, read then and only
+then; the rule above bars a section you added, not one the history you were
+told to imitate already has. Without history, VDD's default body is the Spec's Problem
 Statement and Solution and nothing else.
 
 **Title.** Follow the convention of the titles in that same `gh pr list`

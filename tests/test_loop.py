@@ -186,6 +186,8 @@ class ShowTest(LoopTest):
             "Orchestrator": ["Feature", "Base branch", "Feature branch", "Minors", "PR", "Harness"],
             "PR-Author": ["Base branch", "Feature branch", "PR", "Harness"],
         }
+        with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
+            handle.write("code 1 reviewed signed-off - counts 0 0 0\n")
         for role, names in roles.items():
             with self.subTest(role=role):
                 result = self.loop("show", "--slug", "demo", "--role", role)
@@ -265,6 +267,38 @@ class ShowTest(LoopTest):
                 self.assertNotEqual(result.code, 0, result)
                 self.assertContract(result)
                 self.assertIn("rerun Setup", result.text)
+
+
+class PRAuthorTest(LoopTest):
+    def setUp(self):
+        LoopTest.setUp(self)
+        self.new("demo", *ANSWERS, write=True)
+
+    def test_the_pr_author_waits_for_the_recorded_code_sign_off(self):
+        """Today's PR-Author step 2 check: CODEREVIEW.md's first line had to
+        be SIGNED OFF. The status line replaced it, so the tool checks the
+        state file's code Sign-off (Ticket 06)."""
+        for staged in ((), ("code 1 reviewed open 1 counts 0 1 0",)):
+            with self.subTest(staged=staged):
+                with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
+                    handle.write("".join(line + "\n" for line in staged))
+                result = self.loop("show", "--slug", "demo", "--role", "PR-Author")
+                self.assertNotEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertIn("The code Loop is not signed off", result.text)
+        with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
+            handle.write("code 2 reviewed signed-off - counts 0 0 0\n")
+        result = self.loop("show", "--slug", "demo", "--role", "PR-Author")
+        self.assertEqual(result.code, 0, result)
+        for line in ("Base branch: main", "Feature branch: demo", "PR: ask at sign-off", "Harness: Claude Code"):
+            self.assertIn(line, result.lines)
+
+    def test_every_other_role_and_no_role_work_before_the_sign_off(self):
+        for role in (None, "Planner", "Plan-Reviewer", "Coder", "Code-Reviewer", "Orchestrator"):
+            with self.subTest(role=role):
+                extra = ["--role", role] if role else []
+                result = self.loop("show", "--slug", "demo", *extra)
+                self.assertEqual(result.code, 0, result)
 
 
 class SetTest(LoopTest):
