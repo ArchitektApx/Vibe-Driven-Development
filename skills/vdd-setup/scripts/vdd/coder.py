@@ -413,11 +413,15 @@ def lint_findings(round_, found, at):
                "<reference>\", as the tool wrote it." % entry.heading.text)
             continue
         by_number[int(match.group(1))] = entry
+    headings = None
     for number in round_.open_numbers:
         entry = by_number.get(number)
         if entry is None:
-            at(None, "finding %d's entry is missing. Put back \"## Finding %d. ...\" as the tool wrote it and "
-               "answer it: every open finding gets an entry." % (number, number))
+            if headings is None:
+                headings = dict((n, "## Finding %d. %s: %s" % (n, severity, reference))
+                                for n, severity, reference in open_findings(round_))
+            at(None, "finding %d's entry is missing. Put back \"%s\" as the tool wrote it and answer it: every "
+               "open finding gets an entry." % (number, headings[number]))
             continue
         labels = entry.labels(FINDING_LABELS)
         answer, line = labels.get("Answer", ("", None))

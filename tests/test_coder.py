@@ -337,6 +337,15 @@ class CheckTest(CoderTest):
         self.refused("finding 1: \"Answer: done\": the answer is fixed or pushback",
                      "finding 2 answers pushback with no Why:")
 
+    def test_a_missing_finding_entry_prints_its_whole_heading(self):
+        """Code review round 4, finding 23: the refusal printed "## Finding
+        2. ...", not the heading the tool wrote."""
+        self.later()
+        self.answer("Answer: fixed\nWhy:", "Answer: fixed\nWhy:", "Answer: fixed\nWhy:")
+        text = self.read("FIXES.md")
+        self.put("FIXES.md", text.replace("## Finding 2. minor: src/b.py:9\n\nAnswer: fixed\nWhy:\n", ""))
+        self.refused('finding 2\'s entry is missing. Put back "## Finding 2. minor: src/b.py:9" as the tool wrote it')
+
     def test_a_later_round_accepts_fixed_with_no_why(self):
         self.later()
         self.answer("Answer: fixed\nWhy:", "Answer: fixed", "Answer: pushback\nWhy: the Spec says so,\nin its words.")

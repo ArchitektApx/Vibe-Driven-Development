@@ -265,6 +265,14 @@ class LintTest(ReviewTest):
         commented = ROUND_1.replace("leaves `summary` out.", "leaves `summary` out.\n\n<!-- a note") + tail
         self.refused(commented, "PLAN-REVIEW.md line 19:", "the comment that opens here is never closed")
 
+    def test_a_round_one_finding_outside_new_findings_names_that_heading(self):
+        """Code review round 4, finding 23: round 1 has no ## Open findings,
+        so the refusal names ## New findings alone."""
+        result = self.refused(ROUND_1.replace("writing-for-agents: ran\n",
+                                              "writing-for-agents: ran\n\n### 3. minor (open): Ticket 01\n\nX.\n"),
+                              "a finding heading belongs under ## New findings.")
+        self.assertNotIn("## Open findings", result.text)
+
     def test_an_unfilled_checks_line(self):
         """check-errors.md: an unfilled Checks line is refused."""
         self.refused(ROUND_1.replace("writing-for-agents: ran", "writing-for-agents: <ran | did not resolve>"),

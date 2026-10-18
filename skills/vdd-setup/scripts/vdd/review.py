@@ -12,7 +12,7 @@ import os
 import re
 import textwrap
 
-from . import args, doorbell, loopfile, loopstate, places, recap, textfile, workfile
+from . import agentdocs, args, coder, doorbell, loopfile, loopstate, places, recap, textfile, workfile
 from .out import Failure, Output, refused
 
 SUBCOMMANDS = ("start", "check")
@@ -20,6 +20,13 @@ REVIEWERS = {"Plan-Reviewer": "plan", "Code-Reviewer": "code"}
 FILES = {"plan": "PLAN-REVIEW.md", "code": "CODEREVIEW.md"}
 TITLES = {"plan": "Plan review", "code": "Code review"}
 CARRIED = "carried-%s.md"
+NO_AGENT_DOCUMENT = "no Agent document in this round's diff"
+NOT_CARRIED_GUIDE = [
+    "<!-- VDD: One line for each problem the code-review reports raise that you",
+    "do not turn into a finding, a wrong one included. A report line that finds",
+    "nothing wrong gets no line.",
+    "- <the problem, in one line>: <why not> -->",
+]
 LABELS = ("Resolution", "Coder", "Reviewer")
 STATUS_LINE = re.compile(r"^(Open: [0-9]+ blocker, [0-9]+ major, [0-9]+ minor\.|SIGNED OFF\. Nothing open\."
                          r"|SIGNED OFF\. Open minors left, as Minors: leave allows: [0-9]+\.)\s*$")
@@ -29,7 +36,7 @@ CHECKS = {
     "plan": (("writing-for-agents", ("ran", "did not resolve")),),
     "code": (
         ("code-review", ("ran", "did not resolve, the Spec reviewed by hand")),
-        ("writing-for-agents", ("ran", "did not resolve", "no Agent document in this round's diff")),
+        ("writing-for-agents", ("ran", "did not resolve")),
     ),
 }
 PLACEHOLDERS = {
@@ -115,7 +122,35 @@ class Round:
     def read_list(self):
         names = [self.name] if self.number > 1 else []
         names += ["spec.md", "issues/"]
+        if self.kind == "code" and self.number == 1:
+            names.append("FIXES.md")
         return [self.path(name) for name in names]
+
+    def base(self):
+        return self.loop.setting("Base branch")[0]
+
+    def branch(self):
+        return self.loop.setting("Feature branch")[0]
+
+    def review_range(self):
+        return "%s...%s" % (self.base(), self.branch())
+
+    def agent_documents(self):
+        """The Agent documents in the review range, computed once."""
+        if not hasattr(self, "_documents"):
+            found = agentdocs.listed(self.loop.root, self.base(), self.branch())
+            if found is None:
+                raise Failure(
+                    "git cannot read the review range %s. Nothing was written." % self.review_range(),
+                    "Tell the user git cannot diff %s in this repository, and stop." % self.review_range(),
+                )
+            self._documents = found
+        return self._documents
+
+    def accepted_checks(self, name, accepted):
+        if self.kind == "code" and name == "writing-for-agents" and not self.agent_documents():
+            return accepted + (NO_AGENT_DOCUMENT,)
+        return accepted
 
 
 # --- start ---
@@ -133,6 +168,12 @@ def require_round(round_):
             "The %s Loop signed off in round %d: there is no round %d to review. Nothing was written."
             % (round_.kind, round_.last.round, round_.number),
             "End your turn with BLOCKED: the %s Loop is already signed off." % round_.kind,
+        )
+    if round_.kind == "code" and round_.state.code_mark("end", round_.number) is None:
+        raise Failure(
+            "The Coder's end of code round %d is not recorded: there is no code round %d to review yet. Nothing "
+            "was written." % (round_.number, round_.number),
+            "End your turn with BLOCKED: code round %d has no recorded Coder end." % round_.number,
         )
     if round_.kind == "plan":
         rung = planner_rung(round_.loop)
@@ -172,7 +213,35 @@ def carried_blocks(round_):
                round_.number - 1),
             "Tell the user %s lost a finding the loop still has open, and stop." % round_.relative,
         )
+    if round_.kind == "code":
+        answers = coder_answers(round_)
+        for number in round_.carried_numbers:
+            if number in answers:
+                blocks[number] = blocks[number] + ["", answers[number]]
     return [blocks[n] for n in round_.carried_numbers]
+
+
+def coder_answers(round_):
+    """number -> this round's Coder: line, from FIXES.md's answers."""
+    text = textfile.read(os.path.join(round_.loop.dir, coder.NAME))
+    if text is None:
+        return {}
+    found = {}
+    for entry in coder.entries(workfile.Parsed(text)):
+        match = coder.FINDING_HEADING.match(entry.heading.text)
+        if not match:
+            continue
+        labels = entry.labels(coder.FINDING_LABELS)
+        answer = labels.get("Answer", ("", None))[0]
+        why = labels.get("Why", ("", None))[0]
+        if answer == "fixed":
+            line = "Coder: fixed in round %d." % round_.number + (" " + why if why else "")
+        elif answer == "pushback":
+            line = "Coder: pushed back in round %d. %s" % (round_.number, why)
+        else:
+            continue
+        found[int(match.group(1))] = line.rstrip()
+    return found
 
 
 def guidance(round_):
@@ -199,12 +268,17 @@ def skeleton(round_, blocks):
     lines += guidance(round_)
     lines += ["", "## Checks", ""]
     for name, _ in CHECKS[round_.kind]:
-        lines.append("%s: %s" % (name, PLACEHOLDERS[name]))
+        value = PLACEHOLDERS[name]
+        if round_.kind == "code" and name == "writing-for-agents" and not round_.agent_documents():
+            value = NO_AGENT_DOCUMENT
+        lines.append("%s: %s" % (name, value))
     if round_.number > 1:
         lines += ["", "## Open findings"]
         for block in blocks:
             lines += [""] + block
     lines += ["", "## New findings"]
+    if round_.kind == "code":
+        lines += ["", "## Not carried", ""] + NOT_CARRIED_GUIDE
     return lines
 
 
@@ -239,6 +313,15 @@ def start(round_, write):
     out.line("Round %d: %s, new findings start at %d." % (round_.number, carried, round_.first_new))
     out.line("Read: %s" % ", ".join(round_.read_list()))
     out.line("Minors: %s" % round_.minors())
+    if round_.kind == "code":
+        out.line("Base branch: %s" % round_.base())
+        out.line("Harness file: %s" % round_.loop.harness_file())
+        out.line("Review range: %s, with %s as code-review's fixed point." % (round_.review_range(), round_.base()))
+        documents = round_.agent_documents()
+        if documents:
+            out.line("Agent documents in the range: %s" % ", ".join(documents))
+        else:
+            out.line("Agent documents in the range: none, so the writing-for-agents line is filled.")
     return out.finish(
         "Review, write your findings into %s under the headings it has, then run %s. Pass --slug %s on every "
         "VDD tool call from here on." % (round_.relative, round_.command("check"), round_.loop.slug)
@@ -271,6 +354,8 @@ def sections_expected(round_):
     if round_.number > 1:
         names.append("Open findings")
     names.append("New findings")
+    if round_.kind == "code":
+        names.append("Not carried")
     return names
 
 
@@ -294,7 +379,51 @@ def lint(round_, parsed):
         lint_.at(parsed.unclosed, workfile.unclosed_text(parsed.unclosed))
     lint_checks(round_, parsed, lint_)
     lint_findings(round_, parsed, lint_)
+    if round_.kind == "code":
+        lint_kept_open(round_, parsed, lint_)
+        not_carried(parsed, lint_)
     return lint_
+
+
+def lint_kept_open(round_, parsed, lint_):
+    """A carried finding the Coder answered this round and the reviewer keeps
+    open needs the reviewer's reason (ticket 69, choice 2)."""
+    marker = "in round %d." % round_.number
+    for block in parsed.blocks_in("Open findings"):
+        if block.match is None or block.state != "open":
+            continue
+        labels = block.labels(LABELS)
+        answered = [text for label, text, _ in labels
+                    if label == "Coder" and text.startswith(("fixed " + marker, "pushed back " + marker))]
+        if not answered:
+            continue
+        kept = [text for label, text, _ in labels if label == "Reviewer" and text.startswith("kept open " + marker)]
+        if not kept:
+            lint_.at(block.heading, "finding %d keeps the Coder's round-%d answer and stays open, but has no "
+                     "\"Reviewer: kept open in round %d.\" line. Write one with why the answer does not hold."
+                     % (block.number, round_.number, round_.number))
+
+
+def not_carried(parsed, lint_):
+    """The Not carried lines, a wrapped line joined: [(text, [line numbers])].
+    A line that is neither a "- " line nor an indented continuation is
+    refused when lint_ is given."""
+    section = parsed.section("Not carried")
+    items = []
+    if section is None:
+        return items
+    for line in section.body:
+        if not line.frame or not line.text.strip():
+            continue
+        if line.text.startswith("- "):
+            items.append([line.text[2:].strip(), [line.number]])
+        elif line.text[:1] in (" ", "\t") and items:
+            items[-1][0] += " " + line.text.strip()
+            items[-1][1].append(line.number)
+        elif lint_ is not None:
+            lint_.at(line, "under ## Not carried every line starts with \"- \": \"- <the problem, in one line>: "
+                     "<why not>\". A wrapped line goes on an indented next line.")
+    return items
 
 
 def lint_checks(round_, parsed, lint_):
@@ -308,6 +437,7 @@ def lint_checks(round_, parsed, lint_):
         name, _, value = line.text.partition(":")
         seen[name.strip()] = (line, value.strip())
     for name, accepted in CHECKS[round_.kind]:
+        accepted = round_.accepted_checks(name, accepted)
         if name not in seen:
             lint_.at(section.line, "the Checks line \"%s: %s\" is missing. Put it back and fill it in."
                      % (name, PLACEHOLDERS[name]))
@@ -325,7 +455,8 @@ def lint_findings(round_, parsed, lint_):
     for block in parsed.blocks:
         section = block.section.name if block.section else None
         if section not in ("Open findings", "New findings"):
-            lint_.at(block.heading, "a finding heading belongs under ## Open findings or ## New findings.")
+            lint_.at(block.heading, "a finding heading belongs under ## New findings." if round_.number == 1 else
+                     "a finding heading belongs under ## Open findings or ## New findings.")
             continue
         if block.match is None:
             lint_.at(block.heading, "\"%s\": a finding heading is \"### <n>. <blocker|major|minor> "
@@ -398,10 +529,10 @@ def checks_text(round_, parsed):
     return "; ".join(found)
 
 
-def cleaned(parsed, status, closed):
+def cleaned(parsed, status, closed, dropped=()):
     """The review file after a passing check: no guidance comment, the status
-    line under the title, no closed finding."""
-    drop = set()
+    line under the title, no closed finding and none of the dropped lines."""
+    drop = set(dropped)
     for block in closed:
         drop.add(block.heading.number)
         for line in block.body:
@@ -439,6 +570,19 @@ def recap_findings(round_, closed):
             lines.append("Problem:")
         resolution = [label[1] for label in block.labels(LABELS) if label[0] == "Resolution"]
         lines += ["", "Resolution: " + " ".join(resolution)]
+    return lines
+
+
+def recap_not_carried(round_, items):
+    """Each Not carried line with its round and axis in front: the axis the
+    line names (Standards or Spec), else none."""
+    lines = []
+    for text, _ in items:
+        axis, sep, rest = text.partition(":")
+        if sep and axis.strip() in ("Standards", "Spec"):
+            lines.append("- Code round %d, %s: %s" % (round_.number, axis.strip(), rest.strip()))
+        else:
+            lines.append("- Code round %d: %s" % (round_.number, text))
     return lines
 
 
@@ -481,14 +625,17 @@ def check(round_, write):
     round_.state.lines.append(line)
     review = round_.state.review(round_.kind, round_.number)
     section = "Plan findings" if round_.kind == "plan" else "Code findings"
+    items = not_carried(parsed, None) if round_.kind == "code" else []
+    dropped = [number for _, numbers in items for number in numbers]
     try:
-        textfile.write(round_.file, ("\n".join(cleaned(parsed, status, closed)) + "\n").encode("utf-8"))
+        textfile.write(round_.file, ("\n".join(cleaned(parsed, status, closed, dropped)) + "\n").encode("utf-8"))
     except OSError as error:
         raise refused(
             "Could not write %s: %s" % (round_.relative, error),
             "Otherwise tell the user the review file cannot be written, and stop.",
         )
-    recap.write(round_.loop, round_.state, {section: recap_findings(round_, closed)})
+    recap.write(round_.loop, round_.state, {section: recap_findings(round_, closed),
+                                            "Not carried": recap_not_carried(round_, items)})
     round_.state.persist(line)
     out.line("%s: round %d checked and written." % (round_.name, round_.number))
     out.line(status)
@@ -496,6 +643,9 @@ def check(round_, write):
         out.line("Moved to %s: finding%s %s." % (
             round_.path(recap.NAME), "" if len(closed) == 1 else "s",
             workfile.join_numbers([b.number for b in closed])))
+    if items:
+        out.line("Moved to %s: %d Not carried line%s." % (
+            round_.path(recap.NAME), len(items), "" if len(items) == 1 else "s"))
     out.line(loopstate.review_doorbell(review))
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
 
