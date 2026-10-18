@@ -15,7 +15,7 @@ import re
 import signal
 import time
 
-from . import args, loopfile, places, textfile
+from . import args, loopfile, loopstate, places, textfile
 from .out import Failure, Output, refused
 
 ROLES = ("Planner", "Orchestrator")
@@ -66,17 +66,6 @@ class Doorbell:
 
     def key(self):
         return (self.sender, self.round)
-
-
-def templates_to(role, tracker):
-    """The templates of a Doorbell addressed to role, as text for the user."""
-    if role == "Orchestrator":
-        return ["VDD Planner: %s/ ready, round <n>. Read spec.md and issues/." % tracker]
-    return [
-        "VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>: <b> blocker, <m> major, <p> minor. Read it.",
-        "VDD Plan-Reviewer: PLAN-REVIEW.md SIGNED OFF, round <n>.",
-        "VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>. Read it.",
-    ]
 
 
 def parse(text, to_role, tracker):
@@ -245,9 +234,8 @@ def wait_command(role, harness, slug, entry=None):
     return "%s doorbell wait --role %s --harness %s --slug %s" % (places.command(entry), role, harness.name, slug)
 
 
-def ring_command(role, line, harness, slug):
-    return '%s doorbell ring --role %s --line "%s" --harness %s --slug %s --write' % (
-        places.command(), role, line, harness.name, slug)
+def ring_command(role, harness, slug):
+    return "%s doorbell ring --role %s --harness %s --slug %s --write" % (places.command(), role, harness.name, slug)
 
 
 def paste_command(role, harness, slug, entry=None):
@@ -262,9 +250,10 @@ def wait_next(role, harness, slug, entry=None):
 # --- the commands ---
 
 HELP = [
-    "doorbell ring --role <Planner|Orchestrator> --line \"<Doorbell>\" --harness <h> --slug <slug> --write",
-    "  Ring the other Role: append the Doorbell line to the Doorbell file, addressed to it. Run it in the",
-    "  foreground. It refuses a line that matches no Doorbell template for your Role and names the template.",
+    "doorbell ring --role <Planner|Orchestrator> --harness <h> --slug <slug> --write",
+    "  Ring the other Role: append your Doorbell line, composed from the loop's state, to the Doorbell file,",
+    "  addressed to it. Run it in the foreground. The Planner's line names the round after the last plan",
+    "  review, or round 1; the Orchestrator's relays the last plan review, its open counts or SIGNED OFF.",
     "  Without --write it prints what it would append and changes nothing; ringing the same line twice",
     "  appends it once.",
     "",
@@ -281,12 +270,12 @@ HELP = [
     "  handled (same sender and round) is reported and not acted on twice. A line that is not a Doorbell is",
     "  reported for the user and never acted on.",
     "  --restart: the Orchestrator starting a Session before the plan Loop signs off. It clears what the",
-    "  Orchestrator handled before, since a Plan-Reviewer an earlier Session started is gone. With no",
-    "  PLAN-REVIEW.md it names the newest Planner Doorbell to act on, or the wait; with one, it compares the",
-    "  Doorbell file with its Round line and names the relay to ring or the Doorbell to act on.",
+    "  Orchestrator handled before, since a Plan-Reviewer an earlier Session started is gone. It compares the",
+    "  Doorbell file with the plan reviews the state file records and names the Doorbell to act on, the",
+    "  relay to ring, or the wait.",
     "  --resumed: the Planner's first take in a resumed Session. A wait an earlier Session started wakes",
     "  that Session, so it names a wait of your own; what you handled before stays handled.",
-    "  Once PLAN-REVIEW.md is signed off and the Planner has rung no later round, take and ring name no",
+    "  Once the plan review is signed off and the Planner has rung no later round, take and ring name no",
     "  wait: the plan Loop is over.",
     "",
     "  ring and wait refuse on a closed loop.",
@@ -298,7 +287,6 @@ HELP = [
 
 SPEC = {
     "role": args.VALUE,
-    "line": args.VALUE,
     "harness": args.VALUE,
     "write": args.FLAG,
     "pasted": args.VALUE,
@@ -330,21 +318,34 @@ def run(argv):
         raise Failure("--role takes Planner or Orchestrator.", "Run %s for the usage." % usage())
     place = Place.find(values["slug"])
     if sub == "ring":
-        args.require(values, ["line"], usage())
-        return ring(place, role, values["line"], harness, values["write"])
+        return ring(place, role, harness, values["write"])
     if sub == "wait":
         return wait(place, role, harness)
     return take(place, role, harness, values["pasted"], values["restart"], values["resumed"])
 
 
-def ring(place, role, line, harness, write):
+def composed(place, role):
+    """The Doorbell line role rings, from the loop's state: the Planner's
+    round is the last plan review's plus one, or 1; the Orchestrator relays
+    the last plan review."""
+    loopfile.refuse_v1(place.loop, "doorbell ring")
+    last = loopstate.State(place.dir).last_review("plan")
+    if role == "Planner":
+        return loopstate.planner_doorbell(place.tracker, last.round + 1 if last else 1)
+    if last is None:
+        raise Failure(
+            "No plan review is recorded for the loop %s, so there is nothing to relay. Nothing was written."
+            % place.slug,
+            "Wait for the Plan-Reviewer's return, as your skill says.",
+        )
+    return loopstate.review_doorbell(last)
+
+
+def ring(place, role, harness, write):
     to = OTHER[role]
-    doorbell = parse(line, to, place.tracker)
-    if doorbell is None:
-        lines = ["Not a Doorbell the %s rings: %s" % (role, line), "The %s rings:" % role]
-        lines += ["  " + t for t in templates_to(to, place.tracker)]
-        raise Failure(lines, "Fill in the template exactly and ring again. Nothing was written.")
     place.require_open("a ring")
+    line = composed(place, role)
+    doorbell = parse(line, to, place.tracker)
     out = Output()
     last = place.entries(to)
     already = bool(last) and last[-1].text == line
@@ -440,24 +441,19 @@ def after_nothing(place, role, harness, entries, state):
     return wait_or_hold(place, role, harness)
 
 
-def review_round(place):
-    """(lines of PLAN-REVIEW.md or None, its Round number or None)."""
-    review = textfile.lines(os.path.join(place.dir, "PLAN-REVIEW.md"))
-    for line in review or []:
-        match = re.match(r"^Round ([0-9]+)\s*$", line)
-        if match:
-            return review, int(match.group(1))
-    return review, None
+def last_plan_review(place):
+    """The last plan review the state file records, or None."""
+    return loopstate.State(place.dir).last_review("plan")
 
 
 def plan_signed_off(place):
-    """PLAN-REVIEW.md opens with SIGNED OFF and the Planner has rung no round
-    after its Round: the plan Loop is over and neither Role waits."""
-    review, round_number = review_round(place)
-    if not review or review[0].strip() != "SIGNED OFF" or round_number is None:
+    """The last plan review signed off and the Planner has rung no round
+    after it: the plan Loop is over and neither Role waits."""
+    review = last_plan_review(place)
+    if review is None or not review.signed_off:
         return False
     rung = [e.doorbell.round for e in place.entries("Orchestrator") if e.doorbell]
-    return not rung or max(rung) <= round_number
+    return not rung or max(rung) <= review.round
 
 
 def take_restart(place, harness):
@@ -469,12 +465,8 @@ def take_restart(place, harness):
     before = place.load_state(role)
     state = State()
     out = Output()
-    review, round_number = review_round(place)
-    if review is not None and round_number is None:
-        raise Failure(
-            "PLAN-REVIEW.md has no Round line in %s." % place.dir,
-            "Place the Workflow again from the files, as your skill says; --restart is for the plan Loop open.",
-        )
+    review = last_plan_review(place)
+    round_number = review.round if review else None
     tell_not_doorbells(out, entries[before.count:])
     planner = [e for e in entries if e.doorbell]
     state.count = len(entries)
@@ -487,20 +479,19 @@ def take_restart(place, harness):
     if newest and (round_number is None or newest.doorbell.round > round_number):
         out.line("Doorbell: %s" % newest.text)
         if round_number is None:
-            out.line("No PLAN-REVIEW.md yet, so no review answers it.")
+            out.line("No plan review is recorded yet, so no review answers it.")
         else:
             out.line(
-                "The Planner rang round %d after PLAN-REVIEW.md's round %d." % (newest.doorbell.round, round_number))
+                "The Planner rang round %d after the plan review of round %d." % (newest.doorbell.round, round_number))
         return out.finish("Spawn the Plan-Reviewer fresh with the Spawn prompt, as your skill says.")
     if round_number is None:
         out.line("No Planner Doorbell in the Doorbell file yet.")
         return out.finish(wait_next(role, harness, place.slug))
-    relay = "VDD Plan-Reviewer: PLAN-REVIEW.md written, round %d. Read it." % round_number
     if newest:
         out.line("The newest Planner Doorbell, round %d, is already handled." % newest.doorbell.round)
     else:
         out.line("No Planner Doorbell in the Doorbell file.")
-    return out.finish("Relay the restart line to the Planner. Run: %s" % ring_command(role, relay, harness, place.slug))
+    return out.finish("Relay the last plan review to the Planner. Run: %s" % ring_command(role, harness, place.slug))
 
 
 # --- the wait ---

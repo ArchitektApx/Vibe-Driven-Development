@@ -9,6 +9,7 @@ GROUPS = {
     "codex-stop": "The Codex Stop hook. Codex runs it at a turn end; a Role never does.",
     "doorbell": "Ring, wait for and take Doorbells between the Planner and the Orchestrator.",
     "loop": "Start a loop, and show, change, close or reopen its Loop file.",
+    "review": "The Plan-Reviewer's and the Code-Reviewer's round: write its frame, then check it.",
     "setup": "Check this repository and machine for a VDD loop, and make the changes Setup owns.",
 }
 
@@ -41,6 +42,8 @@ def load(name):
         from . import doorbell as module
     elif name == "loop":
         from . import loop as module
+    elif name == "review":
+        from . import review as module
     else:
         from . import setup as module
     return module

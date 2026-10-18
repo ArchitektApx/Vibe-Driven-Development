@@ -207,7 +207,7 @@ fresh, with the Spawn prompt above.
 
 **From the Plan-Reviewer.** Relay every one, open findings and Sign-off alike:
 ring it in the foreground with
-`doorbell ring --role Orchestrator --line "<the Doorbell>" --harness <h> --slug <slug> --write`.
+`doorbell ring --role Orchestrator --harness <h> --slug <slug> --write`, which composes the line from the loop's state.
 On open findings, its `Next:` line names the wait: the Planner owns the next
 move. On `SIGNED OFF` the plan Loop is over: ring it, print the `Spawning`
 line in your reply, and only then spawn the Coder.
