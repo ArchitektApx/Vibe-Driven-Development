@@ -7,7 +7,6 @@ file in the Shared directory stays.
 
 import os
 import shutil
-import tempfile
 
 from . import places
 
@@ -51,12 +50,27 @@ def state(shared):
     return UPDATE
 
 
+def unique_dir(parent, prefix):
+    """A new, empty directory under parent with a unique name that starts
+    with prefix, made with a plain os.mkdir so it inherits parent's ACL. On
+    Windows the tempfile module's directory gets a protected ACL that the
+    files copied into it keep, and Codex's sandbox cannot read them (loop
+    03's acceptance, finding 4)."""
+    while True:
+        path = os.path.join(parent, "%s%d-%s" % (prefix, os.getpid(), os.urandom(4).hex()))
+        try:
+            os.mkdir(path)
+            return path
+        except FileExistsError:
+            continue
+
+
 def swap(shared):
     """Copy the shipped tree into a sibling directory of the Shared copy, then
     swap it in. Raises OSError when a write fails."""
     source = shipped_dir()
     os.makedirs(shared, exist_ok=True)
-    stage = tempfile.mkdtemp(prefix=".vdd-new-", dir=shared)
+    stage = unique_dir(shared, ".vdd-new-")
     old = None
     try:
         for rel in tree(source):
@@ -65,7 +79,7 @@ def swap(shared):
             shutil.copyfile(os.path.join(source, *rel.split("/")), dest)
         package = os.path.join(shared, "vdd")
         if os.path.lexists(package):
-            old = tempfile.mkdtemp(prefix=".vdd-old-", dir=shared)
+            old = unique_dir(shared, ".vdd-old-")
             os.rmdir(old)
             os.rename(package, old)
         try:

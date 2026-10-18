@@ -403,6 +403,52 @@ class SetupTest(ToolTest):
         self.assertEqual(vddtest_tree(SCRIPTS), vddtest_tree(self.box.shared))
         self.assertEqual(sorted(os.listdir(self.box.shared)), ["doorbell-wait.sh", "vdd", "vdd.py"])
 
+    def test_a_copy_that_differs_by_one_byte_is_replaced_and_no_staging_is_left(self):
+        """The first Setup after an update replaces a copy whose content
+        differs, with no migration step, and leaves no staging or old-copy
+        directory behind (loop 03's acceptance, finding 4; ticket 86)."""
+        self.setup("claude-code", "writing-for-agents", "yes", "--write")
+        entry = os.path.join(self.box.shared, "vdd.py")
+        with open(entry, "rb") as handle:
+            data = bytearray(handle.read())
+        data[0] = ord("#") if data[0] != ord("#") else ord(" ")
+        with open(entry, "wb") as handle:
+            handle.write(bytes(data))
+        result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("update the VDD tool", result.text)
+        self.assertIn("Shared copy of the VDD tool: checked.", result.text)
+        self.assertEqual(vddtest_tree(SCRIPTS), vddtest_tree(self.box.shared))
+        left = [name for name in os.listdir(self.box.shared) if name.startswith((".vdd-new-", ".vdd-old-"))]
+        self.assertEqual(left, [])
+
+    @unittest.skipUnless(WINDOWS, "icacls and inherited ACL entries are Windows only")
+    def test_the_installed_copy_inherits_the_shared_directory_acl(self):
+        """Codex's Windows sandbox could not read a Shared copy staged in a
+        tempfile directory, whose protected ACL the installed files kept, so
+        every VDD call was refused and rerun escalated (loop 03's acceptance,
+        finding 4; ticket 86). Setup stages with a plain mkdir, so every
+        access entry on the installed files is inherited."""
+        result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
+        self.assertEqual(result.code, 0, result)
+        for path in (os.path.join(self.box.shared, "vdd.py"), os.path.join(self.box.shared, "vdd", "cli.py")):
+            with self.subTest(path=path):
+                proc = subprocess.run(["icacls", path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                text = proc.stdout.decode("utf-8", "replace")
+                entries = []
+                for number, line in enumerate(text.splitlines()):
+                    line = line.strip()
+                    if not line or line.startswith("Successfully processed"):
+                        continue
+                    if number == 0:
+                        line = line[len(path):].strip() if line.lower().startswith(path.lower()) else line
+                    if ":" in line and "(" in line:
+                        entries.append(line)
+                self.assertTrue(entries, text)
+                for entry in entries:
+                    self.assertIn("(I)", entry, text)
+
     def test_gitignore_removes_only_whole_retired_lines(self):
         """A line goes only when the whole line, trimmed, is a retired entry:
         docs/PLAN.md and !PLAN.md are the user's own (6106fb6)."""
