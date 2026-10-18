@@ -6,8 +6,6 @@
 - **The Spawn prompt's skill name.** `vdd-<role>`, bare: `vdd-plan-reviewer`,
   `vdd-coder` or `vdd-code-reviewer`. A child loads the skill by reading its
   `SKILL.md`.
-- **The context size.** None reaches the parent: a Task result carries the
-  reply and the agent ID only.
 - **The wait.** Run the wait command a `Next:` line names as a
   background shell; the Session wakes when the shell finishes. The IDE Agent
   and the CLI may each wake twice for one wait: on the second, `take` finds no

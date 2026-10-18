@@ -16,7 +16,8 @@ import re
 from . import args, doorbell, harness as harnesses, loopfile, loopstate, places
 from .out import Failure, Output
 
-SUBCOMMANDS = ("start", "return")
+SUBCOMMANDS = ("start", "return", "respawn", "tokens")
+POLICY = re.compile(r"^(every round|never|over ([1-9][0-9]*)(k?))$")
 HOSTED = ("Plan-Reviewer", "Coder", "Code-Reviewer")
 SKILLS = {"Plan-Reviewer": "vdd-plan-reviewer", "Coder": "vdd-coder", "Code-Reviewer": "vdd-code-reviewer"}
 
@@ -34,11 +35,22 @@ HELP = [
     "  spawn with its Read and Write lists, a resume with its message, the ring, the wait or the PR step; a",
     "  second return for a round already acted on, and a round with no check --write, each say what to do.",
     "",
-    "Neither command rings, spawns or resumes anything, and neither takes --write: you take each step it",
-    "prints. --slug names the loop; pass it on every call. Run every command from the repository root.",
+    "orchestrator respawn --role <Plan-Reviewer|Coder|Code-Reviewer> (--policy \"<p>\" | --once) --slug <slug> --write",
+    "  On the user's word: --policy sets the Role's Respawn policy, \"every round\", never or \"over <n>k\"",
+    "  (Claude Code only, from the Coder's subagent_tokens); --once makes the Role's next spawn fresh, and",
+    "  after a BLOCKED prints that fresh spawn for the unfinished round at once. The reviewers start at never;",
+    "  the Coder's policy is asked at Model approval.",
+    "",
+    "orchestrator tokens --role <Role> --tokens <n> --slug <slug>",
+    "  Claude Code only, when a Next: line asks for it: record the Role's subagent_tokens from its latest",
+    "  completion notice and print the step that waited for the count.",
+    "",
+    "start, return and tokens ring, spawn and resume nothing, and take no --write: you take each step they",
+    "print. --slug names the loop; pass it on every call. Run every command from the repository root.",
 ]
 
-SPEC = {"role": args.VALUE, "slug": args.VALUE, "harness": args.VALUE}
+SPEC = {"role": args.VALUE, "slug": args.VALUE, "harness": args.VALUE, "policy": args.VALUE, "once": args.FLAG,
+        "tokens": args.VALUE, "write": args.FLAG}
 
 
 def usage():
@@ -60,6 +72,10 @@ def run(argv):
     flow = Flow.find(values, "orchestrator %s" % sub)
     if sub == "start":
         return start(flow)
+    if sub == "respawn":
+        return respawn(flow, values)
+    if sub == "tokens":
+        return tokens(flow, values)
     args.require(values, ["role", "harness"], usage())
     role = values["role"]
     if role not in HOSTED + ("Planner",):
@@ -80,7 +96,7 @@ class Flow:
             given = args.harness_of(values, usage())
             if given.name != flow.harness.name:
                 raise Failure(
-                    "--harness %s does not match the Loop file's Harness: %s." % (given.name, flow.harness.label),
+                    "--harness %s does not match the Loop file's Harness: %s." % (given.name, flow.harness_label),
                     "Run the command again with --harness %s." % flow.harness.name,
                 )
         return flow
@@ -90,6 +106,9 @@ class Flow:
         self.state = state
         self.slug = loop.slug
         self.harness = harnesses.get(loopfile.harness_slug(loop.setting("Harness")[0]))
+        # The Loop file's own value: Generic's Harness module has no label
+        # (code review round 4, finding 19).
+        self.harness_label = loop.setting("Harness")[0]
         self.place = doorbell.Place(loop.root, loop.slug)
         self.place.loop = loop
 
@@ -113,6 +132,52 @@ class Flow:
             if match and match.group(2) == role and int(match.group(4)) == session:
                 last = (match.group(1), int(match.group(3)))
         return last
+
+    def policy(self, role):
+        """The Role's Respawn policy: its last respawn line, else never for a
+        reviewer and None (unset) for the Coder."""
+        found = None
+        prefix = "respawn %s " % role
+        for line in self.state.lines:
+            if line.startswith(prefix):
+                found = line[len(prefix):].strip()
+        if found is None and role != "Coder":
+            return "never"
+        return found
+
+    def once_pending(self, role):
+        """Whether a respawn-once request for the Role waits for its next
+        spawn."""
+        pending = False
+        for line in self.state.lines:
+            if line == "respawn-once %s" % role:
+                pending = True
+            elif re.match(r"^spawn %s [0-9]+ " % re.escape(role), line):
+                pending = False
+        return pending
+
+    def spawned_before(self, role):
+        """Whether an earlier session spawned or resumed the Role."""
+        session = self.session()
+        for line in self.state.lines:
+            match = re.match(r"^(spawn|resume) (\S+) [0-9]+ session ([0-9]+)", line)
+            if match and match.group(2) == role and int(match.group(3)) < session:
+                return True
+        return False
+
+    def tokens(self, role, number):
+        found = None
+        for line in self.state.lines:
+            match = re.match(r"^tokens (\S+) ([0-9]+) ([0-9]+)$", line)
+            if match and match.group(1) == role and int(match.group(2)) == number:
+                found = int(match.group(3))
+        return found
+
+    def any_spawn(self):
+        """Whether this session has recorded a spawn or resume."""
+        session = self.session()
+        return any(re.match(r"^(spawn|resume) \S+ [0-9]+ session %d(\s|$)" % session, line)
+                   for line in self.state.lines) if session else False
 
     def acted(self, role, number):
         return ("return %s %d ok" % (role, number)) in self.state.lines
@@ -211,11 +276,46 @@ def resume(flow, out, role, number, message, first=None):
     )
 
 
+def size(count):
+    return "%dk" % round(count / 1000.0) if count >= 1000 else str(count)
+
+
+def limit_of(policy):
+    match = POLICY.match(policy or "")
+    if not match or not match.group(2):
+        return None
+    return int(match.group(2)) * (1000 if match.group(3) else 1)
+
+
 def step(flow, out, role, number, first=None):
-    """Spawn or resume role for round number: resume a live subagent of the
-    Role in this session, else spawn a fresh one."""
-    if flow.out(role) is None:
-        return spawn(flow, out, role, number, first=first)
+    """Spawn or resume role for round number, by its Respawn policy: a Role
+    with no live subagent in this session is spawned; one with a live
+    subagent is respawned on a once request, every round, or over its limit,
+    and resumed otherwise."""
+    live = flow.out(role)
+    if live is None:
+        reason = "after a restart" if flow.spawned_before(role) else None
+        return spawn(flow, out, role, number, reason, first)
+    if flow.once_pending(role):
+        return spawn(flow, out, role, number, "respawn on request", first)
+    policy = flow.policy(role) or "never"
+    if live[1] != number and policy == "every round":
+        return spawn(flow, out, role, number, "respawn every round", first)
+    limit = limit_of(policy)
+    if live[1] != number and limit is not None and flow.harness.name == "claude-code":
+        count = flow.tokens(role, live[1])
+        if count is None:
+            if first:
+                out.line("First: %s" % first)
+            out.line("The %s's Respawn policy is %s, and no token count is recorded for its round %d."
+                     % (role, policy, live[1]))
+            return out.finish(
+                "Run %s, with subagent_tokens from the %s's latest completion notice; it records the count and "
+                "prints the step that waits for it." % (flow.command(
+                    "orchestrator tokens --role %s --tokens <subagent_tokens> --slug %s" % (role, flow.slug)), role)
+            )
+        if count > limit:
+            return spawn(flow, out, role, number, "respawn at %s" % size(count), first)
     return resume(flow, out, role, number, handoff(flow, role, number), first)
 
 
@@ -284,12 +384,42 @@ def code_place(flow):
     return ("Coder", review.round + 1 if review else 1)
 
 
+def policies_line(flow):
+    return "Respawn policies: %s." % ", ".join(
+        "%s %s" % (role, flow.policy(role) or "not set") for role in ("Coder", "Plan-Reviewer", "Code-Reviewer"))
+
+
+def quoted(value):
+    return '"%s"' % value if " " in value else value
+
+
+def respawn_question(flow):
+    recommended, limit = flow.harness.respawn_recommendation()
+    answers = [("Every round", "every round"), ("Never", "never")]
+    if limit:
+        answers.append(("Over a limit of the Coder's token count, for example %s; the user may name another "
+                        "number" % limit, limit))
+    parts = []
+    for label, value in answers:
+        mark = " (recommended)" if value == recommended else ""
+        parts.append("\"%s\"%s (--policy %s)." % (label, mark, quoted(value)))
+    return ("Respawn question: When should the Orchestrator respawn the Coder, spawning it anew for a round in "
+            "place of resuming the one before? Answers, in this order: " + " ".join(parts))
+
+
 def start(flow):
     previous = flow.session()
     out = Output()
     out.line("Loop: %s, open. Harness: %s. Read %s, the Harness file this skill's Harnesses index links, now, once."
-             % (flow.slug, flow.harness.label, flow.loop.harness_file()))
+             % (flow.slug, flow.harness_label, flow.loop.harness_file()))
     out.line(describe(flow))
+    out.line(policies_line(flow))
+    if flow.policy("Coder") is None:
+        out.line(respawn_question(flow))
+        return out.finish(
+            "Ask Model approval and the Respawn question above in one message, and wait for the user. Then run %s"
+            % flow.command('orchestrator respawn --role Coder --policy "<answer>" --slug %s --write' % flow.slug)
+        )
     flow.state.append("orchestrator session %d" % (previous + 1))
     # A wait an earlier session started wakes that session, not this one.
     doorbell.clear_marker(flow.place, "Orchestrator")
@@ -393,3 +523,95 @@ def planner_returned(flow):
     out = Output()
     out.line("Plan Loop: the Planner rang round %d." % number)
     return step(flow, out, "Plan-Reviewer", number)
+
+
+# --- respawn and tokens ---
+
+def respawn(flow, values):
+    role = values["role"]
+    if role not in HOSTED:
+        raise Failure("--role takes Plan-Reviewer, Coder or Code-Reviewer.", "Run %s for the usage." % usage())
+    if (values["policy"] is None) == (not values["once"]):
+        raise Failure("Give --policy or --once, not both and not neither.", "Run %s for the usage." % usage())
+    out = Output()
+    if values["once"]:
+        if not values["write"]:
+            out.line("Would make the %s's next spawn fresh." % role)
+            return out.finish("Run the same command with --write.")
+        flow.state.append("respawn-once %s" % role)
+        live = flow.out(role)
+        if live is not None and not flow.acted(role, live[1]) and not flow.done(role, live[1]):
+            out.line("The %s's round %d is unfinished: a fresh %s takes it over." % (role, live[1], role))
+            return spawn(flow, out, role, live[1], "respawn on request")
+        out.line("The %s's next spawn is fresh." % role)
+        if live is not None and not flow.acted(role, live[1]):
+            # A BLOCKED after the round's check --write passed: the round is
+            # done and its return is still owed (ticket 72, code review
+            # round 4, finding 20).
+            out.line("The %s's round %d is finished and not acted on yet." % (role, live[1]))
+            return out.finish("Run %s" % flow.return_command(role))
+        return out.finish("Go on with the step the tool printed before it.")
+    policy = " ".join(values["policy"].split())
+    match = POLICY.match(policy)
+    if match is None:
+        raise Failure(
+            "--policy %s is not a Respawn policy. It takes \"every round\", never, or \"over <n>k\" with <n> a whole "
+            "number from 1." % values["policy"],
+            "Ask the user again with those answers, then run the command with one of them.",
+        )
+    if match.group(2) and flow.harness.name != "claude-code":
+        raise Failure(
+            "over <n> works only on Claude Code: %s reports no subagent token count." % flow.harness_label,
+            "Ask the user for \"every round\" or never instead.",
+        )
+    if not values["write"]:
+        out.line("Would set: respawn %s %s." % (role, policy))
+        return out.finish("Run the same command with --write.")
+    flow.state.append("respawn %s %s" % (role, policy))
+    out.line(policies_line(flow))
+    if flow.any_spawn():
+        return out.finish("The policy applies from the Role's next round; go on with the step the tool printed "
+                          "before it.")
+    return out.finish("Run %s" % flow.command("orchestrator start --slug %s --harness %s" % (flow.slug,
+                                                                                           flow.harness.name)))
+
+
+def tokens(flow, values):
+    args.require(values, ["role", "tokens"], usage())
+    role = values["role"]
+    if role not in HOSTED:
+        raise Failure("--role takes Plan-Reviewer, Coder or Code-Reviewer.", "Run %s for the usage." % usage())
+    if flow.harness.name != "claude-code":
+        raise Failure(
+            "%s reports no subagent token count, so there is none to record." % flow.harness_label,
+            "Go on with the step the tool printed before it.",
+        )
+    if not values["tokens"].isdigit():
+        raise Failure("--tokens takes a whole number: subagent_tokens from the completion notice.",
+                      "Run the command again with the number.")
+    live = flow.out(role)
+    if live is None:
+        raise Failure(
+            "No %s is out in this Orchestrator session, so no count is asked for." % role,
+            "Go on with the step the tool printed before it.",
+        )
+    count = int(values["tokens"])
+    flow.state.append("tokens %s %d %d" % (role, live[1], count))
+    out = Output()
+    out.line("Recorded: %s round %d, %s tokens." % (role, live[1], size(count)))
+    waiting = waiting_step(flow, role)
+    if waiting is None or waiting == live[1]:
+        return out.finish("Go on with the step the tool printed before it.")
+    return step(flow, out, role, waiting)
+
+
+def waiting_step(flow, role):
+    """The round of role the Workflow waits to spawn or resume, or None."""
+    if role == "Plan-Reviewer":
+        plan = flow.state.last_review("plan")
+        number = (plan.round if plan else 0) + 1
+        return number if flow.rung() >= number else None
+    where = code_place(flow)
+    if where is None or where[0] != role:
+        return None
+    return where[1]

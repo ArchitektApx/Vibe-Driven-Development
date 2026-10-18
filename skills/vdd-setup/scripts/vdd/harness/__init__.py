@@ -53,9 +53,11 @@ class Harness(abc.ABC):
         as one clause."""
 
     @abc.abstractmethod
-    def fresh_coder(self):
-        """The Fresh Coder question on this Harness: (the answer it
-        recommends, the limit it offers as "over <n>k"), each None for none."""
+    def respawn_recommendation(self):
+        """The Respawn question for the Coder's Respawn policy on this
+        Harness, asked at Model approval: (the answer it recommends, the
+        "over <n>k" limit it offers as an example), each None for none. Only
+        a Harness that reports a subagent's token count offers a limit."""
 
     @abc.abstractmethod
     def codex_hook_steps(self):

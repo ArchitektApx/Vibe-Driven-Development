@@ -20,8 +20,6 @@
   `read_agent`, as above.
 - **The Spawn prompt's skill name.** `vdd-<role>`, bare: `vdd-plan-reviewer`,
   `vdd-coder` or `vdd-code-reviewer`. A child loads it with the `skill` tool.
-- **The context size.** None reaches the parent: the `task` and `read_agent`
-  results carry no context or token figure.
 - **After `copilot --continue` or `copilot --resume`.** The hosted Roles are
   gone: a background child does not survive a restart of the Session that
   spawned it. When `write_agent` or `read_agent` answers `No agent found with

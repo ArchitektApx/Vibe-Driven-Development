@@ -73,7 +73,7 @@ class ClaudeCode(Harness):
     def no_hit_continuation(self):
         return ""
 
-    def fresh_coder(self):
+    def respawn_recommendation(self):
         return ("every round", "over 200k")
 
     def codex_hook_steps(self):

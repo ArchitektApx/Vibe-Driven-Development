@@ -353,6 +353,188 @@ class VersionOneTest(OrchestratorTest):
                 self.assertIn("0.16.0-beta.3", result.text)
 
 
+class RespawnQuestionTest(OrchestratorTest):
+    """The Coder's Respawn policy, asked at Model approval only while unset
+    (Ticket 08)."""
+
+    def policies(self):
+        return ()
+
+    def loop_on(self, label):
+        self.box.write_loop("demo", text=(
+            "# VDD Loop\n\nFormat: 2\nFeature: demo\nBase branch: main\nFeature branch: demo\nMinors: fix\n"
+            "PR: ask at sign-off\nHarness: %s\n" % label))
+
+    def question(self, result):
+        return [line for line in result.lines if line.startswith("Respawn question:")][0]
+
+    def test_the_question_per_harness_and_nothing_placed(self):
+        cases = {
+            "Claude Code": ("claude-code", '"Every round" (recommended)', True),
+            "Codex": ("codex", '"Never" (recommended)', False),
+            "Cursor": ("cursor", '"Every round" (recommended)', False),
+            "Copilot CLI": ("copilot-cli", '"Every round" (recommended)', False),
+            "Generic": ("generic", None, False),
+        }
+        for label, (name, recommended, limit) in cases.items():
+            with self.subTest(harness=name):
+                self.loop_on(label)
+                self.rings(P1)
+                result = self.orch("start", "--slug", "demo", "--harness", name)
+                self.assertEqual(result.code, 0, result)
+                question = self.question(result)
+                if recommended:
+                    self.assertIn(recommended, question)
+                    self.assertEqual(question.count("(recommended)"), 1)
+                else:
+                    self.assertNotIn("recommended", question)
+                self.assertEqual("over 200k" in question, limit)
+                self.assertNotIn("Spawning", result.text)
+                self.assertNotIn("orchestrator session", self.state())
+                self.assertNext(result, 'orchestrator respawn --role Coder --policy "<answer>" --slug demo --write')
+
+    def test_setting_the_policy_names_start_which_then_asks_nothing(self):
+        self.rings(P1)
+        result = self.orch("respawn", "--role", "Coder", "--policy", "every round", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("Respawn policies: Coder every round, Plan-Reviewer never, Code-Reviewer never.", result.lines)
+        self.assertNext(result, "orchestrator start --slug demo --harness claude-code")
+        started = self.start()
+        self.assertNotIn("Respawn question", started.text)
+        self.spawned(started, "Plan-Reviewer", 1)
+
+    def test_a_mid_loop_change_names_no_start_and_records_no_session(self):
+        """Plan review round 2, finding 15: a policy change after a recorded
+        spawn placed the Workflow again and spawned a second Coder beside a
+        live one."""
+        self.stage("respawn Coder never", "orchestrator session 1", "spawn Coder 1 session 1")
+        result = self.orch("respawn", "--role", "Code-Reviewer", "--policy", "every round", "--slug", "demo",
+                           "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(result.last, "Next: The policy applies from the Role's next round; go on with the step the "
+                                      "tool printed before it.")
+        self.assertNotIn("orchestrator start", result.text)
+        self.assertEqual(self.state().count("orchestrator session"), 1)
+
+    def test_generic_is_named_by_the_loop_file_s_value(self):
+        """Code review round 4, finding 19: Generic's Harness module has no
+        label, so start printed "Harness: ." and the refusals a blank."""
+        self.loop_on("Generic")
+        self.stage("respawn Coder never")
+        started = self.orch("start", "--slug", "demo", "--harness", "generic")
+        self.assertEqual(started.code, 0, started)
+        self.assertIn("Harness: Generic. Read harness-generic.md", started.lines[0])
+        over = self.orch("respawn", "--role", "Coder", "--policy", "over 200k", "--slug", "demo", "--write")
+        self.assertIn("over <n> works only on Claude Code: Generic reports no subagent token count.", over.text)
+        tokens = self.orch("tokens", "--role", "Coder", "--tokens", "1000", "--slug", "demo")
+        self.assertIn("Generic reports no subagent token count, so there is none to record.", tokens.text)
+        wrong = self.orch("start", "--slug", "demo", "--harness", "codex")
+        self.assertIn("does not match the Loop file's Harness: Generic.", wrong.text)
+
+    def test_over_is_claude_code_only_and_a_bad_policy_is_refused(self):
+        for label in ("Codex", "Cursor", "Copilot CLI", "Generic"):
+            with self.subTest(harness=label):
+                self.loop_on(label)
+                result = self.orch("respawn", "--role", "Coder", "--policy", "over 200k", "--slug", "demo", "--write")
+                self.assertNotEqual(result.code, 0, result)
+                self.assertIn("only on Claude Code", result.text)
+        for label in ("Claude Code", "Codex"):
+            for policy in ("over 2x", "sometimes"):
+                with self.subTest(harness=label, policy=policy):
+                    self.loop_on(label)
+                    result = self.orch("respawn", "--role", "Coder", "--policy", policy, "--slug", "demo", "--write")
+                    self.assertNotEqual(result.code, 0, result)
+                    self.assertIn("is not a Respawn policy", result.text)
+        self.assertNotIn("respawn Coder", self.state())
+
+
+class PolicyTest(OrchestratorTest):
+    def policies(self):
+        return ()
+
+    def after_review_one(self, policy):
+        self.stage("respawn Coder %s" % policy, "orchestrator session 1", "spawn Coder 1 session 1",
+                   "code 1 start a", "code 1 end b", "return Coder 1 ok", "spawn Code-Reviewer 1 session 1",
+                   CODE_OPEN_1)
+        return self.back("Code-Reviewer")
+
+    def test_every_round_respawns_and_never_resumes(self):
+        result = self.after_review_one("every round")
+        self.spawned(result, "Coder", 2, "respawn every round")
+
+    def test_never_resumes(self):
+        result = self.after_review_one("never")
+        self.assertIn("Resuming Coder, round 2.", result.lines)
+        index = result.lines.index("Resume message:")
+        self.assertEqual(result.lines[index + 1],
+                         "VDD Code-Reviewer: CODEREVIEW.md written, round 1: 0 blocker, 1 major, 0 minor. Read it.")
+
+    def test_over_asks_for_the_count_at_the_code_reviewer_s_return(self):
+        """Ticket 74's amendment: the count is asked when the Code-Reviewer's
+        return decides the Coder's next round, when it is already in the
+        Orchestrator's context."""
+        result = self.after_review_one("over 200k")
+        self.assertEqual(result.code, 0, result)
+        self.assertNotIn("Spawning", result.text)
+        self.assertNext(result, "orchestrator tokens --role Coder --tokens <subagent_tokens> --slug demo")
+        respawned = self.orch("tokens", "--role", "Coder", "--tokens", "210000", "--slug", "demo")
+        self.spawned(respawned, "Coder", 2, "respawn at 210k")
+
+    def test_over_resumes_under_the_limit(self):
+        self.after_review_one("over 200k")
+        result = self.orch("tokens", "--role", "Coder", "--tokens", "150000", "--slug", "demo")
+        self.assertIn("Resuming Coder, round 2.", result.lines)
+
+    def test_tokens_is_refused_off_claude_code(self):
+        self.box.write_loop("demo", text=(
+            "# VDD Loop\n\nFormat: 2\nFeature: demo\nBase branch: main\nFeature branch: demo\nMinors: fix\n"
+            "PR: ask at sign-off\nHarness: Codex\n"), extra=("respawn Coder never", "orchestrator session 1",
+                                                              "spawn Coder 1 session 1"))
+        result = self.orch("tokens", "--role", "Coder", "--tokens", "1000", "--slug", "demo")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertIn("reports no subagent token count", result.text)
+
+    def test_once_respawns_the_next_spawn_once(self):
+        self.stage("respawn Coder never", "orchestrator session 1", "spawn Coder 1 session 1", "code 1 start a",
+                   "code 1 end b", "return Coder 1 ok", "spawn Code-Reviewer 1 session 1", CODE_OPEN_1,
+                   "return Code-Reviewer 1 ok", "resume Coder 2 session 1", "code 2 start b", "code 2 end c")
+        once = self.orch("respawn", "--role", "Code-Reviewer", "--once", "--slug", "demo", "--write")
+        self.assertEqual(once.code, 0, once)
+        self.assertNext(once, "Go on with the step the tool printed before it.")
+        result = self.back("Coder")
+        self.spawned(result, "Code-Reviewer", 2, "respawn on request")
+        self.stage("code 2 reviewed open 1 counts 0 1 0 next 2 new 0 closed 0 checks code-review ran",
+                   "return Code-Reviewer 2 ok", "resume Coder 3 session 1", "code 3 start c", "code 3 end d")
+        later = self.back("Coder")
+        self.assertIn("Resuming Code-Reviewer, round 3.", later.lines)
+
+    def test_once_after_a_blocked_spawns_the_unfinished_round(self):
+        self.stage("respawn Coder never", "orchestrator session 1", "spawn Coder 1 session 1", "code 1 start a")
+        result = self.orch("respawn", "--role", "Coder", "--once", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.spawned(result, "Coder", 1, "respawn on request")
+
+    def test_once_after_a_blocked_over_a_finished_round_names_the_return(self):
+        """Ticket 72: a check --write recorded counts "even when the state
+        shows the round finished", so a BLOCKED after it leaves the round's
+        return owed (code review round 4, finding 20): --once names
+        orchestrator return, not the step before the BLOCKED."""
+        self.stage("respawn Coder never", "orchestrator session 1", "spawn Coder 1 session 1", "code 1 start a",
+                   "code 1 end b")
+        result = self.orch("respawn", "--role", "Coder", "--once", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertNotIn("Spawning", result.text)
+        self.assertNext(result, "orchestrator return --role Coder --slug demo --harness claude-code")
+        self.spawned(self.back("Coder"), "Code-Reviewer", 1)
+
+    def test_a_question_s_resume_and_the_fixed_resume_stay_resumes(self):
+        """A resume after a miss stays a resume whatever the policy says."""
+        self.stage("respawn Coder every round", "orchestrator session 1", "spawn Coder 1 session 1",
+                   "code 1 start a")
+        result = self.back("Coder")
+        self.assertIn("Resuming Coder, round 1.", result.lines)
+
+
 class SkillTextTest(OrchestratorTest):
     """Each hosted Role's Read and Write lists, as orchestrator return prints
     them, name only Working files that Role's SKILL.md names (Ticket 41's

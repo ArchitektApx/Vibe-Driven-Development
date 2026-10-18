@@ -14,8 +14,6 @@
   after your turn has ended does not wake this Session. The completion
   arrives as a message of type `FINAL_ANSWER` with a `Task name`, a `Sender`
   and a `Payload`. The `Payload` is the return.
-- **The context size.** Codex reports none for a subagent, in any field of the
-  spawn, wait, follow-up or completion results.
 - **The wait.** A background shell cannot wake an idle Codex Session, so
   VDD's `Stop` hook waits for you. The wait command arms it and returns at
   once; then end your turn. End every turn in which you expect a Planner

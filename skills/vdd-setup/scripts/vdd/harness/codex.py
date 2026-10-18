@@ -64,7 +64,7 @@ class Codex(Harness):
     def no_hit_continuation(self):
         return ""
 
-    def fresh_coder(self):
+    def respawn_recommendation(self):
         return ("never", None)
 
     def codex_hook_steps(self):

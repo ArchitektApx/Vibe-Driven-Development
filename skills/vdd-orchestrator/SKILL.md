@@ -52,6 +52,9 @@ finish. Discard those reports unread.
 ## Model approval
 
 Before your first spawn in this session, put Model approval to the user.
+When `orchestrator start` prints the Respawn question, put it in the same
+message, with its answers as written, and run the command its `Next:` line
+names with the user's answer.
 
 **Read your context.** Your Harness and the user's configuration have already
 put into it whatever they have to say about models and thinking levels. That is
@@ -128,15 +131,22 @@ Look at the last line of the return.
   verbatim and wait, even when the Role's work looks finished. Run no
   `orchestrator return` for it. The user's answer to a `QUESTION` resumes the
   same subagent, with the answer as the message. After a `BLOCKED`, resume or
-  respawn is the user's call: a resume carries their answer as its message;
-  for a respawn read [`respawn.md`](references/respawn.md). When the Role
-  returns again, act on that return.
+  respawn is the user's call: a resume carries their answer as its message, a
+  respawn runs `orchestrator respawn --role <Role> --once --slug <slug>
+  --write`. When the Role returns again, act on that return.
 - **Anything else.** Run the `orchestrator return` command the tool's last
   `Next:` line names, and do what it prints. It takes the round's outcome
   from the Loop's files, never from the return's text.
 
 When the user asks you to pause, stop before the next step the tool printed:
 spawn, resume and ring nothing until they say go on.
+
+## The user's say on Respawn
+
+The user can change any hosted Role's Respawn policy at any round ("respawn
+the Code-Reviewer every round"), or ask for one respawn: run `orchestrator
+respawn --role <Role>` with `--policy "<policy>"` or `--once`, `--slug <slug>`
+and `--write`, and do what it prints.
 
 ## Receiving a message from the Planner
 

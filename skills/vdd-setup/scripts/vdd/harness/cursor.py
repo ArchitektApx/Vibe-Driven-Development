@@ -65,7 +65,7 @@ class Cursor(Harness):
             "does not depend on it."
         )
 
-    def fresh_coder(self):
+    def respawn_recommendation(self):
         return ("every round", None)
 
     def codex_hook_steps(self):

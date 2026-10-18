@@ -5,7 +5,6 @@
   intact.
 - **The Spawn prompt's skill name.** Bare: `vdd-plan-reviewer`, `vdd-coder`
   or `vdd-code-reviewer`.
-- **The context size.** None reaches you.
 - **The wait.** Where your tools can run a command in the background and
   wake you when it exits, run the wait command a `Next:` line names that
   way. Otherwise relay by hand: the user pastes the Planner's next

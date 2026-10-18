@@ -9,8 +9,8 @@
   a later round it ends in plain text never arrives.
 - **The Spawn prompt's skill name.** `vdd:vdd-<role>`: `vdd:vdd-plan-reviewer`,
   `vdd:vdd-coder` or `vdd:vdd-code-reviewer`.
-- **The context size.** It sits in the trailer under the Agent tool's result
-  for the finished subagent.
+- **The token count.** `subagent_tokens` in an agent's completion notice.
+  Give it only when the tool asks for it.
 - **The wait.** Run the wait command a `Next:` line names in the
   background in your shell tool, Bash or PowerShell, with `run_in_background`
   set and an explicit `timeout` of at least 2760000 ms: the default timeout

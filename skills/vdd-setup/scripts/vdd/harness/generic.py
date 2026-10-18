@@ -42,7 +42,7 @@ class Generic(Harness):
     def no_hit_continuation(self):
         return ""
 
-    def fresh_coder(self):
+    def respawn_recommendation(self):
         return (None, None)
 
     def codex_hook_steps(self):

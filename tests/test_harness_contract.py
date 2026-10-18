@@ -41,6 +41,22 @@ class HarnessContractTest(unittest.TestCase):
                     self.assertTrue(callable(getattr(found, method)))
                 self.assertFalse(inspect.isabstract(cls))
 
+    def test_the_respawn_recommendation_replaced_the_fresh_coder_hook(self):
+        """Ticket 08: the Fresh Coder hook became the Respawn recommendation.
+        Only Claude Code, which reports subagent_tokens, offers a limit."""
+        self.assertIn("respawn_recommendation", self.interface())
+        self.assertNotIn("fresh_coder", self.interface())
+        expected = {
+            "claude-code": ("every round", "over 200k"),
+            "codex": ("never", None),
+            "cursor": ("every round", None),
+            "copilot-cli": ("every round", None),
+            "generic": (None, None),
+        }
+        for name, pair in expected.items():
+            with self.subTest(harness=name):
+                self.assertEqual(harness.get(name).respawn_recommendation(), pair)
+
     def test_unknown_name(self):
         self.assertIsNone(harness.get("nonsense"))
 
