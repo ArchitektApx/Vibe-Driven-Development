@@ -263,16 +263,11 @@ HELP = [
     "  or prints TIMEOUT after 45 minutes. While it runs, ring and take name no second wait: their Next:",
     "  says your wait still runs. On codex it arms the Stop hook instead and returns at once.",
     "",
-    "doorbell take --role <Planner|Orchestrator> --harness <h> --slug <slug> [--pasted \"<line>\"]",
-    "              [--restart | --resumed]",
+    "doorbell take --role <Planner|Orchestrator> --harness <h> --slug <slug> [--pasted \"<line>\"] [--resumed]",
     "  Take the newest Doorbell addressed to your Role and record it, and every line before it, as handled.",
     "  Run it in the foreground on a wake, or with --pasted for a line the user pasted. A Doorbell already",
     "  handled (same sender and round) is reported and not acted on twice. A line that is not a Doorbell is",
     "  reported for the user and never acted on.",
-    "  --restart: the Orchestrator starting a Session before the plan Loop signs off. It clears what the",
-    "  Orchestrator handled before, since a Plan-Reviewer an earlier Session started is gone. It compares the",
-    "  Doorbell file with the plan reviews the state file records and names the Doorbell to act on, the",
-    "  relay to ring, or the wait.",
     "  --resumed: the Planner's first take in a resumed Session. A wait an earlier Session started wakes",
     "  that Session, so it names a wait of your own; what you handled before stays handled.",
     "  Once the plan review is signed off and the Planner has rung no later round, take and ring name no",
@@ -290,7 +285,6 @@ SPEC = {
     "harness": args.VALUE,
     "write": args.FLAG,
     "pasted": args.VALUE,
-    "restart": args.FLAG,
     "resumed": args.FLAG,
     "slug": args.VALUE,
 }
@@ -321,7 +315,7 @@ def run(argv):
         return ring(place, role, harness, values["write"])
     if sub == "wait":
         return wait(place, role, harness)
-    return take(place, role, harness, values["pasted"], values["restart"], values["resumed"])
+    return take(place, role, harness, values["pasted"], values["resumed"])
 
 
 def composed(place, role):
@@ -385,16 +379,12 @@ def ring(place, role, harness, write):
     return out.finish(wait_or_hold(place, role, harness))
 
 
-def take(place, role, harness, pasted, restart, resumed=False):
-    if restart:
-        if role != "Orchestrator":
-            raise Failure("--restart is the Orchestrator's.", "Run take without --restart.")
-        return take_restart(place, harness)
+def take(place, role, harness, pasted, resumed=False):
     if resumed:
         if role != "Planner":
             raise Failure(
                 "--resumed is the Planner's.",
-                "Place the Workflow as your skill says; your take on a start is take --restart.",
+                "Place the Workflow with orchestrator start, as your skill says.",
             )
         # A wait an earlier Session started wakes that Session, not this one.
         clear_marker(place, role)
@@ -414,7 +404,25 @@ def take(place, role, harness, pasted, restart, resumed=False):
         out.line("No new Doorbell for the %s." % role)
         return out.finish(wait_or_hold(place, role, harness))
     out.line("Doorbell: %s" % new[-1].text)
-    return out.finish("Act on this Doorbell as your skill says.")
+    return out.finish(act_next(place, role, harness))
+
+
+def mark_handled(place, role, out):
+    """Record every line addressed to role so far as handled, as take does,
+    without printing a Doorbell: the Orchestrator's start acts on what was
+    rung before it from the state, so the relay after it names the wait
+    rather than a Doorbell already acted on."""
+    entries = place.entries(role, LOCK_RETRY_SECONDS)
+    state = place.load_state(role)
+    beyond, _ = pending(entries, state)
+    if not beyond:
+        return
+    tell_not_doorbells(out, beyond)
+    for entry in beyond:
+        if entry.doorbell:
+            state.handled.add(entry.doorbell.key())
+    state.count = len(entries)
+    place.save_state(role, state)
 
 
 def take_pasted(place, role, harness, entries, state, line, out):
@@ -431,7 +439,16 @@ def take_pasted(place, role, harness, entries, state, line, out):
             state.count = index + 1
     place.save_state(role, state)
     out.line("Doorbell: %s" % line)
-    return out.finish("Act on this Doorbell as your skill says.")
+    return out.finish(act_next(place, role, harness))
+
+
+def act_next(place, role, harness):
+    """The step after a Doorbell take printed: the Orchestrator runs
+    orchestrator return for the Planner's Doorbell."""
+    if role == "Orchestrator":
+        return "Run %s orchestrator return --role Planner --slug %s --harness %s" % (
+            places.command(), place.slug, harness.name)
+    return "Act on this Doorbell as your skill says."
 
 
 def after_nothing(place, role, harness, entries, state):
@@ -454,44 +471,6 @@ def plan_signed_off(place):
         return False
     rung = [e.doorbell.round for e in place.entries("Orchestrator") if e.doorbell]
     return not rung or max(rung) <= review.round
-
-
-def take_restart(place, harness):
-    """The Orchestrator's start: placing the Workflow clears the handled
-    record and the count, because a hosted Role that a Doorbell started
-    before the restart is gone and that Doorbell has to be acted on again."""
-    role = "Orchestrator"
-    entries = place.entries(role, LOCK_RETRY_SECONDS)
-    before = place.load_state(role)
-    state = State()
-    out = Output()
-    review = last_plan_review(place)
-    round_number = review.round if review else None
-    tell_not_doorbells(out, entries[before.count:])
-    planner = [e for e in entries if e.doorbell]
-    state.count = len(entries)
-    newest = planner[-1] if planner else None
-    if newest:
-        state.handled.add(newest.doorbell.key())
-    place.save_state(role, state)
-    # A wait an earlier Session started wakes that Session, not this one.
-    clear_marker(place, role)
-    if newest and (round_number is None or newest.doorbell.round > round_number):
-        out.line("Doorbell: %s" % newest.text)
-        if round_number is None:
-            out.line("No plan review is recorded yet, so no review answers it.")
-        else:
-            out.line(
-                "The Planner rang round %d after the plan review of round %d." % (newest.doorbell.round, round_number))
-        return out.finish("Spawn the Plan-Reviewer fresh with the Spawn prompt, as your skill says.")
-    if round_number is None:
-        out.line("No Planner Doorbell in the Doorbell file yet.")
-        return out.finish(wait_next(role, harness, place.slug))
-    if newest:
-        out.line("The newest Planner Doorbell, round %d, is already handled." % newest.doorbell.round)
-    else:
-        out.line("No Planner Doorbell in the Doorbell file.")
-    return out.finish("Relay the last plan review to the Planner. Run: %s" % ring_command(role, harness, place.slug))
 
 
 # --- the wait ---

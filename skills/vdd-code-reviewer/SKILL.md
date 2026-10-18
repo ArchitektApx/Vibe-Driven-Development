@@ -79,7 +79,9 @@ axis by hand.
 Rerunning the verification and testing the Coder's own account are your job.
 The Borrowed review does neither.
 
-Read every file `review start` listed, then the actual changes with `git diff
+Read every file `review start` listed: `.scratch/<slug>/spec.md`, every Ticket
+under `.scratch/<slug>/issues/`, and `.scratch/<slug>/FIXES.md` in round 1 or
+`CODEREVIEW.md` in a later round. Then read the actual changes with `git diff
 <base>...HEAD`. Check the ticked acceptance checkboxes against that diff, and
 in round 1 `FIXES.md` too: both are the Coder's account of its own work. In a
 later round the Coder's answers are the `Coder:` lines under each carried

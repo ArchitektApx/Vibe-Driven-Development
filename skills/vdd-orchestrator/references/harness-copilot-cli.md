@@ -14,7 +14,7 @@
   A background `task` returns at once, so a `read_agent` result whose
   `status` shows the child still running is not a return: read again until
   the child has finished, using the tool's wait option where it offers one,
-  and only then parse the return.
+  and only then act on the return.
 - **Resume.** `write_agent` with the child's `agent_id` and the resume message
   resumes the same child with its context intact. Then read its return with
   `read_agent`, as above.
@@ -26,8 +26,8 @@
   gone: a background child does not survive a restart of the Session that
   spawned it. When `write_agent` or `read_agent` answers `No agent found with
   agent_id`, or before your first relay after the user resumed this Session,
-  place the Workflow from disk as `restart.md` says. A wait you started before
-  the restart is gone too; placing the Workflow names the next one.
+  run `orchestrator start` again to place the Workflow. A wait you started
+  before the restart is gone too; placing the Workflow names the next one.
 - **The wait.** Run the wait command a `Next:` line names in
   `async` or `detach` mode, never `sync`: a `sync` shell blocks the whole
   Session until it exits (github/copilot-cli #2533). The Session wakes when

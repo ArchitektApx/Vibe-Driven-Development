@@ -13,7 +13,7 @@
   minutes, and wait again until its completion arrives. A child that finishes
   after your turn has ended does not wake this Session. The completion
   arrives as a message of type `FINAL_ANSWER` with a `Task name`, a `Sender`
-  and a `Payload`. The `Payload` is the return to parse.
+  and a `Payload`. The `Payload` is the return.
 - **The context size.** Codex reports none for a subagent, in any field of the
   spawn, wait, follow-up or completion results.
 - **The wait.** A background shell cannot wake an idle Codex Session, so
@@ -34,9 +34,9 @@
   sends it at once. Either way the rule above covers it: the next turn ends
   with the wait command run again.
 - **A resume.** `codex resume --no-daemon` resumes a Session the user quit.
-  The quit ended its turn, the Roles it hosted and its hook wait. Place the
-  Workflow from the files as `restart.md` says, and "The wait" above re-arms
-  you at the first turn you end.
+  The quit ended its turn, the Roles it hosted and its hook wait. Run
+  `orchestrator start` again to place the Workflow, and "The wait" above
+  re-arms you at the first turn you end.
 - **A refused command.** When a sandbox refuses a command, rerun it once with
   `sandbox_permissions: "require_escalated"` on the same call. When that is
   denied too, stop with one line naming the command and what it was for; a
