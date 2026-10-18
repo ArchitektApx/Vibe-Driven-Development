@@ -61,8 +61,9 @@ exception edits the step in the same PR so the reviewer sees both.
   included, no MCP servers, no symlinks, no executable files.
 - A Role runs the VDD tool through a named interpreter: `python3`, or
   `py -3` on native Windows.
-- The VDD tool writes only inside the project (its `.gitignore` and
-  `.scratch/<slug>/`), in the Shared directory (`vdd.py` and `vdd/`), and on
+- The VDD tool writes only inside the project (its `.gitignore`,
+  `.scratch/<slug>/` and the `.scratch/<slug>-<n>/` a loop is moved aside
+  to), in the Shared directory (`vdd.py` and `vdd/`), and on
   Codex in `~/.codex/hooks.json` (removing an older VDD's entry), and writes
   no bytecode.
 - A Codex policy file, `agents/openai.yaml`, has the top-level keys
@@ -105,8 +106,8 @@ exception edits the step in the same PR so the reviewer sees both.
 
 ## Gotchas
 
-- `LOOP.md` and `.scratch/` are gitignored, so a loop on this repository
-  leaves nothing behind to commit.
+- `.scratch/` is gitignored, and a loop's Loop file sits in it, so a loop on
+  this repository leaves nothing behind to commit.
 - The skills tell users, not agents, to run `npx skills@latest add
   mattpocock/skills`. That is delegated trust to a third-party repository and
   is deliberate; the Planner cannot run without it. Keep it a user instruction.

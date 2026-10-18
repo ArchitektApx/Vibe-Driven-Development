@@ -17,7 +17,7 @@
 - **The context size.** Codex reports none for a subagent, in any field of the
   spawn, wait, follow-up or completion results.
 - **The wait.** A background shell cannot wake an idle Codex Session, so
-  VDD's `Stop` hook waits for you. `doorbell wait` arms it and returns at
+  VDD's `Stop` hook waits for you. The wait command arms it and returns at
   once; then end your turn. End every turn in which you expect a Planner
   Doorbell that way. Run no `wait` in a turn that ends asking the user a
   question, Model approval included, whose answer the hook would hold back
@@ -32,7 +32,7 @@
 - **Esc and typed prompts.** Esc ends the hook's wait together with the turn.
   A prompt the user types while the hook waits arrives when it exits, and Esc
   sends it at once. Either way the rule above covers it: the next turn ends
-  with `doorbell wait` run again.
+  with the wait command run again.
 - **A resume.** `codex resume --no-daemon` resumes a Session the user quit.
   The quit ended its turn, the Roles it hosted and its hook wait. Place the
   Workflow from the files as `restart.md` says, and "The wait" above re-arms

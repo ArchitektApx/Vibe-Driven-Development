@@ -28,7 +28,7 @@
   agent_id`, or before your first relay after the user resumed this Session,
   place the Workflow from disk as `restart.md` says. A wait you started before
   the restart is gone too; placing the Workflow names the next one.
-- **The wait.** Run the `doorbell wait` command a `Next:` line names in
+- **The wait.** Run the wait command a `Next:` line names in
   `async` or `detach` mode, never `sync`: a `sync` shell blocks the whole
   Session until it exits (github/copilot-cli #2533). The Session wakes when
   the shell exits.

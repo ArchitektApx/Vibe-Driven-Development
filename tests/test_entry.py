@@ -25,6 +25,20 @@ class EntryTest(ToolTest):
         self.assertContract(result)
         self.assertIn("rerun Setup", result.text)
 
+    def test_an_option_before_its_command_names_the_order_not_setup(self):
+        """A model that read "pass --slug on every call" as a global option
+        ran `vdd.py --slug <slug> loop show`; told its copy was out of date,
+        it ran Setup before retrying in the right order."""
+        for argv in (["--slug", "demo", "loop", "show"], ["loop", "--slug", "demo", "show"],
+                     ["doorbell", "--slug", "demo", "take"]):
+            with self.subTest(argv=argv):
+                result = self.box.run(*argv)
+                self.assertNotEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertIn("Option before its command: --slug", result.text)
+                self.assertIn("loop show --role <Role> --slug <slug>", result.last)
+                self.assertNotIn("Setup", result.text)
+
     def test_output_is_utf8_with_lf_whatever_the_console(self):
         """Printed through sys.stdout.buffer as UTF-8 with LF, every CR
         removed: printed through sys.stdout, a non-ASCII line reaches a

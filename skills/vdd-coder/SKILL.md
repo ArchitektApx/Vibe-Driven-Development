@@ -1,6 +1,7 @@
 ---
 name: vdd-coder
 description: The Coder Role in a Vibe Driven Development loop.
+user-invocable: false
 ---
 
 # VDD Coder
@@ -8,19 +9,38 @@ description: The Coder Role in a Vibe Driven Development loop.
 You are the Coder. Implement the Tickets under `.scratch/<slug>/issues/`
 against the Spec, and document your work in `.scratch/<slug>/FIXES.md`.
 
+If the prompt that started you does not say "An Orchestrator hosts this Workflow.", tell the user "Start the loop with `vdd-start-loop`." and stop.
+
+## The VDD tool
+
+You read the Loop file with the VDD tool, `vdd.py` in the Shared directory:
+`~/.local/share/vdd/vdd.py` on macOS and Linux (`$XDG_DATA_HOME/vdd/vdd.py`
+when that variable is set), and `%LOCALAPPDATA%\vdd\vdd.py` on native Windows.
+Write the path out in full, every variable expanded, so a hook that checks
+shell commands and an approval prompt see no expansion. Run it as `python3
+"<path>"`, on native Windows as `py -3 "<path>"`. If `python3` or `py -3` is
+not found, tell the user VDD needs Python 3.9 or newer, and stop. Pass `--slug
+<slug>` on every call, the slug your Spawn prompt's `Loop:` line names. Every
+run ends with a `Next:` line: do what it says, and relay every `Tell the user
+verbatim` line unchanged.
+
+If the interpreter cannot open `vdd.py`, the tool is not at its path: tell the
+user to invoke `vdd-setup`, which installs it, and wait; when they say it has
+run, rerun the command that failed.
+
+Never write, edit, copy or replace the tool, and never do its work as inline
+shell.
+
 ## The Loop file
 
-Read `LOOP.md` at the repository root first. It names the Feature slug, the
-base branch, the feature branch, the tracker path (`.scratch/<slug>/`), the
-`Minors:` line, the `PR:` line, the `Fresh Coder:` line and the `Harness:`
-line. If it does not exist, stop and tell the user to invoke `vdd-start-loop`
-in a Planner Session; do not guess a slug.
+Run `loop show --role Coder --slug <slug>` first. It prints the base branch
+and the feature branch.
 
 ## Branch
 
-Read `git branch --show-current` and compare it with `LOOP.md`:
+Read `git branch --show-current` and compare it with what `loop show` printed:
 
-- **The base branch.** Switch to the feature branch named in `LOOP.md` if it
+- **The base branch.** Switch to the feature branch `loop show` printed if it
   already exists locally, which is what a restarted loop on the same slug looks
   like. Create it otherwise.
 - **The feature branch already.** Continue on it.

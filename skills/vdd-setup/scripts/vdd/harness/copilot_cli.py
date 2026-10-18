@@ -83,11 +83,14 @@ class CopilotCli(Harness):
     def no_hit_continuation(self):
         return ""
 
+    def fresh_coder(self):
+        return ("every round", None)
+
     def codex_hook_steps(self):
         return False
 
-    def orchestrator_launch(self):
-        return "run copilot in a terminal in this repository, then /vdd:vdd-orchestrator in that Session"
+    def orchestrator_launch(self, slug):
+        return "run copilot in a terminal in this repository, then /vdd:vdd-orchestrator %s in that Session" % slug
 
     def wait_next(self, role, wait_command, paste_command):
         return "Run this in async or detach mode, never sync, then end your turn: %s" % wait_command

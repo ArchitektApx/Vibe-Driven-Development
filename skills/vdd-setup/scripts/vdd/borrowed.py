@@ -8,11 +8,10 @@ list cannot tell.
 
 from . import stores
 
-# The 13 skills from Matt Pocock's collection the Roles depend on.
+# The 11 skills from Matt Pocock's collection the Roles depend on.
 SKILLS = (
     "setup-matt-pocock-skills",
     "grill-with-docs",
-    "improve-codebase-architecture",
     "to-spec",
     "to-tickets",
     "wayfinder",
@@ -20,7 +19,6 @@ SKILLS = (
     "writing-for-agents",
     "grilling",
     "domain-modeling",
-    "codebase-design",
     "research",
     "prototype",
 )
@@ -42,13 +40,12 @@ SIBLINGS = (
 
 # What a missing or unresolvable skill costs each Role.
 COSTS = (
-    (("grill-with-docs", "improve-codebase-architecture", "to-spec", "to-tickets"), "blocks the Planner."),
+    (("grill-with-docs", "to-spec", "to-tickets"), "blocks the Planner."),
     (("domain-modeling",), "blocks the Planner and the Wayfinder, because grill-with-docs and wayfinder call it."),
-    (("codebase-design",), "blocks the Planner's general-improvement branch, because improve-codebase-architecture calls it."),
     (
         ("grilling",),
-        "blocks the Planner and the Wayfinder, because grill-with-docs, improve-codebase-architecture "
-        "and wayfinder call it, and the Brainstormer talks the idea through without grilling.",
+        "blocks the Planner and the Wayfinder, because grill-with-docs and wayfinder call it, and the "
+        "Brainstormer talks the idea through without grilling.",
     ),
     (("code-review",), "blocks the Code-Reviewer."),
     (("wayfinder",), "blocks the Wayfinder."),

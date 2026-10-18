@@ -1,7 +1,8 @@
 """Seam 1 for codex-stop, and seam 3: the hook strings as they ship.
 
 The cases of the 0.15 fixture suites (vdd-codex-stop.test.sh and .ps1) live
-on here, numbered as they were where they still apply.
+on here, numbered as they were where they still apply. The hook finds its
+loop through the Session's armed file and reads no Loop file.
 """
 
 import json
@@ -21,11 +22,6 @@ R1 = "VDD Plan-Reviewer: PLAN-REVIEW.md written, round 1: 0 blocker, 1 major, 0 
 TRACKER = os.path.join(".scratch", "feat")
 
 
-def loop_file(harness, tracker=True):
-    text = "# VDD Loop\n\nFeature: feat\nBase branch: main\nFeature branch: feat\n"
-    if tracker:
-        text += "Tracker: .scratch/feat/\n"
-    return text + "Minors: fix\nPR: no\nFresh Coder: never\nHarness: %s\n" % harness
 
 
 def stop_input(session, message="Done."):
@@ -41,17 +37,17 @@ class CodexHookTest(ToolTest):
         ToolTest.setUp(self)
         os.makedirs(self.box.path(TRACKER))
 
-    def loop(self, harness="Codex", tracker=True):
-        self.box.write("LOOP.md", loop_file(harness, tracker))
+    def loop(self, harness="Codex"):
+        self.box.write_loop("feat", harness=harness)
 
-    def arm(self, session, text):
-        self.box.write(os.path.join(TRACKER, "codex-armed-" + session), text)
+    def arm(self, session, text, tracker=TRACKER):
+        self.box.write(os.path.join(tracker, "codex-armed-" + session), text)
 
-    def armed(self, session, role="Orchestrator", count=0):
-        self.arm(session, "vdd codex-armed 1\n%s %d\n" % (role, count))
+    def armed(self, session, role="Orchestrator", count=0, tracker=TRACKER):
+        self.arm(session, "vdd codex-armed 1\n%s %d\n" % (role, count), tracker)
 
-    def ring(self, to, line):
-        path = self.box.path(TRACKER, "doorbells")
+    def ring(self, to, line, tracker=TRACKER):
+        path = self.box.path(tracker, "doorbells")
         with open(path, "ab") as handle:
             handle.write(("10:00:00 to: %s %s\n" % (to, line)).encode("utf-8"))
 
@@ -83,8 +79,8 @@ class CodexHookTest(ToolTest):
         result.data.decode("ascii")
         return decision["reason"]
 
-    def gone(self, session):
-        return not os.path.exists(self.box.path(TRACKER, "codex-armed-" + session))
+    def gone(self, session, tracker=TRACKER):
+        return not os.path.exists(self.box.path(tracker, "codex-armed-" + session))
 
     def test_help_explains_the_hook_and_claims_nothing(self):
         """The top-level help lists codex-stop as a group, so its --help
@@ -103,18 +99,21 @@ class CodexHookTest(ToolTest):
 
     # --- the 0.15 cases ---
 
-    def test_01_no_loop_file_silent_nothing_touched(self):
-        self.armed(ID)
-        self.ring("Orchestrator", P1)
-        before = self.snapshot()
-        self.assertSilent(self.hook(stop_input(ID)), before)
+    def test_01_no_scratch_silent(self):
+        os.rmdir(self.box.path(TRACKER))
+        os.rmdir(self.box.path(".scratch"))
+        self.assertSilent(self.hook(stop_input(ID)), {})
 
-    def test_02_another_harness_silent_nothing_touched(self):
+    def test_02_the_loop_file_is_not_read(self):
+        """Only a Codex wait writes an armed file, so the hook checks no
+        Harness and reads no Loop file: the armed file alone finds the loop."""
         self.loop("Cursor")
         self.armed(ID)
         self.ring("Orchestrator", P1)
-        before = self.snapshot()
-        self.assertSilent(self.hook(stop_input(ID)), before)
+        self.assertBlock(self.hook(stop_input(ID)))
+        os.remove(self.box.path(TRACKER, "loop.md"))
+        self.armed(ID)
+        self.assertBlock(self.hook(stop_input(ID)))
 
     def test_03_nothing_armed_silent(self):
         self.loop()
@@ -135,9 +134,34 @@ class CodexHookTest(ToolTest):
         self.armed(OTHER, "Planner", 0)
         self.ring("Orchestrator", P1)
         reason = self.assertBlock(self.hook(stop_input(ID)))
-        self.assertIn("doorbell take --role Orchestrator --harness codex", reason)
+        self.assertIn("doorbell take --role Orchestrator --harness codex --slug feat", reason)
         self.assertTrue(self.gone(ID))
         self.assertFalse(self.gone(OTHER))
+
+    def test_the_loop_is_the_armed_file_s_directory(self):
+        """Two loops, each with a Session armed: each Session's hook finds
+        only its own file and names its own loop."""
+        other = os.path.join(".scratch", "two")
+        self.armed(ID)
+        self.armed(OTHER, tracker=other)
+        self.ring("Orchestrator", P1)
+        self.ring("Orchestrator", "VDD Planner: .scratch/two/ ready, round 1. Read spec.md and issues/.", tracker=other)
+        reason = self.assertBlock(self.hook(stop_input(OTHER)))
+        self.assertIn("--slug two", reason)
+        self.assertTrue(self.gone(OTHER, other))
+        self.assertFalse(self.gone(ID))
+
+    def test_two_armed_files_for_one_session_act_on_the_newer_and_delete_both(self):
+        other = os.path.join(".scratch", "two")
+        self.armed(ID, tracker=other)
+        self.armed(ID)
+        old = self.box.path(other, "codex-armed-" + ID)
+        os.utime(old, (1000000000, 1000000000))
+        self.ring("Orchestrator", P1)
+        reason = self.assertBlock(self.hook(stop_input(ID)))
+        self.assertIn("--slug feat", reason)
+        self.assertTrue(self.gone(ID))
+        self.assertTrue(self.gone(ID, other))
 
     def test_06_several_lines_beyond_the_count_block_once(self):
         self.loop()
@@ -195,13 +219,6 @@ class CodexHookTest(ToolTest):
         before = self.snapshot()
         self.assertSilent(self.hook(b'{"turn_id":"t1","hook_event_name":"Stop"}'), before)
         self.assertSilent(self.hook(stop_input("")), before)
-
-    def test_15_codex_with_no_tracker_line_silent(self):
-        self.loop(tracker=False)
-        self.armed(ID)
-        self.ring("Orchestrator", P1)
-        before = self.snapshot()
-        self.assertSilent(self.hook(stop_input(ID)), before)
 
     # --- new cases ---
 
@@ -286,7 +303,6 @@ class HookStringTest(ToolTest):
         with open(os.path.join(REPO, ".codex-plugin", "plugin.json"), "rb") as handle:
             manifest = json.loads(handle.read().decode("utf-8"))
         self.handler = manifest["hooks"]["hooks"]["Stop"][0]["hooks"][0]
-        os.makedirs(self.box.path(TRACKER))
         self.bin = os.path.join(self.box.root, "bin")
         os.makedirs(self.bin)
 
@@ -294,13 +310,22 @@ class HookStringTest(ToolTest):
         return self.handler["commandWindows" if windows else "command"].replace("${PLUGIN_ROOT}", root)
 
     def ready(self):
-        self.box.write("LOOP.md", loop_file("Codex"))
+        self.box.write_loop("feat", harness="Codex")
         self.box.write(os.path.join(TRACKER, "codex-armed-" + ID), "vdd codex-armed 1\nOrchestrator 0\n")
         with open(self.box.path(TRACKER, "doorbells"), "wb") as handle:
             handle.write(("10:00:00 to: Orchestrator %s\n" % P1).encode())
 
-    def posix(self, root, python):
-        """Run command through sh -c with python3 on PATH being python."""
+    def stage(self, case):
+        """One of the guard's three cases: no .scratch/, .scratch/ with a loop
+        and nothing armed, one armed file."""
+        shutil.rmtree(self.box.path(".scratch"), ignore_errors=True)
+        if case == "unarmed":
+            self.box.write_loop("feat", harness="Codex")
+        elif case == "armed":
+            self.ready()
+
+    def posix(self, root, python, shell="sh", command=None):
+        """Run command through <shell> -c with python3 on PATH being python."""
         target = os.path.join(self.bin, "python3")
         if os.path.lexists(target):
             os.remove(target)
@@ -311,19 +336,39 @@ class HookStringTest(ToolTest):
         else:
             os.symlink(sys.executable, target)
         env = self.box.env(PATH=self.bin + os.pathsep + os.environ.get("PATH", ""))
-        proc = subprocess.run(["sh", "-c", self.command(root)], cwd=self.box.proj, env=env,
+        proc = subprocess.run([shell, "-c", command or self.command(root)], cwd=self.box.proj, env=env,
                               input=json.dumps({"session_id": ID}).encode(), stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE, timeout=60)
         return proc
 
     @unittest.skipIf(WINDOWS, "Codex runs command, not commandWindows, on macOS and Linux")
-    def test_command_no_loop_file_starts_no_python(self):
-        proc = self.posix(REPO, "marker")
-        self.assertEqual(proc.returncode, 0)
-        self.assertFalse(os.path.exists(os.path.join(self.box.root, "started")))
-        self.ready()
-        self.posix(REPO, "marker")
-        self.assertTrue(os.path.exists(os.path.join(self.box.root, "started")))
+    def test_command_starts_python_only_when_armed_in_every_shell(self):
+        """Codex runs a hook under the Session's shell: sh, bash, or zsh, the
+        macOS default (.scratch/loop-file/research/hook-guard.md)."""
+        started = os.path.join(self.box.root, "started")
+        shells = [shell for shell in ("sh", "bash", "zsh") if shutil.which(shell)]
+        self.assertIn("sh", shells)
+        for shell in shells:
+            for case in ("none", "unarmed", "armed"):
+                with self.subTest(shell=shell, case=case):
+                    self.stage(case)
+                    if os.path.exists(started):
+                        os.remove(started)
+                    proc = self.posix(REPO, "marker", shell)
+                    self.assertEqual(proc.returncode, 0, proc.stderr)
+                    self.assertEqual(os.path.exists(started), case == "armed")
+
+    @unittest.skipIf(WINDOWS or not shutil.which("zsh"), "needs zsh")
+    def test_a_bare_glob_guard_fails_under_zsh_with_nothing_armed(self):
+        """Why the guard runs find: zsh aborts on an unmatched glob with exit
+        1, which Codex shows as "Hook failed" at every turn end
+        (.scratch/loop-file/research/hook-guard.md)."""
+        bare = 'set -- .scratch/*/codex-armed-*; [ ! -e "$1" ] || python3 x.py || true'
+        for case in ("none", "unarmed"):
+            with self.subTest(case=case):
+                self.stage(case)
+                proc = self.posix(REPO, "marker", "zsh", bare)
+                self.assertNotEqual(proc.returncode, 0)
 
     @unittest.skipIf(WINDOWS, "Codex runs command, not commandWindows, on macOS and Linux")
     def test_command_missing_script_exits_zero(self):
@@ -352,9 +397,12 @@ class HookStringTest(ToolTest):
         return proc.returncode, proc.stdout.replace(b"\r", b"")
 
     @unittest.skipUnless(WINDOWS, "Codex runs commandWindows on native Windows")
-    def test_command_windows_no_loop_file_exits_zero_silently(self):
-        code, out = self.powershell(REPO)
-        self.assertEqual((code, out), (0, b""))
+    def test_command_windows_nothing_armed_exits_zero_silently(self):
+        for case in ("none", "unarmed"):
+            with self.subTest(case=case):
+                self.stage(case)
+                code, out = self.powershell(REPO)
+                self.assertEqual((code, out), (0, b""))
 
     @unittest.skipUnless(WINDOWS, "Codex runs commandWindows on native Windows")
     def test_command_windows_missing_script_exits_zero(self):

@@ -5,7 +5,7 @@ import os
 import re
 import subprocess
 
-from . import args, borrowed, codex_setup, install, places, stores, textfile
+from . import args, borrowed, codex_setup, install, loopfile, places, stores, textfile
 from .out import Failure, Output, escalate, refused
 
 USAGE_NAME = "setup --help"
@@ -43,7 +43,6 @@ SPEC = {
 }
 
 RETIRED = ("PLAN.md", "PLAN-REVIEW.md", "FIXES.md", "CODEREVIEW.md")
-LOOP_ENTRIES = ("LOOP.md", "/LOOP.md")
 SCRATCH_ENTRIES = (".scratch/", "/.scratch/", ".scratch", "/.scratch")
 MIGRATION_URL = "https://github.com/ArchitektApx/Vibe-Driven-Development/blob/master/CHANGELOG.md#migrating-from-014"
 
@@ -137,7 +136,7 @@ class Setup:
         self.glossary_rename_repository()
         self.git_repository()
         self.gitignore()
-        self.stale_loop_file()
+        self.root_loop_file()
         self.shared_copy()
         self.harness_steps()
         return self.finish(verdict)
@@ -182,14 +181,14 @@ class Setup:
 
         if verdict.ask_user:
             out.line(
-                "Borrowed skills: %d of 13 Present in the stores this Harness reads, and your skill list "
+                "Borrowed skills: %d of %d Present in the stores this Harness reads, and your skill list "
                 "shows none of the collection. Whether this Session can run them needs the user's answer."
-                % len(verdict.present)
+                % (len(verdict.present), len(borrowed.SKILLS))
             )
             return verdict
 
         if len(verdict.passed) == len(borrowed.SKILLS):
-            out.line("Borrowed skills: all 13 Present and Resolvable. Passed.")
+            out.line("Borrowed skills: all %d Present and Resolvable. Passed." % len(borrowed.SKILLS))
         elif verdict.passed:
             out.line("Borrowed skills Present and Resolvable, passed: %s." % ", ".join(verdict.passed))
 
@@ -345,7 +344,7 @@ class Setup:
         except OSError as error:
             self.refuse_read(".gitignore", error)
         if not added and not removed:
-            self.out.line(".gitignore: covers LOOP.md and .scratch/. Passed.")
+            self.out.line(".gitignore: covers .scratch/. Passed.")
             return
         verb = "Changed" if self.write else "Planned change"
         for entry in added:
@@ -366,17 +365,16 @@ class Setup:
             self.failed.append(".gitignore")
             self.out.line("Not changed: .gitignore (%s)." % error)
 
-    # --- check 6: a stale LOOP.md ---
+    # --- check 6: a Loop file from before this version ---
 
-    def stale_loop_file(self):
-        if not os.path.exists(os.path.join(self.cwd, "LOOP.md")):
-            self.out.line("LOOP.md: none from an earlier loop. Passed.")
+    def root_loop_file(self):
+        """A root LOOP.md is a format-1 Loop file: reported with its fix, never
+        deleted. loop new is where a loop start stops on it."""
+        if not loopfile.has_root_file(self.cwd):
             return
-        self.out.line("LOOP.md: one from an earlier loop is here.")
-        if not self.write:
-            self.questions.append(
-                "Ask the user whether to delete LOOP.md before a fresh loop; on yes, delete it with your own tools."
-            )
+        self.out.line("LOOP.md: a Loop file from before this version of VDD (format 1) is at the repository root. "
+                      "No command reads it, and every loop command refuses while it is there.")
+        self.out.tell(loopfile.ROOT_FIX)
 
     # --- check 7: the Shared copy of the VDD tool ---
 
@@ -456,8 +454,6 @@ def plan_gitignore(path):
         kept.append(line)
     entries = {line.strip() for line in kept}
     added = []
-    if not entries & set(LOOP_ENTRIES):
-        added.append("LOOP.md")
     if not entries & set(SCRATCH_ENTRIES):
         added.append(".scratch/")
     after = "".join(kept)

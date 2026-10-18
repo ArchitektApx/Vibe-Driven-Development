@@ -38,6 +38,12 @@ CLEARED = (
 )
 
 
+LOOP_TEXT = (
+    "# VDD Loop\n\nFormat: 2\nFeature: %s\nBase branch: %s\nFeature branch: %s\nMinors: fix\n"
+    "PR: ask at sign-off\nFresh Coder: never\nHarness: %s\n"
+)
+
+
 class Result:
     def __init__(self, code, data):
         self.code = code
@@ -112,6 +118,32 @@ class Sandbox:
     def read(self, relative, base=None):
         with open(os.path.join(base or self.proj, relative), "rb") as handle:
             return handle.read().decode("utf-8")
+
+    def git(self, *args, cwd=None):
+        """Run git in the project, signing off and with a fixed identity."""
+        subprocess.run(
+            ["git", "-c", "commit.gpgsign=false", "-c", "user.name=VDD Test", "-c", "user.email=test@example.com"]
+            + list(args),
+            cwd=cwd or self.proj,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+    def init_git(self, branch="main"):
+        """A repository on branch with one commit."""
+        self.git("init", "-q")
+        self.git("symbolic-ref", "HEAD", "refs/heads/" + branch)
+        self.git("commit", "-q", "--allow-empty", "-m", "init")
+
+    def write_loop(self, slug, branch=None, harness="Claude Code", states=("open",), base="main", text=None):
+        """A loop as loop new writes it: .scratch/<slug>/loop.md and its
+        state file, each state in states appended."""
+        if text is None:
+            text = LOOP_TEXT % (slug, base, branch or slug, harness)
+        self.write(os.path.join(".scratch", slug, "loop.md"), text)
+        state = "vdd loop-state 1\n" + "".join("loop %s\n" % s for s in states)
+        self.write(os.path.join(".scratch", slug, "loop-state"), state)
 
     def cleanup(self):
         shutil.rmtree(self.root, ignore_errors=True)

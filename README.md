@@ -23,7 +23,7 @@ Works on <br>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/workflow-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/workflow-light.svg">
-  <img alt="The VDD workflow: you start the loop as the Planner, and an Orchestrator session runs the rest. The Planner and its hosted Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the hosted Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the Orchestrator invokes the PR-Author, which opens the PR or hands it to you. Every file named here lives in the tracker directory .scratch/&lt;slug&gt;/, beside the spec and the tickets; only LOOP.md sits at the repository root." src="docs/workflow-light.svg" width="900">
+  <img alt="The VDD workflow: you start the loop as the Planner, and an Orchestrator session runs the rest. The Planner and its hosted Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the hosted Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the Orchestrator invokes the PR-Author, which opens the PR or hands it to you. Every file named here lives in the tracker directory .scratch/&lt;slug&gt;/, beside the spec, the tickets and the Loop file." src="docs/workflow-light.svg" width="900">
 </picture>
 
 </div>
@@ -84,7 +84,6 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
   |----------------|-----------|
   | `setup-matt-pocock-skills` | 🧑 you, once per repository, when Setup asks |
   | `grill-with-docs` | 🧑 you, when the Planner asks |
-  | `improve-codebase-architecture` | 🧑 you, when the Planner asks |
   | `to-spec` | 🧑 you, when the Planner asks |
   | `to-tickets` | 🧑 you, when the Planner asks |
   | `wayfinder` | 🧑 you, when the Wayfinder asks |
@@ -92,9 +91,10 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
   | `writing-for-agents` | 🤖 the Role itself |
   | `grilling` | 🤖 the Role itself |
   | `domain-modeling` | 🤖 the Role itself |
-  | `codebase-design` | 🤖 the Role itself |
   | `research` | 🤖 the Role itself |
   | `prototype` | 🤖 the Role itself |
+
+  `improve-codebase-architecture` is yours to run when you want the codebase reviewed: take the candidates you keep to `vdd-wayfinder` when there are many or the change is large, or to a loop when it is focused.
 
 </details>
 

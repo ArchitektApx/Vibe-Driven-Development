@@ -1,7 +1,7 @@
 # Respawning a hosted Role
 
-You read this file when `LOOP.md` says anything but `Fresh Coder: never`, or
-when the user asks for a respawn.
+You read this file when `loop show` prints anything but `Fresh Coder: never`,
+or when the user asks for a respawn.
 
 A respawn spawns a Role anew for its next round, in place of a resume, with
 the same Spawn prompt and that round's number. The Role's state is on disk:
@@ -12,16 +12,13 @@ its Working files and the commits.
 Before each Coder round after the first:
 
 - `every round`: respawn the Coder.
-- `over <n>`: on every Coder return, read the context size your Harness
+- `over <n>k`: on every Coder return, read the context size your Harness
   reports for the finished subagent, where your Harness file says it sits.
-  Respawn the Coder for the next round when the size passed `<n>`, and resume
-  it otherwise.
+  Respawn the Coder for the next round when the size passed `<n>` thousand
+  tokens, and resume it otherwise.
 - `never`: resume the Coder.
 
-A missing line, or a value that is none of the three, reads as `never`: tell
-the user once that the line is missing or malformed.
-
-Under `over <n>` with no size reaching you, tell the user once that the check
+Under `over <n>k` with no size reaching you, tell the user once that the check
 cannot run and that they can ask for a respawn at any round, then resume as
 under `never`.
 

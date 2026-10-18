@@ -10,7 +10,7 @@ NAMES = ("claude-code", "codex", "cursor", "copilot-cli", "generic")
 class Harness(abc.ABC):
     """The fixed interface every Harness module implements."""
 
-    # The value --harness takes, and the label LOOP.md's Harness: line holds.
+    # The value --harness takes, and the label the Loop file's Harness: line holds.
     name = ""
     label = ""
 
@@ -48,8 +48,14 @@ class Harness(abc.ABC):
         search" line, or an empty string."""
 
     @abc.abstractmethod
-    def orchestrator_launch(self):
-        """How the user starts the Orchestrator's Session, as one clause."""
+    def orchestrator_launch(self, slug):
+        """How the user starts the Orchestrator's Session for the loop slug,
+        as one clause."""
+
+    @abc.abstractmethod
+    def fresh_coder(self):
+        """The Fresh Coder question on this Harness: (the answer it
+        recommends, the limit it offers as "over <n>k"), each None for none."""
 
     @abc.abstractmethod
     def codex_hook_steps(self):

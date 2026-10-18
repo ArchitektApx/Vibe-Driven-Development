@@ -4,8 +4,9 @@ Nothing the plugin ships runs on an installer's machine unless a Role calls
 it through a named interpreter or the user trusted it hook by hook, so
 everything that runs is something the user can see in an approval prompt or
 a hook list. The one hook is Codex's `Stop` hook. The plugin ships no MCP
-server, no symlink and no executable file, and its code opens no network
-connection, starts no shell and evaluates no text. CI checks these on every
+server, no symlink and no executable file. Its own code opens no network
+connection, starts no shell and evaluates no text. It reaches the network
+only through `git` and `gh`, for the pull request. CI checks these on every
 pull request; Python can hide a call in more ways than a static check
 follows, so review covers the rest.
 

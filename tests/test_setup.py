@@ -11,9 +11,9 @@ from vddtest import SCRIPTS, WINDOWS, ToolTest
 import vddtest
 
 SKILLS = (
-    "setup-matt-pocock-skills", "grill-with-docs", "improve-codebase-architecture", "to-spec",
+    "setup-matt-pocock-skills", "grill-with-docs", "to-spec",
     "to-tickets", "wayfinder", "code-review", "writing-for-agents", "grilling", "domain-modeling",
-    "codebase-design", "research", "prototype",
+    "research", "prototype",
 )
 INSTALL_CLAUDE = "/plugin marketplace add mattpocock/skills"
 
@@ -53,7 +53,7 @@ class SetupTest(ToolTest):
         self.assertTrue(any("blocks the Planner" in t for t in result.tells()))
         self.assertTrue(any("docs/agents/issue-tracker.md" in l for l in result.lines))
         self.assertTrue(any("Code-Reviewer (code-review) are blocked" in t for t in result.tells()))
-        self.assertIn("Planned change: .gitignore adds LOOP.md", result.text)
+        self.assertNotIn("LOOP.md", result.text)
         self.assertIn("Planned change: .gitignore adds .scratch/", result.text)
         self.assertIn("Planned change: install the VDD tool", result.text)
         self.assertNext(result, "--write")
@@ -97,10 +97,20 @@ class SetupTest(ToolTest):
         self.assertIn("Not Present: writing-for-agents.", result.text)
         self.assertTrue(any(INSTALL_CLAUDE in t for t in result.tells()), result)
 
+    def test_codebase_design_still_proves_the_collection_wired(self):
+        """improve-codebase-architecture and codebase-design left the Borrowed
+        skills, but codebase-design stays a sibling whose hit proves the
+        collection is wired."""
+        result = self.setup(listed="codebase-design")
+        self.assertIn("Not Present: writing-for-agents.", result.text)
+        for name in ("improve-codebase-architecture", "codebase-design", "general-improvement"):
+            self.assertNotIn(name, result.text.replace("--listed codebase-design", ""))
+        self.assertNotIn("improve-codebase-architecture", self.box.run("setup", "--help").text)
+
     def test_present_and_resolvable_passes_with_no_repair(self):
         self.skills_in(self.store(".claude", "skills"))
         result = self.setup(listed="writing-for-agents", glossary="yes")
-        self.assertIn("Borrowed skills: all 13 Present and Resolvable. Passed.", result.text)
+        self.assertIn("Borrowed skills: all 11 Present and Resolvable. Passed.", result.text)
         self.assertEqual(self.route_lines(result), [], result)
 
     def test_present_with_nothing_listed_asks_the_user_to_invoke_writing_for_agents(self):
@@ -112,7 +122,7 @@ class SetupTest(ToolTest):
     def test_the_users_answer_resolves(self):
         self.skills_in(self.store(".claude", "skills"))
         result = self.setup("claude-code", "", "absent", "--user-answer", "resolves")
-        self.assertIn("all 13 Present and Resolvable", result.text)
+        self.assertIn("all 11 Present and Resolvable", result.text)
 
     def test_present_but_not_resolvable_gives_the_route_for_the_store(self):
         self.skills_in(self.store(".claude", "skills"))
@@ -159,7 +169,7 @@ class SetupTest(ToolTest):
             except (OSError, NotImplementedError) as error:
                 self.skipTest("cannot create a symlink here: %s" % error)
         result = self.setup(listed="writing-for-agents", glossary="yes")
-        self.assertIn("all 13 Present and Resolvable", result.text)
+        self.assertIn("all 11 Present and Resolvable", result.text)
 
     def test_a_dangling_symlink_reads_as_absent(self):
         os.makedirs(os.path.join(self.box.home, ".claude", "skills"))
@@ -176,7 +186,7 @@ class SetupTest(ToolTest):
         self.skills_in(os.path.join("cfg", "skills"))
         env = self.box.env(CLAUDE_CONFIG_DIR=os.path.join(self.box.root, "cfg"))
         result = self.setup("claude-code", "writing-for-agents", "yes", env=env)
-        self.assertIn("all 13 Present and Resolvable", result.text)
+        self.assertIn("all 11 Present and Resolvable", result.text)
         self.skills_in(self.store(".claude", "skills"))
         result = self.setup("claude-code", "", "absent", "--user-answer", "does-not-resolve", env=env)
         self.assertNotIn("~/.claude/skills", result.text)
@@ -192,7 +202,7 @@ class SetupTest(ToolTest):
         (180854c)."""
         self.skills_in(self.store(".agents", "skills"))
         result = self.setup("copilot-cli", "writing-for-agents", "yes")
-        self.assertIn("all 13 Present and Resolvable", result.text)
+        self.assertIn("all 11 Present and Resolvable", result.text)
 
     def test_copilot_home_set_skips_the_agents_store_and_adds_it_by_hand(self):
         """With COPILOT_HOME set, ~/.agents/skills is not read, and the -g
@@ -207,7 +217,7 @@ class SetupTest(ToolTest):
         self.assertIn("copilot skill add '%s'" % os.path.join(self.box.home, ".agents", "skills"), route[0])
         self.skills_in(os.path.join("copilot", "skills"))
         result = self.setup("copilot-cli", "writing-for-agents", "yes", env=env)
-        self.assertIn("all 13 Present and Resolvable", result.text)
+        self.assertIn("all 11 Present and Resolvable", result.text)
 
     def test_copilot_plugin_routes(self):
         self.skills_in(self.store(".copilot", "installed-plugins", "mk", "mattpocock-skills", "skills"))
@@ -245,7 +255,7 @@ class SetupTest(ToolTest):
         self.skills_in(self.store(".cursor", "skills"))
         self.assertIn("Not Present: " + ", ".join(SKILLS), self.setup("claude-code").text)
         result = self.setup("generic", "writing-for-agents", "yes")
-        self.assertIn("all 13 Present and Resolvable", result.text)
+        self.assertIn("all 11 Present and Resolvable", result.text)
 
     def test_unknown_harness_names_the_five(self):
         result = self.setup("nonsense")
@@ -254,7 +264,7 @@ class SetupTest(ToolTest):
         self.assertContract(result)
 
     def test_the_loop_file_spelling_names_the_same_harness(self):
-        """LOOP.md's Harness: line spells the Harness "Claude Code", and three
+        """The Loop file's Harness: line spells the Harness "Claude Code", and three
         Roles in the vdd-tool acceptance passed that spelling to --harness
         and were refused (acceptance finding 1): it names the same Harness
         as the slug."""
@@ -336,19 +346,41 @@ class SetupTest(ToolTest):
                 self.assertEqual(self.proj_files(), [".git", "sub"])
                 self.assertFalse(os.path.exists(self.box.shared))
 
-    def test_stale_loop_file_asks_before_deleting(self):
+    def test_a_loop_md_in_lowercase_is_not_reported_as_a_root_loop_file(self):
+        """Only a file named exactly LOOP.md is a format-1 Loop file; on a
+        case-insensitive file system a path test would match loop.md too."""
+        self.box.write("loop.md", "x\n")
+        result = self.setup("claude-code", "writing-for-agents", "yes")
+        self.assertEqual(result.code, 0, result)
+        self.assertNotIn("LOOP.md", result.text)
+
+    def test_a_root_loop_file_is_reported_with_its_fix_and_no_question(self):
+        """A root LOOP.md is a format-1 Loop file: Setup reports it with the
+        fix and asks no delete question, its other checks still run, and its
+        exit code stays 0; loop new is where a loop start stops."""
         self.box.write("LOOP.md", "x\n")
-        result = self.setup()
-        self.assertIn("LOOP.md: one from an earlier loop is here.", result.text)
-        self.assertNext(result, "delete LOOP.md")
+        result = self.setup("claude-code", "writing-for-agents", "yes")
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn(
+            "Delete `LOOP.md`. To carry on the loop it belongs to, run `vdd-start-loop` with its slug and answer "
+            "continue.",
+            result.tells(),
+        )
+        self.assertNotIn("LOOP.md", result.last)
+        self.assertIn("Planned change: .gitignore adds .scratch/", result.text)
+        self.assertIn("Planned change: install the VDD tool", result.text)
+        written = self.setup("claude-code", "writing-for-agents", "yes", "--write")
+        self.assertEqual(written.code, 0, written)
         self.assertTrue(os.path.exists(self.box.path("LOOP.md")))
+        self.assertTrue(os.path.exists(self.box.shared))
 
     # --- --write ---
 
     def test_write_makes_the_changes_and_a_second_run_changes_nothing(self):
         result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
         self.assertEqual(result.code, 0, result)
-        self.assertEqual(self.box.read(".gitignore"), "LOOP.md\n.scratch/\n")
+        self.assertEqual(self.box.read(".gitignore"), ".scratch/\n")
         self.assertEqual(vddtest_tree(SCRIPTS), vddtest_tree(self.box.shared))
         before = (self.box.read(".gitignore"), vddtest_tree(self.box.shared))
         again = self.setup("claude-code", "writing-for-agents", "yes", "--write")
@@ -378,26 +410,36 @@ class SetupTest(ToolTest):
         result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
         self.assertIn("Changed: .gitignore removes PLAN.md", result.text)
         self.assertIn("Changed: .gitignore removes FIXES.md", result.text)
-        self.assertEqual(self.box.read(".gitignore"), "docs/PLAN.md\n!PLAN.md\nLOOP.md\n.scratch/\n")
+        self.assertEqual(self.box.read(".gitignore"), "docs/PLAN.md\n!PLAN.md\n.scratch/\n")
 
     def test_gitignore_keeps_crlf_and_a_missing_last_newline(self):
         self.box.write(".gitignore", "node_modules\r\n/dist")
         self.setup("claude-code", "writing-for-agents", "yes", "--write")
-        self.assertEqual(self.box.read(".gitignore"), "node_modules\r\n/dist\r\nLOOP.md\r\n.scratch/\r\n")
+        self.assertEqual(self.box.read(".gitignore"), "node_modules\r\n/dist\r\n.scratch/\r\n")
+
+    def test_a_loop_md_entry_is_neither_added_nor_removed(self):
+        """Setup stops adding LOOP.md and never removes an entry the user
+        has, so an old root file stays out of git add."""
+        result = self.setup("claude-code", "writing-for-agents", "yes")
+        self.assertNotIn("LOOP.md", result.text)
+        self.box.write(".gitignore", "LOOP.md\n")
+        result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(self.box.read(".gitignore"), "LOOP.md\n.scratch/\n")
 
     def test_a_gitignore_that_starts_with_a_bom(self):
-        """A leading byte order mark is not part of line 1, so LOOP.md on line
-        1 counts and a retired entry there goes (finding 21 of the round 4
-        review)."""
-        self.box.write(".gitignore", b"\xef\xbb\xbfLOOP.md\n.scratch/\n")
+        """A leading byte order mark is not part of line 1, so .scratch/ on
+        line 1 counts and a retired entry there goes (finding 21 of the round
+        4 review)."""
+        self.box.write(".gitignore", b"\xef\xbb\xbf.scratch/\n")
         result = self.setup("claude-code", "writing-for-agents", "yes")
-        self.assertIn(".gitignore: covers LOOP.md and .scratch/. Passed.", result.text)
+        self.assertIn(".gitignore: covers .scratch/. Passed.", result.text)
         self.assertNotIn(".gitignore adds", result.text)
-        self.box.write(".gitignore", b"\xef\xbb\xbfPLAN.md\r\nLOOP.md\r\n")
+        self.box.write(".gitignore", b"\xef\xbb\xbfPLAN.md\r\n.scratch/\r\n")
         result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
         self.assertIn("Changed: .gitignore removes PLAN.md", result.text)
-        self.assertNotIn(".gitignore adds LOOP.md", result.text)
-        self.assertEqual(self.box.read(".gitignore"), "LOOP.md\r\n.scratch/\r\n")
+        self.assertNotIn(".gitignore adds", result.text)
+        self.assertEqual(self.box.read(".gitignore"), ".scratch/\r\n")
 
     def test_dry_run_leaves_gitignore_alone(self):
         self.box.write(".gitignore", "PLAN.md\n")

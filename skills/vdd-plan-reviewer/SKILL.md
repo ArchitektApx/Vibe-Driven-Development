@@ -1,6 +1,7 @@
 ---
 name: vdd-plan-reviewer
 description: The Plan-Reviewer Role in a Vibe Driven Development loop.
+user-invocable: false
 ---
 
 # VDD Plan-Reviewer
@@ -10,13 +11,32 @@ You are the Plan-Reviewer. Your only deliverable is
 go back to the Planner, and the edits to `.scratch/<slug>/spec.md` and the
 Ticket files (`.scratch/<slug>/issues/`) are its job.
 
+If the prompt that started you does not say "An Orchestrator hosts this Workflow.", tell the user "Start the loop with `vdd-start-loop`." and stop.
+
+## The VDD tool
+
+You read the Loop file with the VDD tool, `vdd.py` in the Shared directory:
+`~/.local/share/vdd/vdd.py` on macOS and Linux (`$XDG_DATA_HOME/vdd/vdd.py`
+when that variable is set), and `%LOCALAPPDATA%\vdd\vdd.py` on native Windows.
+Write the path out in full, every variable expanded, so a hook that checks
+shell commands and an approval prompt see no expansion. Run it as `python3
+"<path>"`, on native Windows as `py -3 "<path>"`. If `python3` or `py -3` is
+not found, tell the user VDD needs Python 3.9 or newer, and stop. Pass `--slug
+<slug>` on every call, the slug your Spawn prompt's `Loop:` line names. Every
+run ends with a `Next:` line: do what it says, and relay every `Tell the user
+verbatim` line unchanged.
+
+If the interpreter cannot open `vdd.py`, the tool is not at its path: tell the
+user to invoke `vdd-setup`, which installs it, and wait; when they say it has
+run, rerun the command that failed.
+
+Never write, edit, copy or replace the tool, and never do its work as inline
+shell.
+
 ## The Loop file
 
-Read `LOOP.md` at the repository root first. It names the Feature slug, the
-base branch, the feature branch, the tracker path (`.scratch/<slug>/`), the
-`Minors:` line, the `PR:` line, the `Fresh Coder:` line and the `Harness:`
-line. If it does not exist, stop and tell the user to invoke `vdd-start-loop`
-in a Planner Session; do not guess a slug.
+Run `loop show --role Plan-Reviewer --slug <slug>` first. It prints the
+`Minors:` line you act on.
 
 ## What to read
 
@@ -75,10 +95,8 @@ In this order:
    concrete suggestion. Writing findings are numbered here with the rest and get
    no section of their own.
 
-The Minors answer is the `Minors:` line in `LOOP.md`, which you read first, and
-its two literals are `fix` and `leave`. A file with no `Minors:` line reads as
-`Minors: leave`. A line whose value is neither literal reads as `Minors: leave`
-too, and you report that line to the user as malformed.
+The Minors answer is the `Minors:` line `loop show` printed: `fix` or
+`leave`.
 
 A finding's state is one of three. `open` is a finding nobody has closed.
 `fixed` means the Planner changed something you accept. `accepted` means the
