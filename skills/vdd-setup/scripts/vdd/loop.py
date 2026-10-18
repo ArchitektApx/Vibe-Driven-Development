@@ -132,7 +132,7 @@ def new(root, values, harness):
             % slug
         )
     if leftover is not None and not continuing:
-        return report_leftover(slug, leftover, harness, values["write"], out)
+        return report_leftover(root, slug, leftover, values["write"], out)
     base = values["base"]
     if not base:
         base = loopfile.current_branch(root)
@@ -294,7 +294,23 @@ def check_leftover(slug, leftover, answer):
     return True
 
 
-def report_leftover(slug, leftover, harness, write, out):
+def work_left(root, slug):
+    """The line naming what of a loop's work a leftover tracker directory
+    holds, from what is on disk."""
+    directory = loopfile.tracker_dir(root, slug)
+    found = [name for name in ("spec.md",) if os.path.isfile(os.path.join(directory, name))]
+    issues = os.path.join(directory, "issues")
+    tickets = [name for name in os.listdir(issues) if name.endswith(".md")] if os.path.isdir(issues) else []
+    if tickets:
+        found.append("%d Ticket%s in issues/" % (len(tickets), "" if len(tickets) == 1 else "s"))
+    found += [name for name in ("PLAN-REVIEW.md", "FIXES.md", "CODEREVIEW.md")
+              if os.path.isfile(os.path.join(directory, name))]
+    if not found:
+        return "It holds no Spec, Tickets or review files. Nothing was written."
+    return "It holds %s. Nothing was written." % ", ".join(found)
+
+
+def report_leftover(root, slug, leftover, write, out):
     if leftover == loopfile.OPEN:
         out.line(".scratch/%s/ holds an open loop: an earlier Workflow on this slug that did not finish." % slug)
         answers = [ANSWER_CONTINUE, ANSWER_FRESH % slug, ANSWER_OTHER]
@@ -306,7 +322,7 @@ def report_leftover(slug, leftover, harness, write, out):
                  "or a directory another tool made." % slug)
         answers = [ANSWER_CONTINUE + " The questions follow, and the Loop file is written into it.",
                    ANSWER_FRESH % slug, ANSWER_OTHER]
-    out.line("Its Spec, Tickets and review files are still in there. Nothing was written.")
+    out.line(work_left(root, slug))
     out.line("Question 1, leftover: Answers, in this order: " + " ".join(answers))
     aside_command = "%s loop aside --slug %s --write" % (places.command(), slug)
     on_continue = "" if leftover == loopfile.CLOSED else " On continue, run the same command with --leftover continue."

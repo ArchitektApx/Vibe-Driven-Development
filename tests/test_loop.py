@@ -454,6 +454,19 @@ class LeftoverTest(LoopTest):
         self.assertEqual(self.tree(), before)
         self.assertEqual(self.file(name="loop-state"), state)
 
+    def test_the_report_names_only_the_work_the_directory_holds(self):
+        """The report said "Its Spec, Tickets and review files are still in
+        there" of a directory holding only the Loop file, so the user chose
+        between continue and start fresh on files that were not there."""
+        self.box.write_loop("empty")
+        self.assertIn("It holds no Spec, Tickets or review files.", self.new("empty").text)
+        self.box.write_loop("demo")
+        for name in ("spec.md", "issues/01-a.md", "issues/02-b.md", "PLAN-REVIEW.md"):
+            self.box.write(os.path.join(".scratch", "demo", name), "x\n")
+        result = self.new()
+        self.assertIn("It holds spec.md, 2 Tickets in issues/, PLAN-REVIEW.md.", result.text)
+        self.assertNotIn("FIXES.md", result.text)
+
     def test_write_without_continue_refuses_on_any_existing_directory(self):
         for setup in ("open", "closed", "files"):
             with self.subTest(setup=setup):
