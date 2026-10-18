@@ -63,9 +63,10 @@ exception edits the step in the same PR so the reviewer sees both.
   `py -3` on native Windows.
 - The VDD tool writes only inside the project (its `.gitignore`,
   `.scratch/<slug>/` and the `.scratch/<slug>-<n>/` a loop is moved aside
-  to), in the Shared directory (`vdd.py` and `vdd/`), and on
-  Codex in `~/.codex/hooks.json` (removing an older VDD's entry), and writes
-  no bytecode.
+  to, and in its repository the feature branch `coder start` switches to or
+  creates from the base), in the Shared directory (`vdd.py` and `vdd/`), and
+  on Codex in `~/.codex/hooks.json` (removing an older VDD's entry), and
+  writes no bytecode.
 - A Codex policy file, `agents/openai.yaml`, has the top-level keys
   `interface` and `policy` and no other.
 - `verify.yml` triggers on `pull_request`, never `pull_request_target`, and

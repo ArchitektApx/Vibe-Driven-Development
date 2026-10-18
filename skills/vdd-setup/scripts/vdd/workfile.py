@@ -10,7 +10,7 @@ finding that quotes Markdown cannot break the frame.
 import re
 
 FINDING = re.compile(r"^### ([0-9]+)\. (\S+) \(([^)]*)\): (.+?)\s*$")
-FENCE = re.compile(r"^\s*(```|~~~)")
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 GUIDE_START = "<!-- VDD:"
 
 
@@ -34,27 +34,67 @@ def split(text):
 def classify(texts):
     """Every line as a Line, a comment's or a fence's lines marked as not
     frame."""
+    return walk(texts)[0]
+
+
+def walk(texts):
+    """(the Lines as classify gives them, the Line that opens a comment or
+    fence still open at the end of the file, or None)."""
     out = []
     in_comment = False
     in_fence = False
+    opener = None
     for number, text in enumerate(texts, 1):
         frame = not in_comment and not in_fence
         stripped = text.strip()
+        line = Line(number, text, frame)
         if in_fence:
-            if FENCE.match(text):
+            if closes(text, fence_run(opener.text)):
                 in_fence = False
         elif in_comment:
             if "-->" in text:
                 in_comment = False
         elif stripped.startswith("<!--"):
-            frame = False
+            line.frame = False
             if "-->" not in stripped[4:]:
                 in_comment = True
-        elif FENCE.match(text):
-            frame = False
+                opener = line
+        elif fence_run(text):
+            line.frame = False
             in_fence = True
-        out.append(Line(number, text, frame))
-    return out
+            opener = line
+        out.append(line)
+    return out, (opener if in_comment or in_fence else None)
+
+
+def fence_run(text):
+    """The backtick or tilde run a line opens a fence with, or None: at most
+    three spaces of indent, three or more of one character, and for
+    backticks no backtick after the run."""
+    match = FENCE.match(text)
+    if match is None or (match.group(1)[0] == "`" and "`" in match.group(2)):
+        return None
+    return match.group(1)
+
+
+def closes(text, run):
+    """Whether the line closes a fence opened with run: at most three spaces
+    of indent, a run of the same character at least as long, and nothing
+    after it but whitespace."""
+    match = FENCE.match(text)
+    return (match is not None and match.group(1)[0] == run[0] and len(match.group(1)) >= len(run)
+            and not match.group(2).strip())
+
+
+def unclosed_text(opener):
+    """The refusal for a comment or fence left open, or None."""
+    if opener is None:
+        return None
+    if opener.text.strip().startswith("<!--"):
+        return ("the comment that opens here is never closed, so every line after it is read as part of it. "
+                "Close it with \"-->\".")
+    return ("the code fence that opens here is never closed, so every line after it is read as part of it. "
+            "Close it with a line holding %s." % fence_run(opener.text))
 
 
 class Section:
@@ -140,7 +180,7 @@ class Parsed:
 
     def __init__(self, text):
         self.texts = split(text)
-        self.lines = classify(self.texts)
+        self.lines, self.unclosed = walk(self.texts)
         self.title = None
         self.preamble = []
         self.sections = []

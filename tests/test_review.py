@@ -252,6 +252,19 @@ class LintTest(ReviewTest):
         self.assertIn("a finding under ## Open findings must have been carried by the tool", result.text)
         self.assertNext(result, "again")
 
+    def test_an_unclosed_fence_or_comment_is_refused(self):
+        """Code review round 4, finding 12: a fence left open turned every
+        later line into prose, so a blocker after it was dropped from the
+        counts, the state and the Doorbell."""
+        tail = "\n### 3. blocker (open): Ticket 01\n\nTicket 01 deletes the database.\n"
+        fenced = ROUND_1.replace("leaves `summary` out.", "leaves `summary` out:\n\n```python\nx = 1\n") + tail
+        self.refused(fenced, "PLAN-REVIEW.md line 19:", "the code fence that opens here is never closed",
+                     "Close it with a line holding ```.")
+        self.box.cleanup()
+        self.setUp()
+        commented = ROUND_1.replace("leaves `summary` out.", "leaves `summary` out.\n\n<!-- a note") + tail
+        self.refused(commented, "PLAN-REVIEW.md line 19:", "the comment that opens here is never closed")
+
     def test_an_unfilled_checks_line(self):
         """check-errors.md: an unfilled Checks line is refused."""
         self.refused(ROUND_1.replace("writing-for-agents: ran", "writing-for-agents: <ran | did not resolve>"),
@@ -260,6 +273,9 @@ class LintTest(ReviewTest):
 
 class CheckTest(ReviewTest):
     def test_a_passing_round_one(self):
+        """Replaces the Plan-Reviewer's hand-written "Round <n>" line and
+        Doorbell (1e59e46) and its counts of open findings (9e820de): the
+        check writes the status line, the Doorbell and the state."""
         self.round_one()
         dry = self.check(write=False)
         self.assertEqual(dry.code, 0, dry)
@@ -276,6 +292,8 @@ class CheckTest(ReviewTest):
         self.assertIn("plan 1 reviewed open 1,2 counts 0 1 1", self.read("loop-state"))
 
     def test_the_orchestrator_relays_round_one(self):
+        """Replaces the Plan-Reviewer's Doorbell line, composed by hand since
+        1e59e46: the relay rings the line the check recorded."""
         self.round_one()
         self.check()
         result = self.ring("Orchestrator")
@@ -284,6 +302,8 @@ class CheckTest(ReviewTest):
                       "Read it.", self.read("doorbells"))
 
     def test_round_two_signs_off_and_moves_both_findings_to_the_recap(self):
+        """Replaces the literal "SIGNED OFF" first line the Plan-Reviewer
+        wrote (1e59e46) and its sign-off Doorbell: the check writes both."""
         self.round_two()
         text = self.read("PLAN-REVIEW.md")
         text = text.replace("### 1. major (open)", "### 1. major (fixed)").replace(
@@ -354,6 +374,33 @@ class CheckTest(ReviewTest):
         result = self.check()
         self.assertEqual(result.code, 0, result)
 
+    def fenced_finding(self, quoted):
+        """Round 1 with quoted lines in finding 2 and a blocker after them,
+        checked: the blocker counts only if the quote closed where Markdown
+        closes it."""
+        tail = "\n### 3. blocker (open): Ticket 01\n\nTicket 01 deletes the database.\n"
+        self.round_one(ROUND_1.replace("leaves `summary` out.", "leaves `summary` out:\n\n" + quoted) + tail)
+        result = self.check()
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("VDD Plan-Reviewer: PLAN-REVIEW.md written, round 1: 1 blocker, 1 major, 1 minor. Read it.",
+                      result.lines)
+
+    def test_a_tilde_fence_quoting_a_backtick_line_closes_on_its_tildes(self):
+        """Code review round 5, finding 24: any backtick or tilde line closed
+        a fence, so a ~~~ fence quoting ``` was refused as unclosed at its
+        closing ~~~."""
+        self.fenced_finding("~~~md\n```\n~~~")
+
+    def test_a_four_backtick_fence_holds_a_three_backtick_block(self):
+        """Code review round 5, finding 24: the inner ``` closed a ````
+        fence, so the quoted ### line inside it was read as a finding."""
+        self.fenced_finding("````md\n```sh\n### 9. x (open): y\n```\n````")
+
+    def test_a_four_space_indented_backtick_line_opens_no_fence(self):
+        """Code review round 5, finding 24: an indented ``` line, an indented
+        code block in Markdown, was refused as an unclosed fence."""
+        self.fenced_finding("    ```")
+
 
 class FencedRecapTest(ReviewTest):
     def test_a_fenced_heading_in_the_recap_survives_the_next_write(self):
@@ -389,6 +436,8 @@ class LeaveTest(ReviewTest):
     minors = "leave"
 
     def test_open_minors_sign_off_on_leave_and_stay(self):
+        """Replaces the Minors: leave sign-off rule, open minors allowed
+        (9e820de): the check signs off and keeps the minors in the file."""
         self.round_one(ROUND_1.replace("### 1. major", "### 1. minor"))
         result = self.check()
         self.assertEqual(result.code, 0, result)

@@ -290,6 +290,8 @@ def lint(round_, parsed):
     for name in expected:
         if parsed.section(name) is None:
             lint_.at(None, "the heading \"## %s\" is missing. Put it back as the tool wrote it." % name)
+    if parsed.unclosed is not None:
+        lint_.at(parsed.unclosed, workfile.unclosed_text(parsed.unclosed))
     lint_checks(round_, parsed, lint_)
     lint_findings(round_, parsed, lint_)
     return lint_

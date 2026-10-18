@@ -7,6 +7,7 @@ from .out import Failure, Output, refused
 # Command group -> one-line summary.
 GROUPS = {
     "codex-stop": "The Codex Stop hook. Codex runs it at a turn end; a Role never does.",
+    "coder": "The Coder's round: start it on the feature branch, then check FIXES.md and record its end.",
     "doorbell": "Ring, wait for and take Doorbells between the Planner and the Orchestrator.",
     "loop": "Start a loop, and show, change, close or reopen its Loop file.",
     "review": "The Plan-Reviewer's and the Code-Reviewer's round: write its frame, then check it.",
@@ -38,6 +39,8 @@ def load(name):
     import: the static check refuses an import by a computed name."""
     if name == "codex-stop":
         from . import codex_hook as module
+    elif name == "coder":
+        from . import coder as module
     elif name == "doorbell":
         from . import doorbell as module
     elif name == "loop":
