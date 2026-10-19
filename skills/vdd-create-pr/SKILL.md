@@ -49,7 +49,12 @@ or the PR opened.
 On `PR: no`, close the loop, print "Loop signed off. `PR: no`: `<feature
 branch>` stays local, nothing pushed." and stop before step 3.
 
-## 3. Assemble the title and body
+## 3. Check, then assemble the title and body
+
+Run `pr check --slug <slug> --harness <h>`. It prints the PR template or that
+there is none, the merged-PR history when there is no template, the
+preflight and the path. When a sandbox refused a call inside it, do what its
+`Next:` line says.
 
 Read `.scratch/<slug>/spec.md` from disk. The Orchestrator's session may hold
 an older copy in context, and you carry no state between runs, so every run
@@ -62,33 +67,28 @@ The body describes the change. Review rounds, findings and verification stay
 in the Tracker directory on the machine that ran the Workflow; a reviewer reads
 what changed and why.
 
-**Template lookup.** Stop at the first hit, in this order:
-`PULL_REQUEST_TEMPLATE.md` or `pull_request_template.md` at the repository
-root, in `.github/`, or in `docs/`. Six paths, checked in that order. The
-directory form, `.github/PULL_REQUEST_TEMPLATE/`, is out of scope.
-
 **Template found.** The template alone is the body. Fill its sections from
 the Spec; append nothing past what it asks for. A section asking for testing
 or review evidence is filled from `.scratch/<slug>/RECAP.md`, the loop's
 record of its Tickets and findings; read it then and only then.
 
-**No template.** Run `gh pr list --state merged --limit 10 --json
-title,body`. An empty result, or a call that exits non-zero because `gh` is
-absent or unauthenticated, is what "no PR history" means. On history, match
-the shape of what came back: its sections, its tone, whether it links
-issues. Matching governs here whole. Where the bodies that came back carry a
-section reporting testing or review evidence, reproduce it like any other
-section of theirs, filled from `.scratch/<slug>/RECAP.md`, read then and only
-then; the rule above bars a section you added, not one the history you were
-told to imitate already has. Without history, VDD's default body is the Spec's Problem
-Statement and Solution and nothing else.
+**History.** Match the shape `pr check` printed: the headings the bodies
+carry, the newest body's tone, whether the bodies link issues. Matching
+governs here whole. Where the bodies carry a section reporting testing or
+review evidence, reproduce it like any other section of theirs, filled from
+`.scratch/<slug>/RECAP.md`, read then and only then; the rule above bars a
+section you added, not one the history you were told to imitate already has.
+Follow the titles' convention: a conventional prefix, a ticket reference, a
+capitalisation.
 
-**Title.** Follow the convention of the titles in that same `gh pr list`
-result when there is history: a conventional prefix, a ticket reference, a
-capitalisation. Without history, use the Spec's title. The title holds no
-double quote: Windows PowerShell 5.1 strips it from the argument it hands
-`gh`, so the PR would open under a title other than the one the user
-confirmed. Write a single quote in its place.
+**No history, or could not read.** VDD's default body is the Spec's Problem
+Statement and Solution and nothing else, under the Spec's title. When `pr
+check` could not read the history, tell the user so.
+
+With a template, or with no history, the title is the Spec's title.
+
+Write the title and body to `.scratch/<slug>/pr-body.md` with your file tool:
+the title as the first line, a blank line, then the body.
 
 ## 4. The `PR:` line
 
@@ -109,34 +109,16 @@ to the user.
 
 **Open it.** Continue to step 6.
 
-## 6. Capabilities and the existing-PR check
+## 6. The path
 
-Two capabilities, checked independently, judged on exit codes alone; stderr
-is ignored, because `git ls-remote` has been observed printing `fatal:
-failed to store` on a call that exited 0.
+Act on the `Path:` line `pr check` printed.
 
-- **Can push.** A remote is configured and `git ls-remote <remote> HEAD`
-  exits 0.
-- **Can open a PR.** `gh` is on `PATH`, the hostname read from
-  `git remote get-url <remote>` is a GitHub host, and
-  `gh auth status --hostname <host>` exits 0.
-
-The remote is the one the base branch tracks when it tracks one, else the
-single configured remote, else `origin`.
-
-Three outcomes.
-
-**Both present.** Before any push, run `gh pr list --head <feature branch>
---state open --json url`. A non-empty result means a PR already exists:
-print its URL and the assembled body, close the loop and stop, pushing
-nothing. An empty
-result continues to step 7 for confirm, push, open.
-
-**Push only, open-a-PR absent.** The existing-PR check above is skipped.
-Continue to step 7.
-
-**Neither present.** Print the body, push nothing, name the check that
-failed, close the loop and stop.
+- **`open`.** Continue to step 7.
+- **`push-only`.** `gh` cannot open the PR here. Continue to step 7.
+- **`neither`.** Print the body, push nothing, name the check that failed,
+  close the loop and stop.
+- **`existing <url>`.** A PR is already open for the branch: print its URL
+  and the body, close the loop and stop, pushing nothing.
 
 ## 7. Show, confirm, push, open
 

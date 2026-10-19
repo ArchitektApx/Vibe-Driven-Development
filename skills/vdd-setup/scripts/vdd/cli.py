@@ -10,6 +10,7 @@ GROUPS = {
     "coder": "The Coder's round: start it on the feature branch, then check FIXES.md and record its end.",
     "doorbell": "Ring, wait for and take Doorbells between the Planner and the Orchestrator.",
     "loop": "Start a loop, and show, change, close or reopen its Loop file.",
+    "pr": "The PR-Author's PR: check the template, history and preflight, then push, open and close.",
     "orchestrator": "The Orchestrator's steps: place the Workflow, and act on each hosted Role's return.",
     "review": "The Plan-Reviewer's and the Code-Reviewer's round: write its frame, then check it.",
     "setup": "Check this repository and machine for a VDD loop, and make the changes Setup owns.",
@@ -51,6 +52,8 @@ def load(name):
         from . import orchestrator as module
     elif name == "review":
         from . import review as module
+    elif name == "pr":
+        from . import pr as module
     elif name == "wayfinder":
         from . import wayfinder as module
     else:

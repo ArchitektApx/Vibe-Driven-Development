@@ -154,11 +154,12 @@ class Sandbox:
 
     def stub(self, name, body):
         """A POSIX sh script named name in the sandbox's bin directory, which
-        stub_env puts first on PATH. body follows the #!/bin/sh line."""
+        stub_env puts first on PATH. body follows a #!/bin/sh line, unless it
+        starts with its own #! line."""
         os.makedirs(self.bin, exist_ok=True)
         path = os.path.join(self.bin, name)
         with open(path, "w") as handle:
-            handle.write("#!/bin/sh\n" + body)
+            handle.write(body if body.startswith("#!") else "#!/bin/sh\n" + body)
         os.chmod(path, 0o755)
         return path
 
