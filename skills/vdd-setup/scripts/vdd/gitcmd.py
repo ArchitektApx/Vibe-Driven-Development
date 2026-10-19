@@ -18,7 +18,8 @@ MINIMUM = (2, 40)
 VERSION = re.compile(r"^git version ([0-9]+)\.([0-9]+)")
 # What a refused call prints: macOS and Linux, Windows, and gh. Matched in
 # lower case: real gh writes "operation not permitted". The last four are a
-# network a sandbox blocks, as gh and git's connection layer word it.
+# network a sandbox blocks, as gh and git's connection layer word it; neither
+# translates them, and every git call runs in English (ENGLISH).
 REFUSAL_MARKERS = (
     "operation not permitted",
     "permission denied",
@@ -30,6 +31,18 @@ REFUSAL_MARKERS = (
     "failed to connect to",
     "could not resolve host",
 )
+# git translates its messages into the system's language, and the markers
+# above are English.
+ENGLISH = {"LC_ALL": "C"}
+
+
+def environment(extra=None):
+    """The environment for a git or gh call: this one, in English, plus
+    extra."""
+    full = dict(os.environ)
+    full.update(ENGLISH)
+    full.update(extra or {})
+    return full
 
 
 class Call:
@@ -100,9 +113,7 @@ def is_refusal(code, stderr):
 def run(root, argv, data=None, env=None, timeout=None):
     """Run argv in root and return its Call. data, bytes, goes to standard
     input; without it standard input is empty. env adds variables."""
-    full = dict(os.environ)
-    if env:
-        full.update(env)
+    full = environment(env)
     try:
         proc = subprocess.run(
             argv,

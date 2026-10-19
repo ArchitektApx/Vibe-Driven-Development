@@ -19,7 +19,7 @@ import os
 import re
 import subprocess
 
-from . import textfile
+from . import gitcmd, textfile
 from .out import TELL, Failure
 
 SLUG_PATTERN = "[a-z0-9]+(-[a-z0-9]+)*"
@@ -135,6 +135,7 @@ def project_root(cwd):
             cwd=cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=gitcmd.environment(),
         )
     except OSError:
         return cwd
@@ -412,6 +413,7 @@ def current_branch(root):
             cwd=root,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=gitcmd.environment(),
         )
     except OSError:
         return ""

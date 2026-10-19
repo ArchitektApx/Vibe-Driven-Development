@@ -223,6 +223,23 @@ class CheckTest(PRTest):
                 self.assertNotIn("Path: neither", result.text)
                 self.assertNext(result, "Rerun", "outside the sandbox", "git ls-remote origin was refused")
 
+    def test_git_speaks_english_whatever_the_system_language(self):
+        """git translates its messages, and the refusal markers are English:
+        every git call pr check makes runs in English (the fold's own case is
+        in test_fold.py)."""
+        self.remote()
+        self.box.write(os.path.join(".github", "pull_request_template.md"), "## What\n")
+        log = os.path.join(self.box.root, "lang.log")
+        self.box.stub("git", "echo \"$1 $LC_ALL\" >> '%s'\nif [ \"$1\" = ls-remote ]; then exit 0; fi\n"
+                             "exec '%s' \"$@\"\n" % (log, shutil.which("git")))
+        self.plan(auth=[0, "", ""], head=[0, "[]", ""])
+        result = self.pr_check(env=self.box.stub_env(LANG="de_DE.UTF-8", LC_ALL="de_DE.UTF-8"))
+        self.assertEqual(result.code, 0, result)
+        with open(log) as handle:
+            seen = [line for line in handle.read().split("\n") if line]
+        self.assertTrue(seen)
+        self.assertEqual([line for line in seen if not line.endswith(" C")], [])
+
     def test_no_gh_on_path_is_no_history(self):
         self.set_pr("manual")
         os.remove(self.gh)

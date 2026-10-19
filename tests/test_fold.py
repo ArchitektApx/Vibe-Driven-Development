@@ -691,6 +691,23 @@ class SandboxAndSigningTest(FoldTest):
         self.assertEqual(self.sha("demo"), signed)
         self.assertNotIn("fold ", self.state())
 
+    def test_a_refused_object_write_in_german_gets_the_rerun_line(self):
+        """Acceptance, Codex on Windows: its sandbox refused the fold's object
+        write with git's "insufficient permission", which git translates; on
+        a German system that refusal read as a git error and the fold
+        skipped."""
+        signed = self.signed_loop()
+        objects = os.path.join(self.box.proj, ".git", "objects")
+        dirs = [root for root, _, _ in os.walk(objects)]
+        for path in dirs:
+            os.chmod(path, 0o555)
+        try:
+            result = self.fold(env=self.box.env(LANG="de_DE.UTF-8", LC_ALL="de_DE.UTF-8"))
+        finally:
+            for path in dirs:
+                os.chmod(path, 0o755)
+        self.assertRerun(result, signed)
+
     def test_a_signing_repository_keeps_every_folded_commit_signed(self):
         signed = self.signed_loop()
         originals = self.out("rev-list", "main..demo").split("\n")

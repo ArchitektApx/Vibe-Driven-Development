@@ -75,7 +75,8 @@ def run(argv):
 def git(root, *argv):
     """(exit code, stdout as text) of a git command run in root."""
     try:
-        proc = subprocess.run(["git"] + list(argv), cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.run(["git"] + list(argv), cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              env=gitcmd.environment())
     except OSError as error:
         raise Failure("git could not run: %s" % error, "Tell the user git is needed for the Coder's round, and stop.")
     return proc.returncode, textfile.decode(proc.stdout).strip(), textfile.decode(proc.stderr).strip()
