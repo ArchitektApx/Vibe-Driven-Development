@@ -252,7 +252,7 @@ class CodexHookTest(ToolTest):
     def test_a_015_armed_file_is_ignored(self):
         """A 0.15 hook that survives reads armed-<id>; the new hook reads
         codex-armed-<id>, so the old one finds nothing and cannot take the new
-        arm, and the new one ignores the old file (spec, user story 16)."""
+        arm, and the new one ignores the old file."""
         self.loop()
         self.box.write(os.path.join(TRACKER, "armed-" + ID), "Orchestrator 0\n")
         self.ring("Orchestrator", P1)
@@ -344,7 +344,7 @@ class HookStringTest(ToolTest):
     @unittest.skipIf(WINDOWS, "Codex runs command, not commandWindows, on macOS and Linux")
     def test_command_starts_python_only_when_armed_in_every_shell(self):
         """Codex runs a hook under the Session's shell: sh, bash, or zsh, the
-        macOS default (.scratch/loop-file/research/hook-guard.md)."""
+        macOS default."""
         started = os.path.join(self.box.root, "started")
         shells = [shell for shell in ("sh", "bash", "zsh") if shutil.which(shell)]
         self.assertIn("sh", shells)
@@ -361,8 +361,7 @@ class HookStringTest(ToolTest):
     @unittest.skipIf(WINDOWS or not shutil.which("zsh"), "needs zsh")
     def test_a_bare_glob_guard_fails_under_zsh_with_nothing_armed(self):
         """Why the guard runs find: zsh aborts on an unmatched glob with exit
-        1, which Codex shows as "Hook failed" at every turn end
-        (.scratch/loop-file/research/hook-guard.md)."""
+        1, which Codex shows as "Hook failed" at every turn end."""
         bare = 'set -- .scratch/*/codex-armed-*; [ ! -e "$1" ] || python3 x.py || true'
         for case in ("none", "unarmed"):
             with self.subTest(case=case):

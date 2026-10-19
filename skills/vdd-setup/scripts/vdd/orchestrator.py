@@ -111,8 +111,7 @@ class Flow:
         self.state = state
         self.slug = loop.slug
         self.harness = harnesses.get(loopfile.harness_slug(loop.setting("Harness")[0]))
-        # The Loop file's own value: Generic's Harness module has no label
-        # (code review round 4, finding 19).
+        # The Loop file's own value: Generic's Harness module has no label.
         self.harness_label = loop.setting("Harness")[0]
         self.place = doorbell.Place(loop.root, loop.slug)
         self.place.loop = loop
@@ -428,8 +427,7 @@ def start(flow):
     flow.state.append("orchestrator session %d" % (previous + 1))
     # A wait an earlier session started wakes that session, not this one.
     doorbell.clear_marker(flow.place, "Orchestrator")
-    # The placement below acts on every Doorbell rung so far (code review
-    # round 4, finding 10; beta's take --restart recorded them as well).
+    # The placement below acts on every Doorbell rung so far.
     doorbell.mark_handled(flow.place, "Orchestrator", out)
     reason = "after a restart" if previous else None
     plan = flow.state.last_review("plan")
@@ -551,8 +549,7 @@ def respawn(flow, values):
         out.line("The %s's next spawn is fresh." % role)
         if live is not None and not flow.acted(role, live[1]):
             # A BLOCKED after the round's check --write passed: the round is
-            # done and its return is still owed (ticket 72, code review
-            # round 4, finding 20).
+            # done and its return is still owed.
             out.line("The %s's round %d is finished and not acted on yet." % (role, live[1]))
             return out.finish("Run %s" % flow.return_command(role))
         return out.finish("Go on with the step the tool printed before it.")

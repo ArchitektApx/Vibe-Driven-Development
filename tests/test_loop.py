@@ -90,8 +90,8 @@ class NewTest(LoopTest):
 
     def test_the_respawn_question_left_loop_new(self):
         """The Respawn policy moved into the state file, asked at Model
-        approval (Ticket 02): loop new takes no --fresh-coder, in a dry run or
-        with --write."""
+        approval: loop new takes no --fresh-coder, in a dry run or with
+        --write."""
         for extra in ((), ("--write",)):
             with self.subTest(extra=extra):
                 result = self.new("demo", *(ANSWERS + ["--fresh-coder", "never"] + list(extra)))
@@ -112,9 +112,8 @@ class NewTest(LoopTest):
                 self.assertIn("Harness: %s\n" % label, self.file(slug))
 
     def test_a_slug_outside_the_pattern_is_refused_with_the_pattern(self):
-        """The slug check moved from Start-Loop's prose into the tool
-        (ticket 18 L02): the refusal names the pattern so the user fixes the
-        slug in one try."""
+        """The slug check moved from Start-Loop's prose into the tool: the
+        refusal names the pattern so the user fixes the slug in one try."""
         for slug in ("Demo", "demo_x", "-demo", "demo-", "de--mo", "", "a/b"):
             with self.subTest(slug=slug):
                 result = self.new(slug, *ANSWERS, write=True)
@@ -209,8 +208,8 @@ class ShowTest(LoopTest):
         self.box.write(os.path.join(".scratch", "demo", "loop.md"), "\n".join(lines))
 
     def test_a_missing_line_and_a_malformed_line_each_name_their_fault(self):
-        """Respawn finding 1: a missing line was reported as malformed. Each
-        line reads as its default, with the right word, and the user is told."""
+        """A missing line was reported as malformed. Each line reads as its
+        default, with the right word, and the user is told."""
         defaults = {"Minors": "leave", "PR": "ask at sign-off", "Harness": "Generic"}
         bad = {"Minors": "maybe", "PR": "sometimes", "Harness": "Vim"}
         original = self.file()
@@ -255,9 +254,8 @@ class ShowTest(LoopTest):
                     self.assertIn("malformed", line)
 
     def test_an_unknown_higher_format_is_refused_with_rerun_setup(self):
-        """The paused grilling of 2026-10-14: an older tool never misreads a
-        Loop file of a newer format, and a loop.md without Format: 2 is
-        refused the same way."""
+        """An older tool never misreads a Loop file of a newer format, and a
+        loop.md without Format: 2 is refused the same way."""
         original = self.file()
         for replacement in ("Format: 3", "Format: 1", None):
             with self.subTest(format=replacement):
@@ -275,9 +273,9 @@ class PRAuthorTest(LoopTest):
         self.new("demo", *ANSWERS, write=True)
 
     def test_the_pr_author_waits_for_the_recorded_code_sign_off(self):
-        """Today's PR-Author step 2 check: CODEREVIEW.md's first line had to
-        be SIGNED OFF. The status line replaced it, so the tool checks the
-        state file's code Sign-off (Ticket 06)."""
+        """The PR-Author used to check that CODEREVIEW.md's first line was
+        SIGNED OFF. The status line replaced it, so the tool checks the state
+        file's code Sign-off."""
         for staged in ((), ("code 1 reviewed open 1 counts 0 1 0",)):
             with self.subTest(staged=staged):
                 with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
@@ -321,8 +319,8 @@ class SetTest(LoopTest):
         self.assertIn("Harness file: harness-codex.md", self.loop("show", "--slug", "demo").lines)
 
     def test_set_refuses_fresh_coder(self):
-        """The Coder's respawn line left the Loop file (Ticket 02): loop set
-        refuses it as an unknown option and writes nothing."""
+        """The Coder's respawn line left the Loop file: loop set refuses it as
+        an unknown option and writes nothing."""
         before = self.file()
         result = self.loop("set", "--slug", "demo", "--fresh-coder", "never", "--write")
         self.assertNotEqual(result.code, 0, result)
@@ -361,9 +359,8 @@ class SetTest(LoopTest):
 
 
 class VersionOneTest(LoopTest):
-    """A loop 0.16.0-beta.3 started: state file version 1 and a Loop file
-    with the Coder's respawn line. Every loop command still reads it
-    (Ticket 02)."""
+    """A loop 0.16.0-beta.3 started: state file version 1 and a Loop file with
+    the Coder's respawn line. Every loop command still reads it."""
 
     def setUp(self):
         LoopTest.setUp(self)
@@ -567,8 +564,8 @@ class LeftoverTest(LoopTest):
         self.assertEqual(self.file(name="loop-state"), "vdd loop-state 2\nloop open\n")
 
     def test_a_damaged_state_file_reads_as_a_directory_with_no_state_file(self):
-        """CODEREVIEW round 1, finding 2: a damaged loop-state stopped loop
-        new and loop aside alike, leaving the slug no way out."""
+        """A damaged loop-state stopped loop new and loop aside alike, leaving
+        the slug no way out."""
         self.box.write_loop("demo")
         self.box.write(os.path.join(".scratch", "demo", "loop-state"), "junk\n")
         result = self.new()
@@ -586,8 +583,8 @@ class LeftoverTest(LoopTest):
         self.assertFalse(os.path.exists(self.box.path(".scratch", "demo")))
 
     def test_continue_appends_to_a_readable_state_file_and_refuses_a_newer_one(self):
-        """CODEREVIEW round 2, finding 6: continue rewrote a readable
-        loop-state whole, losing its history, and overwrote a newer tool's."""
+        """Continue rewrote a readable loop-state whole, losing its history,
+        and overwrote a newer tool's."""
         self.box.write(os.path.join(".scratch", "demo", "loop-state"), "vdd loop-state 2\nloop open\nloop closed\n")
         written = self.new("demo", "--leftover", "continue", *ANSWERS, write=True)
         self.assertEqual(written.code, 0, written)

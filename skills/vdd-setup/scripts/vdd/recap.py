@@ -26,8 +26,7 @@ def read_sections(loop):
     if text is None:
         return sections
     current = None
-    # A heading quoted in a fence or comment is prose (code review round 4,
-    # finding 16).
+    # A heading quoted in a fence or comment is prose.
     for line in workfile.classify(text.split("\n")):
         if line.frame and line.text.startswith("## ") and line.text[3:].strip() in SECTIONS:
             current = line.text[3:].strip()

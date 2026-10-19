@@ -54,8 +54,7 @@ def unique_dir(parent, prefix):
     """A new, empty directory under parent with a unique name that starts
     with prefix, made with a plain os.mkdir so it inherits parent's ACL. On
     Windows the tempfile module's directory gets a protected ACL that the
-    files copied into it keep, and Codex's sandbox cannot read them (loop
-    03's acceptance, finding 4)."""
+    files copied into it keep, and Codex's sandbox cannot read them."""
     while True:
         path = os.path.join(parent, "%s%d-%s" % (prefix, os.getpid(), os.urandom(4).hex()))
         try:

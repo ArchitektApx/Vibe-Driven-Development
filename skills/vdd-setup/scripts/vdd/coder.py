@@ -273,7 +273,7 @@ def start(round_, write):
         )
     out = Output()
     # The fold commands in the Coder's skill name <base>, and a later round
-    # runs no loop show (code review round 4, finding 11).
+    # runs no loop show.
     out.line("Base branch: %s." % round_.base)
     again = round_.started
     if not write and not again:

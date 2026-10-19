@@ -37,7 +37,7 @@ itself, so a run leaves no `__pycache__` behind. A test drives the tool from
 outside, as a Role or a user sees it. The one exception is the Harness
 contract test, `tests/test_harness_contract.py`, which imports the package to
 check that every Harness module implements the whole interface. A test that
-replaces a guardrail names the commit or finding behind it in its docstring.
+replaces a guardrail says in its docstring which failure it prevents.
 
 ## Landing a change
 

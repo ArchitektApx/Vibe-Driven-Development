@@ -1,5 +1,4 @@
-"""The coder command group, driven from outside: the Coder on the tool
-(Ticket 04)."""
+"""The coder command group, driven from outside: the Coder on the tool."""
 
 import os
 import subprocess
@@ -148,8 +147,8 @@ class StartTest(CoderTest):
         self.assertIn("On the feature branch demo.", result.lines)
 
     def test_on_any_other_branch_it_refuses_with_the_question(self):
-        """The Spawn prompt's QUESTION case 1 (ticket 41 D2): a Coder on
-        neither branch asks the user; the tool tells it to."""
+        """The Spawn prompt's QUESTION case 1: a Coder on neither branch asks
+        the user; the tool tells it to."""
         self.box.git("checkout", "-q", "-b", "other")
         before = self.state()
         result = self.coder("start")
@@ -170,9 +169,9 @@ class StartTest(CoderTest):
         self.assertNext(result, "coder check --slug demo --write")
 
     def test_a_second_start_writes_nothing_and_prints_the_recorded_start(self):
-        """A respawned Coder's first call is start again; it keeps the
-        round's partial FIXES.md and its recorded start, so the fold's reset
-        still collapses the whole round (plan review round 1, finding 2)."""
+        """A respawned Coder's first call is start again; it keeps the round's
+        partial FIXES.md and its recorded start, so the fold's reset still
+        collapses the whole round."""
         self.stage_round_two()
         first = self.coder("start")
         self.assertEqual(first.code, 0, first)
@@ -190,9 +189,8 @@ class StartTest(CoderTest):
         self.assertEqual(self.state().count("code 2 start"), 1)
 
     def test_every_start_prints_the_base_branch(self):
-        """Code review round 4, finding 11: the Coder runs no loop show, so
-        the <base> its fold commands name comes from coder start, on every
-        call and in every branch case."""
+        """The Coder runs no loop show, so the <base> its fold commands name
+        comes from coder start, on every call and in every branch case."""
         cases = {
             "create": lambda: None,
             "switch": lambda: self.box.git("branch", "demo"),
@@ -210,9 +208,9 @@ class StartTest(CoderTest):
                 self.assertIn("Base branch: main.", again.lines)
 
     def test_a_repeated_start_switches_only_with_write(self):
-        """Code review round 4, finding 18: a repeated start without --write
-        checked out the feature branch while saying nothing was written, and
-        with --write it dropped the switch line."""
+        """A repeated start without --write checked out the feature branch
+        while saying nothing was written, and with --write it dropped the
+        switch line."""
         self.assertEqual(self.coder("start").code, 0)
         self.box.git("checkout", "-q", "main")
         dry = self.coder("start", write=False)
@@ -238,7 +236,8 @@ class StartTest(CoderTest):
         self.assertIn("Read: .scratch/demo/CODEREVIEW.md, .scratch/demo/spec.md, .scratch/demo/issues/", result.lines)
 
     def test_a_round_ended_and_not_reviewed_has_no_next_round(self):
-        """Ticket 72: a Coder round that is not the review round plus one."""
+        """A round that ended and has no recorded review has no next round:
+        start refuses and says the Coder waits for the review."""
         self.stage_round_two()
         lines = [l for l in self.state().split("\n") if "reviewed open 1,2,3" not in l]
         self.put("loop-state", "\n".join(lines))
@@ -265,8 +264,7 @@ class CheckTest(CoderTest):
         return result
 
     def test_an_empty_verified_is_refused(self):
-        """check-errors.md: Verified is the result of each check, never its
-        output."""
+        """Verified is the result of each check, never its output."""
         self.started()
         text = filled_round_one(self.read("FIXES.md")).replace("Verified: the test passed.", "Verified:", 1)
         self.put("FIXES.md", text)
@@ -274,7 +272,8 @@ class CheckTest(CoderTest):
                      "FIXES.md line ")
 
     def test_a_missing_ticket_entry_is_refused(self):
-        """Ticket 72: a FIXES.md that skips Tickets."""
+        """A FIXES.md that skips a Ticket is refused, so no Ticket goes
+        unreported."""
         self.started()
         text = filled_round_one(self.read("FIXES.md"))
         text = text.split("## Ticket 02")[0]
@@ -282,8 +281,8 @@ class CheckTest(CoderTest):
         self.refused("Ticket 02's entry \"## Ticket 02: 02-two.md\" is missing")
 
     def test_an_unclosed_fence_is_refused_at_its_line(self):
-        """Code review round 4, finding 12: a fence left open turned every
-        later line into prose, so the entries after it went unread."""
+        """A fence left open turned every later line into prose, so the entries
+        after it went unread."""
         self.started()
         text = filled_round_one(self.read("FIXES.md")).replace("Change: wrote a.", "Change: wrote a.\n\n~~~\nx", 1)
         self.put("FIXES.md", text)
@@ -330,16 +329,15 @@ class CheckTest(CoderTest):
         self.put("FIXES.md", text)
 
     def test_a_later_round_refuses_a_bad_answer_and_a_pushback_without_why(self):
-        """check-errors.md: the answer is fixed or pushback, and a pushback
-        needs its reason."""
+        """The answer is fixed or pushback, and a pushback needs its reason."""
         self.later()
         self.answer("Answer: done\nWhy:", "Answer: pushback\nWhy:", "Answer: fixed\nWhy:")
         self.refused("finding 1: \"Answer: done\": the answer is fixed or pushback",
                      "finding 2 answers pushback with no Why:")
 
     def test_a_missing_finding_entry_prints_its_whole_heading(self):
-        """Code review round 4, finding 23: the refusal printed "## Finding
-        2. ...", not the heading the tool wrote."""
+        """The refusal printed "## Finding 2. ...", not the heading the tool
+        wrote."""
         self.later()
         self.answer("Answer: fixed\nWhy:", "Answer: fixed\nWhy:", "Answer: fixed\nWhy:")
         text = self.read("FIXES.md")
@@ -355,8 +353,8 @@ class CheckTest(CoderTest):
         self.assertNotIn("Ticket", self.read("FIXES.md"))
 
     def test_the_end_after_a_rebase_rewrote_the_round(self):
-        """The per-round fold stays until loop 05: it rewrites the round's
-        commits, and check still records the new tip as the end."""
+        """The Coder's fold rewrites the round's commits, and check still
+        records the new tip as the end."""
         self.later()
         start = self.sha()
         self.commit("a.txt", "fix\n", "fixup! %s" % start)

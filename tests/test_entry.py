@@ -67,8 +67,8 @@ class EntryTest(ToolTest):
 
     def test_the_entry_writes_no_bytecode(self):
         """The entry turns bytecode off before it imports the package, so no
-        __pycache__ lands beside the tool in the Shared directory or the
-        plugin root (spec, "What the tool writes")."""
+        __pycache__ lands beside the tool in the Shared directory or the plugin
+        root."""
         copy = os.path.join(self.box.root, "copy")
         shutil.copytree(SCRIPTS, copy, ignore=shutil.ignore_patterns("__pycache__"))
         result = self.box.run("--help", entry=os.path.join(copy, "vdd.py"))

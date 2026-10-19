@@ -264,10 +264,9 @@ class SetupTest(ToolTest):
         self.assertContract(result)
 
     def test_the_loop_file_spelling_names_the_same_harness(self):
-        """The Loop file's Harness: line spells the Harness "Claude Code", and three
-        Roles in the vdd-tool acceptance passed that spelling to --harness
-        and were refused (acceptance finding 1): it names the same Harness
-        as the slug."""
+        """The Loop file's Harness: line spells the Harness "Claude Code", and
+        three Roles passed that spelling to --harness and were refused: it
+        names the same Harness as the slug."""
         for spelled, slug in (("Claude Code", "claude-code"), ("Copilot CLI", "copilot-cli"), ("Cursor", "cursor")):
             result = self.setup(spelled)
             self.assertEqual(result.code, 0, result)
@@ -328,9 +327,8 @@ class SetupTest(ToolTest):
         self.assertFalse(os.path.exists(os.path.join(plain, ".git")))
 
     def test_a_run_below_the_repository_root_changes_nothing_and_names_the_root(self):
-        """Every check and write is relative to the working directory, so a
-        run from a subdirectory planned a .gitignore there (finding 20 of the
-        round 4 review)."""
+        """Every check and write is relative to the working directory, so a run
+        from a subdirectory planned a .gitignore there."""
         sub = self.box.path("sub", "dir")
         os.makedirs(sub)
         for extra in ((), ("--write",)):
@@ -390,7 +388,7 @@ class SetupTest(ToolTest):
     def test_update_swaps_the_tree_and_keeps_every_other_file(self):
         """Setup replaces vdd.py and vdd/ whole and leaves every other file in
         the Shared directory, so a Codex install still on 0.15 mid-loop keeps
-        its scripts (spec, user story 12)."""
+        its scripts."""
         self.setup("claude-code", "writing-for-agents", "yes", "--write")
         self.box.write("doorbell-wait.sh", "x\n", base=self.box.shared)
         with open(os.path.join(self.box.shared, "vdd.py"), "a") as handle:
@@ -406,7 +404,7 @@ class SetupTest(ToolTest):
     def test_a_copy_that_differs_by_one_byte_is_replaced_and_no_staging_is_left(self):
         """The first Setup after an update replaces a copy whose content
         differs, with no migration step, and leaves no staging or old-copy
-        directory behind (loop 03's acceptance, finding 4; ticket 86)."""
+        directory behind."""
         self.setup("claude-code", "writing-for-agents", "yes", "--write")
         entry = os.path.join(self.box.shared, "vdd.py")
         with open(entry, "rb") as handle:
@@ -426,9 +424,8 @@ class SetupTest(ToolTest):
     def test_the_installed_copy_inherits_the_shared_directory_acl(self):
         """Codex's Windows sandbox could not read a Shared copy staged in a
         tempfile directory, whose protected ACL the installed files kept, so
-        every VDD call was refused and rerun escalated (loop 03's acceptance,
-        finding 4; ticket 86). Setup stages with a plain mkdir, so every
-        access entry on the installed files is inherited."""
+        every VDD call was refused and rerun escalated. Setup stages with a
+        plain mkdir, so every access entry on the installed files is inherited."""
         result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
         self.assertEqual(result.code, 0, result)
         for path in (os.path.join(self.box.shared, "vdd.py"), os.path.join(self.box.shared, "vdd", "cli.py")):
@@ -475,8 +472,7 @@ class SetupTest(ToolTest):
 
     def test_a_gitignore_that_starts_with_a_bom(self):
         """A leading byte order mark is not part of line 1, so .scratch/ on
-        line 1 counts and a retired entry there goes (finding 21 of the round
-        4 review)."""
+        line 1 counts and a retired entry there goes."""
         self.box.write(".gitignore", b"\xef\xbb\xbf.scratch/\n")
         result = self.setup("claude-code", "writing-for-agents", "yes")
         self.assertIn(".gitignore: covers .scratch/. Passed.", result.text)
@@ -573,8 +569,8 @@ class CodexSetupTest(ToolTest):
         return {"hooks": [handler]}
 
     def test_removes_vdd_s_old_entry_after_showing_the_diff(self):
-        """Finding 1: the model built the hooks.json entry itself. Setup no
-        longer writes one; it removes the old one in code (spec)."""
+        """The model used to build the hooks.json entry itself. Setup no longer
+        writes one; it removes the old one in code."""
         before = self.hooks({"model": "x", "hooks": {"Stop": [self.vdd_group(), USER_GROUP], "PreToolUse": []}})
         result = self.setup()
         self.assertIn("Planned change: ~/.codex/hooks.json removes VDD's old Stop hook entry", result.text)
@@ -591,8 +587,8 @@ class CodexSetupTest(ToolTest):
         self.assertIn("Nothing left to change.", self.setup("--write").text)
 
     def test_the_015_windows_template_is_removed_and_the_stop_key_stays(self):
-        """Spec: only VDD's handler and its emptied group go; every other key
-        stays, Stop included."""
+        """Only VDD's handler and its emptied group go; every other key stays,
+        Stop included."""
         self.hooks({"hooks": {"Stop": [self.vdd_group(OLD_PS, commandWindows=OLD_PS)]}})
         result = self.setup("--write")
         self.assertEqual(json.loads(self.read_hooks()), {"hooks": {"Stop": []}})
@@ -648,7 +644,7 @@ class CodexSetupTest(ToolTest):
 
     def test_trust_key_present_prints_no_trust_line(self):
         """The trust check looks for the hooks.state key of VDD's hook and
-        never claims the hook is trusted (spec; ticket 29)."""
+        never claims the hook is trusted."""
         for text in (
             '[hooks.state."vdd@anything:plugin.json#hooks[0]:stop:0:0"]\ntrusted_hash = "sha256:x"\n',
             '[hooks.state]\n"vdd@mk:plugin.json#hooks[0]:stop:0:0" = { trusted_hash = "sha256:x" }\n',
@@ -665,8 +661,7 @@ class CodexSetupTest(ToolTest):
     def test_a_hook_switched_off_in_hooks_is_named(self):
         """Switching VDD's hook off in /hooks keeps its hooks.state key and
         adds enabled = false; Setup read that as a trust entry, and on the
-        Windows VM the Codex Doorbells would have waited for a paste
-        (vdd-tool acceptance finding 3)."""
+        Windows VM the Codex Doorbells would have waited for a paste."""
         for text in (
             '[hooks.state."vdd@vibe-driven-development:plugin.json#hooks[0]:stop:0:0"]\n'
             'trusted_hash = "sha256:x"\nenabled = false\n',

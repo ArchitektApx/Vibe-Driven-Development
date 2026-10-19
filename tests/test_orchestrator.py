@@ -1,5 +1,5 @@
-"""The orchestrator command group, driven from outside: the Orchestrator
-acting on tool output (Ticket 07)."""
+"""The orchestrator command group, driven from outside: the Orchestrator acting
+on tool output."""
 
 import os
 import re
@@ -90,8 +90,8 @@ class HelpTest(OrchestratorTest):
 
 class PlacementTest(OrchestratorTest):
     """orchestrator start places the Workflow from the state file and the
-    Doorbell file, replacing restart.md's five states and the
-    parse-and-resume-once rule (ticket 72, "placement after a crash")."""
+    Doorbell file after a crash: five states, from a rung Planner Doorbell with
+    no review to a signed-off code loop."""
 
     def test_nothing_rung_waits_for_the_planner(self):
         result = self.start()
@@ -103,8 +103,8 @@ class PlacementTest(OrchestratorTest):
         self.assertIn("orchestrator session 1", self.state())
 
     def test_a_rung_round_with_no_review_spawns_the_plan_reviewer(self):
-        """restart.md's first state: a fresh Plan-Reviewer answers the
-        Planner's Doorbell, since one an earlier Session spawned is gone."""
+        """A fresh Plan-Reviewer answers the Planner's Doorbell, since one an
+        earlier Session spawned is gone."""
         self.rings(P1)
         result = self.start()
         self.spawned(result, "Plan-Reviewer", 1)
@@ -114,9 +114,8 @@ class PlacementTest(OrchestratorTest):
         self.spawned(restarted, "Plan-Reviewer", 1, "after a restart")
 
     def test_reviewed_open_with_no_new_ring_relays_then_waits(self):
-        """restart.md's second state, and plan review round 1, finding 1: an
-        Orchestrator that died after the review and before the relay rings
-        it on the restart, then waits for the Planner."""
+        """An Orchestrator that died after the review and before the relay
+        rings it on the restart, then waits for the Planner."""
         self.rings(P1)
         self.stage(PLAN_OPEN_1)
         result = self.start()
@@ -133,8 +132,8 @@ class PlacementTest(OrchestratorTest):
         self.assertIn("Read: .scratch/demo/PLAN-REVIEW.md, .scratch/demo/spec.md, .scratch/demo/issues/", result.lines)
 
     def test_a_signed_off_plan_relays_then_spawns_the_coder(self):
-        """restart.md's third state, with the relay rung again so a lost
-        SIGNED OFF does not leave the Planner waiting."""
+        """The plan is signed off: the relay is rung again so a lost SIGNED OFF
+        does not leave the Planner waiting, then a Coder spawns."""
         self.rings(P1, P2)
         self.stage(PLAN_OPEN_1, PLAN_SIGNED_2)
         result = self.start()
@@ -147,12 +146,12 @@ class PlacementTest(OrchestratorTest):
         self.stage(PLAN_OPEN_1, PLAN_SIGNED_2, *code)
 
     def test_a_coder_round_started_and_not_ended(self):
-        """restart.md's fourth state, the Coder owing the answer."""
+        """The Coder owes the answer."""
         self.signed_plan("code 1 start aaa")
         self.spawned(self.start(), "Coder", 1)
 
     def test_a_coder_round_ended_and_not_reviewed(self):
-        """restart.md's fourth state, the Code-Reviewer owing the review."""
+        """The Code-Reviewer owes the review."""
         self.signed_plan("code 1 start aaa", "code 1 end bbb")
         result = self.start()
         self.spawned(result, "Code-Reviewer", 1)
@@ -165,7 +164,7 @@ class PlacementTest(OrchestratorTest):
         self.assertIn("Read: .scratch/demo/CODEREVIEW.md, .scratch/demo/spec.md, .scratch/demo/issues/", result.lines)
 
     def test_a_signed_off_code_loop_goes_to_the_pr_step(self):
-        """restart.md's fifth state: the Loop is over."""
+        """The Loop is over."""
         self.signed_plan("code 1 start a", "code 1 end b", CODE_OPEN_1, "code 2 start b", "code 2 end c",
                          CODE_SIGNED_2)
         result = self.start()
@@ -173,8 +172,9 @@ class PlacementTest(OrchestratorTest):
         self.assertNotIn("Spawning", result.text)
 
     def test_start_changes_no_doorbell_working_file_or_git(self):
-        """The Orchestrator's Doorbell state file aside, which start records
-        the rung Doorbells in (code review round 4, finding 10)."""
+        """Start changes no Working file and no git ref. Of the Doorbell files
+        it writes only the Orchestrator's state file, where it records the
+        rung Doorbells as handled."""
         self.signed_plan("code 1 start aaa")
         before = self.files()
         before.pop("doorbell-state-orchestrator", None)
@@ -184,10 +184,9 @@ class PlacementTest(OrchestratorTest):
         self.assertEqual(after, before)
 
     def test_the_relay_after_a_placed_review_names_the_wait(self):
-        """Code review round 4, finding 10, replacing beta's take --restart,
-        which recorded the Doorbells a start acted on as handled: start
-        spawns the Plan-Reviewer for the rung round, so the relay after its
-        review names the wait, not the Planner's round 1 Doorbell again."""
+        """Start spawns the Plan-Reviewer for the rung round, so the relay
+        after its review names the wait, not the Planner's round 1 Doorbell
+        again."""
         def db(*argv):
             return self.box.run("doorbell", *argv, "--harness", "claude-code", "--slug", "demo")
         db("ring", "--role", "Planner", "--write")
@@ -217,7 +216,7 @@ class ReturnTest(OrchestratorTest):
         self.stage("orchestrator session 1", *lines)
 
     def test_after_the_coder_the_code_reviewer_spawns_and_a_repeat_refuses(self):
-        """Ticket 72, a repeat Doorbell for a round already acted on."""
+        """A repeat Doorbell for a round already acted on is refused."""
         self.live("spawn Coder 1 session 1", "code 1 start a", "code 1 end b")
         before = self.files()
         result = self.back("Coder")
@@ -247,9 +246,8 @@ class ReturnTest(OrchestratorTest):
                         "orchestrator return --role Code-Reviewer --slug demo --harness claude-code")
 
     def test_a_round_with_no_check_resumes_once_then_asks_the_user(self):
-        """Ticket 72 and unmatched-return.md's rule: one fixed resume, then
-        the user. The fixed text is the tool's, so the Orchestrator adds no
-        words of its own to a recovery."""
+        """One fixed resume, then the user. The fixed text is the tool's, so
+        the Orchestrator adds no words of its own to a recovery."""
         self.live("spawn Coder 1 session 1", "code 1 start a")
         first = self.back("Coder")
         self.assertEqual(first.code, 0, first)
@@ -267,16 +265,15 @@ class ReturnTest(OrchestratorTest):
         self.assertEqual(self.state().count("return Coder 1 miss"), 2)
 
     def test_a_return_line_argument_is_refused(self):
-        """Ticket 61, the DOORBELL: Doorbell: return: the tool never reads
-        the return's text, so it takes none."""
+        """The tool never reads the return's text, so return takes no --line."""
         self.live("spawn Coder 1 session 1")
         result = self.back("Coder", "--line", "DOORBELL: Doorbell: VDD Coder: FIXES.md written, round 1. Read it.")
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("Unknown option: --line", result.text)
 
     def test_start_return_and_tokens_refuse_write(self):
-        """Code review round 1, finding 2: only respawn writes, so the other
-        three refuse --write rather than ignore it."""
+        """Only respawn writes, so the other three refuse --write rather than
+        ignore it."""
         self.live("spawn Coder 1 session 1", "code 1 start a", "code 1 end b")
         before = (self.files(), self.state())
         for argv in (("start", "--slug", "demo", "--write"),
@@ -289,9 +286,9 @@ class ReturnTest(OrchestratorTest):
         self.assertEqual((self.files(), self.state()), before)
 
     def test_a_planner_doorbell_naming_the_wrong_tracker_is_not_acted_on(self):
-        """Ticket 72, a start Doorbell naming the wrong tracker: a Planner
-        line naming .scratch/other/ in demo's Doorbell file is no Doorbell
-        for demo, so neither take nor return acts on it."""
+        """A Doorbell naming the wrong tracker: a Planner line naming
+        .scratch/other/ in demo's Doorbell file is no Doorbell for demo, so
+        neither take nor return acts on it."""
         self.rings("VDD Planner: .scratch/other/ ready, round 1. Read spec.md and issues/.")
         self.stage("orchestrator session 1")
         took = self.box.run("doorbell", "take", "--role", "Orchestrator", "--harness", "claude-code", "--slug", "demo")
@@ -385,8 +382,7 @@ class VersionOneTest(OrchestratorTest):
 
 
 class RespawnQuestionTest(OrchestratorTest):
-    """The Coder's Respawn policy, asked at Model approval only while unset
-    (Ticket 08)."""
+    """The Coder's Respawn policy, asked at Model approval only while unset."""
 
     def policies(self):
         return ()
@@ -435,9 +431,8 @@ class RespawnQuestionTest(OrchestratorTest):
         self.spawned(started, "Plan-Reviewer", 1)
 
     def test_a_mid_loop_change_names_no_start_and_records_no_session(self):
-        """Plan review round 2, finding 15: a policy change after a recorded
-        spawn placed the Workflow again and spawned a second Coder beside a
-        live one."""
+        """A policy change after a recorded spawn placed the Workflow again and
+        spawned a second Coder beside a live one."""
         self.stage("respawn Coder never", "orchestrator session 1", "spawn Coder 1 session 1")
         result = self.orch("respawn", "--role", "Code-Reviewer", "--policy", "every round", "--slug", "demo",
                            "--write")
@@ -448,8 +443,8 @@ class RespawnQuestionTest(OrchestratorTest):
         self.assertEqual(self.state().count("orchestrator session"), 1)
 
     def test_generic_is_named_by_the_loop_file_s_value(self):
-        """Code review round 4, finding 19: Generic's Harness module has no
-        label, so start printed "Harness: ." and the refusals a blank."""
+        """Generic's Harness module has no label, so start printed "Harness: ."
+        and the refusals a blank."""
         self.loop_on("Generic")
         self.stage("respawn Coder never")
         started = self.orch("start", "--slug", "demo", "--harness", "generic")
@@ -501,9 +496,8 @@ class PolicyTest(OrchestratorTest):
                          "VDD Code-Reviewer: CODEREVIEW.md written, round 1: 0 blocker, 1 major, 0 minor. Read it.")
 
     def test_over_asks_for_the_count_at_the_code_reviewer_s_return(self):
-        """Ticket 74's amendment: the count is asked when the Code-Reviewer's
-        return decides the Coder's next round, when it is already in the
-        Orchestrator's context."""
+        """The count is asked when the Code-Reviewer's return decides the
+        Coder's next round, when it is already in the Orchestrator's context."""
         result = self.after_review_one("over 200k")
         self.assertEqual(result.code, 0, result)
         self.assertNotIn("Spawning", result.text)
@@ -546,10 +540,9 @@ class PolicyTest(OrchestratorTest):
         self.spawned(result, "Coder", 1, "respawn on request")
 
     def test_once_after_a_blocked_over_a_finished_round_names_the_return(self):
-        """Ticket 72: a check --write recorded counts "even when the state
-        shows the round finished", so a BLOCKED after it leaves the round's
-        return owed (code review round 4, finding 20): --once names
-        orchestrator return, not the step before the BLOCKED."""
+        """A BLOCKED after a passed check --write leaves the round's return
+        owed: --once names orchestrator return, not the step before the
+        BLOCKED."""
         self.stage("respawn Coder never", "orchestrator session 1", "spawn Coder 1 session 1", "code 1 start a",
                    "code 1 end b")
         result = self.orch("respawn", "--role", "Coder", "--once", "--slug", "demo", "--write")
@@ -568,8 +561,8 @@ class PolicyTest(OrchestratorTest):
 
 class SkillTextTest(OrchestratorTest):
     """Each hosted Role's Read and Write lists, as orchestrator return prints
-    them, name only Working files that Role's SKILL.md names (Ticket 41's
-    dry runs: an Orchestrator given no list missed a file in 5 of 9)."""
+    them, name only Working files that Role's SKILL.md names, since an
+    Orchestrator given no list missed files."""
 
     CASES = (
         ("Plan-Reviewer", 1, ("orchestrator session 1",), "Planner"),
@@ -583,8 +576,8 @@ class SkillTextTest(OrchestratorTest):
                               "code 2 end b"), "Coder"),
     )
 
-    # The Spec's table under Implementation Decisions, orchestrator return:
-    # (role, round) -> (Read, Write), a parenthetical after a name dropped.
+    # The Read and Write lists orchestrator return prints: (role, round) ->
+    # (Read, Write), a parenthetical after a name dropped.
     TABLE = {
         ("Plan-Reviewer", 1): (["spec.md", "issues/"], ["PLAN-REVIEW.md"]),
         ("Plan-Reviewer", 2): (["PLAN-REVIEW.md", "spec.md", "issues/"], ["PLAN-REVIEW.md"]),
@@ -595,9 +588,8 @@ class SkillTextTest(OrchestratorTest):
     }
 
     def test_every_listed_file_is_named_in_the_role_s_skill(self):
-        """Each list also equals its row of the Spec's table, so a later
-        round's file listed in round 1, or a missing FIXES.md, fails (code
-        review round 4, finding 21)."""
+        """Each list also equals its row of TABLE, so a later round's file
+        listed in round 1, or a missing FIXES.md, fails."""
         for role, number, lines, after in self.CASES:
             with self.subTest(role=role, round=number):
                 self.box.write_loop("demo", extra=self.policies() + lines)

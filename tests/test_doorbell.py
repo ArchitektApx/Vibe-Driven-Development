@@ -88,9 +88,9 @@ class DoorbellTest(ToolTest):
 
     def test_ring_composes_the_line_from_the_state_file(self):
         """Every Role composed its own Doorbell, and the Planner read its round
-        from PLAN-REVIEW.md's Round line (Ticket 03): ring takes no --line.
-        The Planner's round is the last plan review's plus one, or 1, and
-        the Orchestrator relays the last plan review."""
+        from PLAN-REVIEW.md's Round line: ring takes no --line. The Planner's
+        round is the last plan review's plus one, or 1, and the Orchestrator
+        relays the last plan review."""
         refused = self.db("ring", "--role", "Planner", "--line", P1, "--write")
         self.assertNotEqual(refused.code, 0, refused)
         self.assertIn("Unknown option: --line", refused.text)
@@ -107,9 +107,8 @@ class DoorbellTest(ToolTest):
 
     def test_ring_refuses_on_a_version_one_loop(self):
         """A version 1 loop has no plan review lines to compose a Doorbell
-        from, so ring refuses it as every round command does. Code review
-        round 1, finding 4: the reason holds for a ring, which writes no
-        review file."""
+        from, so ring refuses it as every round command does. The reason holds
+        for a ring, which writes no review file."""
         self.box.write_loop("x", version=1)
         result = self.db("ring", "--role", "Planner", "--write")
         self.assertNotEqual(result.code, 0, result)
@@ -190,8 +189,7 @@ class DoorbellTest(ToolTest):
 
     def test_take_prints_the_doorbell_once_per_session(self):
         """Within one Session take prints a Doorbell once, and the Planner's
-        Doorbell sends the Orchestrator to orchestrator return --role
-        Planner (Ticket 07)."""
+        Doorbell sends the Orchestrator to orchestrator return --role Planner."""
         self.ring("Planner", P1)
         first = self.take("Orchestrator")
         self.assertEqual(first.lines[0], "Doorbell: " + P1)
@@ -203,8 +201,8 @@ class DoorbellTest(ToolTest):
         self.assertIn("Already handled, nothing to do", pasted.text)
 
     def test_restart_is_gone(self):
-        """orchestrator start places the Workflow; take --restart is refused
-        as an unknown option (Ticket 07)."""
+        """orchestrator start places the Workflow; take --restart is refused as
+        an unknown option."""
         result = self.take("Orchestrator", "--restart")
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("Unknown option: --restart", result.text)
@@ -254,8 +252,8 @@ class DoorbellTest(ToolTest):
         self.assertNotIn("Doorbell: ", result.text)
 
     def test_a_paste_and_the_same_doorbell_by_file_act_once(self):
-        """A Doorbell pasted by hand and the same Doorbell in the file are acted
-        on once (spec, user story 25)."""
+        """A Doorbell pasted by hand and the same Doorbell in the file are
+        acted on once."""
         self.ring("Planner", P1)
         result = self.take("Orchestrator", "--pasted", P1)
         self.assertIn("Doorbell: " + P1, result.text)
@@ -329,8 +327,8 @@ class DoorbellTest(ToolTest):
     # --- the loop by slug, and a closed loop ---
 
     def test_every_command_a_next_line_names_carries_the_slug(self):
-        """PLAN-REVIEW finding 1: a Role runs a Next: command verbatim, so
-        each one names the loop it ran on, the fallbacks included."""
+        """A Role runs a Next: command verbatim, so each one names the loop it
+        ran on, the fallbacks included."""
         self.ring("Planner", P1)
         self.take("Orchestrator")
         nexts = [self.ring("Orchestrator", R1).last]
@@ -500,8 +498,7 @@ class DoorbellTest(ToolTest):
         """Cursor may wake twice for one wait. On the second wake take finds
         nothing new and, with the Role's next wait running, names no second
         one: "Hold exactly one wait", and a duplicate "as a second completion
-        event leaves the wait you hold as it is" (5f3f4e7; finding 17 of the
-        round 4 review)."""
+        event leaves the wait you hold as it is" (5f3f4e7)."""
         self.ring("Orchestrator", R1)
         self.assertIn("Doorbell: " + R1, self.take("Planner", harness="cursor").text)
         ring = self.ring("Planner", P2, harness="cursor")
@@ -520,7 +517,7 @@ class DoorbellTest(ToolTest):
     def test_a_paste_while_a_wait_runs_names_no_second_wait(self):
         """A paste moves the count past the line the running wait has not read
         yet; that wait keeps running, so the next ring ends the turn rather
-        than naming a second wait (finding 17 of the round 4 review)."""
+        than naming a second wait."""
         self.ring("Planner", P1)
         self.take("Orchestrator", harness="cursor")
         self.ring("Orchestrator", R1, harness="cursor")
@@ -561,8 +558,7 @@ class DoorbellTest(ToolTest):
         """A wait an earlier Session left (detached on Copilot CLI, or killed
         with its Session on Windows) keeps a fresh marker that wakes no one.
         The resume's take clears it whatever its token and names a wait,
-        without acting again on a Doorbell already handled (spec, user story
-        31; finding 26 of the round 5 review)."""
+        without acting again on a Doorbell already handled."""
         self.ring("Orchestrator", R1)
         self.assertIn("Doorbell: " + R1, self.take("Planner", harness="cursor").text)
         for harness in ("cursor", "claude-code", "copilot-cli", "generic"):
@@ -595,9 +591,8 @@ class DoorbellTest(ToolTest):
 
     def test_after_the_sign_off_take_names_no_wait(self):
         """Once the plan review is signed off, a take with nothing new names no
-        wait for either Role, as the Sign-off ring already did; a Planner
-        round rung after the Sign-off opens the wait again (finding 31 of the
-        round 8 review)."""
+        wait for either Role, as the Sign-off ring already did; a Planner round
+        rung after the Sign-off opens the wait again."""
         self.ring("Planner", P1)
         self.ring("Planner", P2)
         self.take("Orchestrator")
@@ -618,8 +613,8 @@ class DoorbellTest(ToolTest):
         self.assertNext(self.take("Planner"), "doorbell wait --role Planner")
 
     def test_an_unsigned_review_still_names_the_wait(self):
-        """A PLAN-REVIEW.md that opens SIGNED OFF is not the Sign-off: the
-        state file's review line is (Ticket 03)."""
+        """A PLAN-REVIEW.md that opens SIGNED OFF is not the Sign-off; only the
+        state file's review line is."""
         self.stage("plan 2 reviewed open 1 counts 0 1 0")
         self.assertNext(self.take("Planner"), "doorbell wait --role Planner")
         self.box.write(os.path.join(".scratch", "x", "PLAN-REVIEW.md"), "SIGNED OFF\nRound 2\n")

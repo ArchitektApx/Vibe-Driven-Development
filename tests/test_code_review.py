@@ -1,5 +1,5 @@
 """The review command group for the Code-Reviewer, driven from outside: the
-code review on the tool (Ticket 05)."""
+code review on the tool."""
 
 import os
 import subprocess
@@ -154,8 +154,8 @@ class StartTest(CodeReviewTest):
                       result.lines)
 
     def test_a_second_start_keeps_the_file_and_reprints(self):
-        """Plan review round 1, finding 2: a second start in a started round
-        writes nothing; the carried blocks stay in carried-code.md."""
+        """A second start in a started round writes nothing; the carried blocks
+        stay in carried-code.md."""
         first = self.round_two()
         self.put("CODEREVIEW.md", self.read("CODEREVIEW.md").replace("major (open)", "major (fixed)"))
         before = (self.read("CODEREVIEW.md"), self.read("carried-code.md"), self.read("loop-state"))
@@ -167,10 +167,9 @@ class StartTest(CodeReviewTest):
 
 
 class AgentDocumentTest(CodeReviewTest):
-    """The Agent-document list: the files the paused grilling of 2026-10-14
-    settled, a one-hop link from an Agent document at the tip counted, and
-    of them changed .md files only, as this loop's grilling (2026-10-18)
-    decided; the link syntax alone read."""
+    """The Agent-document list: a changed Agent document, and a file one link
+    away from an Agent document at the tip, is listed. Only changed .md files
+    count, and only the link syntax is read."""
 
     def listed(self):
         self.coder_round(1)
@@ -247,7 +246,8 @@ class CheckTest(CodeReviewTest):
         self.assertNotIn("the helper could be", self.read("CODEREVIEW.md"))
 
     def test_kept_open_after_an_answer_needs_the_reviewer_line(self):
-        """Ticket 69, choice 2: the Coder gets a reason, not just an open
+        """A carried finding the Coder answered and the reviewer keeps open
+        needs the reviewer's reason: the Coder gets a reason, not just an open
         finding."""
         self.round_two()
         text = self.fill(self.read("CODEREVIEW.md"))
@@ -265,7 +265,7 @@ class CheckTest(CodeReviewTest):
         self.assertEqual(self.read("CODEREVIEW.md"), before)
 
     def test_not_carried_refuses_a_line_that_is_not_a_bullet(self):
-        """Ticket 73: Not carried holds "- " lines only."""
+        """Not carried holds "- " lines only."""
         self.round_one(not_carried="the helper could be shorter\n")
         result = self.review("check")
         self.assertNotEqual(result.code, 0, result)
@@ -273,17 +273,16 @@ class CheckTest(CodeReviewTest):
                       '<why not>"', result.text)
 
     def test_an_axis_less_not_carried_line_passes_into_the_recap(self):
-        """Code review round 4, finding 14, replacing the axis rule of round
-        1's finding 1 and round 3's finding 8: ticket 73's line names no
-        axis, and the Recap puts only the round in front of it."""
+        """A Not carried line names no axis, and the Recap puts only the round
+        in front of it."""
         self.round_one(not_carried="- the helper could be shorter: it reads fine.\n")
         result = self.review("check")
         self.assertEqual(result.code, 0, result)
         self.assertIn("- Code round 1: the helper could be shorter: it reads fine.", self.read("RECAP.md"))
 
     def test_not_carried_refuses_an_empty_line(self):
-        """Code review round 3, finding 8: a "- " line with nothing after it
-        would put an empty line into the Recap."""
+        """A "- " line with nothing after it would put an empty line into the
+        Recap."""
         self.round_one(not_carried="- \n")
         before = self.read("CODEREVIEW.md")
         result = self.review("check")
@@ -293,7 +292,7 @@ class CheckTest(CodeReviewTest):
         self.assertFalse(os.path.exists(self.box.path(".scratch", "demo", "RECAP.md")))
 
     def test_an_empty_not_carried_and_a_wrapped_line_pass(self):
-        """Ticket 73: a wrapped "- " line is joined, never refused."""
+        """A wrapped "- " line is joined, never refused."""
         self.round_one()
         self.assertEqual(self.review("check", write=False).code, 0)
 

@@ -1,5 +1,4 @@
-"""The review command group, driven from outside: the plan Loop on the tool
-(Ticket 03)."""
+"""The review command group, driven from outside: the plan Loop on the tool."""
 
 import os
 import unittest
@@ -135,7 +134,7 @@ class StartTest(ReviewTest):
 
     def test_a_second_start_writes_nothing_and_prints_the_same(self):
         """A respawned Plan-Reviewer's first call is start again: it must not
-        wipe the round's work (plan review round 1, finding 2)."""
+        wipe the round's work."""
         self.ring()
         first = self.start()
         self.put("PLAN-REVIEW.md", ROUND_1)
@@ -163,8 +162,8 @@ class StartTest(ReviewTest):
         self.assertIn("### 2. minor (open): Ticket 02", carried)
 
     def test_a_second_start_in_round_two_keeps_the_file_and_the_carried_blocks(self):
-        """Plan review round 1, finding 2: the carried blocks live in the
-        tool-owned carried-plan.md, and a second start leaves both files."""
+        """The carried blocks live in the tool-owned carried-plan.md, and a
+        second start leaves both files."""
         first = self.round_two()
         self.put("PLAN-REVIEW.md", self.read("PLAN-REVIEW.md").replace("(open): Ticket 02", "(fixed): Ticket 02"))
         before = (self.snapshot(), self.read("carried-plan.md"))
@@ -176,8 +175,7 @@ class StartTest(ReviewTest):
 
 class LintTest(ReviewTest):
     """Every refusal of review check names the file, the line and the fix,
-    exits non-zero, writes nothing and reruns the check (ticket 69's
-    check-errors.md)."""
+    exits non-zero, writes nothing and reruns the check."""
 
     def refused(self, text, *fragments):
         self.round_one(text)
@@ -193,19 +191,17 @@ class LintTest(ReviewTest):
         return result
 
     def test_a_severity_outside_the_three(self):
-        """check-errors.md: the severity is blocker, major or minor, in lower
-        case."""
+        """The severity is blocker, major or minor, in lower case."""
         self.refused(ROUND_1.replace("### 2. minor", "### 2. Minor"),
                      "PLAN-REVIEW.md line 15:", "the severity is blocker, major or minor, in lower case")
 
     def test_a_state_outside_the_three(self):
-        """check-errors.md: the state is open, fixed or accepted."""
+        """The state is open, fixed or accepted."""
         self.refused(ROUND_1.replace("minor (open)", "minor (rejected)"),
                      "PLAN-REVIEW.md line 15:", "the state is open, fixed or accepted")
 
     def test_a_closed_finding_without_a_resolution(self):
-        """check-errors.md: a fixed or accepted finding needs its Resolution:
-        line."""
+        """A fixed or accepted finding needs its Resolution: line."""
         self.round_two()
         text = self.read("PLAN-REVIEW.md").replace("major (open)", "major (fixed)")
         self.put("PLAN-REVIEW.md", text)
@@ -218,9 +214,8 @@ class LintTest(ReviewTest):
         self.assertNext(result, "review check", "again")
 
     def test_a_missing_carried_finding_prints_its_block(self):
-        """check-errors.md, and ticket 71: a carried finding the reviewer
-        dropped is refused with its block, word for word, from
-        carried-plan.md."""
+        """A carried finding the reviewer dropped is refused with its block,
+        word for word, from carried-plan.md."""
         self.round_two()
         text = self.read("PLAN-REVIEW.md")
         head, tail = text.split("### 2. minor (open): Ticket 02")
@@ -235,14 +230,12 @@ class LintTest(ReviewTest):
         self.assertEqual(self.snapshot(), before)
 
     def test_new_findings_that_skip_a_number(self):
-        """check-errors.md: new findings start at the printed number and run
-        without gaps."""
+        """New findings start at the printed number and run without gaps."""
         self.refused(ROUND_1.replace("### 2. minor", "### 3. minor"),
                      "PLAN-REVIEW.md line 15:", "finding 2 is numbered 3; new findings this round start at 1")
 
     def test_a_new_finding_under_open_findings(self):
-        """check-errors.md: a finding under ## Open findings must have been
-        carried by the tool."""
+        """A finding under ## Open findings must have been carried by the tool."""
         self.round_two()
         text = self.read("PLAN-REVIEW.md").replace(
             "## New findings", "### 3. minor (open): Ticket 01\n\nNew.\n\n## New findings")
@@ -253,9 +246,8 @@ class LintTest(ReviewTest):
         self.assertNext(result, "again")
 
     def test_an_unclosed_fence_or_comment_is_refused(self):
-        """Code review round 4, finding 12: a fence left open turned every
-        later line into prose, so a blocker after it was dropped from the
-        counts, the state and the Doorbell."""
+        """A fence left open turned every later line into prose, so a blocker
+        after it was dropped from the counts, the state and the Doorbell."""
         tail = "\n### 3. blocker (open): Ticket 01\n\nTicket 01 deletes the database.\n"
         fenced = ROUND_1.replace("leaves `summary` out.", "leaves `summary` out:\n\n```python\nx = 1\n") + tail
         self.refused(fenced, "PLAN-REVIEW.md line 19:", "the code fence that opens here is never closed",
@@ -266,15 +258,15 @@ class LintTest(ReviewTest):
         self.refused(commented, "PLAN-REVIEW.md line 19:", "the comment that opens here is never closed")
 
     def test_a_round_one_finding_outside_new_findings_names_that_heading(self):
-        """Code review round 4, finding 23: round 1 has no ## Open findings,
-        so the refusal names ## New findings alone."""
+        """Round 1 has no ## Open findings, so the refusal names ## New
+        findings alone."""
         result = self.refused(ROUND_1.replace("writing-for-agents: ran\n",
                                               "writing-for-agents: ran\n\n### 3. minor (open): Ticket 01\n\nX.\n"),
                               "a finding heading belongs under ## New findings.")
         self.assertNotIn("## Open findings", result.text)
 
     def test_an_unfilled_checks_line(self):
-        """check-errors.md: an unfilled Checks line is refused."""
+        """An unfilled Checks line is refused."""
         self.refused(ROUND_1.replace("writing-for-agents: ran", "writing-for-agents: <ran | did not resolve>"),
                      "PLAN-REVIEW.md line 7:", "is not filled in")
 
@@ -350,9 +342,8 @@ class CheckTest(ReviewTest):
         self.assertEqual(self.snapshot(), before)
 
     def test_a_finding_line_that_reads_like_a_status_line_stays(self):
-        """Code review round 4, finding 17: the write dropped every line
-        starting "Open: " or "SIGNED OFF." anywhere in the file, a
-        finding's prose included."""
+        """The write dropped every line starting "Open: " or "SIGNED OFF."
+        anywhere in the file, a finding's prose included."""
         self.round_one(ROUND_1.replace("amounts are written.",
                                        "amounts are written.\nOpen: question whether locale matters."))
         result = self.check()
@@ -362,9 +353,8 @@ class CheckTest(ReviewTest):
         self.assertEqual(text.count("Open: 0 blocker"), 1)
 
     def test_a_round_one_preamble_line_under_the_title_stays(self):
-        """Code review round 5, finding 17: in round 1 no status line sits
-        under the title yet, so the write dropped a preamble line there that
-        started "Open: "."""
+        """In round 1 no status line sits under the title yet, so the write
+        dropped a preamble line there that started "Open: "."""
         preamble = "Open: the owner asked me to look at locale."
         self.round_one(ROUND_1.replace("round 1\n\n", "round 1\n\n%s\n\n" % preamble, 1))
         result = self.check()
@@ -394,28 +384,26 @@ class CheckTest(ReviewTest):
                       result.lines)
 
     def test_a_tilde_fence_quoting_a_backtick_line_closes_on_its_tildes(self):
-        """Code review round 5, finding 24: any backtick or tilde line closed
-        a fence, so a ~~~ fence quoting ``` was refused as unclosed at its
-        closing ~~~."""
+        """Any backtick or tilde line closed a fence, so a ~~~ fence quoting
+        ``` was refused as unclosed at its closing ~~~."""
         self.fenced_finding("~~~md\n```\n~~~")
 
     def test_a_four_backtick_fence_holds_a_three_backtick_block(self):
-        """Code review round 5, finding 24: the inner ``` closed a ````
-        fence, so the quoted ### line inside it was read as a finding."""
+        """The inner ``` closed a ```` fence, so the quoted ### line inside it
+        was read as a finding."""
         self.fenced_finding("````md\n```sh\n### 9. x (open): y\n```\n````")
 
     def test_a_four_space_indented_backtick_line_opens_no_fence(self):
-        """Code review round 5, finding 24: an indented ``` line, an indented
-        code block in Markdown, was refused as an unclosed fence."""
+        """An indented ``` line, an indented code block in Markdown, was
+        refused as an unclosed fence."""
         self.fenced_finding("    ```")
 
 
 class FencedRecapTest(ReviewTest):
     def test_a_fenced_heading_in_the_recap_survives_the_next_write(self):
-        """Code review round 4, finding 16: the Recap's reader took a "##"
-        line inside a closed finding's fence for a section heading, so the
-        next write put finding 2 inside finding 1's fence and finding 1's
-        Resolution under ## Not carried."""
+        """The Recap's reader took a "##" line inside a closed finding's fence
+        for a section heading, so the next write put finding 2 inside finding
+        1's fence and finding 1's Resolution under ## Not carried."""
         quoted = "The Recap template should read:\n\n```markdown\n## Tickets\n\n## Not carried\n```"
         self.round_two()
         text = self.read("PLAN-REVIEW.md").replace("writing-for-agents: <ran | did not resolve>",
@@ -459,8 +447,7 @@ class LeaveTest(ReviewTest):
 class VersionOneTest(ReviewTest):
     def test_every_review_command_refuses_a_version_one_loop(self):
         """A loop 0.16.0-beta.3 started keeps review files in the old shape:
-        the round commands never overwrite them (Ticket 02's shared
-        refusal)."""
+        the round commands never overwrite them."""
         self.box.write_loop("demo", version=1)
         for sub in ("start", "check"):
             with self.subTest(sub=sub):

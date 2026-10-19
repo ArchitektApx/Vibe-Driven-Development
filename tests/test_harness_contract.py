@@ -42,8 +42,8 @@ class HarnessContractTest(unittest.TestCase):
                 self.assertFalse(inspect.isabstract(cls))
 
     def test_the_respawn_recommendation_replaced_the_fresh_coder_hook(self):
-        """Ticket 08: the Fresh Coder hook became the Respawn recommendation.
-        Only Claude Code, which reports subagent_tokens, offers a limit."""
+        """The Fresh Coder hook became the Respawn recommendation. Only Claude
+        Code, which reports subagent_tokens, offers a limit."""
         self.assertIn("respawn_recommendation", self.interface())
         self.assertNotIn("fresh_coder", self.interface())
         expected = {

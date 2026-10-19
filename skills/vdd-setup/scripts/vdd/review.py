@@ -387,7 +387,7 @@ def lint(round_, parsed):
 
 def lint_kept_open(round_, parsed, lint_):
     """A carried finding the Coder answered this round and the reviewer keeps
-    open needs the reviewer's reason (ticket 69, choice 2)."""
+    open needs the reviewer's reason."""
     marker = "in round %d." % round_.number
     for block in parsed.blocks_in("Open findings"):
         if block.match is None or block.state != "open":
