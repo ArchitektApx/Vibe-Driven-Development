@@ -7,12 +7,17 @@ alone.
 """
 
 import os
+import re
 
 from . import args, loopfile, places, stores
 from .out import Failure, Output
 
 SUBCOMMANDS = ("start",)
 TEMPLATES = ("overview-template.md", "handoff-template.md")
+# A Feature slug, with dots allowed between words: an effort is often named
+# for a release, as beta-0.16.0-work is.
+EFFORT_PATTERN = "[a-z0-9]+([.-][a-z0-9]+)*"
+EFFORT = re.compile("^" + EFFORT_PATTERN + "$")
 
 HELP = [
     "wayfinder start --effort <slug> --skill-dir <dir>",
@@ -112,8 +117,17 @@ def briefing(effort, overview, handoff):
             .replace("<path to handoff-template.md>", handoff) for line in BRIEFING]
 
 
+def check_effort(effort):
+    if not effort or EFFORT.match(effort) is None:
+        raise Failure(
+            "Not an effort slug: %s. An effort slug matches %s: lowercase letters and digits, in words joined by "
+            "single hyphens or dots." % (effort, EFFORT_PATTERN),
+            "Ask the user for an effort slug that matches %s, then run the command again with it." % EFFORT_PATTERN,
+        )
+
+
 def start(effort, skill_dir):
-    loopfile.check_slug(effort)
+    check_effort(effort)
     overview, handoff = templates(skill_dir)
     root = loopfile.project_root(os.getcwd())
     out = Output()
