@@ -721,3 +721,43 @@ class CodexSetupTest(ToolTest):
         result = self.setup(harness="claude-code")
         self.assertNotIn("hooks.json", result.text)
         self.assertNotIn("Trust VDD's hook", result.text)
+
+
+@unittest.skipIf(WINDOWS, "a stubbed git is a POSIX sh script, as in PreflightTest")
+class GitVersionTest(ToolTest):
+    """Setup's git version check, with git --version stubbed."""
+
+    def setUp(self):
+        ToolTest.setUp(self)
+        subprocess.run(["git", "init", "-q"], cwd=self.box.proj, check=True)
+
+    def setup_with(self, version):
+        real = shutil.which("git")
+        self.box.stub("git", "if [ \"$1\" = --version ]; then echo '%s'; exit 0; fi\nexec '%s' \"$@\"\n"
+                      % (version, real))
+        return self.box.run("setup", "--harness", "claude-code", "--listed", "none", "--glossary-named", "absent",
+                            env=self.box.stub_env())
+
+    def test_git_older_than_2_40_fails_setup_and_stops(self):
+        """Prevents a loop that cannot fold at its end because git is too
+        old: the fold needs git merge-tree --write-tree --merge-base, which
+        arrived in git 2.40, so Setup stops before the Planner."""
+        result = self.setup_with("git version 2.39.5")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("git version: 2.39.5, older than the 2.40 VDD needs. Failed.", result.lines)
+        tells = [t for t in result.tells() if "git 2.40" in t]
+        self.assertEqual(len(tells), 1, result)
+        self.assertIn("VDD needs git 2.40 or newer", tells[0])
+        self.assertIn("rerun Setup", tells[0])
+        self.assertNext(result, "Tell the user verbatim", "stop")
+
+    def test_2_40_and_vendor_suffixed_versions_pass(self):
+        """Prevents a vendor suffix (Apple's, Git for Windows') read as part
+        of the version and failing a git that is new enough."""
+        for version in ("git version 2.40.0", "git version 2.54.0 (Apple Git-157)", "git version 2.55.0.windows.2"):
+            result = self.setup_with(version)
+            shown = version[len("git version "):]
+            self.assertIn("git version: %s. Passed." % shown, result.lines, result)
+            self.assertNotIn("older than the 2.40", result.text)
+            self.assertNotIn("stop: no loop can start", result.last)

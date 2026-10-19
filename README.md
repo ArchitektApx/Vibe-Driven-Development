@@ -76,6 +76,7 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
 
 - A repository to work in
 - Python 3.9 or newer, run as `python3` on macOS and Linux and as `py -3` on native Windows. On a Mac, the Command Line Tools that bring git bring a `python3` that is new enough. VDD needs no Python packages.
+- git 2.40 or newer: VDD folds a loop's commits at its end with git commands that older releases lack, and Setup stops on an older git. On a Mac, git comes with the Command Line Tools, and older Xcode releases bring an older one.
 - The ability to run two agent sessions side by side (two terminals is enough): the Planner, in your foreground, and the Orchestrator, which runs the rest.
 - A coding agent with subagents: Claude Code, Codex, Cursor or GitHub Copilot CLI. If your agent asks for approval per command, grant session approval before you start a loop, so you are not answering prompts through the whole run.
 - Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection, v1.3.1 or later. In Claude Code: Matt Pocock's own marketplace, `/plugin marketplace add mattpocock/skills` then `/plugin install mattpocock-skills@mattpocock`. In Codex, Cursor, GitHub Copilot CLI and any other agent: `npx skills@latest add -g mattpocock/skills`, selecting your agent when it asks. The Roles borrow these:

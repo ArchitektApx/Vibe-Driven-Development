@@ -148,6 +148,25 @@ class Sandbox:
         state += "".join(line + "\n" for line in extra)
         self.write(os.path.join(".scratch", slug, "loop-state"), state)
 
+    @property
+    def bin(self):
+        return os.path.join(self.root, "bin")
+
+    def stub(self, name, body):
+        """A POSIX sh script named name in the sandbox's bin directory, which
+        stub_env puts first on PATH. body follows the #!/bin/sh line."""
+        os.makedirs(self.bin, exist_ok=True)
+        path = os.path.join(self.bin, name)
+        with open(path, "w") as handle:
+            handle.write("#!/bin/sh\n" + body)
+        os.chmod(path, 0o755)
+        return path
+
+    def stub_env(self, **extra):
+        """The environment with the sandbox's bin directory first on PATH."""
+        os.makedirs(self.bin, exist_ok=True)
+        return self.env(PATH=self.bin + os.pathsep + os.environ.get("PATH", ""), **extra)
+
     def cleanup(self):
         shutil.rmtree(self.root, ignore_errors=True)
 
