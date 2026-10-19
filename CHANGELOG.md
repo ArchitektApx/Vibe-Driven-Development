@@ -13,7 +13,8 @@ reliable. The Codex hook ships with the plugin, the Orchestrator recommends
 how the Coder restarts for the least cost on your agent, and code reviews on
 Claude Code and Codex are fixed. Each loop keeps its settings in its own
 directory, every loop starts with Start-Loop, and a finished loop leaves a
-`RECAP.md` that says how it went.
+`RECAP.md` that says how it went. VDD also needs git 2.40 or newer: it folds
+each loop's fixes into the commits they fix, once, at the end.
 
 ### Migrating from 0.15
 
@@ -37,6 +38,12 @@ directory, every loop starts with Start-Loop, and a finished loop leaves a
    refuse it on this one and say so.
    Reinstall 0.16.0-beta.3 to finish it, or move it aside with the command
    they print and start the loop again.
+6. **Install git 2.40 or newer** if yours is older. Setup checks it and
+   stops until it is. On a Mac, git comes with the Command Line Tools, and
+   older Xcode releases bring an older one.
+7. **A loop started on an earlier 0.16 beta finishes with its branch
+   unfolded.** Its commits stay as its Coder made them, and the Orchestrator
+   tells you so before the PR.
 
 ### Changed
 
@@ -86,6 +93,28 @@ directory, every loop starts with Start-Loop, and a finished loop leaves a
   asks what problem the loop solves. `improve-codebase-architecture` is yours
   to run before a loop or the Wayfinder, and Setup no longer requires it or
   `codebase-design`.
+- **Commits no longer carry `Ticket NN`.** The Coder commits in your
+  repository's own style: one commit per ticket, then its fixes as plain
+  commits in later rounds.
+- **The branch is folded once, at the end, by VDD.** After the code review
+  signs off, each later round's fix moves into the commit that wrote the
+  lines it changes, so the branch reads as one commit per ticket plus any
+  commit no ticket owned. A fix that would clash stays as its own commit.
+  The branch moves only when it holds exactly what was reviewed, and never
+  when it has an upstream; otherwise it stays as reviewed and you are told
+  why. `RECAP.md` lists each final commit and what it was built from.
+- **A later round is reviewed on its own diff.** The Code-Reviewer reviews
+  the fixes since its last round instead of the whole branch again, and
+  still reruns the verification on the whole branch. A reviewer who skips a
+  check now says so, with the reason, and `RECAP.md` shows it.
+- **VDD opens the PR itself, so a title keeps its quotes.** The PR-Author
+  shows you the title and body, and after your confirmation one VDD command
+  pushes the branch, opens the PR and closes the loop. A title with a double
+  quote or an apostrophe reaches GitHub as you confirmed it, on Windows too,
+  and the body stays in `.scratch/<slug>/pr-body.md`. A sandbox that blocks
+  reading your PR history no longer passes for a repository without one.
+- **The Wayfinder finds Matt Pocock's `wayfinder` for you** and fills in its
+  briefing, on every agent.
 - **The Codex hook starts Python only for a wait.** Outside a Codex
   session's wait for a Doorbell it ends at once, under zsh too.
 

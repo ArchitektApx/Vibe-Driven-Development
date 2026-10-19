@@ -110,15 +110,17 @@ The Orchestrator starts this phase when `PLAN-REVIEW.md` signs off. You open not
 
 #### 💻 The Coder
 
-The Coder works on the feature branch from the Loop file, which defaults to the slug. It takes the tickets in dependency order: implements one, runs its acceptance criteria, commits it, and writes what it did to `FIXES.md`. In a later round `FIXES.md` holds that round only: an answer to each open finding, fixed or pushed back with a reason. If it is on neither the base nor the feature branch, or holds a Ticket it finds wrong or impossible, it asks; the Orchestrator relays the question to you and your answer back.
+The Coder works on the feature branch from the Loop file, which defaults to the slug. It takes the tickets in dependency order: implements one, runs its acceptance criteria, commits it in your repository's own commit style, and writes what it did to `FIXES.md`. In a later round it commits its fixes as new commits, never rewriting an earlier round, and `FIXES.md` holds that round only: an answer to each open finding, fixed or pushed back with a reason. If it is on neither the base nor the feature branch, or holds a Ticket it finds wrong or impossible, it asks; the Orchestrator relays the question to you and your answer back.
 
 #### 🧪 The Code-Reviewer
 
-The Code-Reviewer runs Matt Pocock's `code-review` over the branch against the spec, then adds what that skill does not do: it reruns the verification itself, distrusts `FIXES.md` and the ticked checkboxes, and flags anything in the diff no ticket asked for. When the branch changes a skill file, an `AGENTS.md`, a `CLAUDE.md` or a file one of those points at, it checks those lines against `writing-for-agents`. Its findings go to `CODEREVIEW.md`, which holds only the findings still open, each with the Coder's answer under it, and rounds run until Sign-off under the same rule as Phase 1.
+The Code-Reviewer runs Matt Pocock's `code-review` over the branch against the spec, then adds what that skill does not do: it reruns the verification itself, distrusts `FIXES.md` and the ticked checkboxes, and flags anything in the diff no ticket asked for. When the branch changes a skill file, an `AGENTS.md`, a `CLAUDE.md` or a file one of those points at, it checks those lines against `writing-for-agents`. Its findings go to `CODEREVIEW.md`, which holds only the findings still open, each with the Coder's answer under it, and rounds run until Sign-off under the same rule as Phase 1. A later round is reviewed on its own diff, the fixes since the last review, while the verification still runs on the whole branch.
 
 ### 🚢 Phase 3: Ship
 
-On Sign-off the Orchestrator runs the PR-Author in its own session, which follows the Loop file's `PR:` line:
+On Sign-off the Orchestrator first folds the branch, without asking: each later round's fix moves into the commit that wrote the lines it changes, and a fix that has no such commit, or would clash with a later one, stays as its own commit with the Coder's message. The fold moves the branch only when the result holds exactly what the Code-Reviewer signed off. Otherwise it leaves the branch as reviewed and tells you why, for example when your git is older than 2.40 or the branch has an upstream someone may have fetched.
+
+Then the Orchestrator runs the PR-Author in its own session, which follows the Loop file's `PR:` line:
 
 - `PR: yes` shows you the body, pushes the branch and opens the PR.
 - `PR: ask at sign-off` asks you then.
@@ -127,8 +129,8 @@ On Sign-off the Orchestrator runs the PR-Author in its own session, which follow
 
 Then:
 
-1. If the PR is not open, open it from the feature branch with the printed body. The commits are there, one per ticket plus any no ticket owned. The working files are gitignored and stay behind.
-2. The loop is closed by then. Read `.scratch/<slug>/RECAP.md` for how it went: the rounds, each ticket, and every closed finding with what was wrong and how it was resolved. `.scratch/<slug>/` keeps it beside the Loop file, the spec and the tickets. It is gitignored, so it stays on this machine. To fix something before you merge, a finding from an outside review for example, ask the Orchestrator to reopen the loop.
+1. If the PR is not open, open it from the feature branch with the printed body. After the fold the commits are there, one per ticket plus any no ticket owned. The working files are gitignored and stay behind.
+2. The loop is closed by then. Read `.scratch/<slug>/RECAP.md` for how it went: the rounds, each ticket, every closed finding with what was wrong and how it was resolved, and each final commit with the commits it was built from. `.scratch/<slug>/` keeps it beside the Loop file, the spec and the tickets. It is gitignored, so it stays on this machine. To fix something before you merge, a finding from an outside review for example, ask the Orchestrator to reopen the loop.
 3. Start the next loop with fresh sessions.
 
 ## 🧭 Before the loop

@@ -124,8 +124,12 @@ _Avoid_: restart rule, context limit, respawn flag
 A hosted Role spawned anew at a later round of the same Loop, in place of a resume. It starts from the Spawn prompt, that round's number and its Working files. Its Respawn policy and the user's request cause it. A spawn after a restart is not a respawn; restart is the word for the Orchestrator's Session coming back.
 _Avoid_: fresh spawn, restart
 
+**Fold**:
+The VDD tool's one rewrite of a Loop's commits, after the code Sign-off. It moves each later-round fix into the commit that wrote the lines it changes, and leaves the branch as signed when the result would differ.
+_Avoid_: squash, autosquash, rebase
+
 **Recap**:
-`.scratch/<feature slug>/RECAP.md`, the account of one Loop: every closed finding with what was wrong and how it was resolved, and each Ticket's record. No Role reads it during the Loop; it is for the user afterwards.
+`.scratch/<feature slug>/RECAP.md`, the account of one Loop: every closed finding with what was wrong and how it was resolved, each Ticket's record, and the commits: each final commit and what it was built from. No Role reads it during the Loop; it is for the user afterwards.
 _Avoid_: log, history, archive
 
 **Open minor**:
