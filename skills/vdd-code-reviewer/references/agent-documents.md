@@ -3,7 +3,7 @@
 `review start` listed the Agent documents in the range. Invoke
 `writing-for-agents` and check the added and changed lines of those files
 against its levers. Those lines are the whole object of the step. Source files
-in the same diff stay out of it, and so do the Agent document lines the branch
+in the same diff stay out of it, and so do the Agent document lines the range
 left alone: agent-writing levers read over application code produce findings
 the Coder cannot act on, and levers read over untouched lines produce findings
 this branch did not earn.
