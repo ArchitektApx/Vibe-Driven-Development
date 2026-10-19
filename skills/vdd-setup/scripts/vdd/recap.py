@@ -2,8 +2,8 @@
 the tool writes and no Role reads during the loop.
 
 Its header and rounds table are rendered from the state file every time it
-is written. Its sections, Tickets, Plan findings, Code findings and Not
-carried, keep what earlier writes put there, and each write appends to them.
+is written. Its sections, Tickets, Plan findings, Code findings, Commits and
+Not carried, keep what earlier writes put there, and each write appends to them.
 """
 
 import os
@@ -12,7 +12,7 @@ from . import textfile, workfile
 from .out import refused
 
 NAME = "RECAP.md"
-SECTIONS = ("Tickets", "Plan findings", "Code findings", "Not carried")
+SECTIONS = ("Tickets", "Plan findings", "Code findings", "Commits", "Not carried")
 
 
 def path(loop):
@@ -68,10 +68,20 @@ def code_line(state):
     line = loop_line("Code", reviews)
     newest = state.code_round()
     if not newest or newest in reviews:
-        return line
+        return line[:-1] + fold_text(state) + "."
     if not reviews:
         return "Code Loop: round %d, not reviewed yet." % newest
     return "%s; round %d not reviewed yet." % (line[:-1], newest)
+
+
+def fold_text(state):
+    """The fold's outcome for the Code Loop line: folded or not folded."""
+    outcome = state.fold_outcome()
+    if outcome is None:
+        return ""
+    if outcome[0] == "folded":
+        return "; folded"
+    return "; not folded: " + outcome[2]
 
 
 def render(loop, state, sections):

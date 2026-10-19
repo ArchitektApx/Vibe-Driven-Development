@@ -163,13 +163,17 @@ class PlacementTest(OrchestratorTest):
         self.spawned(result, "Coder", 2)
         self.assertIn("Read: .scratch/demo/CODEREVIEW.md, .scratch/demo/spec.md, .scratch/demo/issues/", result.lines)
 
-    def test_a_signed_off_code_loop_goes_to_the_pr_step(self):
-        """The Loop is over."""
+    def test_a_signed_off_code_loop_goes_to_the_fold_then_the_pr_step(self):
+        """The Loop is over: the fold first, the PR step once its outcome is
+        recorded."""
         self.signed_plan("code 1 start a", "code 1 end b", CODE_OPEN_1, "code 2 start b", "code 2 end c",
                          CODE_SIGNED_2)
         result = self.start()
-        self.assertNext(result, "vdd-create-pr", "own Session")
+        self.assertNext(result, "loop fold --slug demo --harness claude-code --write")
         self.assertNotIn("Spawning", result.text)
+        self.stage("fold skipped c the branch moved after Sign-off")
+        result = self.start()
+        self.assertNext(result, "vdd-create-pr", "own Session")
 
     def test_start_changes_no_doorbell_working_file_or_git(self):
         """Start changes no Working file and no git ref. Of the Doorbell files
@@ -343,31 +347,69 @@ class ReturnTest(OrchestratorTest):
         self.assertEqual(self.files(), before)
 
 
-class PRStepTest(OrchestratorTest):
-    pr = "no"
+class FoldStepTest(OrchestratorTest):
+    """The code Sign-off goes to the fold first, on every PR: value, and no
+    restart skips it."""
 
-    def signed(self):
-        self.stage("orchestrator session 1", "spawn Code-Reviewer 1 session 1", "code 1 start a", "code 1 end b",
-                   "code 1 reviewed signed-off - counts 0 0 0")
+    def signed_loop(self):
+        """A real round-2 Sign-off: the commits the fold reads, and a
+        Code-Reviewer out in this session."""
+        subprocess.run(["git", "checkout", "-q", "-b", "demo"], cwd=self.box.proj, check=True)
+        start = self.head()
+        self.commit("a.txt", "a\n", "feat: one")
+        end_one = self.head()
+        self.commit("a.txt", "a2\n", "fix: one")
+        end_two = self.head()
+        self.stage("plan 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 checks writing-for-agents ran",
+                   "orchestrator session 1", "code 1 start %s" % start, "code 1 end %s" % end_one, CODE_OPEN_1,
+                   "code 2 start %s" % end_one, "code 2 end %s" % end_two, "spawn Code-Reviewer 2 session 1",
+                   CODE_SIGNED_2)
 
-    def test_pr_no_closes_the_loop_locally(self):
-        self.signed()
-        result = self.back("Code-Reviewer")
-        self.assertNext(result, "loop close --slug demo --write", "stays local, nothing pushed")
+    def head(self):
+        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.box.proj, stdout=subprocess.PIPE,
+                              check=True).stdout.decode().strip()
 
+    def commit(self, name, text, message):
+        self.box.write(name, text)
+        subprocess.run(["git", "add", name], cwd=self.box.proj, check=True)
+        subprocess.run(["git", "-c", "commit.gpgsign=false", "-c", "user.name=VDD Test", "-c",
+                        "user.email=test@example.com", "commit", "-q", "-m", message], cwd=self.box.proj, check=True)
 
-class PRYesTest(PRStepTest):
-    pr = "yes"
+    def set_pr(self, value):
+        path = os.path.join(".scratch", "demo", "loop.md")
+        text = self.box.read(path)
+        self.box.write(path, re.sub(r"PR: .*", "PR: " + value, text))
 
-    def test_pr_no_closes_the_loop_locally(self):
-        """Overridden: on PR: yes the PR step is the PR-Author."""
-        self.test_any_other_pr_invokes_the_pr_author()
+    def test_return_after_the_sign_off_names_the_fold_on_every_pr_value(self):
+        for value in ("no", "ask at sign-off", "yes", "manual"):
+            with self.subTest(pr=value):
+                self.setUp()
+                self.set_pr(value)
+                self.signed_loop()
+                result = self.back("Code-Reviewer")
+                self.assertEqual(result.code, 0, result)
+                self.assertNext(result, "loop fold --slug demo --harness claude-code --write",
+                                "Tell the user verbatim", "Next:")
+                self.assertNotIn("vdd-create-pr", result.last)
+                self.assertNotIn("loop close", result.last)
 
-    def test_any_other_pr_invokes_the_pr_author(self):
-        self.signed()
-        result = self.back("Code-Reviewer")
-        self.assertNext(result, "Invoke the vdd-create-pr skill in your own Session")
-        self.assertNotIn("loop close", result.last)
+    def test_start_places_the_fold_until_its_outcome_is_recorded(self):
+        for value, step in (("ask at sign-off", "Invoke the vdd-create-pr skill in your own Session"),
+                            ("no", "loop close --slug demo --write")):
+            with self.subTest(pr=value):
+                self.setUp()
+                self.set_pr(value)
+                self.signed_loop()
+                result = self.start()
+                self.assertNext(result, "loop fold --slug demo --harness claude-code --write")
+                self.assertNotIn("Spawning", result.text)
+                env = self.box.env(GIT_COMMITTER_NAME="VDD Test", GIT_COMMITTER_EMAIL="test@example.com")
+                folded = self.box.run("loop", "fold", "--slug", "demo", "--harness", "claude-code", "--write",
+                                      env=env)
+                self.assertEqual(folded.code, 0, folded)
+                result = self.start()
+                self.assertNext(result, step)
+                self.assertNotIn("loop fold", result.last)
 
 
 class VersionOneTest(OrchestratorTest):

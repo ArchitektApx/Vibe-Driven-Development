@@ -214,9 +214,9 @@ class StartTest(CoderTest):
         self.assertTrue(any("Nothing was written" in line for line in second.lines), second)
         self.assertEqual(self.state().count("code 2 start"), 1)
 
-    def test_every_start_prints_the_base_branch(self):
-        """The Coder runs no loop show, so the <base> its fold commands name
-        comes from coder start, on every call and in every branch case."""
+    def test_no_start_prints_the_base_branch(self):
+        """The Base branch: line's only reader was the fold commands in the
+        Coder's skill, which the tool's fold after Sign-off replaced."""
         cases = {
             "create": lambda: None,
             "switch": lambda: self.box.git("branch", "demo"),
@@ -228,10 +228,10 @@ class StartTest(CoderTest):
                 stage()
                 first = self.coder("start")
                 self.assertEqual(first.code, 0, first)
-                self.assertIn("Base branch: main.", first.lines)
+                self.assertFalse([line for line in first.lines if line.startswith("Base branch:")], first)
                 again = self.coder("start")
                 self.assertEqual(again.code, 0, again)
-                self.assertIn("Base branch: main.", again.lines)
+                self.assertFalse([line for line in again.lines if line.startswith("Base branch:")], again)
 
     def test_a_repeated_start_switches_only_with_write(self):
         """A repeated start without --write checked out the feature branch
@@ -389,17 +389,36 @@ class CheckTest(CoderTest):
         self.assertIn("VDD Coder: FIXES.md written, round 2. Read it.", result.lines)
         self.assertNotIn("Ticket", self.read("FIXES.md"))
 
-    def test_the_end_after_a_rebase_rewrote_the_round(self):
-        """The Coder's fold rewrites the round's commits, and check still
-        records the new tip as the end."""
+    def test_an_amended_earlier_round_is_refused_until_it_is_a_new_commit(self):
+        """Ticket 71 (case c10): a round that amends, rebases or resets an
+        earlier round's commit loses the recorded end the fold and the next
+        review read. check refuses it, writes no round end, and passes once
+        the change is a new commit."""
         self.later()
         start = self.sha()
-        self.commit("a.txt", "fix\n", "fixup! %s" % start)
-        self.box.git("-c", "sequence.editor=true", "rebase", "-q", "-i", "--autosquash", "main")
+        self.box.write("a.txt", "fix\n")
+        self.box.git("commit", "-q", "--amend", "--no-edit", "-a")
         self.answer("Answer: fixed", "Answer: fixed", "Answer: fixed")
+        result = self.refused("Round 2 started at %s" % start, "no longer in demo's history",
+                              "amended, rebased or reset", "git reset --soft %s" % start,
+                              "commit the change as a new commit.")
+        self.assertNotIn("Never amend", result.text)
+        self.assertNotIn("code 2 end", self.state())
+        self.box.git("reset", "-q", "--soft", start)
+        self.box.git("commit", "-q", "-m", "fix: a")
         result = self.coder("check")
         self.assertEqual(result.code, 0, result)
         self.assertIn("code 2 end %s" % self.sha(), self.state())
+
+    def test_a_round_with_new_commits_on_its_start_passes(self):
+        """Commits of the round's own, in any number, keep the start in the
+        branch's history."""
+        self.later()
+        self.commit("a.txt", "fix\n", "fix: a")
+        self.commit("a.txt", "fix 2\n", "fix: a again")
+        self.answer("Answer: fixed", "Answer: fixed", "Answer: fixed")
+        result = self.coder("check")
+        self.assertEqual(result.code, 0, result)
 
     def test_a_check_after_the_end_reprints_the_doorbell(self):
         self.started()

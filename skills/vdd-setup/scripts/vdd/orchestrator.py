@@ -13,7 +13,7 @@ outward step itself, so the user can pause the Loop before any of them.
 import os
 import re
 
-from . import args, doorbell, harness as harnesses, loopfile, loopstate, places
+from . import args, doorbell, fold, harness as harnesses, loopfile, loopstate, places
 from .out import Failure, Output
 
 SUBCOMMANDS = ("start", "return", "respawn", "tokens")
@@ -25,14 +25,14 @@ HELP = [
     "orchestrator start --slug <slug> [--harness <h>]",
     "  Run on every start of the Orchestrator's Session, a restart included. Records a new session, names the",
     "  Harness and its Harness file, says where each Loop stands, and prints the one next step: a spawn, the",
-    "  ring to the Planner, the wait for the Planner's Doorbell, or the PR step. Every spawn after a restart",
-    "  is fresh.",
+    "  ring to the Planner, the wait for the Planner's Doorbell, the fold at the code Sign-off, or the PR",
+    "  step. Every spawn after a restart is fresh.",
     "",
     "orchestrator return --role <Planner|Plan-Reviewer|Coder|Code-Reviewer> --slug <slug> --harness <h>",
     "  Run after every hosted Role's return whose last line does not start with QUESTION: or BLOCKED:, and",
     "  with --role Planner once doorbell take printed the Planner's Doorbell. It takes no return line and no",
     "  token count: the round's outcome is the one its check --write recorded. It prints the next step, a",
-    "  spawn with its Read and Write lists, a resume with its message, the ring, the wait or the PR step; a",
+    "  spawn with its Read and Write lists, a resume with its message, the ring, the wait or the fold; a",
     "  second return for a round already acted on, and a round with no check --write, each say what to do.",
     "",
     "orchestrator respawn --role <Plan-Reviewer|Coder|Code-Reviewer> (--policy \"<p>\" | --once) --slug <slug> --write",
@@ -334,16 +334,19 @@ def ring_then_wait(flow, out):
     )
 
 
-def pr_step(flow, out):
+def after_sign_off(flow, out):
+    """The step after the code Sign-off: the fold while no fold outcome is
+    recorded, on every PR: value, else the PR step."""
     out.line("Code Loop: signed off.")
-    pr, _ = flow.loop.setting("PR")
-    branch, _ = flow.loop.setting("Feature branch")
-    if pr == "no":
+    outcome = flow.state.fold_outcome()
+    if outcome is None:
+        out.line("Fold: not run yet.")
         return out.finish(
-            "Run %s, then print \"Loop signed off. `PR: no`: `%s` stays local, nothing pushed.\" and stop."
-            % (flow.command("loop close --slug %s --write" % flow.slug), branch)
+            "Run %s, relay its Tell the user verbatim line, then do what its Next: line says." % flow.command(
+                "loop fold --slug %s --harness %s --write" % (flow.slug, flow.harness.name))
         )
-    return out.finish("Invoke the vdd-create-pr skill in your own Session, never as a subagent.")
+    out.line("Fold: %s." % outcome[0])
+    return out.finish(fold.pr_step(flow.loop))
 
 
 # --- where the Workflow stands ---
@@ -437,7 +440,7 @@ def start(flow):
         first = "Run %s in the foreground; the plan Loop is over, so it names no wait." % flow.ring_command()
         if where is None:
             out.line("First: %s" % first)
-            return pr_step(flow, out)
+            return after_sign_off(flow, out)
         role, number = where
         return spawn(flow, out, role, number, reason, first)
     if flow.rung() > reviewed:
@@ -495,7 +498,7 @@ def returned(flow, role):
     if role == "Code-Reviewer":
         review = flow.state.review("code", number)
         if review.signed_off:
-            return pr_step(flow, out)
+            return after_sign_off(flow, out)
         out.line("Code Loop: round %d reviewed, %d blocker, %d major, %d minor open." % (
             (number,) + tuple(review.counts)))
         return step(flow, out, "Coder", number + 1)

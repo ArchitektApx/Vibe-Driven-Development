@@ -5,7 +5,7 @@ import os
 import re
 import subprocess
 
-from . import args, borrowed, codex_setup, install, loopfile, places, stores, textfile
+from . import args, borrowed, codex_setup, gitcmd, install, loopfile, places, stores, textfile
 from .out import Failure, Output, escalate, refused
 
 USAGE_NAME = "setup --help"
@@ -78,6 +78,7 @@ class Setup:
         self.changes = []      # planned or made, one line each
         self.questions = []    # what the model asks the user before --write
         self.failed = []       # writes that did not land
+        self.git_too_old = None  # the version found, when git is older than VDD needs
 
     # --- the command lines this run names ---
 
@@ -143,6 +144,12 @@ class Setup:
 
     def finish(self, verdict):
         out = self.out
+        if self.git_too_old:
+            return out.finish(
+                "Relay the Tell the user verbatim line about git above, and stop: no loop can start until git is "
+                "2.40 or newer.",
+                1,
+            )
         if self.failed:
             return out.finish(
                 escalate("Otherwise tell the user which change did not land and what it was for, and stop."),
@@ -326,6 +333,7 @@ class Setup:
             self.out.line("Git repository: git is not installed or cannot run.")
             self.out.tell("VDD needs git: install it, then rerun Setup.")
             return
+        self.git_version()
         if inside:
             self.out.line("Git repository: passed.")
             return
@@ -334,6 +342,21 @@ class Setup:
             self.questions.append(
                 "Ask the user whether to run git init here; on yes, run it with your own tools."
             )
+
+    def git_version(self):
+        """git 2.40 or newer: the fold at a loop's end needs git merge-tree
+        --write-tree --merge-base."""
+        found, text = gitcmd.version(self.cwd)
+        if found is None:
+            return
+        shown = gitcmd.number(text)
+        if gitcmd.too_old(found):
+            self.git_too_old = shown
+            self.out.line("git version: %s, older than the 2.40 VDD needs. Failed." % shown)
+            self.out.tell("VDD needs git 2.40 or newer, and this machine has git %s: install a newer git, then "
+                          "rerun Setup." % shown)
+            return
+        self.out.line("git version: %s. Passed." % shown)
 
     # --- check 5: .gitignore ---
 

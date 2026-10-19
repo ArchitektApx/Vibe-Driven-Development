@@ -15,7 +15,7 @@ import posixpath
 import re
 import subprocess
 
-from . import textfile
+from . import gitcmd, textfile
 
 LINK = re.compile(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
@@ -23,7 +23,8 @@ SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 
 def git(root, *argv):
     try:
-        proc = subprocess.run(["git"] + list(argv), cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.run(["git"] + list(argv), cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              env=gitcmd.environment())
     except OSError:
         return 1, ""
     return proc.returncode, textfile.decode(proc.stdout)

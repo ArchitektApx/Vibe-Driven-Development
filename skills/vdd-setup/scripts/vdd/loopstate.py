@@ -18,6 +18,8 @@ closed" (loopfile.py) it holds:
   return <Role> <r> ok
   return <Role> <r> miss
   tokens <Role> <r> <count>
+  fold folded <new tip> signed <sha>
+  fold skipped <signed sha> <reason>
 
 A reviewed line names the findings still open after the round, the open
 counts per severity, the number the next round's new findings start at, how
@@ -116,6 +118,20 @@ class State:
             if match:
                 newest = max(newest, int(match.group(1)))
         return newest
+
+    def fold_outcome(self):
+        """The fold's recorded outcome, the last line winning: ("folded",
+        new tip, None), ("skipped", signed sha, reason), or None."""
+        found = None
+        for line in self.lines:
+            match = re.match(r"^fold folded (\S+)", line)
+            if match:
+                found = ("folded", match.group(1), None)
+                continue
+            match = re.match(r"^fold skipped (\S+) (.*)$", line)
+            if match:
+                found = ("skipped", match.group(1), match.group(2))
+        return found
 
     def next_number(self, kind):
         """The number a round's new findings start at: the last review's

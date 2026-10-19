@@ -15,15 +15,24 @@ fix what it delivers: one handoff file per loop, in the structure below. Each
 loop's Planner later plans from its handoff; the plan, the Spec and the code
 belong to that loop's Roles.
 
-## Required skills
+## The VDD tool
 
-You need the `wayfinder` skill from Matt Pocock's skills collection. It is
-user-invoked, so it never appears in your skill list; look for
-`wayfinder/SKILL.md` under `~/.agents/skills`, `./.agents/skills`,
-`~/.claude/skills`, `./.claude/skills`, `~/.claude/plugins/cache` or
-`~/.codex/plugins/cache`, all of them on every Harness. On native Windows
-`~` is `%USERPROFILE%`. If it is missing, tell the user to invoke `vdd-setup`
-to install it.
+You start with the VDD tool, `vdd.py` in the Shared directory:
+`~/.local/share/vdd/vdd.py` on macOS and Linux (`$XDG_DATA_HOME/vdd/vdd.py`
+when that variable is set), and `%LOCALAPPDATA%\vdd\vdd.py` on native Windows.
+Write the path out in full, every variable expanded, so a hook that checks
+shell commands and an approval prompt see no expansion. Run it as `python3
+"<path>"`, on native Windows as `py -3 "<path>"`. If `python3` or `py -3` is
+not found, tell the user VDD needs Python 3.9 or newer, and stop. Every run
+ends with a `Next:` line: do what it says, and relay every `Tell the user
+verbatim` line unchanged.
+
+If the interpreter cannot open `vdd.py`, the tool is not at its path: tell the
+user to invoke `vdd-setup`, which installs it, and wait; when they say it has
+run, rerun the command that failed.
+
+Never write, edit, copy or replace the tool, and never do its work as inline
+shell.
 
 ## Wayfinding Directory
 
@@ -57,46 +66,19 @@ from `01` in the order they run.
 
 ## The wayfinding process
 
-### Session start
+1. Ask the user for the effort slug.
+2. Run `wayfinder start --effort <effort> --skill-dir <dir>`, with this
+   skill's base directory, the one your Harness reported when the skill
+   loaded, as `<dir>`. It reports whether the effort's map exists and where
+   `wayfinder` is installed, and prints the briefing.
+3. Branch on its `Map:` line:
+   - The map exists: read its `## Notes` against the three points in the
+     printed briefing, and relay the briefing only if one is missing. Then
+     tell the user to invoke `wayfinder` with the path to the map.
+   - No map: ask what the effort is, a loose idea in text, a goals file, or a
+     `decided` idea file from the Brainstormer. Read what they name, relay
+     the briefing `wayfinder start` printed, then tell the user to invoke
+     `wayfinder` with the idea or file you read.
 
-Ask the user for the effort slug, then look for `.scratch/<effort>/map.md`.
-
-1. The map exists: read its `## Notes`. If the three briefing points are
-   missing, print the briefing below first. Then tell the user to invoke
-   `wayfinder` with the path to the map. Once the user has done that, you are
-   done.
-2. No map: ask what the effort is, a loose idea in text, a goals file, or a
-   `decided` idea file from the Brainstormer. Read what they name, then
-   continue with [Briefing the wayfinder](#briefing-the-wayfinder).
-
-### Briefing the wayfinder
-
-`wayfinder` runs in this session and reads what you print. Fill `<effort>`,
-and fill the two template paths with the absolute paths of
-[`overview-template.md`](references/overview-template.md) and
-[`handoff-template.md`](references/handoff-template.md) under this skill's
-base directory, the one your Harness reports when the skill loads, and
-confirm both files exist. Print the briefing, then tell the user to invoke
-`wayfinder` with the idea or file you read. You are done; the upstream skill
-charts the map and works its tickets over as many sessions as the effort
-needs.
-
-```plaintext
-Briefing for the wayfinding of <effort>:
-
-- This project uses Vibe Driven Development (VDD). Each loop is one coherent
-  change: a Planner grills the user and writes a Spec and Tickets, a
-  Plan-Reviewer reviews the plan in rounds, a Coder implements, a
-  Code-Reviewer reviews the code in rounds, each in its own context. Every
-  loop does its own grilling and planning. The wayfinding settles the big
-  picture and nothing about a loop's inner workings.
-- Destination: the handoffs under .scratch/<effort>/handoffs/, one
-  00-overview.md from <path to overview-template.md> and one NN-<slug>.md per
-  loop from <path to handoff-template.md>. The map is done when those files
-  exist and nothing is left to decide before loop 01 starts.
-- Loops are cut by coherence, the way to-tickets cuts tickets: what belongs
-  together lands together. Size is not the cut; a loop that turns out too
-  large is caught by its Planner, who asks the user to split it.
-- Carry these three points into the map's Notes section, so every later
-  wayfinding session reads them.
-```
+You are done then; `wayfinder` charts the map and works its tickets over as
+many sessions as the effort needs.

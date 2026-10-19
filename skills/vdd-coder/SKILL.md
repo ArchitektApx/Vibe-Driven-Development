@@ -35,9 +35,8 @@ shell.
 
 Run `coder start --slug <slug> --write` first, with the slug your Spawn
 prompt's `Loop:` line names. It checks that the plan Loop is signed off, puts
-you on the feature branch, prints the base branch the fold commands below name
-as `<base>`, prints `Round <n> starts at <sha>.` and writes this round's
-`FIXES.md` frame. When it refuses, do what its `Next:` line says: on a
+you on the feature branch, prints `Round <n> starts at <sha>.` and writes this
+round's `FIXES.md` frame. When it refuses, do what its `Next:` line says: on a
 branch that is neither the base nor the feature branch, that is a `QUESTION`
 for the user.
 
@@ -71,100 +70,11 @@ Work is done when its verification has run and its output is captured.
 
 ## Commits
 
-Commit after every Ticket, and in every later round before you hand off, always
-on the feature branch. Both reviews diff `<base>...HEAD`, which sees committed
-work only, and the Borrowed `code-review` skill refuses an empty diff. The
-Working files are gitignored, so nothing leaks into the user's history.
-
-### The message
-
-Read this repository's own history with `git log --format=%s` and write your
-subject in the convention you find there. The subject carries that convention
-and nothing else.
-
-Name the Ticket on its own line in the message body, as `Ticket 03` and never as
-`#3`. `code-review` treats `#N` in a commit message as an issue reference and
-goes looking for it before it reads the spec it was handed.
-
-### The fold
-
-A later round's fixes belong in the commits they fix, so the branch reads as one
-commit per Ticket plus any commit no Ticket owned. Make one fixup commit per
-finding, then run one autosquash rebase before you hand off. A rebase that fails
-points at a single finding.
-
-The fold rewrites the commits the reviewer read. The sha in `coder start`'s
-`Round <n> starts at <sha>.` line is what the round can still be diffed and
-reset from: every `<round-start sha>` below is that one.
-
-Before the round's first fixup commit, **test the branch for an upstream**:
-
-```
-git rev-parse --abbrev-ref '@{upstream}'
-```
-
-It exits non-zero with `fatal: no upstream configured` when there is none, and
-the fold goes ahead. When it exits zero, make no fixup commit: commit the
-round's fixes once in the repository's convention, say in the `Why:` of the
-round's first finding that the fold was skipped and why, and stop here. Upstream configuration is the proxy for
-"someone may have fetched this", so a branch pushed without `-u` counts as
-unpushed. You still never push.
-
-The PR-Author pushes the branch and opens the PR, and only after Sign-off. That
-is a different Role's job in a different session.
-
-Find the commit that owns the finding's Ticket:
-
-```
-git log <base>..HEAD --grep='^Ticket 03$' --format=%H
-```
-
-The anchors make the pattern match a whole line, so a shorter number cannot
-match a longer one. Unanchored, `Ticket 1` returns the commit for Ticket 13.
-
-Commit the fix as a fixup naming that sha:
-
-```
-git commit -m "fixup! <sha>"
-```
-
-`git commit --fixup <sha>` writes the owning commit's subject instead.
-Autosquash matches a subject against every commit on the branch, so two Ticket
-commits sharing a subject send that fixup to the earlier one.
-
-Fold once, after the round's last fixup:
-
-```
-git -c sequence.editor=true rebase -i --autosquash <base>
-```
-
-The sequence editor set to `true` accepts the rearranged todo list unchanged, so
-no editor opens. The `-c` form is one command in every shell, PowerShell
-included, where an environment assignment in front of `git` does not parse. A
-sequence editor exported in the environment still wins over `-c`, and the check
-below catches the fold that did not squash. Bare `--autosquash` without `-i`
-is ignored by older git, which reports success and leaves every `fixup!` commit
-on the branch. So end on a check of the branch rather than on an exit code:
-
-```
-git log <base>..HEAD --format=%s
-```
-
-The fold worked when no subject begins with `fixup!`. One left after a clean
-rebase takes the conflict path below.
-
-**A fix spanning the files of two Tickets** goes into the later of the two
-owning commits.
-
-**A fix no Ticket owns** becomes its own commit, with the repository's
-conventional subject and no Ticket reference. A later round's finding against
-that commit has no Ticket line to grep for, so read its sha from
-`git log <base>..HEAD --oneline` and write the fixup against that sha.
-
-**A rebase that stops on a conflict** is a failure the round records. Read
-[how to finish or abandon the fold](references/fold-conflict.md), then write
-the conflict and what you did about it into the `Why:` of the finding whose
-fix it hit.
+Commit with git on the feature branch, in this repository's convention: read
+it from `git log --format=%s`. In round 1 make one commit per Ticket. In a
+later round commit your fixes as you like, before you hand off. Never amend,
+rebase or reset a commit of an earlier round; `coder check` refuses a round
+that did. Never push: the PR-Author does, after Sign-off.
 
 ## If `CODEREVIEW.md` exists
 
