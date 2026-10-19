@@ -30,8 +30,9 @@
   `async` or `detach` mode, never `sync`: a `sync` shell blocks the whole
   Session until it exits (github/copilot-cli #2533). The Session wakes when
   the shell exits.
-- **A refused command.** Copilot CLI offers no way to rerun a command outside
-  its sandbox, so a refusal counts as a denial: stop with one line naming the
+- **A refused command.** When its sandbox refuses a command, Copilot CLI asks
+  the user to rerun it outside the sandbox: run the command as usual and let
+  the user decide. When the user denies it, stop with one line naming the
   command and what it was for; a wait falls back to hand relay instead.
 
 Trust your live tools over this file when they disagree.
