@@ -6,7 +6,7 @@ import os
 from . import args, loopfile, loopstate, places, preflight, textfile
 from .out import Failure, Output, refused
 
-SUBCOMMANDS = ("new", "aside", "show", "set", "close", "reopen")
+SUBCOMMANDS = ("new", "aside", "show", "set", "fold", "close", "reopen")
 
 HELP = [
     "loop new --slug <slug> --harness <h> [--base <branch>] [--branch <branch>] [--minors <a>] [--pr <a>]",
@@ -30,6 +30,14 @@ HELP = [
     "loop set [--slug <slug>] [--minors <a>] [--pr <a>] [--harness-line <label>] --write",
     "  Change the Minors:, PR: or Harness: line on the user's word. The feature, the base branch and the",
     "  feature branch never change.",
+    "",
+    "loop fold --slug <slug> --harness <h> [--write]",
+    "  The Orchestrator runs it once at the code Sign-off, on every PR: value, without asking the user. It",
+    "  folds each later round's fixes into the loop commit that wrote the lines they change, keeps what",
+    "  cannot fold as a commit on top with the Coder's message, and moves the feature branch only when the",
+    "  folded tree equals the signed tree. When it cannot fold (git older than 2.40, the branch moved or has",
+    "  an upstream, a merge commit, a git error) the branch stays as signed and the skip is recorded. It",
+    "  never stops to ask. Without --write it prints what it would do. It writes the Recap's ## Commits.",
     "",
     "loop close [--slug <slug>] --write",
     "  Close the loop: it stays on disk as the record, a ring or a wait on it is refused, and its Codex armed",
@@ -95,6 +103,10 @@ def run(argv):
         return show(root, values)
     if sub in ("close", "reopen"):
         return close_or_reopen(root, values, sub)
+    if sub == "fold":
+        args.require(values, ["slug", "harness"], usage())
+        from . import fold
+        return fold.run(loopfile.find(root, values["slug"]), harness, values["write"])
     return set_lines(root, values)
 
 
