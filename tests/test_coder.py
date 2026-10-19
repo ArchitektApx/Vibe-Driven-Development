@@ -343,6 +343,17 @@ class CheckTest(CoderTest):
         self.assertIn("### Ticket 02: 02-two.md", tickets)
         self.assertIn("Verified: the test passed.", tickets)
 
+    def test_the_recap_header_names_a_coder_round_not_reviewed(self):
+        """The header counted reviews only, so after the Coder's round 1 it
+        still read "Code Loop: not started"."""
+        self.started()
+        self.commit("a.txt", "one\n", "feat: one")
+        self.put("FIXES.md", filled_round_one(self.read("FIXES.md")))
+        result = self.coder("check")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("Code Loop: round 1, not reviewed yet.", self.read("RECAP.md"))
+        self.assertNotIn("Code Loop: not started.", self.read("RECAP.md"))
+
     def later(self):
         self.stage_round_two()
         result = self.coder("start")

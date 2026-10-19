@@ -61,6 +61,19 @@ def loop_line(name, reviews):
     return "%s Loop: %s, open after round %d." % (name, rounds, last.round)
 
 
+def code_line(state):
+    """The code Loop's line, naming a Coder round no review has recorded
+    yet."""
+    reviews = state.reviews("code")
+    line = loop_line("Code", reviews)
+    newest = state.code_round()
+    if not newest or newest in reviews:
+        return line
+    if not reviews:
+        return "Code Loop: round %d, not reviewed yet." % newest
+    return "%s; round %d not reviewed yet." % (line[:-1], newest)
+
+
 def render(loop, state, sections):
     base, _ = loop.setting("Base branch")
     branch, _ = loop.setting("Feature branch")
@@ -73,7 +86,7 @@ def render(loop, state, sections):
         "",
         "Branch: %s from %s." % (branch, base),
         loop_line("Plan", plan),
-        loop_line("Code", code),
+        code_line(state),
         "",
         "| Loop | Round | New findings | Closed | Open after | Checks |",
         "|---|---|---|---|---|---|",
