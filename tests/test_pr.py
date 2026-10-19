@@ -458,6 +458,17 @@ class OpenTest(PRTest):
         result = self.pr_open()
         self.assertIn("gh pr create failed after the push: GraphQL: Base branch not found", result.lines)
 
+    def test_a_title_written_as_a_heading_reaches_gh_as_plain_text(self):
+        """Acceptance, Codex on Windows: the PR-Author wrote the title line of
+        pr-body.md as a Markdown heading, and its "# " would have opened the
+        PR under that title."""
+        self.body("# " + self.TITLE + "\n\n" + self.BODY)
+        result = self.pr_open()
+        self.assertEqual(result.code, 0, result)
+        created = self.created()
+        self.assertEqual(len(created), 1, self.calls())
+        self.assertEqual(created[0]["argv"][7], self.TITLE)
+
     def test_the_push_and_the_preflight_never_prompt(self):
         """Git Credential Manager ignores GIT_TERMINAL_PROMPT and opens a
         sign-in window, and a hidden window blocked pr open for good."""

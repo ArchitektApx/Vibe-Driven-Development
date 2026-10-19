@@ -318,7 +318,7 @@ def read_body(loop):
         problem = "%s does not exist" % relative
     else:
         lines = text.split("\n")
-        if not lines[0].strip():
+        if not title_of(lines[0]):
             problem = "%s has no title on its first line" % relative
         elif len(lines) < 2 or lines[1].strip():
             problem = "%s has no blank second line between the title and the body" % relative
@@ -332,7 +332,13 @@ def read_body(loop):
         )
     lines = text.split("\n")
     body = "\n".join(lines[2:]).strip("\n") + "\n"
-    return lines[0].strip(), body
+    return title_of(lines[0]), body
+
+
+def title_of(line):
+    """The title line as plain text: a Markdown heading's "# " is not part of
+    the title."""
+    return re.sub(r"^#{1,6}\s+", "", line.strip()).strip()
 
 
 def changed(path, wanted):
