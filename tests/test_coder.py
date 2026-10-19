@@ -401,7 +401,8 @@ class CheckTest(CoderTest):
         self.answer("Answer: fixed", "Answer: fixed", "Answer: fixed")
         result = self.refused("Round 2 started at %s" % start, "no longer in demo's history",
                               "amended, rebased or reset", "git reset --soft %s" % start,
-                              "commit the change as a new commit")
+                              "commit the change as a new commit.")
+        self.assertNotIn("Never amend", result.text)
         self.assertNotIn("code 2 end", self.state())
         self.box.git("reset", "-q", "--soft", start)
         self.box.git("commit", "-q", "-m", "fix: a")

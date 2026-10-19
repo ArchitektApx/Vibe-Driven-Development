@@ -21,6 +21,7 @@ FILES = {"plan": "PLAN-REVIEW.md", "code": "CODEREVIEW.md"}
 TITLES = {"plan": "Plan review", "code": "Code review"}
 CARRIED = "carried-%s.md"
 NO_AGENT_DOCUMENT = "no Agent document in this round's diff"
+NO_COMMITS = "not needed, no commits in this round"
 NOT_CARRIED_GUIDE = [
     "<!-- VDD: One line for each problem the code-review reports raise that you",
     "do not turn into a finding, a wrong one included. A report line that finds",
@@ -129,13 +130,31 @@ class Round:
     def branch(self):
         return self.loop.setting("Feature branch")[0]
 
+    def fixed_point(self):
+        """code-review's fixed point: the base branch in round 1, and in a
+        later code round the previous round's recorded end, so the round is
+        reviewed on its own diff (ticket 90)."""
+        if self.kind == "code" and self.number > 1:
+            end = self.state.code_mark("end", self.number - 1)
+            if end:
+                return end
+        return self.base()
+
     def review_range(self):
-        return "%s...%s" % (self.base(), self.branch())
+        return "%s...%s" % (self.fixed_point(), self.branch())
+
+    def no_commits(self):
+        """Whether a later code round's range holds no commit."""
+        if self.kind != "code" or self.number == 1:
+            return False
+        code, text = agentdocs.git(self.loop.root, "rev-list", "--count", "%s..%s" % (self.fixed_point(),
+                                                                                   self.branch()))
+        return code == 0 and text.strip() == "0"
 
     def agent_documents(self):
         """The Agent documents in the review range, computed once."""
         if not hasattr(self, "_documents"):
-            found = agentdocs.listed(self.loop.root, self.base(), self.branch())
+            found = agentdocs.listed(self.loop.root, self.fixed_point(), self.branch())
             if found is None:
                 raise Failure(
                     "git cannot read the review range %s. Nothing was written." % self.review_range(),
@@ -148,6 +167,16 @@ class Round:
         if self.kind == "code" and name == "writing-for-agents" and not self.agent_documents():
             return accepted + (NO_AGENT_DOCUMENT,)
         return accepted
+
+    def filled(self, name):
+        """The value the tool fills a Checks line with, or None."""
+        if self.kind != "code":
+            return None
+        if name == "writing-for-agents" and not self.agent_documents():
+            return NO_AGENT_DOCUMENT
+        if name == "code-review" and self.no_commits():
+            return NO_COMMITS
+        return None
 
     def skip_allowed(self, name):
         """Whether the Checks line takes "not needed, <reason>": on
@@ -281,10 +310,7 @@ def skeleton(round_, blocks):
     lines += guidance(round_)
     lines += ["", "## Checks", ""]
     for name, _ in CHECKS[round_.kind]:
-        value = round_.placeholder(name)
-        if round_.kind == "code" and name == "writing-for-agents" and not round_.agent_documents():
-            value = NO_AGENT_DOCUMENT
-        lines.append("%s: %s" % (name, value))
+        lines.append("%s: %s" % (name, round_.filled(name) or round_.placeholder(name)))
     if round_.number > 1:
         lines += ["", "## Open findings"]
         for block in blocks:
@@ -329,7 +355,16 @@ def start(round_, write):
     if round_.kind == "code":
         out.line("Base branch: %s" % round_.base())
         out.line("Harness file: %s" % round_.loop.harness_file())
-        out.line("Review range: %s, with %s as code-review's fixed point." % (round_.review_range(), round_.base()))
+        if round_.number == 1:
+            out.line("Review range: %s, with %s as code-review's fixed point and Step 2's diff." % (
+                round_.review_range(), round_.base()))
+        else:
+            out.line("Fixed point: %s, code round %d's recorded end." % (round_.fixed_point(), round_.number - 1))
+            out.line("Review range: %s, this round's own diff: code-review's fixed point is %s, and Step 2 reads "
+                     "the diff over this range. The verification runs on the whole branch." % (
+                         round_.review_range(), round_.fixed_point()))
+            if round_.no_commits():
+                out.line("No commits in this round's range, so the code-review line is filled: %s." % NO_COMMITS)
         documents = round_.agent_documents()
         if documents:
             out.line("Agent documents in the range: %s" % ", ".join(documents))

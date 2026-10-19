@@ -436,5 +436,67 @@ class ChecksValuesTest(CodeReviewTest):
         self.round_two()
         self.assertIn("\ncode-review: %s\n" % CODE_REVIEW_LATER, self.read("CODEREVIEW.md"))
 
+
+class OwnDiffTest(CodeReviewTest):
+    """Ticket 90, finding 5 of loop 04's acceptance: the tool listed round
+    1's Agent document again in round 2, because it read the whole branch
+    while its own text says "this round's diff". A later round is reviewed
+    from the previous round's recorded end."""
+
+    def round_one_with_a_skill(self):
+        start = self.sha()
+        self.commit("skills/x/SKILL.md", "# x\n", "feat: a skill")
+        self.stage("code 1 start %s" % start, "code 1 end %s" % self.sha())
+
+    def test_round_one_reviews_from_the_base_branch(self):
+        self.round_one_with_a_skill()
+        result = self.review("start")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("Review range: main...demo, with main as code-review's fixed point and Step 2's diff.",
+                      result.lines)
+        self.assertIn("Agent documents in the range: skills/x/SKILL.md", result.lines)
+
+    def test_a_later_round_reviews_from_the_previous_round_s_end(self):
+        self.round_one_with_a_skill()
+        end = self.sha()
+        self.assertEqual(self.review("start").code, 0)
+        text = self.fill(self.read("CODEREVIEW.md")).replace(
+            "writing-for-agents: " + WFA, "writing-for-agents: ran").replace(
+            "## New findings\n", "## New findings\n" + ROUND_1_FINDINGS)
+        self.put("CODEREVIEW.md", text)
+        self.assertEqual(self.review("check").code, 0)
+        self.commit("src/fix.py", "x = 1\n", "fix: the check")
+        self.stage("code 2 start %s" % end, "code 2 end %s" % self.sha())
+        self.put("FIXES.md", FIXES_2)
+        result = self.review("start")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("Fixed point: %s, code round 1's recorded end." % end, result.lines)
+        self.assertTrue(any(line.startswith("Review range: %s...demo, this round's own diff" % end)
+                            and "The verification runs on the whole branch." in line
+                            for line in result.lines), result)
+        self.assertIn("Agent documents in the range: none, so the writing-for-agents line is filled.", result.lines)
+        self.assertIn("\nwriting-for-agents: no Agent document in this round's diff\n", self.read("CODEREVIEW.md"))
+        self.assertIn("\ncode-review: %s\n" % CODE_REVIEW_LATER, self.read("CODEREVIEW.md"))
+
+    def test_a_later_round_with_no_commits_fills_code_review(self):
+        self.round_one()
+        self.assertEqual(self.review("check").code, 0)
+        end = self.sha()
+        self.stage("code 2 start %s" % end, "code 2 end %s" % end)
+        self.put("FIXES.md", FIXES_2.replace("Answer: fixed\n", "Answer: pushback\nWhy: as the Spec says.\n"))
+        result = self.review("start")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("No commits in this round's range, so the code-review line is filled: not needed, no "
+                      "commits in this round.", result.lines)
+        text = self.read("CODEREVIEW.md")
+        self.assertIn("\ncode-review: not needed, no commits in this round\n", text)
+        text = text.replace(" (open): src/a.py:3", " (accepted): src/a.py:3").replace(
+            " (open): src/b.py:9", " (accepted): src/b.py:9").replace(" (open): README.md:40", " (accepted): README.md:40")
+        text = text.replace("\n\nCoder: pushed back in round 2.", "\n\nResolution: accepted.\n\nCoder: pushed back in round 2.")
+        self.put("CODEREVIEW.md", text)
+        checked = self.review("check")
+        self.assertEqual(checked.code, 0, checked)
+        self.assertIn("code-review not needed, no commits in this round", self.read("RECAP.md"))
+
 if __name__ == "__main__":
     unittest.main()

@@ -515,8 +515,7 @@ def start_gone(round_):
         return None
     return ("Round %d started at %s, and that commit is no longer in %s's history: an earlier commit was amended, "
             "rebased or reset. Bring the earlier commits back with `git reset --soft %s`, which keeps your "
-            "changes, then commit the change as a new commit. Never amend, rebase or reset a commit of an earlier "
-            "round." % (round_.number, start, round_.branch, start))
+            "changes, then commit the change as a new commit." % (round_.number, start, round_.branch, start))
 
 
 def recap_tickets(parsed):

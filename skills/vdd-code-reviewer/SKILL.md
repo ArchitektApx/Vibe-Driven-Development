@@ -37,8 +37,8 @@ Run `review start --role Code-Reviewer --slug <slug> --write` first, with the
 slug your Spawn prompt's `Loop:` line names. It writes this round's
 `CODEREVIEW.md` frame, every finding still open carried whole with the
 Coder's answer under it, and prints the files to read, the base branch, the
-`Minors:` line, the review range, the Agent documents in it and the Harness
-file to read: read the file of that name this skill's Harnesses index links,
+`Minors:` line, the review range and its fixed point, the Agent documents in
+it and the Harness file to read: read the file of that name this skill's Harnesses index links,
 now, once. Take the Harness from the tool only, and do not choose it again
 from what this Session shows.
 
@@ -46,8 +46,9 @@ from what this Session shows.
 
 Confirm `git log <base>..HEAD --oneline` lists at least one commit. An empty
 list means the Coder has yet to commit: a blocker finding on its own; stop,
-write it, hand back. Then run Matt Pocock's `code-review` skill, with the base
-branch `review start` printed as the fixed point and `.scratch/<slug>/spec.md` as the
+write it, hand back. When `review start` filled the `code-review` line, Step 1
+has nothing more to do. Otherwise run Matt Pocock's `code-review` skill, with
+the fixed point `review start` printed and `.scratch/<slug>/spec.md` as the
 spec path.
 
 When its step 3 collects the standards sources, add the repository's `AGENTS.md`
@@ -81,11 +82,11 @@ The Borrowed review does neither.
 
 Read every file `review start` listed: `.scratch/<slug>/spec.md`, every Ticket
 under `.scratch/<slug>/issues/`, and `.scratch/<slug>/FIXES.md` in round 1 or
-`CODEREVIEW.md` in a later round. Then read the actual changes with `git diff
-<base>...HEAD`. Check the ticked acceptance checkboxes against that diff, and
-in round 1 `FIXES.md` too: both are the Coder's account of its own work. In a
-later round the Coder's answers are the `Coder:` lines under each carried
-finding.
+`CODEREVIEW.md` in a later round. Then read the actual changes: `git diff`
+over the review range `review start` printed. Check the ticked acceptance
+checkboxes against that diff, and in round 1 `FIXES.md` too: both are the
+Coder's account of its own work. In a later round the Coder's answers are the
+`Coder:` lines under each carried finding.
 
 Judge the implementation on:
 
