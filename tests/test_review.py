@@ -5,6 +5,7 @@ import unittest
 
 from vddtest import ToolTest
 
+WFA = "<ran | did not resolve | not needed, <reason>>"
 P1 = "VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/."
 
 ROUND_1 = """# Plan review, round 1
@@ -123,7 +124,7 @@ class StartTest(ReviewTest):
         lines = text.split("\n")
         self.assertEqual(lines[0], "# Plan review, round 1")
         self.assertIn("<!-- VDD: ", text)
-        self.assertIn("## Checks\n\nwriting-for-agents: <ran | did not resolve>\n", text)
+        self.assertIn("## Checks\n\nwriting-for-agents: " + WFA + "\n", text)
         self.assertIn("\n## New findings\n", text)
         self.assertNotIn("## Open findings", text)
         self.assertIn("Read: .scratch/demo/spec.md, .scratch/demo/issues/", result.lines)
@@ -267,8 +268,31 @@ class LintTest(ReviewTest):
 
     def test_an_unfilled_checks_line(self):
         """An unfilled Checks line is refused."""
-        self.refused(ROUND_1.replace("writing-for-agents: ran", "writing-for-agents: <ran | did not resolve>"),
+        self.refused(ROUND_1.replace("writing-for-agents: ran", "writing-for-agents: " + WFA),
                      "PLAN-REVIEW.md line 7:", "is not filled in")
+
+
+class NotNeededTest(ReviewTest):
+    def test_writing_for_agents_not_needed_passes_in_round_one(self):
+        """Ticket 90 (finding 4 of loop 04's acceptance): a reviewer with
+        nothing for writing-for-agents to check could record only ran or did
+        not resolve, and settled on ran. not needed, <reason> records the skip
+        as a skip, its reason in the Recap."""
+        value = "writing-for-agents: not needed, no Agent document changed this round"
+        self.round_one(ROUND_1.replace("writing-for-agents: ran", value))
+        result = self.check()
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("| writing-for-agents not needed, no Agent document changed this round |", self.read("RECAP.md"))
+
+    def test_not_needed_without_a_reason_is_refused(self):
+        """Ticket 90: the user sees why each check was skipped."""
+        self.round_one(ROUND_1.replace("writing-for-agents: ran", "writing-for-agents: not needed,"))
+        before = self.snapshot()
+        result = self.check()
+        self.assertNotEqual(result.code, 0, result)
+        self.assertIn("PLAN-REVIEW.md line 7:", result.text)
+        self.assertIn("gives no reason", result.text)
+        self.assertEqual(self.snapshot(), before)
 
 
 class CheckTest(ReviewTest):
@@ -310,7 +334,7 @@ class CheckTest(ReviewTest):
             "amounts are written.", "amounts are written.\n\nResolution: Implementation Decisions now say two decimals.")
         text = text.replace("### 2. minor (open)", "### 2. minor (accepted)").replace(
             "leaves `summary` out.", "leaves `summary` out.\n\nResolution: accepted the Planner's pushback.")
-        text = text.replace("writing-for-agents: <ran | did not resolve>", "writing-for-agents: ran")
+        text = text.replace("writing-for-agents: " + WFA, "writing-for-agents: ran")
         self.put("PLAN-REVIEW.md", text)
         result = self.check()
         self.assertEqual(result.code, 0, result)
@@ -406,7 +430,7 @@ class FencedRecapTest(ReviewTest):
         1's fence and finding 1's Resolution under ## Not carried."""
         quoted = "The Recap template should read:\n\n```markdown\n## Tickets\n\n## Not carried\n```"
         self.round_two()
-        text = self.read("PLAN-REVIEW.md").replace("writing-for-agents: <ran | did not resolve>",
+        text = self.read("PLAN-REVIEW.md").replace("writing-for-agents: " + WFA,
                                                    "writing-for-agents: ran")
         text = text.replace("The Spec does not say how amounts are written.", quoted)
         text = text.replace("### 1. major (open)", "### 1. major (fixed)").replace(
@@ -415,7 +439,7 @@ class FencedRecapTest(ReviewTest):
         self.assertEqual(self.check().code, 0)
         self.ring()
         self.assertEqual(self.start().code, 0)
-        text = self.read("PLAN-REVIEW.md").replace("writing-for-agents: <ran | did not resolve>",
+        text = self.read("PLAN-REVIEW.md").replace("writing-for-agents: " + WFA,
                                                    "writing-for-agents: ran")
         text = text.replace("### 2. minor (open)", "### 2. minor (fixed)").replace(
             "leaves `summary` out.", "leaves `summary` out.\n\nResolution: added.")

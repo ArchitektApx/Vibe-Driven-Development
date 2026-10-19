@@ -7,6 +7,9 @@ import unittest
 
 from vddtest import ToolTest
 
+CODE_REVIEW_1 = "<ran | did not resolve, the Spec reviewed by hand>"
+CODE_REVIEW_LATER = "<ran | did not resolve, the Spec reviewed by hand | not needed, <reason>>"
+WFA = "<ran | did not resolve | not needed, <reason>>"
 SIGNED = "plan 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 checks writing-for-agents ran"
 NOT_CARRIED_GUIDE = (
     "<!-- VDD: One line for each problem the code-review reports raise that you\n"
@@ -113,8 +116,28 @@ class CodeReviewTest(ToolTest):
         self.assertEqual(started.code, 0, started)
         return started
 
+    def answered_round_two(self, keep_three=False):
+        self.round_two()
+        text = self.fill(self.read("CODEREVIEW.md"))
+        text = text.replace("### 1. major (open)", "### 1. major (fixed)").replace(
+            "Coder: fixed in round 2.\n", "Coder: fixed in round 2.\n\nResolution: the check now holds.\n", 1)
+        text = text.replace("### 2. minor (open)", "### 2. minor (fixed)").replace(
+            "Coder: fixed in round 2. through the helper.\n",
+            "Coder: fixed in round 2. through the helper.\n\nResolution: the helper.\n")
+        if keep_three:
+            text = text.replace("the Spec keeps the README as it is.\n",
+                                "the Spec keeps the README as it is.\n\nReviewer: kept open in round 2. It is needed.\n")
+        else:
+            text = text.replace("### 3. minor (open)", "### 3. minor (accepted)").replace(
+                "the Spec keeps the README as it is.\n",
+                "the Spec keeps the README as it is.\n\nResolution: accepted the pushback.\n")
+        text = text.replace(NOT_CARRIED_GUIDE, NOT_CARRIED_GUIDE + "\n- one more: not needed.\n")
+        self.put("CODEREVIEW.md", text)
+
     def fill(self, text):
-        return text.replace("code-review: <ran | did not resolve, the Spec reviewed by hand>", "code-review: ran")
+        for placeholder in (CODE_REVIEW_1, CODE_REVIEW_LATER):
+            text = text.replace("code-review: " + placeholder, "code-review: ran")
+        return text
 
 
 class StartTest(CodeReviewTest):
@@ -231,7 +254,7 @@ class AgentDocumentTest(CodeReviewTest):
     def test_with_an_agent_document_the_line_is_left_to_fill(self):
         self.commit("skills/x/SKILL.md", "x\n", "skill")
         self.listed()
-        self.assertIn("writing-for-agents: <ran | did not resolve>", self.read("CODEREVIEW.md"))
+        self.assertIn("writing-for-agents: " + WFA, self.read("CODEREVIEW.md"))
 
 
 class CheckTest(CodeReviewTest):
@@ -296,24 +319,6 @@ class CheckTest(CodeReviewTest):
         self.round_one()
         self.assertEqual(self.review("check", write=False).code, 0)
 
-    def answered_round_two(self, keep_three=False):
-        self.round_two()
-        text = self.fill(self.read("CODEREVIEW.md"))
-        text = text.replace("### 1. major (open)", "### 1. major (fixed)").replace(
-            "Coder: fixed in round 2.\n", "Coder: fixed in round 2.\n\nResolution: the check now holds.\n", 1)
-        text = text.replace("### 2. minor (open)", "### 2. minor (fixed)").replace(
-            "Coder: fixed in round 2. through the helper.\n",
-            "Coder: fixed in round 2. through the helper.\n\nResolution: the helper.\n")
-        if keep_three:
-            text = text.replace("the Spec keeps the README as it is.\n",
-                                "the Spec keeps the README as it is.\n\nReviewer: kept open in round 2. It is needed.\n")
-        else:
-            text = text.replace("### 3. minor (open)", "### 3. minor (accepted)").replace(
-                "the Spec keeps the README as it is.\n",
-                "the Spec keeps the README as it is.\n\nResolution: accepted the pushback.\n")
-        text = text.replace(NOT_CARRIED_GUIDE, NOT_CARRIED_GUIDE + "\n- one more: not needed.\n")
-        self.put("CODEREVIEW.md", text)
-
     def test_a_passing_round_two_moves_the_closed_findings(self):
         self.answered_round_two(keep_three=True)
         result = self.review("check")
@@ -355,6 +360,81 @@ class CheckTest(CodeReviewTest):
         self.assertIn("VDD Code-Reviewer: CODEREVIEW.md SIGNED OFF, round 2.", result.lines)
         self.assertIn("code 2 reviewed signed-off -", self.read("loop-state"))
 
+
+
+class ChecksValuesTest(CodeReviewTest):
+    """Ticket 90, findings 4 and 5 of loop 04's acceptance: a round-2
+    Code-Reviewer that rightly reviewed a small fix by hand was refused twice
+    and settled on ran. not needed, <reason> records a skip as a skip."""
+
+    SKIP = "code-review: not needed, round 1 reviewed the branch; this round's fix is two lines"
+
+    def snapshot(self):
+        return (self.read("CODEREVIEW.md"), self.read("loop-state"),
+                self.read("RECAP.md") if os.path.exists(self.box.path(".scratch", "demo", "RECAP.md")) else None)
+
+    def refused(self, *fragments):
+        before = self.snapshot()
+        result = self.review("check")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertContract(result)
+        for fragment in fragments:
+            self.assertIn(fragment, result.text)
+        self.assertEqual(self.snapshot(), before)
+        return result
+
+    def with_code_review(self, value):
+        lines = self.read("CODEREVIEW.md").split("\n")
+        self.put("CODEREVIEW.md", "\n".join(value if line.startswith("code-review:") else line for line in lines))
+
+    def test_not_needed_on_a_later_code_review_passes_into_the_recap(self):
+        self.answered_round_two()
+        self.with_code_review(self.SKIP)
+        result = self.review("check")
+        self.assertEqual(result.code, 0, result)
+        row = [line for line in self.read("RECAP.md").split("\n") if line.startswith("| code | 2 |")]
+        self.assertEqual(len(row), 1, self.read("RECAP.md"))
+        self.assertIn(self.SKIP.replace(": ", " ", 1), row[0])
+
+    def test_not_needed_on_round_one_s_code_review_is_refused(self):
+        self.round_one()
+        self.with_code_review(self.SKIP)
+        self.refused("CODEREVIEW.md line ", "round 1's code-review is never skipped")
+
+    def test_not_needed_with_no_reason_or_a_bar_is_refused(self):
+        self.answered_round_two()
+        self.with_code_review("code-review: not needed,")
+        self.refused("CODEREVIEW.md line ", "\"code-review: not needed,\" gives no reason")
+        self.with_code_review("code-review: not needed, a | b")
+        self.refused("CODEREVIEW.md line ", "the reason holds a |")
+
+    def test_writing_for_agents_not_needed_passes_in_round_two(self):
+        self.answered_round_two()
+        lines = self.read("CODEREVIEW.md").split("\n")
+        value = "writing-for-agents: not needed, no Agent document changed this round"
+        self.put("CODEREVIEW.md", "\n".join(value if line.startswith("writing-for-agents:") else line
+                                            for line in lines))
+        result = self.review("check")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn(value.replace(": ", " ", 1), self.read("RECAP.md"))
+
+    def test_a_skill_file_in_the_range_leaves_writing_for_agents_to_fill(self):
+        self.coder_round(1)
+        self.commit("skills/x/SKILL.md", "# x\n", "feat: a skill")
+        self.stage("code 1 end %s" % self.sha())
+        self.assertEqual(self.review("start").code, 0)
+        self.assertIn("\nwriting-for-agents: %s\n" % WFA, self.read("CODEREVIEW.md"))
+
+    def test_each_round_s_placeholders(self):
+        """Each frame's placeholder lists exactly the values its line takes in
+        that round."""
+        self.coder_round(1)
+        self.assertEqual(self.review("start").code, 0)
+        self.assertIn("\ncode-review: %s\n" % CODE_REVIEW_1, self.read("CODEREVIEW.md"))
+        self.box.cleanup()
+        self.setUp()
+        self.round_two()
+        self.assertIn("\ncode-review: %s\n" % CODE_REVIEW_LATER, self.read("CODEREVIEW.md"))
 
 if __name__ == "__main__":
     unittest.main()

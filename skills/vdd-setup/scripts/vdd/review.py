@@ -39,10 +39,7 @@ CHECKS = {
         ("writing-for-agents", ("ran", "did not resolve")),
     ),
 }
-PLACEHOLDERS = {
-    "code-review": "<ran | did not resolve, the Spec reviewed by hand>",
-    "writing-for-agents": "<ran | did not resolve>",
-}
+NOT_NEEDED = "not needed, "
 
 HELP = [
     "review start --role <Plan-Reviewer|Code-Reviewer> --slug <slug> --write",
@@ -151,6 +148,22 @@ class Round:
         if self.kind == "code" and name == "writing-for-agents" and not self.agent_documents():
             return accepted + (NO_AGENT_DOCUMENT,)
         return accepted
+
+    def skip_allowed(self, name):
+        """Whether the Checks line takes "not needed, <reason>": on
+        writing-for-agents in any round, and on code-review from round 2
+        (ticket 90): round 1 gets one full Borrowed review."""
+        if name == "writing-for-agents":
+            return True
+        return name == "code-review" and self.number > 1
+
+    def placeholder(self, name):
+        """The frame's placeholder: exactly the values the line takes in this
+        round."""
+        values = list(dict(CHECKS[self.kind])[name])
+        if self.skip_allowed(name):
+            values.append(NOT_NEEDED + "<reason>")
+        return "<%s>" % " | ".join(values)
 
 
 # --- start ---
@@ -268,7 +281,7 @@ def skeleton(round_, blocks):
     lines += guidance(round_)
     lines += ["", "## Checks", ""]
     for name, _ in CHECKS[round_.kind]:
-        value = PLACEHOLDERS[name]
+        value = round_.placeholder(name)
         if round_.kind == "code" and name == "writing-for-agents" and not round_.agent_documents():
             value = NO_AGENT_DOCUMENT
         lines.append("%s: %s" % (name, value))
@@ -447,12 +460,38 @@ def lint_checks(round_, parsed, lint_):
         accepted = round_.accepted_checks(name, accepted)
         if name not in seen:
             lint_.at(section.line, "the Checks line \"%s: %s\" is missing. Put it back and fill it in."
-                     % (name, PLACEHOLDERS[name]))
+                     % (name, round_.placeholder(name)))
             continue
         line, value = seen[name]
-        if value not in accepted:
-            lint_.at(line, "\"%s\" is not filled in. Write one of: %s." % (
-                line.text.strip(), ", ".join("%s: %s" % (name, a) for a in accepted)))
+        if value in accepted:
+            continue
+        if value.startswith("not needed"):
+            problem = skip_problem(round_, name, value)
+            if problem:
+                lint_.at(line, problem)
+            continue
+        written = ["%s: %s" % (name, a) for a in accepted]
+        if round_.skip_allowed(name):
+            written.append("%s: %s<reason>" % (name, NOT_NEEDED))
+        lint_.at(line, "\"%s\" is not filled in. Write one of: %s." % (line.text.strip(), ", ".join(written)))
+
+
+def skip_problem(round_, name, value):
+    """The refusal for a "not needed" Checks value, or None when it is
+    accepted: "not needed, " and a reason with no "|", which would break the
+    Recap's table row."""
+    if not round_.skip_allowed(name):
+        return ("\"%s: %s\": round 1's code-review is never skipped; every code Loop gets one full Borrowed "
+                "review. Run it and write \"%s: ran\", or \"%s: did not resolve, the Spec reviewed by hand\"."
+                % (name, value, name, name))
+    reason = value[len(NOT_NEEDED):].strip() if value.startswith(NOT_NEEDED) else ""
+    if not reason:
+        return ("\"%s: %s\" gives no reason. Write \"%s: %s<reason>\" with why the check was not needed."
+                % (name, value, name, NOT_NEEDED))
+    if "|" in reason:
+        return ("\"%s: %s\": the reason holds a |, which breaks the Recap's table. Write the reason without it."
+                % (name, value))
+    return None
 
 
 def lint_findings(round_, parsed, lint_):
