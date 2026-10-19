@@ -13,6 +13,7 @@ GROUPS = {
     "orchestrator": "The Orchestrator's steps: place the Workflow, and act on each hosted Role's return.",
     "review": "The Plan-Reviewer's and the Code-Reviewer's round: write its frame, then check it.",
     "setup": "Check this repository and machine for a VDD loop, and make the changes Setup owns.",
+    "wayfinder": "The Wayfinder's start: the effort's map, Matt Pocock's wayfinder, and the briefing.",
 }
 
 ABOUT = [
@@ -50,6 +51,8 @@ def load(name):
         from . import orchestrator as module
     elif name == "review":
         from . import review as module
+    elif name == "wayfinder":
+        from . import wayfinder as module
     else:
         from . import setup as module
     return module
