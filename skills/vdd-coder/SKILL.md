@@ -7,20 +7,20 @@ user-invocable: false
 # VDD Coder
 
 You are the Coder. Implement the Tickets under `.scratch/<slug>/issues/`
-against the Spec, and document your work in `.scratch/<slug>/FIXES.md`.
+against the Spec, and document your work in `.scratch/<slug>/FIXES.md`, the
+one Working file you write besides the Tickets' checkboxes.
 
 If the prompt that started you does not say "An Orchestrator hosts this Workflow.", tell the user "Start the loop with `vdd-start-loop`." and stop.
 
 ## The VDD tool
 
-You read the Loop file with the VDD tool, `vdd.py` in the Shared directory:
+You start and check your round with the VDD tool, `vdd.py` in the Shared directory:
 `~/.local/share/vdd/vdd.py` on macOS and Linux (`$XDG_DATA_HOME/vdd/vdd.py`
 when that variable is set), and `%LOCALAPPDATA%\vdd\vdd.py` on native Windows.
 Write the path out in full, every variable expanded, so a hook that checks
 shell commands and an approval prompt see no expansion. Run it as `python3
 "<path>"`, on native Windows as `py -3 "<path>"`. If `python3` or `py -3` is
-not found, tell the user VDD needs Python 3.9 or newer, and stop. Pass `--slug
-<slug>` on every call, the slug your Spawn prompt's `Loop:` line names. Every
+not found, tell the user VDD needs Python 3.9 or newer, and stop. Every
 run ends with a `Next:` line: do what it says, and relay every `Tell the user
 verbatim` line unchanged.
 
@@ -31,27 +31,15 @@ run, rerun the command that failed.
 Never write, edit, copy or replace the tool, and never do its work as inline
 shell.
 
-## The Loop file
+## Starting the round
 
-Run `loop show --role Coder --slug <slug>` first. It prints the base branch
-and the feature branch.
-
-## Branch
-
-Read `git branch --show-current` and compare it with what `loop show` printed:
-
-- **The base branch.** Switch to the feature branch `loop show` printed if it
-  already exists locally, which is what a restarted loop on the same slug looks
-  like. Create it otherwise.
-- **The feature branch already.** Continue on it.
-- **Anything else.** Ask the user which branch to work on, and switch on their
-  answer.
-
-## Precondition
-
-`.scratch/<slug>/PLAN-REVIEW.md` must start with `SIGNED OFF`. If it does not,
-stop and say the plan loop is not finished. An unreviewed Spec is not a
-contract.
+Run `coder start --slug <slug> --write` first, with the slug your Spawn
+prompt's `Loop:` line names. It checks that the plan Loop is signed off, puts
+you on the feature branch, prints the base branch the fold commands below name
+as `<base>`, prints `Round <n> starts at <sha>.` and writes this round's
+`FIXES.md` frame. When it refuses, do what its `Next:` line says: on a
+branch that is neither the base nor the feature branch, that is a `QUESTION`
+for the user.
 
 ## Working the Tickets
 
@@ -64,18 +52,20 @@ frontier: any Ticket whose blocking Tickets are all done. For each one:
    writes it.
 3. Tick the acceptance checkboxes in the Ticket file, but only for what you
    actually verified.
-4. Write its `FIXES.md` entry and save the file before the next Ticket opens.
-   A respawned Coder inherits `FIXES.md` and the commits and nothing else,
-   so an entry deferred to the end leaves it blind on the Ticket it takes
-   over.
+4. Fill its `FIXES.md` entry and save the file before the next Ticket opens:
+   `Files:`, `Change:` and `Verified:`, which is the result of each check you
+   ran, never its output, and `Deviations:` with `Why:` where you departed
+   from the Ticket. A respawned Coder inherits `FIXES.md` and the commits and
+   nothing else, so an entry deferred to the end leaves it blind on the
+   Ticket it takes over.
 5. Commit on the feature branch.
 
-The round ends when every Ticket is done or recorded in `FIXES.md` as broken.
-Then hand off.
+The round ends when every Ticket is done. Then hand off.
 
-A Ticket that turns out to be wrong or impossible is recorded in `FIXES.md` and
-goes back to the Planner through the user. That record is what a broken Ticket
-produces, in place of code.
+A Ticket that turns out to be wrong or impossible goes to the user before you
+build on it: stop and end your turn with `QUESTION: <what is wrong with Ticket
+NN>`. The answer that resumes you carries `revised`, `dropped` or `stands`.
+Re-read the Ticket before you act on it.
 
 Work is done when its verification has run and its output is captured.
 
@@ -83,9 +73,8 @@ Work is done when its verification has run and its output is captured.
 
 Commit after every Ticket, and in every later round before you hand off, always
 on the feature branch. Both reviews diff `<base>...HEAD`, which sees committed
-work only, and the Borrowed `code-review` skill refuses an empty diff.
-Uncommitted work at hand-off time is a defect: commit first. The Working files
-are gitignored, so nothing leaks into the user's history.
+work only, and the Borrowed `code-review` skill refuses an empty diff. The
+Working files are gitignored, so nothing leaks into the user's history.
 
 ### The message
 
@@ -104,13 +93,11 @@ commit per Ticket plus any commit no Ticket owned. Make one fixup commit per
 finding, then run one autosquash rebase before you hand off. A rebase that fails
 points at a single finding.
 
-Two things happen before the round's first fixup commit.
+The fold rewrites the commits the reviewer read. The sha in `coder start`'s
+`Round <n> starts at <sha>.` line is what the round can still be diffed and
+reset from: every `<round-start sha>` below is that one.
 
-**Record HEAD**: `git rev-parse HEAD`, written into this round's `FIXES.md`
-section. The fold rewrites the commits the reviewer read, and that sha is what
-it can still diff from. Every `<round-start sha>` below is this one.
-
-**Test the branch for an upstream**:
+Before the round's first fixup commit, **test the branch for an upstream**:
 
 ```
 git rev-parse --abbrev-ref '@{upstream}'
@@ -118,8 +105,8 @@ git rev-parse --abbrev-ref '@{upstream}'
 
 It exits non-zero with `fatal: no upstream configured` when there is none, and
 the fold goes ahead. When it exits zero, make no fixup commit: commit the
-round's fixes once in the repository's convention, record in `FIXES.md` that the
-fold was skipped and why, and stop here. Upstream configuration is the proxy for
+round's fixes once in the repository's convention, say in the `Why:` of the
+round's first finding that the fold was skipped and why, and stop here. Upstream configuration is the proxy for
 "someone may have fetched this", so a branch pushed without `-u` counts as
 unpushed. You still never push.
 
@@ -176,61 +163,23 @@ that commit has no Ticket line to grep for, so read its sha from
 
 **A rebase that stops on a conflict** is a failure the round records. Read
 [how to finish or abandon the fold](references/fold-conflict.md), then write
-the conflict and what you did about it into `FIXES.md`.
-
-## `FIXES.md`
-
-Cumulative across the whole loop: every round adds to what is already there.
-
-Header lines: `Base: <base branch>`, `Branch: <feature branch>`, and
-`Round <n>`, where `<n>` is `CODEREVIEW.md`'s `Round` plus one, or 1 when
-there is no `CODEREVIEW.md`.
-
-Round 1 body: one section per Ticket, each with the files you touched, the
-decisions you had to make, anything you deviated on and why, and the
-verification output.
-
-Every later round: a new `## Round <n>` heading with one section per finding in
-`.scratch/<slug>/CODEREVIEW.md` that you addressed, keyed by the finding
-number, each with the same content (files touched, what changed, verification
-output). Where you dispute a finding, the pushback goes here in
-writing.
-
-Every later round's section names HEAD as it stood when the round began,
-recorded as The fold says:
-
-```
-git diff <sha> HEAD
-```
-
-Two arguments, not three dots: a three-dot diff from a rewritten commit finds
-the base branch as its merge base and returns the whole branch. Round 1 records
-no sha, because round 1 folds nothing. Each round records its own in its own
-section, so a cumulative file keeps every round's comparison point.
-
-Write all of it for a reviewer who shares none of your context.
+the conflict and what you did about it into the `Why:` of the finding whose
+fix it hit.
 
 ## If `CODEREVIEW.md` exists
 
-A reviewer has pushed back. Address every finding and record what you did in a
-new `FIXES.md` round. Every finding leaves the round as a fix or as written
-pushback. Repeat until the reviewer signs off.
-
-The review's `## Standards` and `## Spec` sections come from a Borrowed skill
-rather than from the reviewer's own reading. They are findings like any other.
+A reviewer has pushed back, and `CODEREVIEW.md` holds the findings still
+open. `coder start` wrote one `FIXES.md` entry per open finding. Address
+every one, and set its `Answer:` to `fixed` or `pushback`. A pushback needs a
+`Why:`, the case you make to the reviewer; a fix needs one only when it
+differs from the fix the finding asks for.
 
 ## Handing off
 
-At the end of every turn in which you wrote your Working file, send the
-Doorbell.
-
-**Send the Doorbell.** Exactly this line, and no other text:
-
-- `VDD Coder: FIXES.md written, round <n>. Read it.`
-
-`<n>` is the round on the `Round` line in `FIXES.md`.
-
-Print it at the end of your turn.
+Run `coder check --slug <slug> --write`. It refuses an entry left empty and
+any uncommitted change to a tracked file; fix what it reports, commit, and run
+it again until it passes. End your turn with the Doorbell line it printed,
+unchanged.
 
 Never put reasoning, findings or file contents in the message. A Doorbell says
 which file to read and nothing more.

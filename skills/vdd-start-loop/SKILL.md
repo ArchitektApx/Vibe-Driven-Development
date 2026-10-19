@@ -94,9 +94,7 @@ carry it. It names the Harness, and says the user corrects it by saying so
 now, before the Planner starts. It also says the user can ask the
 Orchestrator to respawn any hosted Role at any round. On a correction, run
 `loop set --slug <slug> --harness-line "<Claude Code, Codex, Cursor, Copilot
-CLI or Generic>" --harness <corrected h>`, without `--write`, put the
-Question line it prints to the user, run the command its `Next:` line names
-with the answer, and print this step again.
+CLI or Generic>" --harness <corrected h> --write`, and print this step again.
 
 Then carry straight on: immediately invoke the `vdd-planner` skill in this same
 Session. If you cannot invoke skills, tell the user to invoke `vdd-planner`

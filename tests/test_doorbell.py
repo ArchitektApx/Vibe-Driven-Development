@@ -1,6 +1,7 @@
 """Seam 1: the doorbell commands, driven from outside."""
 
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -29,9 +30,34 @@ class DoorbellTest(ToolTest):
         tail = ["--harness", harness] + (["--slug", slug] if slug else [])
         return self.box.run("doorbell", *(list(args) + tail), env=env)
 
+    def state_lines(self):
+        return self.box.read(os.path.join(".scratch", "x", "loop-state")).split("\n")
+
+    def stage(self, *lines):
+        with open(self.box.path(".scratch", "x", "loop-state"), "ab") as handle:
+            handle.write("".join(line + "\n" for line in lines).encode("utf-8"))
+
+    def last_review(self):
+        rounds = [int(m.group(1)) for m in (re.match(r"^plan ([0-9]+) reviewed ", l) for l in self.state_lines()) if m]
+        return rounds[-1] if rounds else 0
+
     def ring(self, role, line, harness="claude-code", write=True):
+        """Ring line: ring takes no --line and composes it from the state
+        file, so the state lines that compose it are staged first."""
+        planner = re.match(r"^VDD Planner: .* ready, round ([0-9]+)\.", line)
+        written = re.match(r"^VDD Plan-Reviewer: PLAN-REVIEW\.md written, round ([0-9]+): ([0-9]+) blocker, "
+                           r"([0-9]+) major, ([0-9]+) minor\.", line)
+        signed = re.match(r"^VDD Plan-Reviewer: PLAN-REVIEW\.md SIGNED OFF, round ([0-9]+)\.", line)
+        if planner:
+            number = int(planner.group(1))
+            if number > 1 and self.last_review() != number - 1:
+                self.stage("plan %d reviewed open 1 counts 0 1 0" % (number - 1))
+        elif written:
+            self.stage("plan %s reviewed open 1 counts %s %s %s" % written.groups())
+        elif signed:
+            self.stage("plan %s reviewed signed-off - counts 0 0 0" % signed.group(1))
         extra = ["--write"] if write else []
-        return self.db("ring", "--role", role, "--line", line, *extra, harness=harness)
+        return self.db("ring", "--role", role, *extra, harness=harness)
 
     def take(self, role, *extra, harness="claude-code", env=None):
         return self.db("take", "--role", role, *extra, harness=harness, env=env)
@@ -60,24 +86,36 @@ class DoorbellTest(ToolTest):
         self.assertRegex(lines[1], r"^[0-9]{2}:[0-9]{2}:[0-9]{2} to: Orchestrator " + P1.replace(".", r"\.") + "$")
         self.assertEqual(lines[2:], [""])
 
-    def test_ring_refuses_a_line_that_matches_no_template(self):
-        """A malformed Doorbell is refused before it reaches the file, so a
-        hand-typed line never strands the other Role (spec, user story 27)."""
-        self.ring("Planner", P1)
-        before = self.doorbells()
-        for role, line in (
-            ("Planner", "VDD Planner: ready"),
-            ("Planner", "VDD Planner: .scratch/other/ ready, round 1. Read spec.md and issues/."),
-            ("Orchestrator", P1),
-            ("Planner", R1),
-            ("Orchestrator", "VDD Plan-Reviewer: PLAN-REVIEW.md written, round 1: 0 blocker. Read it."),
-        ):
-            with self.subTest(role=role, line=line):
-                result = self.ring(role, line)
-                self.assertNotEqual(result.code, 0, result)
-                self.assertContract(result)
-                self.assertIn("ready, round <n>" if role == "Planner" else "round <n>", result.text)
-        self.assertEqual(self.doorbells(), before)
+    def test_ring_composes_the_line_from_the_state_file(self):
+        """Every Role composed its own Doorbell, and the Planner read its round
+        from PLAN-REVIEW.md's Round line: ring takes no --line. The Planner's
+        round is the last plan review's plus one, or 1, and the Orchestrator
+        relays the last plan review."""
+        refused = self.db("ring", "--role", "Planner", "--line", P1, "--write")
+        self.assertNotEqual(refused.code, 0, refused)
+        self.assertIn("Unknown option: --line", refused.text)
+        nothing = self.db("ring", "--role", "Orchestrator", "--write")
+        self.assertNotEqual(nothing.code, 0, nothing)
+        self.assertIn("No plan review is recorded", nothing.text)
+        self.assertEqual(self.db("ring", "--role", "Planner", "--write").code, 0)
+        self.assertIn("to: Orchestrator " + P1, self.doorbells())
+        self.stage("plan 1 reviewed open 1,2,3 counts 0 2 1 next 4 new 3 closed 0 checks writing-for-agents ran")
+        self.assertEqual(self.db("ring", "--role", "Orchestrator", "--write").code, 0)
+        self.assertIn("to: Planner " + R1, self.doorbells())
+        self.assertEqual(self.db("ring", "--role", "Planner", "--write").code, 0)
+        self.assertIn("to: Orchestrator " + P2, self.doorbells())
+
+    def test_ring_refuses_on_a_version_one_loop(self):
+        """A version 1 loop has no plan review lines to compose a Doorbell
+        from, so ring refuses it as every round command does. The reason holds
+        for a ring, which writes no review file."""
+        self.box.write_loop("x", version=1)
+        result = self.db("ring", "--role", "Planner", "--write")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertIn("0.16.0-beta.3", result.text)
+        self.assertIn("doorbell ring does not run on it: this version reads no rounds from a version 1 loop.",
+                      result.text)
+        self.assertNotIn("review file", result.text)
 
     def test_ring_without_write_changes_nothing(self):
         result = self.ring("Planner", P1, write=False)
@@ -150,49 +188,24 @@ class DoorbellTest(ToolTest):
     # --- take ---
 
     def test_take_prints_the_doorbell_once_per_session(self):
-        """Within one Session take prints a Doorbell once. A restarted
-        Orchestrator with no review file on disk clears the handled record and
-        acts on the Planner's Doorbell again, because the Plan-Reviewer the
-        earlier Session spawned for it is gone: "Placing clears the record"
-        (e89c906; finding 16 of the round 4 review, where the restart
-        deadlocked on "No new Doorbell")."""
+        """Within one Session take prints a Doorbell once, and the Planner's
+        Doorbell sends the Orchestrator to orchestrator return --role Planner."""
         self.ring("Planner", P1)
         first = self.take("Orchestrator")
         self.assertEqual(first.lines[0], "Doorbell: " + P1)
-        self.assertNext(first, "Act on this Doorbell")
+        self.assertNext(first, "orchestrator return --role Planner --slug x --harness claude-code")
         second = self.take("Orchestrator")
         self.assertIn("No new Doorbell", second.text)
         self.assertNext(second, "doorbell wait --role Orchestrator")
         pasted = self.take("Orchestrator", "--pasted", P1)
         self.assertIn("Already handled, nothing to do", pasted.text)
-        restart = self.take("Orchestrator", "--restart")
-        self.assertEqual(restart.code, 0, restart)
-        self.assertContract(restart)
-        self.assertEqual(restart.lines[0], "Doorbell: " + P1)
-        self.assertNext(restart, "Spawn the Plan-Reviewer fresh")
-        self.assertIn("No new Doorbell", self.take("Orchestrator").text)
 
-    def test_the_first_start_with_no_review_file(self):
-        """The ordinary opening runs take --restart too: with the Planner's
-        round-1 Doorbell in the file it acts on it, and with none it names the
-        wait (e89c906: "Starting with no review file on disk. Arm at 0")."""
-        empty = self.take("Orchestrator", "--restart")
-        self.assertEqual(empty.code, 0, empty)
-        self.assertIn("No Planner Doorbell", empty.text)
-        self.assertNext(empty, "doorbell wait --role Orchestrator")
-        self.ring("Planner", P1)
+    def test_restart_is_gone(self):
+        """orchestrator start places the Workflow; take --restart is refused as
+        an unknown option."""
         result = self.take("Orchestrator", "--restart")
-        self.assertEqual(result.lines[0], "Doorbell: " + P1)
-        self.assertNext(result, "Spawn the Plan-Reviewer fresh with the Spawn prompt, as your skill says.")
-
-    def test_the_loop_file_spelling_of_the_harness(self):
-        """The Orchestrator's first take on Claude Code and on Cursor passed
-        the Loop file's spelling and was refused (acceptance finding 1)."""
-        self.ring("Planner", P1)
-        result = self.take("Orchestrator", "--restart", harness="Claude Code")
-        self.assertEqual(result.code, 0, result)
-        self.assertEqual(result.lines[0], "Doorbell: " + P1)
-        self.assertNext(result, "Spawn the Plan-Reviewer fresh")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertIn("Unknown option: --restart", result.text)
 
     def test_a_duplicate_is_its_sender_and_round(self):
         """The shorter restart relay of a round already acted on is a
@@ -200,7 +213,7 @@ class DoorbellTest(ToolTest):
         (5f3f4e7)."""
         self.ring("Orchestrator", R1)
         self.assertIn("Doorbell: " + R1, self.take("Planner").text)
-        self.ring("Orchestrator", R1_RESTART)
+        self.append("10:00:00 to: Planner " + R1_RESTART + "\n")
         result = self.take("Planner")
         self.assertIn("No new Doorbell", result.text)
         self.assertNotIn("Doorbell: ", result.text)
@@ -239,8 +252,8 @@ class DoorbellTest(ToolTest):
         self.assertNotIn("Doorbell: ", result.text)
 
     def test_a_paste_and_the_same_doorbell_by_file_act_once(self):
-        """A Doorbell pasted by hand and the same Doorbell in the file are acted
-        on once (spec, user story 25)."""
+        """A Doorbell pasted by hand and the same Doorbell in the file are
+        acted on once."""
         self.ring("Planner", P1)
         result = self.take("Orchestrator", "--pasted", P1)
         self.assertIn("Doorbell: " + P1, result.text)
@@ -288,7 +301,7 @@ class DoorbellTest(ToolTest):
         with the fix, --slug or not."""
         self.box.write("LOOP.md", "# VDD Loop\n\nFeature: x\nTracker: .scratch/x/\nHarness: Claude Code\n")
         for slug in ("x", None):
-            for args in (("ring", "--role", "Planner", "--line", P1, "--write"), ("take", "--role", "Planner"),
+            for args in (("ring", "--role", "Planner", "--write"), ("take", "--role", "Planner"),
                          ("wait", "--role", "Planner")):
                 with self.subTest(args=args, slug=slug):
                     result = self.db(*args, slug=slug, env=self.fast())
@@ -302,7 +315,7 @@ class DoorbellTest(ToolTest):
         the Doorbell finds the loop from the repository root all the same."""
         self.box.init_git("main")
         where = self.box.path(".scratch", "x")
-        rung = self.box.run("doorbell", "ring", "--role", "Planner", "--line", P1, "--write",
+        rung = self.box.run("doorbell", "ring", "--role", "Planner", "--write",
                             "--harness", "claude-code", "--slug", "x", cwd=where)
         self.assertEqual(rung.code, 0, rung)
         taken = self.box.run("doorbell", "take", "--role", "Orchestrator", "--harness", "claude-code",
@@ -314,8 +327,8 @@ class DoorbellTest(ToolTest):
     # --- the loop by slug, and a closed loop ---
 
     def test_every_command_a_next_line_names_carries_the_slug(self):
-        """PLAN-REVIEW finding 1: a Role runs a Next: command verbatim, so
-        each one names the loop it ran on, the fallbacks included."""
+        """A Role runs a Next: command verbatim, so each one names the loop it
+        ran on, the fallbacks included."""
         self.ring("Planner", P1)
         self.take("Orchestrator")
         nexts = [self.ring("Orchestrator", R1).last]
@@ -333,11 +346,11 @@ class DoorbellTest(ToolTest):
                 self.assertEqual(line.count("--slug x"), commands, line)
 
     def test_without_slug_the_only_open_loop(self):
-        result = self.db("ring", "--role", "Planner", "--line", P1, "--write", slug=None)
+        result = self.db("ring", "--role", "Planner", "--write", slug=None)
         self.assertEqual(result.code, 0, result)
         self.assertNext(result, "--slug x")
         self.box.write_loop("y")
-        result = self.db("ring", "--role", "Planner", "--line", P2, "--write", slug=None)
+        result = self.db("ring", "--role", "Planner", "--write", slug=None)
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("x, y", result.text)
         self.assertNext(result, "--slug")
@@ -345,7 +358,7 @@ class DoorbellTest(ToolTest):
     def test_a_closed_loop_refuses_ring_and_wait_until_reopened(self):
         closed = self.box.run("loop", "close", "--slug", "x", "--write")
         self.assertEqual(closed.code, 0, closed)
-        for args in (("ring", "--role", "Planner", "--line", P1, "--write"), ("wait", "--role", "Orchestrator")):
+        for args in (("ring", "--role", "Planner", "--write"), ("wait", "--role", "Orchestrator")):
             with self.subTest(args=args):
                 result = self.db(*args, env=self.fast())
                 self.assertNotEqual(result.code, 0, result)
@@ -356,40 +369,6 @@ class DoorbellTest(ToolTest):
         self.box.run("loop", "reopen", "--slug", "x", "--write")
         self.assertEqual(self.ring("Planner", P1).code, 0)
         self.assertIn("A Doorbell for the Orchestrator is waiting.", self.wait("Orchestrator").text)
-
-    # --- take --restart ---
-
-    def review(self, round_number):
-        self.box.write(os.path.join(".scratch", "x", "PLAN-REVIEW.md"), "Round %d\n\n1. major (open). x\n" % round_number)
-
-    def test_restart_with_no_planner_line_rings_the_restart_relay(self):
-        """The restart sequence reads the Doorbell file before it relays
-        (e89c906)."""
-        self.review(2)
-        result = self.take("Orchestrator", "--restart")
-        self.assertNext(result, 'ring --role Orchestrator --line "VDD Plan-Reviewer: PLAN-REVIEW.md written, round 2. Read it."')
-
-    def test_restart_at_or_below_the_round_rings_and_counts_the_line_handled(self):
-        self.ring("Planner", P1)
-        self.ring("Planner", P2)
-        self.review(2)
-        result = self.take("Orchestrator", "--restart")
-        self.assertNext(result, "round 2. Read it.")
-        self.assertIn("No new Doorbell", self.take("Orchestrator").text)
-
-    def test_restart_above_the_round_spawns_fresh_and_clears_the_record(self):
-        """Placing the Workflow clears the handled record: a Role started by a
-        Doorbell before the restart is gone (e89c906)."""
-        self.ring("Planner", P1)
-        self.ring("Planner", P2)
-        self.take("Orchestrator")
-        self.review(1)
-        result = self.take("Orchestrator", "--restart")
-        self.assertIn("Doorbell: " + P2, result.lines)
-        self.assertNext(result, "Spawn the Plan-Reviewer fresh")
-
-    def test_restart_is_the_orchestrator_s(self):
-        self.assertNotEqual(self.take("Planner", "--restart").code, 0)
 
     # --- wait ---
 
@@ -476,12 +455,8 @@ class DoorbellTest(ToolTest):
         tracker = self.box.path(".scratch", "x")
         os.chmod(tracker, stat.S_IRUSR | stat.S_IXUSR)
         self.addCleanup(os.chmod, tracker, stat.S_IRWXU)
-        for extra in ((), ("--pasted", P1), ("--restart",)):
+        for extra in ((), ("--pasted", P1)):
             with self.subTest(extra=extra):
-                if extra == ("--restart",):
-                    os.chmod(tracker, stat.S_IRWXU)
-                    self.box.write(os.path.join(".scratch", "x", "PLAN-REVIEW.md"), "Round 1\n")
-                    os.chmod(tracker, stat.S_IRUSR | stat.S_IXUSR)
                 result = self.take("Orchestrator", *extra)
                 self.assertNotEqual(result.code, 0, result)
                 self.assertContract(result)
@@ -523,8 +498,7 @@ class DoorbellTest(ToolTest):
         """Cursor may wake twice for one wait. On the second wake take finds
         nothing new and, with the Role's next wait running, names no second
         one: "Hold exactly one wait", and a duplicate "as a second completion
-        event leaves the wait you hold as it is" (5f3f4e7; finding 17 of the
-        round 4 review)."""
+        event leaves the wait you hold as it is" (5f3f4e7)."""
         self.ring("Orchestrator", R1)
         self.assertIn("Doorbell: " + R1, self.take("Planner", harness="cursor").text)
         ring = self.ring("Planner", P2, harness="cursor")
@@ -543,7 +517,7 @@ class DoorbellTest(ToolTest):
     def test_a_paste_while_a_wait_runs_names_no_second_wait(self):
         """A paste moves the count past the line the running wait has not read
         yet; that wait keeps running, so the next ring ends the turn rather
-        than naming a second wait (finding 17 of the round 4 review)."""
+        than naming a second wait."""
         self.ring("Planner", P1)
         self.take("Orchestrator", harness="cursor")
         self.ring("Orchestrator", R1, harness="cursor")
@@ -580,20 +554,11 @@ class DoorbellTest(ToolTest):
         self.assertNotEqual(result.code, 0)
         self.assertIn("rerun Setup", result.text)
 
-    def test_the_restart_clears_the_marker_of_an_earlier_session(self):
-        """A wait an earlier Session started wakes that Session, so the
-        restart names a wait of its own."""
-        self.box.write(os.path.join(".scratch", "x", "doorbell-wait-orchestrator"), "vdd doorbell-wait 1\n1-ab 10.0\n")
-        result = self.take("Orchestrator", "--restart", harness="cursor")
-        self.assertNext(result, "doorbell wait --role Orchestrator")
-        self.assertFalse(os.path.exists(self.marker("Orchestrator")))
-
     def test_the_resumed_planner_names_a_wait_of_its_own(self):
         """A wait an earlier Session left (detached on Copilot CLI, or killed
         with its Session on Windows) keeps a fresh marker that wakes no one.
         The resume's take clears it whatever its token and names a wait,
-        without acting again on a Doorbell already handled (spec, user story
-        31; finding 26 of the round 5 review)."""
+        without acting again on a Doorbell already handled."""
         self.ring("Orchestrator", R1)
         self.assertIn("Doorbell: " + R1, self.take("Planner", harness="cursor").text)
         for harness in ("cursor", "claude-code", "copilot-cli", "generic"):
@@ -617,18 +582,17 @@ class DoorbellTest(ToolTest):
         result = self.take("Orchestrator", "--resumed")
         self.assertNotEqual(result.code, 0, result)
         self.assertContract(result)
-        self.assertNext(result, "--restart")
+        self.assertNext(result, "orchestrator start")
 
     # --- after the plan Sign-off ---
 
     def signed_off(self, round_number):
-        self.box.write(os.path.join(".scratch", "x", "PLAN-REVIEW.md"), "SIGNED OFF\nRound %d\n" % round_number)
+        self.stage("plan %d reviewed signed-off - counts 0 0 0" % round_number)
 
     def test_after_the_sign_off_take_names_no_wait(self):
-        """Once PLAN-REVIEW.md is signed off, a take with nothing new names no
-        wait for either Role, as the Sign-off ring already did; a Planner
-        round rung after the Sign-off opens the wait again (finding 31 of the
-        round 8 review)."""
+        """Once the plan review is signed off, a take with nothing new names no
+        wait for either Role, as the Sign-off ring already did; a Planner round
+        rung after the Sign-off opens the wait again."""
         self.ring("Planner", P1)
         self.ring("Planner", P2)
         self.take("Orchestrator")
@@ -649,9 +613,11 @@ class DoorbellTest(ToolTest):
         self.assertNext(self.take("Planner"), "doorbell wait --role Planner")
 
     def test_an_unsigned_review_still_names_the_wait(self):
-        self.review(2)
+        """A PLAN-REVIEW.md that opens SIGNED OFF is not the Sign-off; only the
+        state file's review line is."""
+        self.stage("plan 2 reviewed open 1 counts 0 1 0")
         self.assertNext(self.take("Planner"), "doorbell wait --role Planner")
-        self.box.write(os.path.join(".scratch", "x", "PLAN-REVIEW.md"), "Round 2\nSIGNED OFF\n")
+        self.box.write(os.path.join(".scratch", "x", "PLAN-REVIEW.md"), "SIGNED OFF\nRound 2\n")
         self.assertNext(self.take("Orchestrator"), "doorbell wait --role Orchestrator")
 
     def test_codex_wait_writes_the_armed_file(self):

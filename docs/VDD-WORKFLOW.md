@@ -83,9 +83,10 @@ Put it where your Harness reads its instructions; the path above is Claude Code'
 - the base branch and the feature branch
 - whether an open minor holds up Sign-off (`fix`, or `leave` it listed)
 - whether VDD opens the PR at the end (yes, ask at Sign-off, or manual)
-- how the Coder continues between rounds (fresh every round, resumed, or on Claude Code fresh once its context passes a limit)
 
 The VDD tool writes the answers to the loop's Loop file, `.scratch/<slug>/loop.md`, which every Role reads first, so none asks again. If an earlier loop used the slug, you choose to continue it, start fresh (its directory is moved aside to `.scratch/<slug>-2/`, nothing deleted) or pick another slug. To check a repository before its first loop, run `/vdd:vdd-setup` on its own. It looks at the borrowed skills, the issue tracker and the gitignore entries, and tells you how to fix anything missing. It then prints a summary of the Loop file, which says you can ask the Orchestrator to start any Role fresh at its next round, and hands over to the Planner.
+
+One question comes later, with the Orchestrator's Model approval: how the Coder continues between rounds (fresh every round, resumed, or on Claude Code fresh once its token count passes a limit). The Orchestrator asks it once per loop. The reviewers are resumed unless you ask otherwise.
 
 #### 🔔 Sessions and Doorbells
 
@@ -99,7 +100,7 @@ The Planner takes the problem you bring, or asks what it is when you bring none,
 
 #### 🔍 The Plan-Reviewer
 
-The Plan-Reviewer checks that the spec and the tickets are complete and that every claim in them holds against the codebase. It checks their prose against `writing-for-agents`, because the Planner cannot grade its own. Its findings go to `PLAN-REVIEW.md`, and rounds pass through the Orchestrator until it signs off.
+The Plan-Reviewer checks that the spec and the tickets are complete and that every claim in them holds against the codebase. It checks their prose against `writing-for-agents`, because the Planner cannot grade its own. Its findings go to `PLAN-REVIEW.md`, which holds only the findings still open, and rounds pass through the Orchestrator until it signs off.
 
 A blocker or a major always holds up Sign-off. On `Minors: fix` the loop runs until no minor is open; on `Minors: leave` the reviewer signs off with the open minors listed. One to three rounds is normal. More means the scope is too big: split the work.
 
@@ -109,11 +110,11 @@ The Orchestrator starts this phase when `PLAN-REVIEW.md` signs off. You open not
 
 #### 💻 The Coder
 
-The Coder works on the feature branch from the Loop file, which defaults to the slug. It takes the tickets in dependency order: implements one, runs its acceptance criteria, commits it, and writes what it did to `FIXES.md`. If it is on neither the base nor the feature branch, or holds a Ticket it finds wrong or impossible, it asks; the Orchestrator relays the question to you and your answer back.
+The Coder works on the feature branch from the Loop file, which defaults to the slug. It takes the tickets in dependency order: implements one, runs its acceptance criteria, commits it, and writes what it did to `FIXES.md`. In a later round `FIXES.md` holds that round only: an answer to each open finding, fixed or pushed back with a reason. If it is on neither the base nor the feature branch, or holds a Ticket it finds wrong or impossible, it asks; the Orchestrator relays the question to you and your answer back.
 
 #### 🧪 The Code-Reviewer
 
-The Code-Reviewer runs Matt Pocock's `code-review` over the branch against the spec, then adds what that skill does not do: it reruns the verification itself, distrusts `FIXES.md` and the ticked checkboxes, and flags anything in the diff no ticket asked for. When the branch changes a skill file, an `AGENTS.md`, a `CLAUDE.md` or a file one of those points at, it checks those lines against `writing-for-agents`. Its findings go to `CODEREVIEW.md`, and rounds run until Sign-off under the same rule as Phase 1.
+The Code-Reviewer runs Matt Pocock's `code-review` over the branch against the spec, then adds what that skill does not do: it reruns the verification itself, distrusts `FIXES.md` and the ticked checkboxes, and flags anything in the diff no ticket asked for. When the branch changes a skill file, an `AGENTS.md`, a `CLAUDE.md` or a file one of those points at, it checks those lines against `writing-for-agents`. Its findings go to `CODEREVIEW.md`, which holds only the findings still open, each with the Coder's answer under it, and rounds run until Sign-off under the same rule as Phase 1.
 
 ### 🚢 Phase 3: Ship
 
@@ -127,7 +128,7 @@ On Sign-off the Orchestrator runs the PR-Author in its own session, which follow
 Then:
 
 1. If the PR is not open, open it from the feature branch with the printed body. The commits are there, one per ticket plus any no ticket owned. The working files are gitignored and stay behind.
-2. The loop is closed by then, and `.scratch/<slug>/` keeps the Loop file, the spec, the tickets and the three review files as its record. It is gitignored, so it stays on this machine. To fix something before you merge, a finding from an outside review for example, ask the Orchestrator to reopen the loop.
+2. The loop is closed by then. Read `.scratch/<slug>/RECAP.md` for how it went: the rounds, each ticket, and every closed finding with what was wrong and how it was resolved. `.scratch/<slug>/` keeps it beside the Loop file, the spec and the tickets. It is gitignored, so it stays on this machine. To fix something before you merge, a finding from an outside review for example, ask the Orchestrator to reopen the loop.
 3. Start the next loop with fresh sessions.
 
 ## 🧭 Before the loop

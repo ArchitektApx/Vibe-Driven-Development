@@ -3,14 +3,14 @@ changed, closed and reopened only here."""
 
 import os
 
-from . import args, loopfile, places, preflight, textfile
+from . import args, loopfile, loopstate, places, preflight, textfile
 from .out import Failure, Output, refused
 
 SUBCOMMANDS = ("new", "aside", "show", "set", "close", "reopen")
 
 HELP = [
     "loop new --slug <slug> --harness <h> [--base <branch>] [--branch <branch>] [--minors <a>] [--pr <a>]",
-    "         [--fresh-coder <a>] [--leftover continue] [--write]",
+    "         [--leftover continue] [--write]",
     "  Start a loop. Without --write it checks the slug, reads the base branch, proposes the feature branch",
     "  and prints the questions for the user, changing nothing. Ask them, then run it again with the answers",
     "  and --write: it writes .scratch/<slug>/loop.md and marks the loop open. On PR: yes it checks that a",
@@ -24,11 +24,12 @@ HELP = [
     "loop show [--slug <slug>] [--role <Role>]",
     "  Print the Loop file's lines as every Role acts on them: a missing or malformed line as its default,",
     "  whether the loop is open or closed, and the Harness file to read. --role prints only the lines that",
-    "  Role acts on: Planner, Plan-Reviewer, Coder, Code-Reviewer, Orchestrator or PR-Author.",
+    "  Role acts on: Planner, Plan-Reviewer, Coder, Code-Reviewer, Orchestrator or PR-Author. --role",
+    "  PR-Author refuses until the state file records the code Sign-off.",
     "",
-    "loop set [--slug <slug>] [--minors <a>] [--pr <a>] [--fresh-coder <a>] [--harness-line <label>] --write",
-    "  Change the Minors:, PR:, Fresh Coder: or Harness: line on the user's word. The feature, the base",
-    "  branch and the feature branch never change.",
+    "loop set [--slug <slug>] [--minors <a>] [--pr <a>] [--harness-line <label>] --write",
+    "  Change the Minors:, PR: or Harness: line on the user's word. The feature, the base branch and the",
+    "  feature branch never change.",
     "",
     "loop close [--slug <slug>] --write",
     "  Close the loop: it stays on disk as the record, a ring or a wait on it is refused, and its Codex armed",
@@ -37,8 +38,8 @@ HELP = [
     "loop reopen [--slug <slug>] --write",
     "  Reopen a closed loop, on the user's request.",
     "",
-    "Accepted values: --minors fix or leave; --pr yes, \"ask at sign-off\", manual or no; --fresh-coder",
-    "\"every round\", never or \"over <n>k\"; --harness-line Claude Code, Codex, Cursor, Copilot CLI or Generic.",
+    "Accepted values: --minors fix or leave; --pr yes, \"ask at sign-off\", manual or no; --harness-line",
+    "Claude Code, Codex, Cursor, Copilot CLI or Generic.",
     "",
     "--slug names the loop. Without it the tool takes the loop whose feature branch is checked out, else the",
     "only open loop, else it refuses. A Role passes --slug on every call. --harness names the Harness this",
@@ -53,7 +54,6 @@ SPEC = {
     "branch": args.VALUE,
     "minors": args.VALUE,
     "pr": args.VALUE,
-    "fresh-coder": args.VALUE,
     "harness-line": args.VALUE,
     "role": args.VALUE,
     "leftover": args.VALUE,
@@ -65,7 +65,7 @@ SPEC = {
 }
 
 # Option -> Loop file line, for the answers new writes and set changes.
-ANSWERS = (("minors", "Minors"), ("pr", "PR"), ("fresh-coder", "Fresh Coder"))
+ANSWERS = (("minors", "Minors"), ("pr", "PR"))
 SETTABLE = ANSWERS + (("harness-line", "Harness"),)
 
 
@@ -172,7 +172,7 @@ def new(root, values, harness):
     out.line("Base branch: %s (from %s)." % (base, source))
     out.line("Feature branch: %s%s." % (branch, " (proposed: the slug)" if not values["branch"] else ""))
     out.line("Harness: %s." % fields["Harness"])
-    asked = questions(values, harness, branch, base)
+    asked = questions(values, branch, base)
     for number, text in enumerate(asked, 1):
         out.line("Question %d, %s" % (number, text))
     command = new_command(slug, harness, base, branch, values)
@@ -184,7 +184,7 @@ def new(root, values, harness):
     )
 
 
-def questions(values, harness, branch, base):
+def questions(values, branch, base):
     asked = []
     if not values["branch"]:
         asked.append(
@@ -204,24 +204,7 @@ def questions(values, harness, branch, base):
             "\"Manual\" (--pr manual): VDD prints the body and you open the PR. "
             "\"No PR\" (--pr no): the branch stays local and no body is printed."
         )
-    if values["fresh-coder"] is None:
-        asked.append(fresh_coder_question(harness))
     return asked
-
-
-def fresh_coder_question(harness):
-    recommended, limit = harness.fresh_coder()
-    answers = [("Every round", "every round"), ("Never", "never")]
-    if limit:
-        answers.append(("Over a limit, the Coder's context size; the user may name another number", limit))
-    parts = []
-    for label, value in answers:
-        mark = " (recommended)" if value == recommended else ""
-        parts.append("\"%s\"%s (--fresh-coder %s)." % (label, mark, quoted(value)))
-    return (
-        "Fresh Coder: When should the Orchestrator respawn the Coder, spawning it anew for a round in "
-        "place of resuming the one before? Answers, in this order: " + " ".join(parts)
-    )
 
 
 def new_command(slug, harness, base, branch, values):
@@ -398,6 +381,8 @@ def show(root, values):
             "--role takes one of: %s." % ", ".join(loopfile.ROLES),
             "Run the command again with your Role's name.",
         )
+    if role == "PR-Author":
+        require_code_sign_off(loop)
     names = loopfile.ROLES[role] if role else loopfile.IDENTITY + loopfile.SETTINGS
     out = Output()
     out.line("Slug: %s" % loop.slug)
@@ -422,6 +407,21 @@ def show(root, values):
     )
 
 
+def require_code_sign_off(loop):
+    """The PR-Author runs only once the state file records the code
+    Sign-off: an unsigned review has no PR to open yet."""
+    loopfile.refuse_v1(loop, "loop show --role PR-Author")
+    review = loopstate.State(loop.dir).last_review("code")
+    if review is None or not review.signed_off:
+        where = "no code review is recorded" if review is None else "code round %d's review left findings open" % (
+            review.round)
+        raise Failure(
+            "The code Loop is not signed off: %s. The Loop is not finished, so there is no PR to open yet."
+            % where,
+            "Stop, and tell the user the Loop is not finished: the code review has not signed off.",
+        )
+
+
 # --- set ---
 
 def set_lines(root, values):
@@ -434,7 +434,7 @@ def set_lines(root, values):
     changes = [(option, name) for option, name in SETTABLE if values[option] is not None]
     if not changes:
         raise Failure(
-            "Nothing to set: name --minors, --pr, --fresh-coder or --harness-line.",
+            "Nothing to set: name --minors, --pr or --harness-line.",
             "Run %s for this command's usage." % usage(),
         )
     check_answers(values, SETTABLE)
@@ -445,18 +445,6 @@ def set_lines(root, values):
         lines = loopfile.replace_line(lines, name, values[option])
         out.line("%s %s: %s" % ("Set:" if values["write"] else "Would set:", name, values[option]))
     if not values["write"]:
-        if values["harness-line"] is not None and values["fresh-coder"] is None:
-            # A changed Harness changes the Fresh Coder question's
-            # recommendation and limit, so the question is asked again.
-            corrected = args.harness_of({"harness": values["harness-line"]}, usage())
-            out.line("Question 1, %s" % fresh_coder_question(corrected))
-            parts = [places.command(), "loop set", "--slug", loop.slug]
-            for option, _ in changes:
-                parts += ["--" + option, quoted(values[option])]
-            parts += ["--fresh-coder", '"<answer>"', "--write"]
-            return out.finish(
-                "Ask the user the Question line above, with its answers as written. Then run: %s" % " ".join(parts)
-            )
         return out.finish("Run the same command with --write.")
     try:
         textfile.write(loop.file, ("\n".join(lines) + "\n").encode("utf-8"))

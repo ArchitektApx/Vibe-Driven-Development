@@ -139,18 +139,10 @@ When the user confirms shared understanding, resume as Planner.
 
 At the end of every turn in which you wrote your Working file, do this.
 
-**Send the Doorbell.** It is exactly this line:
-
-- `VDD Planner: .scratch/<slug>/ ready, round <n>. Read spec.md and issues/.`
-
-`<n>` is how many times you have produced your Working files in this loop. You
-keep no round line of your own, so read it from the `Round` line of
-`.scratch/<slug>/PLAN-REVIEW.md` and add one, or use 1 when that file does not
-exist.
-
-Ring it in the foreground with
-`doorbell ring --role Planner --line "<the Doorbell>" --harness <h> --slug <slug> --write`.
-It writes the line for the Orchestrator and prints the lines the user needs,
+**Send the Doorbell.** Ring it in the foreground with
+`doorbell ring --role Planner --harness <h> --slug <slug> --write`. The tool
+composes the line, with the round, from the loop's state. It writes the line
+for the Orchestrator and prints the lines the user needs,
 on round 1 how to start the Orchestrator's Session, so relay them, then
 follow its `Next:` line, which names how to wait. When the wait cannot start or dies, say so in one line and fall back to
 hand relay for that wait: the user pastes the next Doorbell, and you take it
@@ -161,7 +153,8 @@ which file to read and nothing more.
 
 ## If `PLAN-REVIEW.md` exists
 
-A reviewer has pushed back. Address every finding by editing `spec.md` and the
+A reviewer has pushed back. `PLAN-REVIEW.md` holds the open findings only.
+Address every finding by editing `spec.md` and the
 Ticket files directly, then run step 4's pass over the files this round
 changed, on the same terms it states. A later round hands off passed work like
 the first one does.
@@ -174,8 +167,7 @@ For a finding you dispute, make the case in a dated entry under a `## Comments`
 heading at the end of `spec.md`, which is the tracker's own convention for
 this. Every finding leaves this round as an edit or as a Comments entry.
 
-Then hand off again with the next round number. Repeat until the reviewer signs
-off.
+Then hand off again. Repeat until the reviewer signs off.
 
 ## Receiving a message from another session
 
@@ -183,9 +175,6 @@ You receive the Plan-Reviewer's Doorbells, relayed by the Orchestrator:
 
 - `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>: <b> blocker, <m> major, <p> minor. Read it.`
 - `VDD Plan-Reviewer: PLAN-REVIEW.md SIGNED OFF, round <n>.`
-
-A restarted Orchestrator relays the first in a shorter form, without the
-counts: `VDD Plan-Reviewer: PLAN-REVIEW.md written, round <n>. Read it.`
 
 On a wake, run the `take` command it names. A Doorbell the user pastes, you
 take with

@@ -7,8 +7,11 @@ from .out import Failure, Output, refused
 # Command group -> one-line summary.
 GROUPS = {
     "codex-stop": "The Codex Stop hook. Codex runs it at a turn end; a Role never does.",
+    "coder": "The Coder's round: start it on the feature branch, then check FIXES.md and record its end.",
     "doorbell": "Ring, wait for and take Doorbells between the Planner and the Orchestrator.",
     "loop": "Start a loop, and show, change, close or reopen its Loop file.",
+    "orchestrator": "The Orchestrator's steps: place the Workflow, and act on each hosted Role's return.",
+    "review": "The Plan-Reviewer's and the Code-Reviewer's round: write its frame, then check it.",
     "setup": "Check this repository and machine for a VDD loop, and make the changes Setup owns.",
 }
 
@@ -28,7 +31,7 @@ def top_help():
     out.line()
     out.line("Command groups:")
     for name in sorted(GROUPS):
-        out.line("  %-11s %s" % (name, GROUPS[name]))
+        out.line("  %-13s %s" % (name, GROUPS[name]))
     return out.finish("Run %s <group> --help for the group your skill names." % places.command())
 
 
@@ -37,10 +40,16 @@ def load(name):
     import: the static check refuses an import by a computed name."""
     if name == "codex-stop":
         from . import codex_hook as module
+    elif name == "coder":
+        from . import coder as module
     elif name == "doorbell":
         from . import doorbell as module
     elif name == "loop":
         from . import loop as module
+    elif name == "orchestrator":
+        from . import orchestrator as module
+    elif name == "review":
+        from . import review as module
     else:
         from . import setup as module
     return module

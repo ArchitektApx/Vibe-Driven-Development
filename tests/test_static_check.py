@@ -107,8 +107,7 @@ class StaticCheckTest(unittest.TestCase):
         self.add("skills/x/scripts/vdd/m.py", "from urllib.request import urlopen\n")
         self.assertFails("network module: urllib.request")
 
-    # The aliased and indirect forms each passed the check before finding 22
-    # of the round 4 review.
+    # The aliased and indirect forms each passed the check once.
 
     def test_an_aliased_os_system_fails(self):
         self.add("skills/x/scripts/vdd/m.py", "import os as o\no.system('x')\n")
@@ -135,14 +134,14 @@ class StaticCheckTest(unittest.TestCase):
         self.assertFails("__import__ imports by a computed name")
 
     def test_importlib_import_module_fails(self):
-        """The check now refuses importlib as an import, where it banned only
-        importlib.import_module and importlib.__import__ (finding 28 of the
-        round 6 review)."""
+        """The check refuses importlib as an import, where it banned only
+        importlib.import_module and importlib.__import__."""
         self.add("skills/x/scripts/vdd/m.py", "import importlib\nimportlib.import_module('socket')\n")
         self.assertFails("importlib imports by a computed name: importlib")
 
     def test_an_imported_import_module_fails(self):
-        """As above (finding 28 of the round 6 review)."""
+        """Importing import_module from importlib is refused like importlib
+        itself."""
         self.add("skills/x/scripts/vdd/m.py", "from importlib import import_module\nimport_module('socket')\n")
         self.assertFails("importlib imports by a computed name: importlib")
 
@@ -194,8 +193,7 @@ class StaticCheckTest(unittest.TestCase):
 
     def test_a_hooks_key_in_a_skill_frontmatter_fails(self):
         """Claude Code registers a skill's frontmatter hooks when the skill
-        runs, plugin skills included: a second hook against "One hook"
-        (finding 23 of the round 4 review)."""
+        runs, plugin skills included: a second hook against "One hook"."""
         for text in (
             "---\nname: x\ndescription: x\nhooks:\n  Stop:\n    - hooks: []\n---\n",
             "---\r\nname: x\r\n'hooks': {}\r\n---\r\n",
@@ -233,7 +231,7 @@ class StaticCheckTest(unittest.TestCase):
 
     def test_a_shell_script_under_skills_fails(self):
         """The 0.15 .sh and .ps1 scripts went with the Codex hook's move; new
-        shipped code is .py (spec, CI)."""
+        shipped code is .py."""
         self.add("skills/x/references/wait.sh", "echo x\n")
         self.assertFails("file kind not allowed under skills/")
         self.add("skills/x/references/wait.ps1", "exit 0\n")

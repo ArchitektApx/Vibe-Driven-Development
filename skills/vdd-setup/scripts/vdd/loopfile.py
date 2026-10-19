@@ -2,11 +2,17 @@
 .scratch/<slug>/loop-state.
 
 The Loop file holds a loop's settings, format 2, one "<Name>: <value>" line
-each. The state file is append-only: a version header, then "loop open" and
-"loop closed" lines, the last one winning. A loop is a directory under
-.scratch/ that holds both, and its slug is that directory's name. A root
-LOOP.md is a format-1 Loop file from before this version: no command reads
-it, and every command that needs a loop refuses while it exists.
+each. A line it no longer names, such as the Coder's respawn line a loop
+from 0.16.0-beta.3 wrote, is read and ignored. The state file is
+append-only: a version header, then "loop open" and "loop closed" lines, the
+last one winning, and the round lines the review, coder and orchestrator
+commands append. Version 1, which only 0.16.0-beta.3 wrote,
+still reads as open or closed; the round commands refuse it.
+
+A loop is a directory under .scratch/ that holds both, and its slug is that
+directory's name. A root LOOP.md is a format-1 Loop file from before this
+version: no command reads it, and every command that needs a loop refuses
+while it exists.
 """
 
 import os
@@ -22,7 +28,11 @@ FORMAT = 2
 NAME = "loop.md"
 STATE_NAME = "loop-state"
 STATE_PREFIX = "vdd loop-state "
-STATE_VERSION = "1"
+STATE_VERSION = "2"
+# The versions read_state reads. Version 1 has only loop lines.
+STATE_VERSIONS = ("1", "2")
+# The one release that wrote version 1.
+V1_RELEASE = "0.16.0-beta.3"
 ARMED_PREFIX = "codex-armed-"
 ROOT_FILE = "LOOP.md"
 ROOT_FIX = (
@@ -32,12 +42,11 @@ ROOT_FIX = (
 LINE = re.compile(r"^([A-Za-z][A-Za-z ]*):[ \t]*(.*?)[ \t]*$")
 
 IDENTITY = ("Feature", "Base branch", "Feature branch")
-SETTINGS = ("Minors", "PR", "Fresh Coder", "Harness")
+SETTINGS = ("Minors", "PR", "Harness")
 ORDER = ("Format",) + IDENTITY + SETTINGS
-DEFAULTS = {"Minors": "leave", "PR": "ask at sign-off", "Fresh Coder": "never", "Harness": "Generic"}
+DEFAULTS = {"Minors": "leave", "PR": "ask at sign-off", "Harness": "Generic"}
 MINORS = ("fix", "leave")
 PR = ("yes", "ask at sign-off", "manual", "no")
-FRESH_CODER = re.compile(r"^(every round|never|over [1-9][0-9]*k)$")
 LABELS = {
     "claude-code": "Claude Code",
     "codex": "Codex",
@@ -67,8 +76,6 @@ def accepted(name, value):
         return value in MINORS
     if name == "PR":
         return value in PR
-    if name == "Fresh Coder":
-        return FRESH_CODER.match(value) is not None
     if name == "Harness":
         return value in LABELS.values()
     return bool(value)
@@ -79,8 +86,6 @@ def accepted_text(name):
         return "fix or leave"
     if name == "PR":
         return "yes, ask at sign-off, manual or no"
-    if name == "Fresh Coder":
-        return "every round, never, or over <n>k with <n> a whole number from 1"
     if name == "Harness":
         return ", ".join(LABELS.values())
     return "a value"
@@ -181,7 +186,7 @@ def read_state(directory):
             "Tell the user the loop state file is damaged, and stop.",
         )
     version = lines[0][len(STATE_PREFIX):].strip()
-    if version != STATE_VERSION:
+    if version not in STATE_VERSIONS:
         raise Failure(
             "%s has format version %s, which this copy of the VDD tool does not know." % (path, version),
             "Tell the user this copy of the VDD tool is out of date and to rerun Setup.",
@@ -192,6 +197,35 @@ def read_state(directory):
         if len(parts) == 2 and parts[0] == "loop" and parts[1] in (OPEN, CLOSED):
             state = parts[1]
     return state
+
+
+def state_version(directory):
+    """The state file's version, "1" or "2", or None when there is none."""
+    lines = textfile.lines(os.path.join(directory, STATE_NAME), 2.0)
+    if not lines or not lines[0].startswith(STATE_PREFIX):
+        return None
+    return lines[0][len(STATE_PREFIX):].strip()
+
+
+def refuse_v1(loop, command):
+    """Refuse a command that reads the loop's rounds on a loop whose state
+    file is version 1: that loop was started by 0.16.0-beta.3, and this
+    version reads no rounds from it."""
+    if state_version(loop.dir) != "1":
+        return
+    raise Failure(
+        [
+            "The loop %s was started by VDD %s, the one release that wrote state file version 1. %s does "
+            "not run on it: this version reads no rounds from a version 1 loop."
+            % (loop.slug, V1_RELEASE, command),
+            TELL % (
+                "The loop %s was started by VDD %s. To finish it, reinstall VDD %s; or move it aside with "
+                "loop aside --slug %s --write and start the loop again with vdd-start-loop."
+                % (loop.slug, V1_RELEASE, V1_RELEASE, loop.slug)
+            ),
+        ],
+        "Relay the Tell the user verbatim line above unchanged, and stop.",
+    )
 
 
 def needs_new_state(directory):

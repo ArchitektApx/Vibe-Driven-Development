@@ -40,7 +40,7 @@ CLEARED = (
 
 LOOP_TEXT = (
     "# VDD Loop\n\nFormat: 2\nFeature: %s\nBase branch: %s\nFeature branch: %s\nMinors: fix\n"
-    "PR: ask at sign-off\nFresh Coder: never\nHarness: %s\n"
+    "PR: ask at sign-off\nHarness: %s\n"
 )
 
 
@@ -136,13 +136,16 @@ class Sandbox:
         self.git("symbolic-ref", "HEAD", "refs/heads/" + branch)
         self.git("commit", "-q", "--allow-empty", "-m", "init")
 
-    def write_loop(self, slug, branch=None, harness="Claude Code", states=("open",), base="main", text=None):
+    def write_loop(self, slug, branch=None, harness="Claude Code", states=("open",), base="main", text=None,
+                   version=2, extra=()):
         """A loop as loop new writes it: .scratch/<slug>/loop.md and its
-        state file, each state in states appended."""
+        state file, each state in states appended, then each line in
+        extra. version 1 stages a loop 0.16.0-beta.3 started."""
         if text is None:
             text = LOOP_TEXT % (slug, base, branch or slug, harness)
         self.write(os.path.join(".scratch", slug, "loop.md"), text)
-        state = "vdd loop-state 1\n" + "".join("loop %s\n" % s for s in states)
+        state = "vdd loop-state %d\n" % version + "".join("loop %s\n" % s for s in states)
+        state += "".join(line + "\n" for line in extra)
         self.write(os.path.join(".scratch", slug, "loop-state"), state)
 
     def cleanup(self):

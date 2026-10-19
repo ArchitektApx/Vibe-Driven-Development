@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **TL;DR:** VDD now needs Python 3.9 or newer: Setup and the Doorbell run in
 the VDD tool, a small program VDD ships, which makes both faster and more
-reliable. The Codex hook ships with the plugin, Start-Loop recommends how
-the Coder restarts for the least cost on your agent, and code reviews on
+reliable. The Codex hook ships with the plugin, the Orchestrator recommends
+how the Coder restarts for the least cost on your agent, and code reviews on
 Claude Code and Codex are fixed. Each loop keeps its settings in its own
-directory, and every loop starts with Start-Loop.
+directory, every loop starts with Start-Loop, and a finished loop leaves a
+`RECAP.md` that says how it went.
 
 ### Migrating from 0.15
 
@@ -31,6 +32,11 @@ directory, and every loop starts with Start-Loop.
    root: every Role stops while it is there, and Setup tells you so. Delete
    `LOOP.md`. To carry on the loop it belonged to, run `/vdd:vdd-start-loop`
    with its slug and answer continue.
+5. **On a 0.16 beta, finish a loop you started on 0.16.0-beta.3 with that
+   version.** The Planner, the reviewers, the Coder and the PR-Author
+   refuse it on this one and say so.
+   Reinstall 0.16.0-beta.3 to finish it, or move it aside with the command
+   they print and start the loop again.
 
 ### Changed
 
@@ -41,11 +47,28 @@ directory, and every loop starts with Start-Loop.
   handled, so a Doorbell is acted on once, even when it arrives twice or a
   session restarts, and a mistyped one is refused before the other session
   sees it.
-- **Coder restarts tuned to your agent.** Start-Loop recommends how the
-  Coder continues between rounds by what costs least with your agent's
-  cache: a fresh Coder every round on Claude Code, Cursor and Copilot CLI,
-  one Coder for all rounds on Codex. On Claude Code you can also restart it
-  once its context passes a token count.
+- **Coder restarts tuned to your agent.** With Model approval, the
+  Orchestrator asks once per loop how the Coder continues between rounds,
+  and recommends what costs least with your agent's cache: a fresh Coder
+  every round on Claude Code, Cursor and Copilot CLI, one Coder for all
+  rounds on Codex. On Claude Code you can also restart it once its token
+  count passes a limit. Start-Loop no longer asks. At any round you can ask
+  the Orchestrator to restart any Role every round, or once.
+- **Review files hold what is still open.** `PLAN-REVIEW.md` and
+  `CODEREVIEW.md` list only the open findings, each code finding with the
+  Coder's answer under it, and `FIXES.md` holds the current round only. A
+  miscounted or skipped finding is caught in the Role's own turn. The
+  Code-Reviewer no longer pastes the `code-review` reports; each problem
+  they raise becomes a finding or one line saying why not.
+- **`RECAP.md` after the loop.** `.scratch/<slug>/RECAP.md` records how the
+  loop went: the rounds, each ticket, every closed finding with what was
+  wrong and how it was resolved, and the review notes the Code-Reviewer did
+  not carry. The PR-Author reads it only for a testing or review section
+  your PR template or your past PRs ask for.
+- **A restarted Orchestrator picks up where the loop stood.** It starts or
+  resumes the right Role with the right files, and a Role that ends a round
+  without finishing it is sent back once before you are asked. Say "pause"
+  between rounds and it stops before the next step.
 - **Each loop keeps its settings in its own directory.** VDD writes and reads
   them in `.scratch/<slug>/` for you, so two loops in one repository never
   share them, and there is no `LOOP.md` to delete after a loop. A finished
@@ -74,6 +97,10 @@ directory, and every loop starts with Start-Loop.
 
 ### Fixed
 
+- **VDD calls refused on Codex for Windows.** On an earlier 0.16 beta,
+  Codex's Windows sandbox could not read the copy of the VDD tool Setup
+  installs, so every call was refused once and rerun outside the sandbox.
+  The next Setup replaces the copy.
 - **Late or polled code reviews on Claude Code.** The Code-Reviewer's two
   review passes sometimes reported late, or the Code-Reviewer spent tokens
   polling for them. Both are fixed.
