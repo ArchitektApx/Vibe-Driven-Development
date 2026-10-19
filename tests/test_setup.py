@@ -425,26 +425,41 @@ class SetupTest(ToolTest):
         """Codex's Windows sandbox could not read a Shared copy staged in a
         tempfile directory, whose protected ACL the installed files kept, so
         every VDD call was refused and rerun escalated. Setup stages with a
-        plain mkdir, so every access entry on the installed files is inherited."""
+        plain mkdir, so the installed files carry exactly the access entries a
+        file written in the Shared directory gets. The comparison holds on a
+        machine whose temporary directory hands down nothing to inherit, as
+        on GitHub's Windows runners. The extra inheritable entry for Everyone
+        is what a protected staging directory would not hand down."""
+        granted = subprocess.run(["icacls", self.box.data, "/grant", "*S-1-1-0:(OI)(CI)(RX)"],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.assertEqual(granted.returncode, 0, granted.stderr)
         result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
         self.assertEqual(result.code, 0, result)
+        reference = os.path.join(self.box.shared, "reference.txt")
+        with open(reference, "w") as handle:
+            handle.write("x\n")
+
+        def entries(path):
+            proc = subprocess.run(["icacls", path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            text = proc.stdout.decode("utf-8", "replace")
+            found = []
+            for number, line in enumerate(text.splitlines()):
+                line = line.strip()
+                if not line or line.startswith("Successfully processed"):
+                    continue
+                if number == 0:
+                    line = line[len(path):].strip() if line.lower().startswith(path.lower()) else line
+                if ":" in line and "(" in line:
+                    found.append(line)
+            self.assertTrue(found, text)
+            return sorted(found)
+
+        expected = entries(reference)
+        self.assertTrue([entry for entry in expected if "Everyone" in entry or "S-1-1-0" in entry], expected)
         for path in (os.path.join(self.box.shared, "vdd.py"), os.path.join(self.box.shared, "vdd", "cli.py")):
             with self.subTest(path=path):
-                proc = subprocess.run(["icacls", path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                self.assertEqual(proc.returncode, 0, proc.stderr)
-                text = proc.stdout.decode("utf-8", "replace")
-                entries = []
-                for number, line in enumerate(text.splitlines()):
-                    line = line.strip()
-                    if not line or line.startswith("Successfully processed"):
-                        continue
-                    if number == 0:
-                        line = line[len(path):].strip() if line.lower().startswith(path.lower()) else line
-                    if ":" in line and "(" in line:
-                        entries.append(line)
-                self.assertTrue(entries, text)
-                for entry in entries:
-                    self.assertIn("(I)", entry, text)
+                self.assertEqual(entries(path), expected)
 
     def test_gitignore_removes_only_whole_retired_lines(self):
         """A line goes only when the whole line, trimmed, is a retired entry:
