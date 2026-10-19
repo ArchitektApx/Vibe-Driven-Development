@@ -130,6 +130,10 @@ each loop's fixes into the commits they fix, once, at the end.
   Codex's Windows sandbox could not read the copy of the VDD tool Setup
   installs, so every call was refused once and rerun outside the sandbox.
   The next Setup replaces the copy.
+- **Sandbox refusals on a git set to another language.** git translates its
+  messages, so on a system in another language a sandbox that refused git
+  read as a plain failure instead of asking to rerun outside the sandbox.
+  VDD now runs git in English.
 - **Late or polled code reviews on Claude Code.** The Code-Reviewer's two
   review passes sometimes reported late, or the Code-Reviewer spent tokens
   polling for them. Both are fixed.
