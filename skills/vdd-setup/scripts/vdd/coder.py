@@ -12,7 +12,7 @@ import re
 import subprocess
 import textwrap
 
-from . import args, loopfile, loopstate, places, recap, textfile, workfile
+from . import args, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
 from .out import Failure, Output, refused
 
 SUBCOMMANDS = ("start", "check")
@@ -34,10 +34,11 @@ HELP = [
     "  already started writes nothing and prints the same again.",
     "",
     "coder check --slug <slug> [--write]",
-    "  Lint FIXES.md against its frame and refuse uncommitted changes to tracked files: every refusal names",
-    "  the line or file and the fix and writes nothing. With --write on a passing round it removes the",
-    "  guidance comment, records the branch tip as the round's end, copies round 1's Ticket entries to",
-    "  .scratch/<slug>/RECAP.md and prints the Doorbell line to end your turn with.",
+    "  Lint FIXES.md against its frame, and refuse uncommitted changes to tracked files and a round whose",
+    "  recorded start is gone from the branch's history (an earlier commit amended, rebased or reset): every",
+    "  refusal names the line or file and the fix and writes nothing. With --write on a passing round it",
+    "  removes the guidance comment, records the branch tip as the round's end, copies round 1's Ticket",
+    "  entries to .scratch/<slug>/RECAP.md and prints the Doorbell line to end your turn with.",
     "",
     "--slug names the loop; pass it on every call. Run every command from the repository root.",
 ]
@@ -70,10 +71,6 @@ def run(argv):
 
 
 # --- git ---
-
-# What git prints when a sandbox keeps .git read-only: macOS and Linux, then
-# Windows.
-REFUSED = ("Operation not permitted", "Permission denied", "Access is denied")
 
 def git(root, *argv):
     """(exit code, stdout as text) of a git command run in root."""
@@ -208,7 +205,7 @@ def to_branch(round_, out, write=True):
         code, _, error = git(root, "checkout", "-q", "-b", round_.branch)
         verb = "Created the feature branch %s from %s and switched to it." % (round_.branch, round_.base)
     if code != 0:
-        if any(text in error for text in REFUSED):
+        if gitcmd.is_refusal(code, error):
             raise Failure(
                 "git could not switch to %s: %s" % (round_.branch, error),
                 "A sandbox refused git. Rerun %s outside the sandbox, the way your Harness grants that; when "
@@ -283,9 +280,6 @@ def start(round_, write):
             "End your turn with BLOCKED: the loop has no Tickets.",
         )
     out = Output()
-    # The fold commands in the Coder's skill name <base>, and a later round
-    # runs no loop show.
-    out.line("Base branch: %s." % round_.base)
     again = round_.started
     if not write and not again:
         out.line("Would start code round %d on %s and write the frame of %s." % (
@@ -474,6 +468,9 @@ def check(round_, write):
                       "Tell the user FIXES.md is gone in the middle of round %d, and stop." % round_.number)
     parsed = workfile.Parsed(text)
     problems = lint(round_, parsed)
+    rewritten = start_gone(round_)
+    if rewritten:
+        problems.append(rewritten)
     changed = dirty(root)
     if changed:
         problems.append("The working tree has uncommitted changes to tracked files: %s. Uncommitted work is not "
@@ -503,6 +500,23 @@ def check(round_, write):
         out.line("Copied the Ticket entries to %s." % round_.path(recap.NAME))
     out.line(loopstate.coder_doorbell(round_.number))
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
+
+
+def start_gone(round_):
+    """The refusal for a round whose recorded start is no longer in HEAD's
+    history, or None. The fold after the code Sign-off reads every round's
+    recorded end; an amend, rebase or reset of an earlier round's commit
+    loses it (ticket 71)."""
+    start = round_.state.code_mark("start", round_.number)
+    if not start:
+        return None
+    code, _, _ = git(round_.loop.root, "merge-base", "--is-ancestor", start, "HEAD")
+    if code == 0:
+        return None
+    return ("Round %d started at %s, and that commit is no longer in %s's history: an earlier commit was amended, "
+            "rebased or reset. Bring the earlier commits back with `git reset --soft %s`, which keeps your "
+            "changes, then commit the change as a new commit. Never amend, rebase or reset a commit of an earlier "
+            "round." % (round_.number, start, round_.branch, start))
 
 
 def recap_tickets(parsed):
