@@ -71,6 +71,10 @@ def run(argv):
 
 # --- git ---
 
+# What git prints when a sandbox keeps .git read-only: macOS and Linux, then
+# Windows.
+REFUSED = ("Operation not permitted", "Permission denied", "Access is denied")
+
 def git(root, *argv):
     """(exit code, stdout as text) of a git command run in root."""
     try:
@@ -204,6 +208,13 @@ def to_branch(round_, out, write=True):
         code, _, error = git(root, "checkout", "-q", "-b", round_.branch)
         verb = "Created the feature branch %s from %s and switched to it." % (round_.branch, round_.base)
     if code != 0:
+        if any(text in error for text in REFUSED):
+            raise Failure(
+                "git could not switch to %s: %s" % (round_.branch, error),
+                "A sandbox refused git. Rerun %s outside the sandbox, the way your Harness grants that; when "
+                "that is denied too, tell the user git could not check out the feature branch %s, and stop."
+                % (round_.command("start"), round_.branch),
+            )
         raise Failure(
             "git could not switch to %s: %s" % (round_.branch, error),
             "Tell the user git could not check out the feature branch %s, and stop." % round_.branch,

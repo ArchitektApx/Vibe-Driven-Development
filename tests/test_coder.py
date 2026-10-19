@@ -132,6 +132,32 @@ class StartTest(CoderTest):
         self.assertIn("Round 1 starts at %s." % main, result.lines)
         self.assertIn("code 1 start %s" % main, self.state())
 
+    @unittest.skipIf(os.name == "nt" or (hasattr(os, "geteuid") and os.geteuid() == 0),
+                     "a read-only .git refuses only a non-root user on macOS and Linux")
+    def test_a_sandbox_refusing_git_asks_for_a_rerun_outside_it(self):
+        """Codex keeps .git read-only in its sandbox. The switch failed inside
+        the tool, whose Next: said stop, so the Coder never asked to rerun it
+        outside the sandbox as it would for its own git command."""
+        dirs = [self.box.path(".git")]
+        for directory, names, _ in os.walk(self.box.path(".git")):
+            dirs += [os.path.join(directory, name) for name in names]
+        for path in dirs:
+            os.chmod(path, 0o555)
+        self.addCleanup(lambda: [os.chmod(path, 0o755) for path in dirs])
+        result = self.coder("start")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertNext(result, "Rerun", "coder start --slug demo --write", "outside the sandbox")
+        self.assertEqual(self.branch(), "main")
+
+    def test_any_other_git_failure_still_stops(self):
+        """Only a permission refusal asks for the rerun; a branch name git
+        rejects goes to the user."""
+        self.box.write_loop("demo", branch="bad..name", extra=(SIGNED,))
+        result = self.coder("start")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertNext(result, "Tell the user git could not check out the feature branch bad..name, and stop.")
+
     def test_on_the_base_with_the_feature_branch_it_switches(self):
         self.box.git("branch", "demo")
         result = self.coder("start")
