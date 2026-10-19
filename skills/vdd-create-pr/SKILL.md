@@ -7,14 +7,13 @@ description: The PR-Author Role in a Vibe Driven Development loop.
 
 You are the PR-Author. The Orchestrator invokes you in its own session on
 Sign-off, and you run in no other session. You are the only Role that pushes a
-branch or opens a PR, and only after Sign-off, when the Coder's fixup fold has
-nothing left to rewrite.
+branch or opens a PR, and only after the code Sign-off and the fold.
 
 ## The VDD tool
 
-You read the Loop file and close the loop with the VDD tool, `vdd.py` in the
-Shared directory: `~/.local/share/vdd/vdd.py` on macOS and Linux
-(`$XDG_DATA_HOME/vdd/vdd.py` when that variable is set), and
+You read the Loop file, check and open the PR and close the loop with the
+VDD tool, `vdd.py` in the Shared directory: `~/.local/share/vdd/vdd.py` on
+macOS and Linux (`$XDG_DATA_HOME/vdd/vdd.py` when that variable is set), and
 `%LOCALAPPDATA%\vdd\vdd.py` on native Windows. Write the path out in full,
 every variable expanded, so a hook that checks shell commands and an approval
 prompt see no expansion. Run it as `python3 "<path>"`, on native Windows as
@@ -42,19 +41,21 @@ on; when it refuses for want of a slug, ask the user for the slug.
 
 ## 2. Closing the loop
 
-Every ending below closes the loop: run
-`loop close --slug <slug> --write` before you stop, after the body is printed
-or the PR opened.
+`pr open` closes the loop itself once it has pushed. When it refuses a call
+or the push fails, it leaves the loop open for the rerun its `Next:` line
+names: do not close it. Every ending that does not run `pr open` closes the
+loop: run `loop close --slug <slug> --write` before you stop, after the body
+is printed.
 
 On `PR: no`, close the loop, print "Loop signed off. `PR: no`: `<feature
 branch>` stays local, nothing pushed." and stop before step 3.
 
 ## 3. Check, then assemble the title and body
 
-Run `pr check --slug <slug> --harness <h>`. It prints the PR template or that
-there is none, the merged-PR history when there is no template, the
-preflight and the path. When a sandbox refused a call inside it, do what its
-`Next:` line says.
+Run `pr check --slug <slug> --harness <h>`, with the `Harness:` line `loop
+show` printed as `<h>`. It prints the PR template or that there is none, the
+merged-PR history when there is no template, the preflight and the path. When
+a sandbox refused a call inside it, do what its `Next:` line says.
 
 Read `.scratch/<slug>/spec.md` from disk. The Orchestrator's session may hold
 an older copy in context, and you carry no state between runs, so every run
@@ -120,36 +121,20 @@ Act on the `Path:` line `pr check` printed.
 - **`existing <url>`.** A PR is already open for the branch: print its URL
   and the body, close the loop and stop, pushing nothing.
 
-## 7. Show, confirm, push, open
+## 7. Show, confirm, open
 
-Show the assembled title and body and wait for one confirmation before any
-push, on every path that reaches this step, `PR: yes` included. The user can
-amend the title or body at that point. On the push-only outcome, ask the
-user once more before pushing: that outcome exists only because `gh` cannot
-open the PR here, so the push itself is optional.
+Show the title and body from `pr-body.md` and wait for one confirmation before
+any push, on every path that reaches this step, `PR: yes` included. The user
+can amend the title or body at that point; write an amendment back to
+`pr-body.md` before the push. On the `push-only` path, ask the user once more
+before pushing: that path exists only because `gh` cannot open the PR here,
+so the push itself is optional. When they decline it, print the body, close
+the loop and stop.
 
-Push, run by you: `git push -u <remote> <feature branch>`. Then, on the
-both-present outcome, write the body as the user confirmed it, amendments
-included, to `.scratch/<slug>/pr-body.md` with your file tool, never with a
-shell redirect, and open:
+Then run `pr open --path <path> --slug <slug> --harness <h> --write`, with
+the path copied from the `Path:` line `pr check` printed. It checks the push
+and the PR again, pushes, opens the PR from `pr-body.md` on the `open` path,
+and closes the loop. Do what its `Next:` line says.
 
-```
-gh pr create --head <feature branch> --base <base branch> --title '<title>' --body-file .scratch/<slug>/pr-body.md
-```
-
-The body goes as a file because Windows PowerShell 5.1 cuts a multi-line
-argument at its first double quote, and the tracker directory leaves nothing
-to commit. The title sits in single quotes: write an apostrophe in it as `''`
-in PowerShell and as `'\''` in a POSIX shell. Naming both branches means `gh`
-never opens its own interactive push prompt. When it succeeds, print the PR's
-URL, close the loop and stop.
-
-On the push-only outcome, stop after the push: print the body, name the
-open-a-PR check that failed, say the user opens the PR in the web UI, and
-close the loop. When `gh` fails after the push, print the body and the exact
-`gh` failure line, close the loop and stop; the user is one command away from
-the PR rather than starting over.
-
-Every path that does not open a PR ends by printing the assembled body.
-Every such path also leaves the branch unpushed, except the push-only
-outcome once the user has agreed to the push.
+Every path that ends without running `pr open` prints the body and pushes
+nothing.

@@ -47,15 +47,41 @@ class Call:
         return is_refusal(self.code, self.err)
 
     def first_error(self):
-        """The first non-empty line of stderr, else of stdout, else a line
-        naming the exit."""
+        """The line of stderr, else of stdout, that names the cause, else a
+        line naming the exit."""
         for text in (self.err, self.out):
-            for line in text.split("\n"):
-                if line.strip():
-                    return line.strip()
+            lines = [line.strip() for line in text.split("\n") if line.strip()]
+            if lines:
+                return reason(lines)
         if self.code is None:
             return "%s could not run" % self.argv[0]
         return "%s exited %d and printed nothing" % (" ".join(self.argv[:2]), self.code)
+
+
+def reason(lines):
+    """The line that names the cause among a failed call's lines: the first
+    one left once git push's "To <url>" header, gh's and git's "warning:"
+    lines in any case, ssh's "** " notices, git's "hint:" lines and bare
+    "remote:" lines are dropped. A signing failure
+    puts gpg's reason on the lines after "gpg failed to sign the data:"."""
+    for i, line in enumerate(lines):
+        if line.endswith("failed to sign the data:"):
+            after = [other for other in lines[i + 1:] if not other.startswith("[GNUPG:]")]
+            gpg = [other for other in after if other.lower().startswith("gpg:")]
+            found = gpg[-1] if gpg else (after[0] if after else "")
+            return "%s %s" % (line, found) if found else line
+    kept = [line for line in lines
+            if not line.startswith(("To ", "hint:", "** ")) and not line.lower().startswith("warning:")
+            and line != "remote:"]
+    return kept[0] if kept else lines[0]
+
+
+class Refused(Exception):
+    """A git or gh call a sandbox refused."""
+
+    def __init__(self, call):
+        Exception.__init__(self, call.first_error())
+        self.call = call
 
 
 def is_refusal(code, stderr):

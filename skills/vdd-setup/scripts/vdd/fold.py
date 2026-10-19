@@ -36,14 +36,6 @@ NO_OWNER = "no commit of the loop wrote its lines"
 CONFLICT = "folding it would conflict"
 
 
-class Refused(Exception):
-    """A git call a sandbox refused."""
-
-    def __init__(self, call):
-        Exception.__init__(self, call.first_error())
-        self.call = call
-
-
 class GitFailed(Exception):
     """A git call that failed for any other reason."""
 
@@ -93,7 +85,7 @@ class Repo:
         if result.code in ok:
             return result
         if result.refused:
-            raise Refused(result)
+            raise gitcmd.Refused(result)
         raise GitFailed(result)
 
     def out(self, *argv, **kwargs):
@@ -489,7 +481,7 @@ def run(loop, harness, write):
             remove(index_path)
     except Skip as skip:
         return skipped(loop, state, out, signed, skip.reason, write, harness)
-    except Refused as error:
+    except gitcmd.Refused as error:
         raise Failure(
             ["A sandbox refused %s inside the tool: %s" % (command_text(error.call), error.call.first_error()),
              "Nothing was folded or written; %s stays at the signed commit %s." % (branch, signed[:7])],
