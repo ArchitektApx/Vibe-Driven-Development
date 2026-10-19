@@ -193,6 +193,36 @@ class CheckTest(PRTest):
         self.assertNext(result, "Rerun", "pr check --slug demo --harness claude-code", "outside the sandbox",
                         "tell the user gh pr list was refused, and stop.")
 
+    def test_a_network_a_sandbox_blocks_is_a_refusal(self):
+        """Acceptance, Codex: its sandbox blocks the network, gh pr list and
+        git ls-remote failed with a connection error, and pr check read them
+        as no history and the path neither, so the loop closed with no PR."""
+        self.remote()
+        for err in ('Post "https://api.github.com/graphql": proxyconnect tcp: dial tcp 127.0.0.1:9: connectex: No '
+                    'connection could be made because the target machine actively refused it.\n',
+                    "error connecting to api.github.com\ncheck your internet connection\n"):
+            with self.subTest(err=err):
+                self.plan(merged=[1, "", err])
+                result = self.pr_check()
+                self.assertNotEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertNotIn("Path:", result.text)
+                self.assertNext(result, "Rerun", "outside the sandbox", "gh pr list was refused")
+        self.box.write(os.path.join(".github", "pull_request_template.md"), "## What\n")
+        real = shutil.which("git")
+        for err in ("fatal: unable to access 'https://github.com/example/repo.git/': Failed to connect to 127.0.0.1 "
+                    "port 9 after 0 ms: Couldn't connect to server",
+                    "fatal: unable to access 'https://github.com/example/repo.git/': Could not resolve host: "
+                    "github.com"):
+            with self.subTest(err=err):
+                self.box.stub("git", "if [ \"$1\" = ls-remote ]; then echo \"%s\" >&2; exit 128; fi\n"
+                                     "exec '%s' \"$@\"\n" % (err, real))
+                self.plan(auth=[0, "", ""])
+                result = self.pr_check()
+                self.assertNotEqual(result.code, 0, result)
+                self.assertNotIn("Path: neither", result.text)
+                self.assertNext(result, "Rerun", "outside the sandbox", "git ls-remote origin was refused")
+
     def test_no_gh_on_path_is_no_history(self):
         self.set_pr("manual")
         os.remove(self.gh)

@@ -17,13 +17,18 @@ from . import textfile
 MINIMUM = (2, 40)
 VERSION = re.compile(r"^git version ([0-9]+)\.([0-9]+)")
 # What a refused call prints: macOS and Linux, Windows, and gh. Matched in
-# lower case: real gh writes "operation not permitted".
+# lower case: real gh writes "operation not permitted". The last four are a
+# network a sandbox blocks, as gh and git's connection layer word it.
 REFUSAL_MARKERS = (
     "operation not permitted",
     "permission denied",
     "access is denied",
     "insufficient permission",
     "read-only file system",
+    "error connecting to",
+    "proxyconnect",
+    "failed to connect to",
+    "could not resolve host",
 )
 
 
