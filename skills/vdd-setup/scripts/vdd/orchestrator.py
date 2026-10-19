@@ -553,7 +553,7 @@ def respawn(flow, values):
             out.line("The %s's round %d is finished and not acted on yet." % (role, live[1]))
             return out.finish("Run %s" % flow.return_command(role))
         return out.finish("Go on with the step the tool printed before it.")
-    policy = " ".join(values["policy"].split())
+    policy = " ".join(values["policy"].split()).lower()
     match = POLICY.match(policy)
     if match is None:
         raise Failure(

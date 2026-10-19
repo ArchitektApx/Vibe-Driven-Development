@@ -430,6 +430,16 @@ class RespawnQuestionTest(OrchestratorTest):
         self.assertNotIn("Respawn question", started.text)
         self.spawned(started, "Plan-Reviewer", 1)
 
+    def test_a_policy_in_another_case_is_taken(self):
+        """An Orchestrator passed its answer label "Every round" as the
+        policy, was refused and asked the user a second time."""
+        result = self.orch("respawn", "--role", "Coder", "--policy", "Every Round", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("respawn Coder every round", self.state())
+        over = self.orch("respawn", "--role", "Code-Reviewer", "--policy", "OVER 200K", "--slug", "demo", "--write")
+        self.assertEqual(over.code, 0, over)
+        self.assertIn("respawn Code-Reviewer over 200k", self.state())
+
     def test_a_mid_loop_change_names_no_start_and_records_no_session(self):
         """A policy change after a recorded spawn placed the Workflow again and
         spawned a second Coder beside a live one."""
