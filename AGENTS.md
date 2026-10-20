@@ -53,8 +53,8 @@ The VDD tool is the package `skills/vdd-setup/scripts/vdd/`.
   when a second group adopts it.
 - One concern per module, about 500 lines at most, as guidance.
 - A helper returns facts, and the group that calls it words what the Role
-  reads. A helper may supply a fixed part every site shares, with the caller
-  passing the rest, as the write refusal in `textfile` does.
+  reads. A line every caller prints word for word may live with the helper,
+  once; lines that differ between callers are worded by each caller.
 - Tests reach the tool through `vdd.py`, as under Tests; the Harness contract
   test stays the one that imports the package.
 
