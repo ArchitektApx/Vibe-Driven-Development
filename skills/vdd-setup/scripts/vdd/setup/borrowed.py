@@ -6,10 +6,14 @@ shows; the model passes what it found there, and the user's answer when the
 list cannot tell.
 """
 
-from . import stores
+from __future__ import annotations
+
+from typing import Iterable
+
+from .. import stores
 
 # The 11 skills from Matt Pocock's collection the Roles depend on.
-SKILLS = (
+SKILLS: tuple[str, ...] = (
     "setup-matt-pocock-skills",
     "grill-with-docs",
     "to-spec",
@@ -27,7 +31,7 @@ WRITING = "writing-for-agents"
 
 # Agent-invocable skills of the collection whose hit in the model's skill
 # list proves the collection is wired, after writing-for-agents misses.
-SIBLINGS = (
+SIBLINGS: tuple[str, ...] = (
     "grilling",
     "codebase-design",
     "domain-modeling",
@@ -39,7 +43,7 @@ SIBLINGS = (
 )
 
 # What a missing or unresolvable skill costs each Role.
-COSTS = (
+COSTS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("grill-with-docs", "to-spec", "to-tickets"), "blocks the Planner."),
     (("domain-modeling",), "blocks the Planner and the Wayfinder, because grill-with-docs and wayfinder call it."),
     (
@@ -59,7 +63,7 @@ COSTS = (
 )
 
 
-def bare(name):
+def bare(name: str) -> str:
     """A skill name as the list shows it, compared by the part after the last
     colon: mattpocock-skills:writing-for-agents is writing-for-agents."""
     return name.strip().rsplit(":", 1)[-1]
@@ -70,19 +74,19 @@ def bare(name):
 NONE_LISTED = "none"
 
 
-def parse_listed(value):
+def parse_listed(value: str | None) -> set[str]:
     if not value or value.strip() == NONE_LISTED:
         return set()
     names = value.replace(",", " ").split()
     return {bare(name) for name in names if bare(name)}
 
 
-def ordered(skills):
+def ordered(skills: set[str]) -> list[str]:
     return [s for s in SKILLS if s in skills]
 
 
-def cost_lines(failed):
-    lines = []
+def cost_lines(failed: Iterable[str]) -> list[str]:
+    lines: list[str] = []
     for group, cost in COSTS:
         hit = [s for s in group if s in failed]
         if hit:
@@ -93,10 +97,17 @@ def cost_lines(failed):
 class Verdict:
     """The Borrowed skills' state, from the search and the model's facts."""
 
-    def __init__(self, hits, listed, glossary_named, user_answer):
+    def __init__(
+        self,
+        hits: dict[str, list[stores.Hit]],
+        listed: set[str],
+        glossary_named: str | None,
+        user_answer: str | None,
+    ) -> None:
         self.hits = hits
         self.present = {s for s in SKILLS if hits.get(s)}
         self.ask_user = False
+        self.resolvable: set[str]
         if WRITING in listed or user_answer == "resolves":
             self.resolvable = set(SKILLS)
         elif listed & set(SIBLINGS):
@@ -115,7 +126,7 @@ class Verdict:
             WRITING not in self.present and others <= self.present
         )
 
-    def store_of(self, skills, cwd):
+    def store_of(self, skills: Iterable[str], cwd: str) -> stores.Store | None:
         """The store most of these skills were found in, first root first."""
         counts = {}
         first = {}
@@ -132,7 +143,7 @@ class Verdict:
                 return store
         return None
 
-    def stores_of(self, skills, cwd):
+    def stores_of(self, skills: Iterable[str], cwd: str) -> list[tuple[stores.Store, list[str]]]:
         """Each store these skills were found in, with its skills."""
         found = {}
         order = []

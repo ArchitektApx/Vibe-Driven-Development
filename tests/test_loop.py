@@ -699,6 +699,17 @@ class CloseTest(LoopTest):
         left = sorted(os.listdir(self.box.path(".scratch", "demo")))
         self.assertEqual(left, ["doorbells", "loop-state", "loop.md"])
 
+    def test_close_deletes_a_claim_marker_with_the_armed_files(self):
+        """A claim marker a killed Codex hook left would block the Session's
+        waits of a reopened loop; closing the loop removes it with the armed
+        file, printing only the armed file."""
+        self.box.write(os.path.join(".scratch", "demo", "codex-armed-T1"), "vdd codex-armed 1\nPlanner 0\n")
+        self.box.write(os.path.join(".scratch", "demo", "codex-claim-T1"), "")
+        result = self.loop("close", "--slug", "demo", "--write")
+        self.assertIn("Deleted the Codex armed file codex-armed-T1.", result.lines)
+        self.assertNotIn("codex-claim", result.text)
+        self.assertEqual(sorted(os.listdir(self.box.path(".scratch", "demo"))), ["loop-state", "loop.md"])
+
 
 @unittest.skipIf(os.name == "nt", "a POSIX shell script stands in for git")
 class PreflightTest(LoopTest):

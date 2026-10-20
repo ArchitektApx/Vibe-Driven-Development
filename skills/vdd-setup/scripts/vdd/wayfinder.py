@@ -6,10 +6,12 @@ effort and both template paths filled in. The briefing's text lives here
 alone.
 """
 
-import os
-import re
+from __future__ import annotations
 
-from . import args, loopfile, places, stores
+import os
+from typing import Any
+
+from . import args, gitcmd, places, stores
 from .out import Failure, Output
 
 SUBCOMMANDS = ("start",)
@@ -17,7 +19,6 @@ TEMPLATES = ("overview-template.md", "handoff-template.md")
 # A Feature slug, with dots allowed between words: an effort is often named
 # for a release, as beta-0.16.0-work is.
 EFFORT_PATTERN = "[a-z0-9]+([.-][a-z0-9]+)*"
-EFFORT = re.compile("^" + EFFORT_PATTERN + "$")
 
 HELP = [
     "wayfinder start --effort <slug> --skill-dir <dir>",
@@ -64,27 +65,21 @@ BRIEFING = [
 ]
 
 
-def usage():
+def usage() -> str:
     return "%s wayfinder --help" % places.command()
 
 
-def run(argv):
-    if not argv or argv[0] in ("-h", "--help", "help"):
-        out = Output()
-        for line in HELP:
-            out.line(line)
-        return out.finish("Run the wayfinder command your skill names.")
-    sub, rest = argv[0], argv[1:]
-    if sub not in SUBCOMMANDS:
-        args.unknown_command("wayfinder " + sub, usage())
-    values = args.parse(rest, SPEC, usage())
-    if values["help"]:
-        return run(["--help"])
+def run(argv: list[str]) -> int:
+    return args.run_group(argv, "wayfinder", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
+                          "Run the wayfinder command your skill names.", dispatch)
+
+
+def dispatch(sub: str, values: dict[str, Any]) -> int:
     args.require(values, ["effort", "skill-dir"], usage())
     return start(values["effort"], values["skill-dir"])
 
 
-def templates(skill_dir):
+def templates(skill_dir: str) -> list[str]:
     """The absolute paths of both templates, or a Failure naming the one
     missing."""
     found = []
@@ -101,7 +96,7 @@ def templates(skill_dir):
     return found
 
 
-def find_wayfinder(root):
+def find_wayfinder(root: str) -> str | None:
     """The path of wayfinder/SKILL.md under the first root that holds one,
     or None."""
     for base, relative in ROOTS:
@@ -112,24 +107,19 @@ def find_wayfinder(root):
     return None
 
 
-def briefing(effort, overview, handoff):
+def briefing(effort: str, overview: str, handoff: str) -> list[str]:
     return [line.replace("<effort>", effort).replace("<path to overview-template.md>", overview)
             .replace("<path to handoff-template.md>", handoff) for line in BRIEFING]
 
 
-def check_effort(effort):
-    if not effort or EFFORT.match(effort) is None:
-        raise Failure(
-            "Not an effort slug: %s. An effort slug matches %s: lowercase letters and digits, in words joined by "
-            "single hyphens or dots." % (effort, EFFORT_PATTERN),
-            "Ask the user for an effort slug that matches %s, then run the command again with it." % EFFORT_PATTERN,
-        )
+def check_effort(effort: str) -> None:
+    args.check_slug(effort, EFFORT_PATTERN, "an effort slug", "an effort slug", "hyphens or dots")
 
 
-def start(effort, skill_dir):
+def start(effort: str, skill_dir: str) -> int:
     check_effort(effort)
     overview, handoff = templates(skill_dir)
-    root = loopfile.project_root(os.getcwd())
+    root = gitcmd.project_root(os.getcwd())
     out = Output()
     out.line("Effort: %s" % effort)
     map_path = ".scratch/%s/map.md" % effort

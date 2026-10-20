@@ -7,21 +7,18 @@ FIXES.md. coder check lints FIXES.md and the working tree and, with --write,
 records where the round ends and prints the Coder's Doorbell line.
 """
 
+from __future__ import annotations
+
 import os
 import re
-import subprocess
 import textwrap
+from typing import Any, Callable
 
-from . import args, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
-from .out import Failure, Output, refused
+from . import args, fixes, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
+from .out import Failure, Output
 
 SUBCOMMANDS = ("start", "check")
-NAME = "FIXES.md"
 TICKET_FILE = re.compile(r"^([0-9]+)-.+\.md$")
-TICKET_HEADING = re.compile(r"^## Ticket ([0-9]+): (.+?)\s*$")
-FINDING_HEADING = re.compile(r"^## Finding ([0-9]+)\. (\S+): (.+?)\s*$")
-TICKET_LABELS = ("Files", "Change", "Verified", "Deviations", "Why")
-FINDING_LABELS = ("Answer", "Why")
 ANSWERS = ("fixed", "pushback")
 
 HELP = [
@@ -46,23 +43,17 @@ HELP = [
 SPEC = {"slug": args.VALUE, "write": args.FLAG}
 
 
-def usage():
+def usage() -> str:
     return "%s coder --help" % places.command()
 
 
-def run(argv):
-    if not argv or argv[0] in ("-h", "--help", "help"):
-        out = Output()
-        for line in HELP:
-            out.line(line)
-        return out.finish("Run the coder command your skill or the last Next: line names.")
-    sub, rest = argv[0], argv[1:]
-    if sub not in SUBCOMMANDS:
-        args.unknown_command("coder " + sub, usage())
-    values = args.parse(rest, SPEC, usage())
-    if values["help"]:
-        return run(["--help"])
-    loop = loopfile.find(loopfile.project_root(os.getcwd()), values["slug"])
+def run(argv: list[str]) -> int:
+    return args.run_group(argv, "coder", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
+                          "Run the coder command your skill or the last Next: line names.", dispatch)
+
+
+def dispatch(sub: str, values: dict[str, Any]) -> int:
+    loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     state = loopstate.open_loop(loop, "coder %s" % sub)
     round_ = Round(loop, state)
     if sub == "start":
@@ -72,67 +63,66 @@ def run(argv):
 
 # --- git ---
 
-def git(root, *argv):
-    """(exit code, stdout as text) of a git command run in root."""
-    try:
-        proc = subprocess.run(["git"] + list(argv), cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              env=gitcmd.environment())
-    except OSError as error:
-        raise Failure("git could not run: %s" % error, "Tell the user git is needed for the Coder's round, and stop.")
-    return proc.returncode, textfile.decode(proc.stdout).strip(), textfile.decode(proc.stderr).strip()
+def git(root: str, *argv: str) -> gitcmd.Call:
+    """The finished gitcmd.Call of a git command run in root; refuses when git
+    cannot run."""
+    call = gitcmd.git(root, *argv)
+    if call.code is None:
+        raise Failure("git could not run: %s" % call.err, "Tell the user git is needed for the Coder's round, and stop.")
+    return call
 
 
-def head(root):
-    code, sha, _ = git(root, "rev-parse", "HEAD")
-    if code != 0 or not sha:
+def head(root: str) -> str:
+    call = git(root, "rev-parse", "HEAD")
+    sha = call.out.strip()
+    if not call.ok or not sha:
         raise Failure("This repository has no commit, so the round has no start.",
                       "Tell the user the repository needs a first commit on the base branch, and stop.")
     return sha
 
 
-def branch_exists(root, branch):
-    code, _, _ = git(root, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)
-    return code == 0
+def branch_exists(root: str, branch: str) -> bool:
+    return git(root, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch).ok
 
 
-def dirty(root):
+def dirty(root: str) -> list[str]:
     """The tracked files with uncommitted changes."""
-    code, text, error = git(root, "diff", "--name-only", "HEAD")
-    if code != 0:
-        raise Failure("git diff failed: %s" % error, "Tell the user git diff fails in this repository, and stop.")
-    return [line.strip() for line in text.split("\n") if line.strip()]
+    call = git(root, "diff", "--name-only", "HEAD")
+    if not call.ok:
+        raise Failure("git diff failed: %s" % call.err.strip(), "Tell the user git diff fails in this repository, and stop.")
+    return [line.strip() for line in call.out.strip().split("\n") if line.strip()]
 
 
 class Round:
     """The code round a command acts on."""
 
-    def __init__(self, loop, state):
+    def __init__(self, loop: loopfile.Loop, state: loopstate.State) -> None:
         self.loop = loop
         self.state = state
         self.base = loop.setting("Base branch")[0]
         self.branch = loop.setting("Feature branch")[0]
-        self.file = os.path.join(loop.dir, NAME)
-        self.relative = "%s/%s" % (loop.tracker, NAME)
+        self.file = os.path.join(loop.dir, fixes.NAME)
+        self.relative = "%s/%s" % (loop.tracker, fixes.NAME)
         newest = state.code_round()
         self.newest = newest
         self.started = bool(newest) and state.code_mark("end", newest) is None
         self.number = newest if self.started else newest + 1
         previous = state.review("code", self.number - 1) if self.number > 1 else None
         self.previous = previous
-        self.open_numbers = list(previous.open) if previous else []
+        self.open_numbers: list[int] = list(previous.open) if previous else []
 
-    def command(self, sub, write=True):
+    def command(self, sub: str, write: bool = True) -> str:
         return "%s coder %s --slug %s%s" % (places.command(), sub, self.loop.slug, " --write" if write else "")
 
-    def path(self, name):
+    def path(self, name: str) -> str:
         return "%s/%s" % (self.loop.tracker, name)
 
-    def read_list(self):
+    def read_list(self) -> list[str]:
         names = (["CODEREVIEW.md"] if self.number > 1 else []) + ["spec.md", "issues/"]
         return [self.path(name) for name in names]
 
 
-def tickets(loop):
+def tickets(loop: loopfile.Loop) -> list[tuple[str, str]]:
     """(NN, file name) of every Ticket file, in NN order."""
     directory = os.path.join(loop.dir, "issues")
     try:
@@ -149,7 +139,7 @@ def tickets(loop):
 
 # --- start ---
 
-def precondition(round_):
+def precondition(round_: Round) -> None:
     """Refuse a round its loop is not ready for."""
     state = round_.state
     if round_.started:
@@ -178,11 +168,11 @@ def precondition(round_):
         )
 
 
-def to_branch(round_, out, write=True):
+def to_branch(round_: Round, out: Output, write: bool = True) -> bool:
     """Put the Coder on the feature branch, or refuse naming both branches.
     Without write, switch nothing and return whether a switch is owed."""
     root = round_.loop.root
-    current = loopfile.current_branch(root)
+    current = gitcmd.current_branch(root)
     if current == round_.branch:
         out.line("On the feature branch %s." % round_.branch)
         return False
@@ -200,13 +190,14 @@ def to_branch(round_, out, write=True):
             out.line("Would create the feature branch %s from %s and switch to it." % (round_.branch, round_.base))
         return True
     if branch_exists(root, round_.branch):
-        code, _, error = git(root, "checkout", "-q", round_.branch)
+        call = git(root, "checkout", "-q", round_.branch)
         verb = "Switched to the feature branch %s." % round_.branch
     else:
-        code, _, error = git(root, "checkout", "-q", "-b", round_.branch)
+        call = git(root, "checkout", "-q", "-b", round_.branch)
         verb = "Created the feature branch %s from %s and switched to it." % (round_.branch, round_.base)
-    if code != 0:
-        if gitcmd.is_refusal(code, error):
+    if not call.ok:
+        error = call.err.strip()
+        if call.refused:
             raise Failure(
                 "git could not switch to %s: %s" % (round_.branch, error),
                 "A sandbox refused git. Rerun %s outside the sandbox, the way your Harness grants that; when "
@@ -221,7 +212,7 @@ def to_branch(round_, out, write=True):
     return False
 
 
-def ticket_guidance():
+def ticket_guidance() -> list[str]:
     return textwrap.wrap(
         "<!-- VDD: the VDD tool wrote this frame, and `coder check` reads it. Under each Ticket fill Files, "
         "Change and Verified. Verified is the result of each check you ran, never its output. Add Deviations: "
@@ -229,7 +220,7 @@ def ticket_guidance():
         "comment when the file passes. -->", 76, break_long_words=False, break_on_hyphens=False)
 
 
-def finding_guidance():
+def finding_guidance() -> list[str]:
     return textwrap.wrap(
         "<!-- VDD: the VDD tool wrote this frame, and `coder check` reads it. Under each finding set Answer to "
         "`fixed` or `pushback`. Why is required for pushback, and optional for fixed: write it when your fix "
@@ -237,7 +228,7 @@ def finding_guidance():
         "comment when the file passes. -->", 76, break_long_words=False, break_on_hyphens=False)
 
 
-def open_findings(round_):
+def open_findings(round_: Round) -> list[tuple[int, str, str]]:
     """(number, severity, reference) of every finding the last review left
     open, from CODEREVIEW.md's headings, else carried-code.md's."""
     found = {}
@@ -258,7 +249,7 @@ def open_findings(round_):
     return [found[n] for n in round_.open_numbers]
 
 
-def skeleton(round_):
+def skeleton(round_: Round) -> list[str]:
     lines = ["# Fixes, round %d" % round_.number, ""]
     if round_.number == 1:
         lines += ticket_guidance()
@@ -272,7 +263,7 @@ def skeleton(round_):
     return lines
 
 
-def start(round_, write):
+def start(round_: Round, write: bool) -> int:
     precondition(round_)
     if round_.number == 1 and not tickets(round_.loop):
         raise Failure(
@@ -298,13 +289,8 @@ def start(round_, write):
         lines = skeleton(round_)
         to_branch(round_, out)
         sha = head(round_.loop.root)
-        try:
-            textfile.write(round_.file, ("\n".join(lines) + "\n").encode("utf-8"))
-        except OSError as error:
-            raise refused(
-                "Could not write %s: %s" % (round_.relative, error),
-                "Otherwise tell the user FIXES.md cannot be written, and stop.",
-            )
+        textfile.write_or_refuse(round_.file, "\n".join(lines) + "\n", round_.relative,
+                                 "Otherwise tell the user FIXES.md cannot be written, and stop.")
         round_.state.append("code %d start %s" % (round_.number, sha))
         out.line("Wrote the frame of %s." % round_.relative)
     out.line("Round %d starts at %s." % (round_.number, sha))
@@ -323,50 +309,12 @@ def start(round_, write):
 
 # --- check ---
 
-class Entry:
-    """One "##" entry of FIXES.md and its labels."""
+def lint(round_: Round, parsed: workfile.Parsed) -> list[str]:
+    problems: list[tuple[int, str]] = []
 
-    def __init__(self, heading):
-        self.heading = heading
-        self.body = []
-
-    def labels(self, names):
-        """label -> (joined text, Line): the label line plus every line after
-        it up to the next label or heading, joined with single spaces."""
-        found = {}
-        current = None
-        for line in self.body:
-            label = workfile.label_of(line, names)
-            if label:
-                current = [line.text[len(label) + 1:].strip(), line]
-                if label not in found:
-                    found[label] = current
-                continue
-            if current is not None and line.frame and line.text.strip():
-                current[0] = (current[0] + " " + line.text.strip()).strip()
-        return dict((label, tuple(value)) for label, value in found.items())
-
-
-def entries(parsed):
-    out = []
-    current = None
-    for line in parsed.lines:
-        if line.frame and line.text.startswith("## "):
-            current = Entry(line)
-            out.append(current)
-        elif line.frame and line.text.startswith("# "):
-            current = None
-        elif current is not None:
-            current.body.append(line)
-    return out
-
-
-def lint(round_, parsed):
-    problems = []
-
-    def at(line, text):
-        problems.append((line.number if line else 0, "%s line %d: %s" % (NAME, line.number, text) if line
-                         else "%s: %s" % (NAME, text)))
+    def at(line: workfile.Line | None, text: str) -> None:
+        problems.append((line.number if line else 0, "%s line %d: %s" % (fixes.NAME, line.number, text) if line
+                         else "%s: %s" % (fixes.NAME, text)))
 
     title = "# Fixes, round %d" % round_.number
     if parsed.title is None:
@@ -375,7 +323,7 @@ def lint(round_, parsed):
         at(parsed.title, "the title is \"%s\", as the tool wrote it." % title)
     if parsed.unclosed is not None:
         at(parsed.unclosed, workfile.unclosed_text(parsed.unclosed))
-    found = entries(parsed)
+    found = fixes.entries(parsed)
     if round_.number == 1:
         lint_tickets(round_, found, at)
     else:
@@ -383,10 +331,10 @@ def lint(round_, parsed):
     return [text for _, text in sorted(problems, key=lambda p: p[0])]
 
 
-def lint_tickets(round_, found, at):
+def lint_tickets(round_: Round, found: list[fixes.Entry], at: Callable[[workfile.Line | None, str], None]) -> None:
     by_number = {}
     for entry in found:
-        match = TICKET_HEADING.match(entry.heading.text)
+        match = fixes.TICKET_HEADING.match(entry.heading.text)
         if not match:
             at(entry.heading, "\"%s\" is not an entry of this file. An entry is \"## Ticket <NN>: <file name>\", "
                "as the tool wrote it." % entry.heading.text)
@@ -398,7 +346,7 @@ def lint_tickets(round_, found, at):
             at(None, "Ticket %s's entry \"## Ticket %s: %s\" is missing. Put it back and fill it in: every "
                "Ticket gets an entry." % (number, number, name))
             continue
-        labels = entry.labels(TICKET_LABELS)
+        labels = entry.labels(fixes.TICKET_LABELS)
         for label in ("Files", "Change", "Verified"):
             text, line = labels.get(label, ("", None))
             if line is None:
@@ -410,10 +358,10 @@ def lint_tickets(round_, found, at):
                 at(line, "Ticket %s's %s: is empty. Write %s." % (number, label, fix))
 
 
-def lint_findings(round_, found, at):
+def lint_findings(round_: Round, found: list[fixes.Entry], at: Callable[[workfile.Line | None, str], None]) -> None:
     by_number = {}
     for entry in found:
-        match = FINDING_HEADING.match(entry.heading.text)
+        match = fixes.FINDING_HEADING.match(entry.heading.text)
         if not match:
             at(entry.heading, "\"%s\" is not an entry of this file. An entry is \"## Finding <n>. <severity>: "
                "<reference>\", as the tool wrote it." % entry.heading.text)
@@ -429,7 +377,7 @@ def lint_findings(round_, found, at):
             at(None, "finding %d's entry is missing. Put back \"%s\" as the tool wrote it and answer it: every "
                "open finding gets an entry." % (number, headings[number]))
             continue
-        labels = entry.labels(FINDING_LABELS)
+        labels = entry.labels(fixes.FINDING_LABELS)
         answer, line = labels.get("Answer", ("", None))
         if line is None:
             at(entry.heading, "finding %d has no Answer: line. Write \"Answer: fixed\" or \"Answer: pushback\" "
@@ -444,7 +392,7 @@ def lint_findings(round_, found, at):
                % number)
 
 
-def check(round_, write):
+def check(round_: Round, write: bool) -> int:
     if not round_.started:
         if round_.newest and round_.state.review("code", round_.newest) is None:
             out = Output()
@@ -456,7 +404,7 @@ def check(round_, write):
             "Run %s first." % round_.command("start"),
         )
     root = round_.loop.root
-    current = loopfile.current_branch(root)
+    current = gitcmd.current_branch(root)
     if current != round_.branch:
         raise Failure(
             "The checked-out branch is %s, not the feature branch %s, so the round's end cannot be read. Nothing "
@@ -481,21 +429,16 @@ def check(round_, write):
                       "Fix the lines above, then run %s again." % round_.command("check", write))
     out = Output()
     if not write:
-        out.line("%s passes: round %d." % (NAME, round_.number))
+        out.line("%s passes: round %d." % (fixes.NAME, round_.number))
         return out.finish("Run %s" % round_.command("check"))
     tip = head(root)
     cleaned = workfile.squeeze(workfile.without_guides(parsed.texts))
-    try:
-        textfile.write(round_.file, ("\n".join(cleaned) + "\n").encode("utf-8"))
-    except OSError as error:
-        raise refused(
-            "Could not write %s: %s" % (round_.relative, error),
-            "Otherwise tell the user FIXES.md cannot be written, and stop.",
-        )
+    textfile.write_or_refuse(round_.file, "\n".join(cleaned) + "\n", round_.relative,
+                             "Otherwise tell the user FIXES.md cannot be written, and stop.")
     if round_.number == 1:
         recap.write(round_.loop, round_.state, {"Tickets": recap_tickets(workfile.Parsed("\n".join(cleaned)))})
     round_.state.append("code %d end %s" % (round_.number, tip))
-    out.line("%s: round %d checked and written." % (NAME, round_.number))
+    out.line("%s: round %d checked and written." % (fixes.NAME, round_.number))
     out.line("Round %d ends at %s." % (round_.number, tip))
     if round_.number == 1:
         out.line("Copied the Ticket entries to %s." % round_.path(recap.NAME))
@@ -503,7 +446,7 @@ def check(round_, write):
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
 
 
-def start_gone(round_):
+def start_gone(round_: Round) -> str | None:
     """The refusal for a round whose recorded start is no longer in HEAD's
     history, or None. The fold after the code Sign-off reads every round's
     recorded end; an amend, rebase or reset of an earlier round's commit
@@ -511,17 +454,16 @@ def start_gone(round_):
     start = round_.state.code_mark("start", round_.number)
     if not start:
         return None
-    code, _, _ = git(round_.loop.root, "merge-base", "--is-ancestor", start, "HEAD")
-    if code == 0:
+    if git(round_.loop.root, "merge-base", "--is-ancestor", start, "HEAD").ok:
         return None
     return ("Round %d started at %s, and that commit is no longer in %s's history: an earlier commit was amended, "
             "rebased or reset. Bring the earlier commits back with `git reset --soft %s`, which keeps your "
             "changes, then commit the change as a new commit." % (round_.number, start, round_.branch, start))
 
 
-def recap_tickets(parsed):
+def recap_tickets(parsed: workfile.Parsed) -> list[str]:
     lines = []
-    for entry in entries(parsed):
+    for entry in fixes.entries(parsed):
         if lines:
             lines.append("")
         lines.append("#" + entry.heading.text)

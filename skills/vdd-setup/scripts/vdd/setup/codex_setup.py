@@ -7,12 +7,18 @@ command with any directory and its timeout, and leaves every other key, group
 and handler in place and order, an emptied Stop list included.
 """
 
+from __future__ import annotations
+
 import difflib
 import json
 import os
 import re
+from typing import TYPE_CHECKING, Any
 
-from . import places, stores, textfile
+from .. import places, stores, textfile
+
+if TYPE_CHECKING:
+    from .setup import Setup
 
 TIMEOUT = 2760
 OLD_SH = re.compile(r'^sh "[^"]*/vdd-codex-stop\.sh" \|\| true$')
@@ -24,11 +30,11 @@ TRUST_KEY = re.compile(r"^vdd@[^:]+:plugin\.json#hooks\[0\]:stop:0:0$")
 DISABLED = re.compile(r"\benabled\s*=\s*false\b")
 
 
-def codex_home():
+def codex_home() -> str:
     return os.environ.get("CODEX_HOME") or os.path.join(places.home(), ".codex")
 
 
-def is_old_vdd(handler):
+def is_old_vdd(handler: Any) -> bool:
     """A handler a released VDD wrote: one of the two 0.15 command templates
     with any directory, timeout 2760, and no other command form."""
     if not isinstance(handler, dict) or handler.get("timeout") != TIMEOUT:
@@ -44,33 +50,32 @@ def is_old_vdd(handler):
     return False
 
 
-def names_vdd(handler):
+def names_vdd(handler: Any) -> bool:
     if not isinstance(handler, dict):
         return False
     return any(
-        isinstance(handler.get(k), str) and "vdd-codex-stop" in handler.get(k)
-        for k in ("command", "commandWindows", "command_windows")
+        isinstance(value, str) and "vdd-codex-stop" in value
+        for value in (handler.get(k) for k in ("command", "commandWindows", "command_windows"))
     )
 
 
 class Migration:
     """The planned edit of hooks.json."""
 
-    def __init__(self, path):
+    def __init__(self, path: str) -> None:
         self.path = path
-        self.raw = None
-        self.before = None
-        self.after = None
-        self.error = None
+        self.raw: bytes | None = None
+        self.before = ""  # the file's text, once read
+        self.after = ""  # the file's planned text, once a removal is planned
+        self.error: str | None = None
         self.removed = 0
         self.shifted = False
-        self.others = []  # handlers naming vdd-codex-stop that stay
+        self.others: list[tuple[str, Any]] = []  # handlers naming vdd-codex-stop that stay
         self.plan()
 
-    def plan(self):
+    def plan(self) -> None:
         try:
-            with open(self.path, "rb") as handle:
-                raw = handle.read()
+            raw = textfile.read_bytes(self.path, 2.0)
         except FileNotFoundError:
             return
         except OSError as error:
@@ -118,13 +123,13 @@ class Migration:
             return
         self.after = layout(data)
 
-    def relaid(self):
+    def relaid(self) -> bool:
         """Whether the file's bytes differ from the two-space, LF, BOM-less
         UTF-8 Setup writes, so the write changes more bytes than the diff
         shows."""
         return layout(json.loads(self.before)).encode("utf-8") != self.raw
 
-    def diff(self, label):
+    def diff(self, label: str) -> list[str]:
         """VDD's removal alone: the file as it parses, in the layout Setup
         writes, against the result."""
         return list(
@@ -138,26 +143,25 @@ class Migration:
         )
 
 
-def layout(data):
+def layout(data: Any) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
-def trust_state(path):
+def trust_state(path: str) -> str:
     """present, disabled, absent or unknown: whether ~/.codex/config.toml
     holds the hooks.state key of VDD's hook, and whether that key says
     enabled = false (a hook switched off in /hooks keeps its key). A narrow
     standard-library read of TOML table headers and dotted keys; anything it
     cannot follow is unknown."""
     try:
-        with open(path, "rb") as handle:
-            text = textfile.decode(handle.read())
+        text = textfile.decode(textfile.read_bytes(path, 2.0))
     except FileNotFoundError:
         return "absent"
     except OSError:
         return "unknown"
-    table = []
+    table: list[str] = []
     found = disabled = False
-    pending = None  # an open multi-line string or array
+    pending: str | tuple[str, int] | None = None  # an open multi-line string or array
     for line in text.split("\n"):
         if pending:
             pending = continue_value(line, pending)
@@ -169,20 +173,20 @@ def trust_state(path):
             continue
         if stripped.startswith("["):
             inner = stripped[2:] if stripped.startswith("[[") else stripped[1:]
-            path, rest = parse_key(inner)
-            if path is None:
+            keys, rest = parse_key(inner)
+            if keys is None:
                 return "unknown"
             close = "]]" if stripped.startswith("[[") else "]"
             if not rest.strip().startswith(close):
                 return "unknown"
-            table = path
+            table = keys
             found = found or has_key(table)
             continue
-        path, rest = parse_key(stripped)
-        if path is None or not rest.lstrip().startswith("="):
+        keys, rest = parse_key(stripped)
+        if keys is None or not rest.lstrip().startswith("="):
             return "unknown"
         value = rest.lstrip()[1:].strip()
-        full = table + path
+        full = table + keys
         pending = open_value(value)
         if pending == "bad":
             return "unknown"
@@ -203,14 +207,14 @@ def trust_state(path):
     return "present" if found else "absent"
 
 
-def has_key(path):
+def has_key(path: list[str]) -> bool:
     return len(path) >= 3 and path[0] == "hooks" and path[1] == "state" and TRUST_KEY.match(path[2]) is not None
 
 
-def parse_key(text):
+def parse_key(text: str) -> tuple[list[str] | None, str]:
     """A dotted TOML key at the start of text: (segments, the rest), or
     (None, text) when it is not one."""
-    segments = []
+    segments: list[str] = []
     i = 0
     n = len(text)
     while True:
@@ -218,7 +222,7 @@ def parse_key(text):
             i += 1
         if i < n and text[i] == '"':
             j = i + 1
-            value = []
+            value: list[str] = []
             while j < n and text[j] != '"':
                 if text[j] == "\\" and j + 1 < n:
                     value.append(text[j + 1])
@@ -250,7 +254,7 @@ def parse_key(text):
         return segments, text[i:]
 
 
-def open_value(value):
+def open_value(value: str) -> str | tuple[str, int] | None:
     """None when the value ends on its line, or what it leaves open."""
     if value.startswith('"""') and value.count('"""') == 1:
         return '"""'
@@ -264,8 +268,8 @@ def open_value(value):
     return None
 
 
-def continue_value(line, pending):
-    if pending in ('"""', "'''"):
+def continue_value(line: str, pending: str | tuple[str, int]) -> str | tuple[str, int] | None:
+    if isinstance(pending, str):
         return None if pending in line else pending
     depth = pending[1] + bracket_depth(line)
     if depth < 0:
@@ -273,7 +277,7 @@ def continue_value(line, pending):
     return ("[", depth) if depth else None
 
 
-def bracket_depth(text):
+def bracket_depth(text: str) -> int:
     depth = 0
     quote = None
     i = 0
@@ -297,7 +301,7 @@ def bracket_depth(text):
     return depth
 
 
-def run(setup):
+def run(setup: Setup) -> None:
     """Setup's Codex steps, reporting into setup.out and setup.changes."""
     out = setup.out
     home = codex_home()
@@ -329,8 +333,8 @@ def run(setup):
             )
         if setup.write:
             try:
-                textfile.write(hooks_path, migration.after.encode("utf-8"))
-                json.loads(textfile.read(hooks_path))
+                textfile.write_text(hooks_path, migration.after)
+                json.loads(textfile.decode(textfile.read_bytes(hooks_path)))
                 out.line("%s: checked, it parses." % label)
             except (OSError, ValueError) as error:
                 setup.failed.append("hooks.json")

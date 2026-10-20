@@ -1,12 +1,16 @@
 """The setup command: every check Setup makes, as a dry run, then with
 --write the changes it plans."""
 
+from __future__ import annotations
+
 import os
 import re
-import subprocess
+from typing import Any, NoReturn
 
-from . import args, borrowed, codex_setup, gitcmd, install, loopfile, places, stores, textfile
-from .out import Failure, Output, escalate, refused
+from .. import args, gitcmd, loopfile, places, stores, textfile
+from ..harness import Harness
+from ..out import Failure, Output, escalate, refused
+from . import borrowed, codex_setup, install
 
 USAGE_NAME = "setup --help"
 
@@ -47,11 +51,11 @@ SCRATCH_ENTRIES = (".scratch/", "/.scratch/", ".scratch", "/.scratch")
 MIGRATION_URL = "https://github.com/ArchitektApx/Vibe-Driven-Development/blob/master/CHANGELOG.md#migrating-from-014"
 
 
-def usage():
+def usage() -> str:
     return "%s %s" % (places.command(), USAGE_NAME)
 
 
-def run(argv):
+def run(argv: list[str]) -> int:
     values = args.parse(argv, SPEC, usage())
     if values["help"]:
         out = Output()
@@ -60,29 +64,30 @@ def run(argv):
         return out.finish("Run %s setup with the options above, without --write first." % places.command())
     harness = args.harness_of(values, usage())
     args.require(values, ["listed", "glossary-named"], usage())
-    if values["glossary-named"] not in ("yes", "no", "absent"):
-        raise Failure("--glossary-named takes yes, no or absent.", "Run %s for this command's usage." % usage())
+    args.choice(values["glossary-named"], ("yes", "no", "absent"), "--glossary-named takes yes, no or absent.",
+                "Run %s for this command's usage." % usage())
     answer = values["user-answer"]
-    if answer is not None and answer not in ("resolves", "does-not-resolve"):
-        raise Failure("--user-answer takes resolves or does-not-resolve.", "Run %s for this command's usage." % usage())
+    if answer is not None:
+        args.choice(answer, ("resolves", "does-not-resolve"), "--user-answer takes resolves or does-not-resolve.",
+                    "Run %s for this command's usage." % usage())
     return Setup(harness, values).run()
 
 
 class Setup:
-    def __init__(self, harness, values):
+    def __init__(self, harness: Harness, values: dict[str, Any]) -> None:
         self.harness = harness
         self.values = values
-        self.write = values["write"]
+        self.write: bool = values["write"]
         self.cwd = os.getcwd()
         self.out = Output()
-        self.changes = []      # planned or made, one line each
-        self.questions = []    # what the model asks the user before --write
-        self.failed = []       # writes that did not land
-        self.git_too_old = None  # the version found, when git is older than VDD needs
+        self.changes: list[str] = []      # planned or made, one line each
+        self.questions: list[str] = []    # what the model asks the user before --write
+        self.failed: list[str] = []       # writes that did not land
+        self.git_too_old: str | None = None  # the version found, when git is older than VDD needs
 
     # --- the command lines this run names ---
 
-    def command(self, write=None, answer=None):
+    def command(self, write: bool | None = None, answer: str | None = None) -> str:
         parts = [
             places.command(),
             "setup",
@@ -100,20 +105,14 @@ class Setup:
             parts.append("--write")
         return " ".join(parts)
 
-    def require_root(self):
+    def require_root(self) -> None:
         """Refuse a run from below the repository root: every check and every
         write is relative to the working directory."""
-        try:
-            proc = subprocess.run(
-                ["git", "rev-parse", "--show-toplevel"],
-                cwd=self.cwd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-        except OSError:
+        call = gitcmd.git(self.cwd, "rev-parse", "--show-toplevel")
+        if call.code is None:
             return
-        root = textfile.decode(proc.stdout).strip()
-        if proc.returncode != 0 or not root or same_directory(root, self.cwd):
+        root = call.out.strip()
+        if not call.ok or not root or same_directory(root, self.cwd):
             return
         root = os.path.realpath(root)
         raise Failure(
@@ -127,7 +126,7 @@ class Setup:
 
     # --- the run ---
 
-    def run(self):
+    def run(self) -> int:
         self.require_root()
         out = self.out
         mode = "writing" if self.write else "dry run, nothing is changed yet"
@@ -142,7 +141,7 @@ class Setup:
         self.harness_steps()
         return self.finish(verdict)
 
-    def finish(self, verdict):
+    def finish(self, verdict: borrowed.Verdict) -> int:
         out = self.out
         if self.git_too_old:
             return out.finish(
@@ -178,7 +177,7 @@ class Setup:
 
     # --- check 1: the Borrowed skills ---
 
-    def borrowed_skills(self):
+    def borrowed_skills(self) -> borrowed.Verdict:
         out = self.out
         harness = self.harness
         roots = harness.present_roots(self.cwd)
@@ -250,7 +249,7 @@ class Setup:
 
     # --- check 2: the tracker ---
 
-    def tracker(self):
+    def tracker(self) -> None:
         text = textfile.read(os.path.join(self.cwd, "docs", "agents", "issue-tracker.md"))
         if text is None:
             self.out.line("Tracker: docs/agents/issue-tracker.md is missing.")
@@ -272,7 +271,7 @@ class Setup:
 
     # --- check 3: a repository set up before the glossary rename ---
 
-    def glossary_rename_repository(self):
+    def glossary_rename_repository(self) -> None:
         root = self.cwd
         exists = lambda *p: os.path.isfile(os.path.join(root, *p))  # noqa: E731
         domain = textfile.read(os.path.join(root, "docs", "agents", "domain.md")) or ""
@@ -308,7 +307,7 @@ class Setup:
         out.tell("Edit docs/agents/domain.md and %s so they name the new files." % holder)
         out.tell("The full steps: %s" % MIGRATION_URL)
 
-    def setup_section_file(self):
+    def setup_section_file(self) -> str:
         found = []
         for name in ("AGENTS.md", "CLAUDE.md"):
             text = textfile.read(os.path.join(self.cwd, name)) or ""
@@ -320,16 +319,10 @@ class Setup:
 
     # --- check 4: the git repository ---
 
-    def git_repository(self):
-        try:
-            proc = subprocess.run(
-                ["git", "rev-parse", "--is-inside-work-tree"],
-                cwd=self.cwd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            inside = proc.returncode == 0 and proc.stdout.strip() == b"true"
-        except OSError:
+    def git_repository(self) -> None:
+        call = gitcmd.git(self.cwd, "rev-parse", "--is-inside-work-tree")
+        inside = call.ok and call.data.strip() == b"true"
+        if call.code is None:
             self.out.line("Git repository: git is not installed or cannot run.")
             self.out.tell("VDD needs git: install it, then rerun Setup.")
             return
@@ -343,7 +336,7 @@ class Setup:
                 "Ask the user whether to run git init here; on yes, run it with your own tools."
             )
 
-    def git_version(self):
+    def git_version(self) -> None:
         """git 2.40 or newer: the fold at a loop's end needs git merge-tree
         --write-tree --merge-base."""
         found, text = gitcmd.version(self.cwd)
@@ -360,7 +353,7 @@ class Setup:
 
     # --- check 5: .gitignore ---
 
-    def gitignore(self):
+    def gitignore(self) -> None:
         path = os.path.join(self.cwd, ".gitignore")
         try:
             before, after, added, removed = plan_gitignore(path)
@@ -390,7 +383,7 @@ class Setup:
 
     # --- check 6: a Loop file from before this version ---
 
-    def root_loop_file(self):
+    def root_loop_file(self) -> None:
         """A root LOOP.md is a format-1 Loop file: reported with its fix, never
         deleted. loop new is where a loop start stops on it."""
         if not loopfile.has_root_file(self.cwd):
@@ -401,7 +394,7 @@ class Setup:
 
     # --- check 7: the Shared copy of the VDD tool ---
 
-    def shared_copy(self):
+    def shared_copy(self) -> None:
         shared = places.shared_dir()
         try:
             state = install.state(shared)
@@ -425,7 +418,7 @@ class Setup:
             self.failed.append("shared")
             self.out.line("Not changed: the Shared copy of the VDD tool (%s)." % error)
 
-    def refuse_read(self, what, error):
+    def refuse_read(self, what: str, error: OSError) -> NoReturn:
         """Stop the run on a file Setup cannot read, keeping what it printed."""
         raise refused(
             self.out.lines + ["Could not read %s: %s" % (what, error)],
@@ -434,12 +427,12 @@ class Setup:
 
     # --- the Harness's own steps ---
 
-    def harness_steps(self):
+    def harness_steps(self) -> None:
         if self.harness.codex_hook_steps():
             codex_setup.run(self)
 
 
-def quote(value):
+def quote(value: str) -> str:
     if not value or not value.strip():
         return borrowed.NONE_LISTED
     if all(c.isalnum() or c in "-_:,." for c in value):
@@ -447,17 +440,16 @@ def quote(value):
     return "'%s'" % value
 
 
-def same_directory(one, other):
+def same_directory(one: str, other: str) -> bool:
     return os.path.normcase(os.path.realpath(one)) == os.path.normcase(os.path.realpath(other))
 
 
-def plan_gitignore(path):
+def plan_gitignore(path: str) -> tuple[bytes, bytes, list[str], list[str]]:
     """(before, after, added, removed) as bytes and entry lists. A line is
     removed only when the whole line, trimmed of surrounding whitespace,
     equals a retired entry: docs/PLAN.md and !PLAN.md are the user's own."""
     try:
-        with open(path, "rb") as handle:
-            before = handle.read()
+        before = textfile.read_bytes(path, 2.0)
     except FileNotFoundError:
         before = b""
     text = before.decode("utf-8", "surrogateescape")
@@ -467,8 +459,8 @@ def plan_gitignore(path):
         text = text[1:]
     newline = "\r\n" if "\r\n" in text else "\n"
     lines = text.splitlines(True)
-    kept = []
-    removed = []
+    kept: list[str] = []
+    removed: list[str] = []
     for line in lines:
         entry = line.strip()
         if entry in RETIRED:
@@ -476,7 +468,7 @@ def plan_gitignore(path):
             continue
         kept.append(line)
     entries = {line.strip() for line in kept}
-    added = []
+    added: list[str] = []
     if not entries & set(SCRATCH_ENTRIES):
         added.append(".scratch/")
     after = "".join(kept)

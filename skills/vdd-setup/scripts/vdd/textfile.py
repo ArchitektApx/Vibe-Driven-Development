@@ -3,19 +3,24 @@ LF, a leading byte order mark dropped. The default encoding is never relied
 on: on Windows it is the ANSI code page. Writing files: whole, through a
 temporary file in the same directory renamed over the target."""
 
+from __future__ import annotations
+
 import os
 import time
+from typing import Container, Iterable
+
+from .out import Failure, refused
 
 
-def decode(data):
+def decode(data: bytes) -> str:
     text = data.decode("utf-8", "replace")
     if text.startswith("\ufeff"):
         text = text[1:]
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
-def read(path, retry_seconds=0.0):
-    """The file's text, or None when it does not exist.
+def read_bytes(path: str, retry_seconds: float = 0.0) -> bytes:
+    """The file's bytes. Raises OSError, FileNotFoundError included.
 
     With retry_seconds, a PermissionError is retried until that much time has
     passed: on Windows a sharing violation and a denial look alike."""
@@ -23,18 +28,25 @@ def read(path, retry_seconds=0.0):
     while True:
         try:
             with open(path, "rb") as handle:
-                return decode(handle.read())
-        except FileNotFoundError:
-            return None
-        except NotADirectoryError:
-            return None
+                return handle.read()
         except PermissionError:
             if time.monotonic() >= deadline:
                 raise
             time.sleep(0.1)
 
 
-def lines(path, retry_seconds=0.0):
+def read(path: str, retry_seconds: float = 0.0) -> str | None:
+    """The file's text, or None when it does not exist. retry_seconds as in
+    read_bytes."""
+    try:
+        return decode(read_bytes(path, retry_seconds))
+    except FileNotFoundError:
+        return None
+    except NotADirectoryError:
+        return None
+
+
+def lines(path: str, retry_seconds: float = 0.0) -> list[str] | None:
     """The file's lines without line ends, or None when it does not exist."""
     text = read(path, retry_seconds)
     if text is None:
@@ -44,7 +56,7 @@ def lines(path, retry_seconds=0.0):
     return text.split("\n") if text else []
 
 
-def write(path, data):
+def write(path: str, data: bytes) -> None:
     """Write bytes to path whole: a reader sees the old file or the new one.
 
     The rename is retried on PermissionError for two seconds: on Windows a
@@ -68,3 +80,48 @@ def write(path, data):
                 os.remove(temp)
             except OSError:
                 pass
+
+
+def write_text(path: str, text: str) -> None:
+    """write, with text encoded as UTF-8."""
+    write(path, text.encode("utf-8"))
+
+
+def write_refusal(what: str, error: OSError, otherwise: str, extra: Iterable[str] = ()) -> Failure:
+    """The Failure for a write that failed: "Could not write <what>: <error>",
+    then the extra lines. otherwise is its Next: step after the one escalated
+    retry (out.refused)."""
+    return refused(["Could not write %s: %s" % (what, error)] + list(extra), otherwise)
+
+
+def write_or_refuse(path: str, text: str, what: str, otherwise: str, extra: Iterable[str] = ()) -> None:
+    """write_text, or raise write_refusal when the write fails."""
+    try:
+        write_text(path, text)
+    except OSError as error:
+        raise write_refusal(what, error, otherwise, extra)
+
+
+def append(path: str, text: str, header: str = "") -> None:
+    """Append text to path, whole in one write; header goes first when the
+    file is new, missing or empty. Raises OSError when the write fails."""
+    data = text
+    if header and (not os.path.exists(path) or os.path.getsize(path) == 0):
+        data = header + text
+    with open(path, "ab") as handle:
+        handle.write(data.encode("utf-8"))
+
+
+def check_header(path: str, lines: list[str], prefix: str, versions: Container[str]) -> str | None:
+    """The version a file's first line carries after prefix, or None when the
+    file has no such header. Raises the Failure for a version not in versions:
+    this copy of the VDD tool is older than the file."""
+    if not lines or not lines[0].startswith(prefix):
+        return None
+    version = lines[0][len(prefix):].strip()
+    if version not in versions:
+        raise Failure(
+            "%s has format version %s, which this copy of the VDD tool does not know." % (path, version),
+            "Tell the user this copy of the VDD tool is out of date and to rerun Setup.",
+        )
+    return version

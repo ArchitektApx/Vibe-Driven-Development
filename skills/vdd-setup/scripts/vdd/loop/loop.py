@@ -1,10 +1,14 @@
 """The loop command group: the Loop file and the loop's state, written, read,
 changed, closed and reopened only here."""
 
-import os
+from __future__ import annotations
 
-from . import args, loopfile, loopstate, places, preflight, textfile
-from .out import Failure, Output, refused
+import os
+from typing import Any
+
+from .. import args, gitcmd, loopfile, loopstate, places, preflight, signoff, textfile
+from ..harness import Harness
+from ..out import Failure, Output, refused
 
 SUBCOMMANDS = ("new", "aside", "show", "set", "fold", "close", "reopen")
 
@@ -77,25 +81,21 @@ ANSWERS = (("minors", "Minors"), ("pr", "PR"))
 SETTABLE = ANSWERS + (("harness-line", "Harness"),)
 
 
-def usage():
+def usage() -> str:
     return "%s loop --help" % places.command()
 
 
-def run(argv):
-    if not argv or argv[0] in ("-h", "--help", "help"):
-        out = Output()
-        for line in HELP:
-            out.line(line)
-        return out.finish("Run the loop command your skill or the last Next: line names.")
-    sub, rest = argv[0], argv[1:]
-    if sub not in SUBCOMMANDS:
-        args.unknown_command("loop " + sub, usage())
-    values = args.parse(rest, SPEC, usage())
-    if values["help"]:
-        return run(["--help"])
+def run(argv: list[str]) -> int:
+    return args.run_group(argv, "loop", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
+                          "Run the loop command your skill or the last Next: line names.", dispatch)
+
+
+def dispatch(sub: str, values: dict[str, Any]) -> int:
     harness = args.harness_of(values, usage()) if values["harness"] is not None or sub == "new" else None
-    root = loopfile.project_root(os.getcwd())
+    root = gitcmd.project_root(os.getcwd())
     if sub == "new":
+        if harness is None:
+            raise RuntimeError("loop new ran without its Harness.")
         return new(root, values, harness)
     if sub == "aside":
         return aside(root, values)
@@ -105,12 +105,14 @@ def run(argv):
         return close_or_reopen(root, values, sub)
     if sub == "fold":
         args.require(values, ["slug", "harness"], usage())
+        if harness is None:
+            raise RuntimeError("loop fold ran without its Harness.")
         from . import fold
         return fold.run(loopfile.find(root, values["slug"]), harness, values["write"])
     return set_lines(root, values)
 
 
-def check_answers(values, options):
+def check_answers(values: dict[str, Any], options: tuple[tuple[str, str], ...]) -> None:
     for option, name in options:
         value = values.get(option)
         if value is not None and not loopfile.accepted(name, value):
@@ -121,13 +123,13 @@ def check_answers(values, options):
             )
 
 
-def quoted(value):
+def quoted(value: str) -> str:
     return '"%s"' % value if " " in value else value
 
 
 # --- new ---
 
-def new(root, values, harness):
+def new(root: str, values: dict[str, Any], harness: Harness) -> int:
     loopfile.refuse_root(root)
     slug = values["slug"]
     args.require(values, ["slug"], usage())
@@ -136,7 +138,7 @@ def new(root, values, harness):
     out = Output()
     leftover = loopfile.kind(root, slug)
     continuing = check_leftover(slug, leftover, values["leftover"])
-    if leftover == loopfile.OPEN and continuing:
+    if leftover == loopstate.OPEN and continuing:
         out.line("Continuing the open loop %s: every file in .scratch/%s/ stays as it is. Nothing was written."
                  % (slug, slug))
         return out.finish(
@@ -147,7 +149,7 @@ def new(root, values, harness):
         return report_leftover(root, slug, leftover, values["write"], out)
     base = values["base"]
     if not base:
-        base = loopfile.current_branch(root)
+        base = gitcmd.current_branch(root)
         if not base:
             out.line("Base branch: unknown. HEAD is detached, or this is not a git repository, so the tool "
                      "does not guess it.")
@@ -196,8 +198,8 @@ def new(root, values, harness):
     )
 
 
-def questions(values, branch, base):
-    asked = []
+def questions(values: dict[str, Any], branch: str, base: str) -> list[str]:
+    asked: list[str] = []
     if not values["branch"]:
         asked.append(
             "feature branch: The feature branch is %s, the slug itself. Keep it, or name another branch, "
@@ -219,7 +221,7 @@ def questions(values, branch, base):
     return asked
 
 
-def new_command(slug, harness, base, branch, values):
+def new_command(slug: str, harness: Harness, base: str, branch: str, values: dict[str, Any]) -> str:
     parts = [places.command(), "loop new", "--slug", slug, "--harness", harness.name, "--base", base,
              "--branch", branch]
     if values["leftover"]:
@@ -230,22 +232,20 @@ def new_command(slug, harness, base, branch, values):
     return " ".join(parts)
 
 
-def write_new(root, slug, fields, out, continuing=False):
+def write_new(root: str, slug: str, fields: dict[str, str], out: Output, continuing: bool = False) -> int:
     directory = loopfile.tracker_dir(root, slug)
-    new_state = loopfile.needs_new_state(directory)
+    new_state = loopstate.needs_new_state(directory)
     if fields["PR"] == "yes":
         warn_preflight(root, fields["Base branch"], out)
     try:
         loopfile.write(directory, fields)
         if new_state:
-            loopfile.start_state(directory)
+            loopstate.start_state(directory)
         else:
-            loopfile.append_state(directory, loopfile.OPEN)
+            loopstate.append_state(directory, loopstate.OPEN)
     except OSError as error:
-        raise refused(
-            "Could not write the Loop file in %s: %s" % (directory, error),
-            "Otherwise tell the user the Loop file could not be written, and stop.",
-        )
+        raise textfile.write_refusal("the Loop file in %s" % directory, error,
+                                     "Otherwise tell the user the Loop file could not be written, and stop.")
     out.line("Written: .scratch/%s/%s, and the loop is open.%s"
              % (slug, loopfile.NAME, " Every other file there stays." if continuing else ""))
     for name in loopfile.ORDER:
@@ -269,7 +269,7 @@ ANSWER_FRESH = (
 ANSWER_OTHER = "\"Use a different slug\" (loop new with the other slug): every file stays where it is."
 
 
-def check_leftover(slug, leftover, answer):
+def check_leftover(slug: str, leftover: str | None, answer: str | None) -> bool:
     """Whether the user's answer continues the leftover; refuses an answer
     its kind does not allow."""
     if answer is None:
@@ -281,7 +281,7 @@ def check_leftover(slug, leftover, answer):
             "There is no .scratch/%s/ to continue. Nothing was written." % slug,
             "Run the same command without --leftover.",
         )
-    if leftover == loopfile.CLOSED:
+    if leftover == loopstate.CLOSED:
         raise Failure(
             ".scratch/%s/ holds a closed loop, and a finished loop is not continued. Nothing was written." % slug,
             "Ask the user again: start fresh on this slug, or use a different slug.",
@@ -289,7 +289,7 @@ def check_leftover(slug, leftover, answer):
     return True
 
 
-def work_left(root, slug):
+def work_left(root: str, slug: str) -> str:
     """The line naming what of a loop's work a leftover tracker directory
     holds, from what is on disk."""
     directory = loopfile.tracker_dir(root, slug)
@@ -305,11 +305,11 @@ def work_left(root, slug):
     return "It holds %s. Nothing was written." % ", ".join(found)
 
 
-def report_leftover(root, slug, leftover, write, out):
-    if leftover == loopfile.OPEN:
+def report_leftover(root: str, slug: str, leftover: str, write: bool, out: Output) -> int:
+    if leftover == loopstate.OPEN:
         out.line(".scratch/%s/ holds an open loop: an earlier Workflow on this slug that did not finish." % slug)
         answers = [ANSWER_CONTINUE, ANSWER_FRESH % slug, ANSWER_OTHER]
-    elif leftover == loopfile.CLOSED:
+    elif leftover == loopstate.CLOSED:
         out.line(".scratch/%s/ holds a closed loop: an earlier Workflow on this slug that finished." % slug)
         answers = [ANSWER_FRESH % slug, ANSWER_OTHER]
     else:
@@ -320,7 +320,7 @@ def report_leftover(root, slug, leftover, write, out):
     out.line(work_left(root, slug))
     out.line("Question 1, leftover: Answers, in this order: " + " ".join(answers))
     aside_command = "%s loop aside --slug %s --write" % (places.command(), slug)
-    on_continue = "" if leftover == loopfile.CLOSED else " On continue, run the same command with --leftover continue."
+    on_continue = "" if leftover == loopstate.CLOSED else " On continue, run the same command with --leftover continue."
     return out.finish(
         "Ask the user the Question line above, with what each answer does to the files.%s On start fresh, run "
         "%s, then this command again. On a different slug, run loop new with that slug."
@@ -329,7 +329,7 @@ def report_leftover(root, slug, leftover, write, out):
     )
 
 
-def warn_preflight(root, base, out):
+def warn_preflight(root: str, base: str, out: Output) -> None:
     remote, checks = preflight.run(root, base)
     for name, passed, why in checks:
         if passed:
@@ -344,7 +344,7 @@ def warn_preflight(root, base, out):
 
 # --- aside ---
 
-def aside(root, values):
+def aside(root: str, values: dict[str, Any]) -> int:
     loopfile.refuse_root(root)
     args.require(values, ["slug"], usage())
     slug = values["slug"]
@@ -360,7 +360,7 @@ def aside(root, values):
         number += 1
     target = "%s-%d" % (slug, number)
     out = Output()
-    closing = leftover == loopfile.OPEN
+    closing = leftover == loopstate.OPEN
     if not values["write"]:
         out.line("Would move .scratch/%s/ to .scratch/%s/%s." % (
             slug, target, ", closing its open loop first" if closing else ""))
@@ -368,7 +368,7 @@ def aside(root, values):
     directory = loopfile.tracker_dir(root, slug)
     try:
         if closing:
-            loopfile.append_state(directory, loopfile.CLOSED)
+            loopstate.append_state(directory, loopstate.CLOSED)
             for name in loopfile.delete_armed(directory):
                 out.line("Deleted the Codex armed file %s." % name)
             out.line("Closed the loop %s." % slug)
@@ -385,16 +385,14 @@ def aside(root, values):
 
 # --- show ---
 
-def show(root, values):
+def show(root: str, values: dict[str, Any]) -> int:
     loop = loopfile.find(root, values["slug"])
     role = values["role"]
-    if role is not None and role not in loopfile.ROLES:
-        raise Failure(
-            "--role takes one of: %s." % ", ".join(loopfile.ROLES),
-            "Run the command again with your Role's name.",
-        )
+    if role is not None:
+        args.choice(role, loopfile.ROLES, "--role takes one of: %s." % ", ".join(loopfile.ROLES),
+                    "Run the command again with your Role's name.")
     if role == "PR-Author":
-        require_code_sign_off(loop)
+        signoff.require_code_sign_off(loop)
     names = loopfile.ROLES[role] if role else loopfile.IDENTITY + loopfile.SETTINGS
     out = Output()
     out.line("Slug: %s" % loop.slug)
@@ -419,24 +417,9 @@ def show(root, values):
     )
 
 
-def require_code_sign_off(loop):
-    """The PR-Author runs only once the state file records the code
-    Sign-off: an unsigned review has no PR to open yet."""
-    loopfile.refuse_v1(loop, "loop show --role PR-Author")
-    review = loopstate.State(loop.dir).last_review("code")
-    if review is None or not review.signed_off:
-        where = "no code review is recorded" if review is None else "code round %d's review left findings open" % (
-            review.round)
-        raise Failure(
-            "The code Loop is not signed off: %s. The Loop is not finished, so there is no PR to open yet."
-            % where,
-            "Stop, and tell the user the Loop is not finished: the code review has not signed off.",
-        )
-
-
 # --- set ---
 
-def set_lines(root, values):
+def set_lines(root: str, values: dict[str, Any]) -> int:
     if any(values[option] is not None for option in ("feature", "base-branch", "feature-branch", "base", "branch")):
         raise Failure(
             "loop set never changes the Feature:, Base branch: or Feature branch: line: they name the loop and "
@@ -458,21 +441,16 @@ def set_lines(root, values):
         out.line("%s %s: %s" % ("Set:" if values["write"] else "Would set:", name, values[option]))
     if not values["write"]:
         return out.finish("Run the same command with --write.")
-    try:
-        textfile.write(loop.file, ("\n".join(lines) + "\n").encode("utf-8"))
-    except OSError as error:
-        raise refused(
-            "Could not write the Loop file %s: %s" % (loop.relative, error),
-            "Otherwise tell the user the Loop file could not be changed, and stop.",
-        )
+    textfile.write_or_refuse(loop.file, "\n".join(lines) + "\n", "the Loop file %s" % loop.relative,
+                             "Otherwise tell the user the Loop file could not be changed, and stop.")
     return out.finish("Go on as your skill says, passing --slug %s." % loop.slug)
 
 
 # --- close and reopen ---
 
-def close_or_reopen(root, values, sub):
+def close_or_reopen(root: str, values: dict[str, Any], sub: str) -> int:
     loop = loopfile.find(root, values["slug"])
-    target = loopfile.CLOSED if sub == "close" else loopfile.OPEN
+    target = loopstate.CLOSED if sub == "close" else loopstate.OPEN
     out = Output()
     if loop.state() == target:
         out.line("The loop %s is already %s. Nothing was written." % (loop.slug, target))
@@ -481,8 +459,8 @@ def close_or_reopen(root, values, sub):
         out.line("Would mark the loop %s %s." % (loop.slug, target))
         return out.finish("Run the same command with --write.")
     try:
-        loopfile.append_state(loop.dir, target)
-        if target == loopfile.CLOSED:
+        loopstate.append_state(loop.dir, target)
+        if target == loopstate.CLOSED:
             for name in loopfile.delete_armed(loop.dir):
                 out.line("Deleted the Codex armed file %s." % name)
     except OSError as error:
@@ -490,7 +468,7 @@ def close_or_reopen(root, values, sub):
             "Could not change the loop state file in .scratch/%s/: %s" % (loop.slug, error),
             "Otherwise tell the user the loop could not be marked %s, and stop." % target,
         )
-    if target == loopfile.CLOSED:
+    if target == loopstate.CLOSED:
         out.line("Closed: the loop %s. Its files stay in .scratch/%s/ as the record." % (loop.slug, loop.slug))
     else:
         out.line("Reopened: the loop %s is open again." % loop.slug)

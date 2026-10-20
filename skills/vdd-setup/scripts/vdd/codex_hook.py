@@ -5,8 +5,8 @@ Codex wait, .scratch/<slug>/codex-armed-<session id> (the hook string's shell
 guard keeps Python from starting otherwise). It reads the hook input on
 standard input and finds this Session's armed file, which `doorbell wait
 --harness codex` wrote, in any loop's tracker directory: the loop is that
-directory. It claims (deletes) the file, waits on the Doorbell file as `wait`
-does, and on a pending Doorbell or TIMEOUT prints Codex's block decision, so
+directory. It claims the wait with an exclusive marker, deletes the file, waits
+on the Doorbell file as `wait` does, and on a pending Doorbell or TIMEOUT prints Codex's block decision, so
 Codex continues the Session with the reason as its prompt. It reads no Loop
 file: only a Codex wait writes an armed file.
 
@@ -15,16 +15,19 @@ and repeats it without limit. Everything it needs is imported here, at start,
 so a Setup swapping the Shared copy mid-wait cannot mix versions.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import sys
+import time
 
-from . import doorbell, loopfile, places, textfile
+from . import doorbells, loopfile, places, textfile
 from .harness import codex as codex_harness
 from .out import Output
 
 
-def run(argv):
+def run(argv: list[str]) -> int:
     if "--help" in argv or "-h" in argv:
         out = Output()
         out.line("codex-stop: the Codex Stop hook. Codex runs it at a turn end, with the hook input on standard input.")
@@ -36,7 +39,7 @@ def run(argv):
     return 0
 
 
-def hook():
+def hook() -> None:
     cwd = os.getcwd()
     data = sys.stdin.buffer.read() if hasattr(sys.stdin, "buffer") else b""
     try:
@@ -44,7 +47,7 @@ def hook():
     except ValueError:
         return
     session = event.get("session_id") if isinstance(event, dict) else None
-    if not isinstance(session, str) or not doorbell.THREAD_ID.match(session):
+    if not isinstance(session, str) or not doorbells.THREAD_ID.match(session):
         return
     found = armed_files(cwd, session)
     if not found:
@@ -58,27 +61,27 @@ def hook():
         except OSError:
             pass
     _, path, slug = found[-1]
-    claimed = claim(path)
+    claimed = claim(path, os.path.join(os.path.dirname(path), loopfile.CLAIM_PREFIX + session))
     if claimed is None:
         return
     role, count = claimed
-    place = doorbell.Place(cwd, slug)
+    place = doorbells.Place(cwd, slug)
     entry = places.shared_entry()
     harness = codex_harness.HARNESS
-    if doorbell.watch(place, role, floor=count):
+    if doorbells.watch(place, role, floor=count):
         reason = "A Doorbell for the %s is waiting. Next: run %s" % (
-            role, doorbell.take_command(role, harness, slug, entry))
+            role, doorbells.take_command(role, harness, slug, entry))
     else:
-        reason = "TIMEOUT. Next: " + doorbell.timeout_next(role, harness, slug, entry)
+        reason = "TIMEOUT. Next: " + doorbells.timeout_next(role, harness, slug, entry)
     reason = "".join(c for c in reason if ord(c) >= 32 and ord(c) != 127)
     text = json.dumps({"decision": "block", "reason": reason}, ensure_ascii=True)
     sys.stdout.buffer.write((text + "\n").encode("ascii"))
     sys.stdout.buffer.flush()
 
 
-def armed_files(root, session):
+def armed_files(root: str, session: str) -> list[tuple[float, str, str]]:
     """[(modification time, path, slug)] of .scratch/*/codex-armed-<session>."""
-    found = []
+    found: list[tuple[float, str, str]] = []
     scratch = loopfile.scratch(root)
     try:
         names = os.listdir(scratch)
@@ -94,27 +97,61 @@ def armed_files(root, session):
     return found
 
 
-def claim(path):
-    """Take the armed file: rename it away, so of two turn ends racing for it
-    only one gets it, then read and delete it. (Role, count), or None when it
-    is not there or not well formed (it is deleted either way)."""
-    if not os.path.isfile(path):
-        return None
-    taken = "%s.claimed-%d" % (path, os.getpid())
+def claim(path: str, marker: str) -> tuple[str, int] | None:
+    """Take the armed wait: of turn ends racing for it exactly one creates the
+    claim marker, so the others find it there and take nothing. The winner
+    reads the armed file, then deletes it first and the marker second, so a
+    later racer finds no armed file once the marker is gone. (Role, count), or
+    None when another turn end has the wait, the file is gone, cannot be read
+    or is not well formed (a malformed one is deleted). The claimer's own
+    marker outlives the call only when the armed file cannot be deleted, so no
+    later turn end takes the wait again; the next arm clears it."""
     try:
-        os.rename(path, taken)
+        os.close(os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
     except OSError:
         return None
+    keep = False
     try:
-        lines = textfile.lines(taken) or []
-    finally:
         try:
-            os.remove(taken)
+            lines = textfile.lines(path, doorbells.LOCK_RETRY_SECONDS)
         except OSError:
-            pass
-    if len(lines) < 2 or lines[0] != doorbell.ARMED_PREFIX + doorbell.ARMED_VERSION:
+            return None
+        claimed = well_formed(lines)
+        if lines is not None:
+            keep = not removed(path)
+        return claimed
+    finally:
+        if not keep:
+            try:
+                os.remove(marker)
+            except OSError:
+                pass
+
+
+def removed(path: str) -> bool:
+    """Delete path, retrying a PermissionError for LOCK_RETRY_SECONDS: on
+    Windows a program holding the file open refuses the delete. True once the
+    file is gone."""
+    deadline = time.monotonic() + doorbells.LOCK_RETRY_SECONDS
+    while True:
+        try:
+            os.remove(path)
+            return True
+        except FileNotFoundError:
+            return True
+        except PermissionError:
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.1)
+        except OSError:
+            return False
+
+
+def well_formed(lines: list[str] | None) -> tuple[str, int] | None:
+    """(Role, count) of an armed file's lines, or None."""
+    if lines is None or len(lines) < 2 or lines[0] != doorbells.ARMED_PREFIX + doorbells.ARMED_VERSION:
         return None
     parts = lines[1].split()
-    if len(parts) != 2 or parts[0] not in doorbell.ROLES or not parts[1].isdigit():
+    if len(parts) != 2 or parts[0] not in doorbells.ROLES or not parts[1].isdigit():
         return None
     return parts[0], int(parts[1])

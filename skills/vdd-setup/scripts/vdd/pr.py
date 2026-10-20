@@ -7,14 +7,20 @@ from an argument list, never through a shell, and a call a sandbox refused
 is told apart from any other failure.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import re
 import shutil
+from typing import TYPE_CHECKING, Any, Iterable
 
-from . import args, fold, gitcmd, loop as loopcommands, loopfile, loopstate, places, preflight, textfile
+from . import args, gitcmd, loopfile, loopstate, places, preflight, signoff, textfile, workfile
 from .gitcmd import Refused
 from .out import Failure, Output, refused
+
+if TYPE_CHECKING:
+    from .harness import Harness
 
 SUBCOMMANDS = ("check", "open")
 BODY_NAME = "pr-body.md"
@@ -57,41 +63,37 @@ HELP = [
 SPEC = {"slug": args.VALUE, "harness": args.VALUE, "path": args.VALUE, "write": args.FLAG}
 
 
-def usage():
+def usage() -> str:
     return "%s pr --help" % places.command()
 
 
-def run(argv):
-    if not argv or argv[0] in ("-h", "--help", "help"):
-        out = Output()
-        for line in HELP:
-            out.line(line)
-        return out.finish("Run the pr command your skill or the last Next: line names.")
-    sub, rest = argv[0], argv[1:]
-    if sub not in SUBCOMMANDS:
-        args.unknown_command("pr " + sub, usage())
-    values = args.parse(rest, SPEC, usage())
-    if values["help"]:
-        return run(["--help"])
+def run(argv: list[str]) -> int:
+    return args.run_group(argv, "pr", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
+                          "Run the pr command your skill or the last Next: line names.", dispatch)
+
+
+def dispatch(sub: str, values: dict[str, Any]) -> int:
     args.require(values, ["slug", "harness"], usage())
     harness = args.harness_of(values, usage())
-    loop = loopfile.find(loopfile.project_root(os.getcwd()), values["slug"])
+    loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     loopstate.open_loop(loop, "pr %s" % sub)
-    loopcommands.require_code_sign_off(loop)
+    signoff.require_code_sign_off(loop)
     if sub == "open":
         return open_pr(loop, harness, values["path"], values["write"])
     return check(loop, harness)
 
 
-def gh(root, *argv):
-    return gitcmd.run(root, ["gh"] + list(argv), env={"GIT_TERMINAL_PROMPT": "0"}, timeout=TIMEOUT_SECONDS)
+def gh(root: str, *argv: str) -> gitcmd.Call:
+    return gitcmd.run(root, ["gh"] + list(argv), timeout=TIMEOUT_SECONDS)
 
 
-def call_text(call):
+def call_text(call: gitcmd.Call) -> str:
     return " ".join(call.argv[:3])
 
 
-def refusal(call, command, otherwise, what="Nothing was pushed or written; the loop stays open."):
+def refusal(
+    call: gitcmd.Call, command: str, otherwise: str, what: str = "Nothing was pushed or written; the loop stays open.",
+) -> Failure:
     """The Failure for a call a sandbox refused inside the tool; what says
     what happened before it."""
     return Failure(
@@ -101,13 +103,13 @@ def refusal(call, command, otherwise, what="Nothing was pushed or written; the l
     )
 
 
-def check_command(loop, harness):
+def check_command(loop: loopfile.Loop, harness: Harness) -> str:
     return "%s pr check --slug %s --harness %s" % (places.command(), loop.slug, harness.name)
 
 
 # --- the template and the history ---
 
-def template(root):
+def template(root: str) -> str | None:
     """The repository-relative path of the first PR template, or None. Names
     are matched exactly, so a case-insensitive file system finds the name on
     disk, not the one asked for."""
@@ -127,13 +129,13 @@ class History:
     """The merged-PR history: outcome "history", "none" or "unread", the PRs
     (title, body) newest first, and why."""
 
-    def __init__(self, outcome, prs=(), why=""):
+    def __init__(self, outcome: str, prs: Iterable[tuple[str, str]] = (), why: str | None = "") -> None:
         self.outcome = outcome
         self.prs = list(prs)
         self.why = why
 
 
-def history(root):
+def history(root: str) -> History:
     """The history, or Refused."""
     if shutil.which("gh") is None:
         return History("none", why="gh is not on PATH")
@@ -154,16 +156,9 @@ def history(root):
     return History("history", prs)
 
 
-def headings(body):
-    found = []
-    fenced = False
-    for line in body.replace("\r\n", "\n").split("\n"):
-        if line.lstrip().startswith(("```", "~~~")):
-            fenced = not fenced
-            continue
-        if not fenced and HEADING.match(line):
-            found.append(line.strip())
-    return found
+def headings(body: str) -> list[str]:
+    lines = workfile.outside_fences(body.replace("\r\n", "\n").split("\n"))
+    return [line.strip() for line in lines if HEADING.match(line)]
 
 
 # Marks each line of the newest body as quoted data, so a body line such as
@@ -171,7 +166,7 @@ def headings(body):
 BODY_MARK = "| "
 
 
-def print_history(out, found):
+def print_history(out: Output, found: History) -> None:
     if found.outcome == "none":
         out.line("History: none (%s)." % found.why)
         return
@@ -198,17 +193,17 @@ class Path:
     """The path pr check prints: its name, the checks, and the URL of an
     open PR."""
 
-    def __init__(self, name, checks=(), url="", remote=""):
+    def __init__(self, name: str, checks: Iterable[preflight.Check] = (), url: str = "", remote: str = "") -> None:
         self.name = name
         self.checks = list(checks)
         self.url = url
         self.remote = remote
 
-    def failed(self):
+    def failed(self) -> list[preflight.Check]:
         return [check for check in self.checks if not check.passed]
 
 
-def existing_pr(root, branch):
+def existing_pr(root: str, branch: str) -> str | None:
     """The URL of an open PR for the branch, "" for none; Refused on a
     refusal; None when the check fails."""
     result = gh(root, "pr", "list", "--head", branch, "--state", "open", "--json", "url")
@@ -226,7 +221,7 @@ def existing_pr(root, branch):
     return ""
 
 
-def path_of(loop):
+def path_of(loop: loopfile.Loop) -> Path:
     """The Path for the loop's PR: line, or Refused."""
     pr, _ = loop.setting("PR")
     if pr == "manual":
@@ -253,7 +248,7 @@ def path_of(loop):
     return Path(OPEN, found, remote=remote)
 
 
-def print_path(out, path):
+def print_path(out: Output, path: Path) -> None:
     for check in path.checks:
         if check.passed:
             out.line("Preflight, %s, remote %s: passed." % (check.name, path.remote))
@@ -274,7 +269,7 @@ def print_path(out, path):
 
 # --- check ---
 
-def check(loop, harness):
+def check(loop: loopfile.Loop, harness: Harness) -> int:
     root = loop.root
     out = Output()
     for name in ("Base branch", "Feature branch", "PR"):
@@ -296,7 +291,7 @@ def check(loop, harness):
                       "tell the user %s was refused, and stop." % call_text(error.call))
     print_path(out, path)
     if path.name == NO_PR:
-        return out.finish(fold.pr_step(loop))
+        return out.finish(signoff.pr_step(loop))
     return out.finish(
         "Assemble the title and body as your skill's step 3 says and write them to %s/%s, then go on from its "
         "step 4 (the PR: line)." % (loop.tracker, BODY_NAME)
@@ -305,11 +300,11 @@ def check(loop, harness):
 
 # --- open ---
 
-def open_command(loop, harness, path):
+def open_command(loop: loopfile.Loop, harness: Harness, path: str) -> str:
     return "%s pr open --path %s --slug %s --harness %s --write" % (places.command(), path, loop.slug, harness.name)
 
 
-def read_body(loop):
+def read_body(loop: loopfile.Loop) -> tuple[str, str]:
     """(title, body) from pr-body.md, or a Failure naming what is wrong."""
     relative = "%s/%s" % (loop.tracker, BODY_NAME)
     text = textfile.read(os.path.join(loop.dir, BODY_NAME))
@@ -324,7 +319,7 @@ def read_body(loop):
             problem = "%s has no blank second line between the title and the body" % relative
         elif not "\n".join(lines[2:]).strip():
             problem = "%s has no body after the blank line" % relative
-    if problem:
+    if problem or text is None:
         raise Failure(
             "%s. Nothing was pushed." % problem,
             "Write %s with your file tool: the title as the first line, a blank line, then the body, as the user "
@@ -335,13 +330,13 @@ def read_body(loop):
     return title_of(lines[0]), body
 
 
-def title_of(line):
+def title_of(line: str) -> str:
     """The title line as plain text: a Markdown heading's "# " is not part of
     the title."""
     return re.sub(r"^#{1,6}\s+", "", line.strip()).strip()
 
 
-def changed(path, wanted):
+def changed(path: Path, wanted: str) -> str:
     """What the re-check found, for a path other than the one confirmed."""
     if path.name == EXISTING:
         return "a PR is now open for the branch: %s" % path.url
@@ -355,9 +350,9 @@ def changed(path, wanted):
     return "the path is now %s" % path.name
 
 
-def close(loop, out):
+def close(loop: loopfile.Loop, out: Output) -> None:
     try:
-        loopfile.append_state(loop.dir, loopfile.CLOSED)
+        loopstate.append_state(loop.dir, loopstate.CLOSED)
         for name in loopfile.delete_armed(loop.dir):
             out.line("Deleted the Codex armed file %s." % name)
     except OSError as error:
@@ -368,7 +363,7 @@ def close(loop, out):
     out.line("Closed: the loop %s. Its files stay in %s/ as the record." % (loop.slug, loop.tracker))
 
 
-def open_pr(loop, harness, wanted, write):
+def open_pr(loop: loopfile.Loop, harness: Harness, wanted: str, write: bool) -> int:
     if wanted not in (OPEN, PUSH_ONLY):
         raise Failure(
             "--path takes open or push-only: the path pr check printed.",
@@ -402,7 +397,7 @@ def open_pr(loop, harness, wanted, write):
         out.line("Would push %s to %s%s, then close the loop." % (
             branch, path.remote, " and open the PR into %s" % base if wanted == OPEN else ""))
         return out.finish("Run %s" % command)
-    push = gitcmd.run(loop.root, ["git", "push", "-u", path.remote, branch], env=preflight.NO_PROMPT,
+    push = gitcmd.run(loop.root, ["git", "push", "-u", path.remote, branch],
                       timeout=PUSH_TIMEOUT_SECONDS)
     if push.refused:
         raise refusal(push, command, "tell the user git push was refused, and stop.")
@@ -422,7 +417,7 @@ def open_pr(loop, harness, wanted, write):
         return out.finish("Relay the line above and stop.")
     created = gitcmd.run(loop.root, ["gh", "pr", "create", "--head", branch, "--base", base, "--title", title,
                                      "--body-file", "-"], data=body.encode("utf-8"),
-                         env={"GIT_TERMINAL_PROMPT": "0"}, timeout=TIMEOUT_SECONDS)
+                         timeout=TIMEOUT_SECONDS)
     if created.refused:
         raise refusal(created, command, "tell the user gh pr create was refused, and stop.",
                       "%s is pushed; no PR was opened, and the loop stays open." % branch)

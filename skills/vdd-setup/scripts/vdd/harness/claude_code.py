@@ -1,23 +1,25 @@
 """Claude Code."""
 
+from __future__ import annotations
+
 import os
 
 from . import Harness
 from .. import places
-from ..stores import PLUGIN_CACHE, PROJECT, SKILL_STORE, USER, Root, cli_add, cli_update, env
+from ..stores import PLUGIN_CACHE, PROJECT, SKILL_STORE, USER, Root, Store, cli_add, cli_update, env
 
 
 class ClaudeCode(Harness):
     name = "claude-code"
     label = "Claude Code"
 
-    def borrowed_skill(self, skill):
+    def borrowed_skill(self, skill: str) -> str:
         return "/" + skill
 
-    def vdd_skill(self, skill):
+    def vdd_skill(self, skill: str) -> str:
         return "/vdd:" + skill
 
-    def present_roots(self, cwd):
+    def present_roots(self, cwd: str) -> list[Root]:
         # Claude Code moves its user store with CLAUDE_CONFIG_DIR and its
         # plugin directory with CLAUDE_CODE_PLUGIN_CACHE_DIR. The cache root
         # stops at */mattpocock-skills: Claude Code stages a marketplace clone
@@ -31,7 +33,7 @@ class ClaudeCode(Harness):
             Root(os.path.join(plugins, "cache"), PLUGIN_CACHE, USER, self.name, "*/mattpocock-skills"),
         ]
 
-    def route_not_present(self):
+    def route_not_present(self) -> list[str]:
         return [
             "Install Matt Pocock's collection: /plugin marketplace add mattpocock/skills, then "
             "/plugin install mattpocock-skills@mattpocock, then turn on auto-update for the "
@@ -39,7 +41,7 @@ class ClaudeCode(Harness):
             "for every marketplace but Anthropic's own)."
         ]
 
-    def route_present_not_resolvable(self, store):
+    def route_present_not_resolvable(self, store: Store) -> list[str]:
         if store.kind == PLUGIN_CACHE:
             return [
                 "Run claude plugin enable mattpocock-skills@%s from the repository root, then start "
@@ -51,7 +53,7 @@ class ClaudeCode(Harness):
             % cli_add(store.scope)
         ]
 
-    def route_old_collection(self, store):
+    def route_old_collection(self, store: Store | None) -> list[str] | None:
         if store is None:
             return None
         if store.kind == PLUGIN_CACHE and store.first == "claude-plugins-official":
@@ -70,19 +72,19 @@ class ClaudeCode(Harness):
             ]
         return ["Update it: %s" % cli_update(store.scope)]
 
-    def no_hit_continuation(self):
+    def no_hit_continuation(self) -> str:
         return ""
 
-    def respawn_recommendation(self):
+    def respawn_recommendation(self) -> tuple[str | None, str | None]:
         return ("every round", "over 200k")
 
-    def codex_hook_steps(self):
+    def codex_hook_steps(self) -> bool:
         return False
 
-    def orchestrator_launch(self, slug):
+    def orchestrator_launch(self, slug: str) -> str:
         return "run claude in a terminal in this repository, then /vdd:vdd-orchestrator %s in that Session" % slug
 
-    def wait_next(self, role, wait_command, paste_command):
+    def wait_next(self, role: str, wait_command: str, paste_command: str) -> str:
         return (
             "Run this in the background with run_in_background set and a timeout of at least 2760000 ms, "
             "then end your turn: %s" % wait_command

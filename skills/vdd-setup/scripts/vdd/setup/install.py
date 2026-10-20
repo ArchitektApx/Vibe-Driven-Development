@@ -5,24 +5,25 @@ copies the shipped tree into a sibling directory and swaps it in. Every other
 file in the Shared directory stays.
 """
 
+from __future__ import annotations
+
 import os
 import shutil
 
-from . import places
+from .. import places, textfile
 
 CURRENT = "current"
 INSTALL = "install"
 UPDATE = "update"
 
 
-def tree(entry_dir):
+def tree(entry_dir: str) -> dict[str, bytes]:
     """relative path -> bytes for vdd.py and every file under vdd/, bytecode
     excluded. Paths use / on every OS."""
-    files = {}
+    files: dict[str, bytes] = {}
     entry = os.path.join(entry_dir, "vdd.py")
     if os.path.isfile(entry):
-        with open(entry, "rb") as handle:
-            files["vdd.py"] = handle.read()
+        files["vdd.py"] = textfile.read_bytes(entry)
     package = os.path.join(entry_dir, "vdd")
     for directory, dirs, names in os.walk(package):
         dirs[:] = sorted(d for d in dirs if d != "__pycache__")
@@ -31,16 +32,15 @@ def tree(entry_dir):
                 continue
             path = os.path.join(directory, name)
             rel = os.path.relpath(path, entry_dir).replace(os.sep, "/")
-            with open(path, "rb") as handle:
-                files[rel] = handle.read()
+            files[rel] = textfile.read_bytes(path)
     return files
 
 
-def shipped_dir():
+def shipped_dir() -> str:
     return os.path.dirname(places.package_dir())
 
 
-def state(shared):
+def state(shared: str) -> str:
     ours = tree(shipped_dir())
     theirs = tree(shared)
     if ours == theirs:
@@ -50,7 +50,7 @@ def state(shared):
     return UPDATE
 
 
-def unique_dir(parent, prefix):
+def unique_dir(parent: str, prefix: str) -> str:
     """A new, empty directory under parent with a unique name that starts
     with prefix, made with a plain os.mkdir so it inherits parent's ACL. On
     Windows the tempfile module's directory gets a protected ACL that the
@@ -64,13 +64,13 @@ def unique_dir(parent, prefix):
             continue
 
 
-def swap(shared):
+def swap(shared: str) -> None:
     """Copy the shipped tree into a sibling directory of the Shared copy, then
     swap it in. Raises OSError when a write fails."""
     source = shipped_dir()
     os.makedirs(shared, exist_ok=True)
     stage = unique_dir(shared, ".vdd-new-")
-    old = None
+    old: str | None = None
     try:
         for rel in tree(source):
             dest = os.path.join(stage, *rel.split("/"))

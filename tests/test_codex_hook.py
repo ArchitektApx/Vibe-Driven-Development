@@ -8,6 +8,7 @@ loop through the Session's armed file and reads no Loop file.
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import threading
@@ -268,8 +269,8 @@ class CodexHookTest(ToolTest):
         self.assertSilent(self.hook(stop_input(ID)))
 
     def test_two_turn_ends_racing_claim_the_arm_once(self):
-        """Two turn ends can race for the same armed file; the claim renames it
-        away first, so only one of them waits. The 0.15 hook deleted the armed
+        """Two turn ends can race for the same armed file; only one of them
+        creates the claim marker, so only one of them waits. The 0.15 hook deleted the armed
         file before it waited (e89c906), which left a window between its read
         and its delete."""
         self.loop()
@@ -285,6 +286,79 @@ class CodexHookTest(ToolTest):
         blocks = [r for r in results if r.data]
         self.assertEqual(len(blocks), 1, results)
         self.assertTrue(all(r.code == 0 for r in results))
+
+    def test_a_marker_a_killed_hook_left_blocks_no_later_wait(self):
+        """A hook killed between its claim and its cleanup leaves its claim
+        marker behind; with the marker kept, every later wait of the Session
+        was taken as already claimed and the Doorbell was never waited for.
+        Arming a wait clears the marker, so the next turn end blocks once."""
+        self.loop()
+        self.armed(ID)
+        marker = self.box.path(TRACKER, "codex-claim-" + ID)
+        self.box.write(os.path.join(TRACKER, "codex-claim-" + ID), "")
+        self.ring("Orchestrator", P1)
+        armed = self.box.run("doorbell", "wait", "--role", "Orchestrator", "--harness", "codex", "--slug", "feat",
+                             env=self.box.env(CODEX_THREAD_ID=ID))
+        self.assertEqual(armed.code, 0, armed)
+        self.assertFalse(os.path.exists(marker))
+        self.assertBlock(self.hook(stop_input(ID)))
+        self.assertTrue(self.gone(ID))
+        self.assertFalse(os.path.exists(marker))
+        self.assertSilent(self.hook(stop_input(ID)))
+
+    def test_a_turn_end_finding_the_wait_claimed_takes_nothing(self):
+        """The claim marker says another turn end has this wait: this one
+        exits 0 without blocking and without touching the armed file, so the
+        wait is never taken by two turn ends."""
+        self.loop()
+        self.armed(ID)
+        self.box.write(os.path.join(TRACKER, "codex-claim-" + ID), "")
+        self.ring("Orchestrator", P1)
+        before = self.snapshot()
+        self.assertSilent(self.hook(stop_input(ID)), before)
+
+    def pin(self, path):
+        """Make deleting path fail, as a program holding it open does on
+        Windows, and return the call that undoes it."""
+        if WINDOWS:
+            return open(path, "rb").close
+        os.chflags(path, stat.UF_IMMUTABLE)
+        return lambda: os.chflags(path, 0)
+
+    @unittest.skipUnless(WINDOWS or hasattr(os, "chflags"), "a file that refuses its delete needs Windows or chflags")
+    def test_an_armed_file_that_cannot_be_deleted_is_claimed_once(self):
+        """The claim removed its marker even when the armed file outlived it,
+        so the next turn end claimed the same wait again and blocked for the
+        whole timeout on a Doorbell already taken. The marker now stays until
+        the next arm."""
+        self.loop()
+        self.armed(ID)
+        self.ring("Orchestrator", P1)
+        marker = self.box.path(TRACKER, "codex-claim-" + ID)
+        release = self.pin(self.box.path(TRACKER, "codex-armed-" + ID))
+        try:
+            self.assertBlock(self.hook(stop_input(ID)))
+            self.assertFalse(self.gone(ID))
+            self.assertTrue(os.path.exists(marker))
+            self.assertSilent(self.hook(stop_input(ID)))
+        finally:
+            release()
+
+    @unittest.skipUnless(WINDOWS or hasattr(os, "chflags"), "a file that refuses its delete needs Windows or chflags")
+    def test_an_armed_file_held_for_a_moment_is_still_deleted(self):
+        """A delete refused for a moment, as a scanner briefly holding the file
+        on Windows refuses it, is retried, so the claim ends as usual."""
+        self.loop()
+        self.armed(ID)
+        self.ring("Orchestrator", P1)
+        timer = threading.Timer(1.0, self.pin(self.box.path(TRACKER, "codex-armed-" + ID)))
+        timer.start()
+        try:
+            self.assertBlock(self.hook(stop_input(ID)))
+        finally:
+            timer.join()
+        self.assertTrue(self.gone(ID))
+        self.assertFalse(os.path.exists(self.box.path(TRACKER, "codex-claim-" + ID)))
 
     def test_the_hook_names_the_shared_copy(self):
         self.loop()

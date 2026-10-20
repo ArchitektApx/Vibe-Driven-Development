@@ -21,11 +21,18 @@ is a skip, and a skip leaves the branch exactly as signed. The fold never
 stops to ask.
 """
 
+from __future__ import annotations
+
 import os
 import re
+from typing import TYPE_CHECKING, Any
 
-from . import gitcmd, loopstate, places, recap
-from .out import Failure, Output
+from .. import gitcmd, loopstate, places, recap, signoff
+from ..out import Failure, Output, and_list
+
+if TYPE_CHECKING:
+    from ..harness import Harness
+    from ..loopfile import Loop
 
 HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 BLAME = re.compile(r"^([0-9a-f]{40}) \d+ \d+")
@@ -39,7 +46,7 @@ CONFLICT = "folding it would conflict"
 class GitFailed(Exception):
     """A git call that failed for any other reason."""
 
-    def __init__(self, call):
+    def __init__(self, call: gitcmd.Call) -> None:
         Exception.__init__(self, call.first_error())
         self.call = call
 
@@ -47,12 +54,12 @@ class GitFailed(Exception):
 class Skip(Exception):
     """A loop the fold leaves as signed, with the reason."""
 
-    def __init__(self, reason):
+    def __init__(self, reason: str) -> None:
         Exception.__init__(self, reason)
         self.reason = reason
 
 
-def quote_path_off():
+def quote_path_off() -> dict[str, str]:
     """core.quotePath=false through git's environment config, after any the
     user set: every name list reads a non-ASCII path as itself, not C-quoted,
     and argv stays as the call names it."""
@@ -67,17 +74,17 @@ def quote_path_off():
 QUOTE_PATH = quote_path_off()
 
 
-def command_text(call):
+def command_text(call: gitcmd.Call) -> str:
     return " ".join(["git"] + call.argv[1:3])
 
 
 class Repo:
     """git in the repository root, every call checked."""
 
-    def __init__(self, root):
+    def __init__(self, root: str) -> None:
         self.root = root
 
-    def call(self, *argv, **kwargs):
+    def call(self, *argv: str, **kwargs: Any) -> gitcmd.Call:
         ok = kwargs.pop("ok", (0,))
         env = dict(QUOTE_PATH)
         env.update(kwargs.pop("env", None) or {})
@@ -88,33 +95,33 @@ class Repo:
             raise gitcmd.Refused(result)
         raise GitFailed(result)
 
-    def out(self, *argv, **kwargs):
+    def out(self, *argv: str, **kwargs: Any) -> str:
         return self.call(*argv, **kwargs).out.strip()
 
-    def data(self, *argv):
+    def data(self, *argv: str) -> bytes:
         return self.call(*argv).data
 
-    def tree(self, rev):
+    def tree(self, rev: str) -> str:
         return self.out("rev-parse", rev + "^{tree}")
 
-    def parent(self, sha):
+    def parent(self, sha: str) -> str:
         return self.out("rev-parse", sha + "^")
 
-    def names(self, *argv):
+    def names(self, *argv: str) -> list[str]:
         """A NUL-separated name list: a path with a quote or a backslash
         stays C-quoted in a line list despite core.quotePath=false."""
         return [name for name in self.call(*argv).out.split("\0") if name]
 
-    def files(self, sha):
+    def files(self, sha: str) -> set[str]:
         return set(self.names("diff-tree", "-z", "--no-commit-id", "--name-only", "-r", "--no-renames", sha))
 
-    def exists(self, rev, path):
+    def exists(self, rev: str, path: str) -> bool:
         return self.call("cat-file", "-e", "%s:%s" % (rev, path), ok=(0, 1, 128)).code == 0
 
-    def subject(self, sha):
+    def subject(self, sha: str) -> str:
         return self.out("log", "-1", "--format=%s", sha)
 
-    def short(self, sha):
+    def short(self, sha: str) -> str:
         return sha[:7]
 
 
@@ -122,14 +129,14 @@ class Committer:
     """Makes commits with an original commit's author, date and message,
     signed when the repository signs its commits."""
 
-    def __init__(self, repo, sign):
+    def __init__(self, repo: Repo, sign: bool) -> None:
         self.repo = repo
         self.sign = sign
-        self.env = {}
+        self.env: dict[str, str] | None = {}
         if repo.call("var", "GIT_COMMITTER_IDENT", ok=(0, 1, 128)).code != 0:
             self.env = None  # set per commit from the original's committer
 
-    def make(self, tree, parent, like, sign=False):
+    def make(self, tree: str, parent: str, like: str, sign: bool = False) -> str:
         """A commit of tree on parent like the commit like. Unsigned, it is
         like itself when its tree and parent are already these, so an
         unchanged commit keeps its sha, committer date and signature."""
@@ -139,7 +146,7 @@ class Committer:
         parents = [line[len(b"parent "):].decode("ascii") for line in fields if line.startswith(b"parent ")]
         if not (sign and self.sign) and fields[0] == b"tree " + tree.encode("ascii") and parents == [parent]:
             return like
-        env = {}
+        env: dict[str, str] = {}
         for line in fields:
             text = line.decode("utf-8", "replace")
             for kind in ("author", "committer"):
@@ -158,7 +165,7 @@ class Committer:
         return self.repo.out(*argv, data=message, env=env)
 
 
-def split_lines(data):
+def split_lines(data: bytes) -> list[bytes]:
     return LINES.findall(data)
 
 
@@ -170,19 +177,19 @@ class Split:
     parent's tree; chain is that history, oldest first. An owner is an index
     into chain, or None: no commit of the loop wrote the lines."""
 
-    def __init__(self, repo, chain, tip, commit, index_path):
+    def __init__(self, repo: Repo, chain: list[str], tip: str, commit: str, index_path: str) -> None:
         self.repo = repo
         self.chain = chain
         self.tip = tip
         self.commit = commit
         self.index_path = index_path
         self.positions = dict((sha, i) for i, sha in enumerate(chain))
-        self.touched_cache = {}
-        self.hunks = {}
-        self.whole = {}
-        self.text = {}
-        self.mode = {}
-        added = set()
+        self.touched_cache: dict[int, set[str]] = {}
+        self.hunks: dict[str, list[tuple[int, int, int, int, int | None]]] = {}
+        self.whole: dict[str, int | None] = {}
+        self.text: dict[str, tuple[list[bytes], bytes | None]] = {}
+        self.mode: dict[str, str] = {}
+        added: set[str] = set()
         for name in repo.names("diff", "-z", "--name-only", "--no-renames", tip, commit):
             has_old = repo.exists(tip, name)
             has_new = repo.exists(commit, name)
@@ -232,19 +239,19 @@ class Split:
             for name in added:
                 self.whole[name] = real[0]
 
-    def touched(self, i):
+    def touched(self, i: int) -> set[str]:
         if i not in self.touched_cache:
             self.touched_cache[i] = self.repo.files(self.chain[i])
         return self.touched_cache[i]
 
-    def file_owner(self, name):
+    def file_owner(self, name: str) -> int | None:
         """Lines no loop commit wrote: the latest loop commit that changed the
         file, else None."""
         found = [i for i in range(len(self.chain)) if name in self.touched(i)]
         return found[-1] if found else None
 
-    def blame(self, name, start, end):
-        owners = []
+    def blame(self, name: str, start: int, end: int) -> list[int | None]:
+        owners: list[int | None] = []
         # An empty --ignore-revs-file clears the revisions any
         # blame.ignoreRevsFile names, which would move lines to other commits.
         argv = ("blame", "--no-textconv", "--ignore-revs-file=", "--porcelain", "-L", "%d,%d" % (start, end),
@@ -265,13 +272,13 @@ class Split:
         return owners
 
     @staticmethod
-    def latest(owners):
+    def latest(owners: list[int | None]) -> int | None:
         known = [o for o in owners if o is not None]
         return max(known) if known else None
 
-    def owners(self):
+    def owners(self) -> dict[int | None, list[str]]:
         """owner -> sorted files, owner an index into chain or None."""
-        found = {}
+        found: dict[int | None, set[str]] = {}
         for name, hunks in self.hunks.items():
             for hunk in hunks:
                 found.setdefault(hunk[4], set()).add(name)
@@ -279,7 +286,7 @@ class Split:
             found.setdefault(owner, set()).add(name)
         return dict((owner, sorted(names)) for owner, names in found.items())
 
-    def tree_with(self, included):
+    def tree_with(self, included: set[int]) -> str:
         """The tip's tree with the changes of the owners in included
         applied, written through a temporary index."""
         env = {"GIT_INDEX_FILE": self.index_path}
@@ -289,6 +296,8 @@ class Split:
                 if not any(h[4] in included for h in hunks):
                     continue
                 old, new_data = self.text[name]
+                if new_data is None:
+                    continue
                 new = split_lines(new_data)
                 parts = []
                 position = 0
@@ -311,12 +320,12 @@ class Split:
         finally:
             remove(self.index_path)
 
-    def put(self, name, data, env):
+    def put(self, name: str, data: bytes, env: dict[str, str]) -> None:
         blob = self.repo.out("hash-object", "-w", "--stdin", data=data)
         self.repo.call("update-index", "--add", "--cacheinfo", "%s,%s,%s" % (self.mode[name], blob, name), env=env)
 
 
-def remove(path):
+def remove(path: str) -> None:
     for candidate in (path, path + ".lock"):
         if os.path.lexists(candidate):
             try:
@@ -325,7 +334,7 @@ def remove(path):
                 pass
 
 
-def merge_tree(repo, base, ours, theirs):
+def merge_tree(repo: Repo, base: str, ours: str, theirs: str) -> str | None:
     """The tree of theirs' change (base to theirs) applied to ours, or None on
     a conflict."""
     result = repo.call("merge-tree", "--write-tree", "--no-messages", "--merge-base=" + base, ours, theirs,
@@ -335,10 +344,10 @@ def merge_tree(repo, base, ours, theirs):
     return result.out.split("\n")[0].strip()
 
 
-def replay(repo, committer, chain, start, parent):
+def replay(repo: Repo, committer: Committer, chain: list[str], start: int, parent: str) -> list[str] | None:
     """chain[start:] replayed onto parent: the new commits, or None on a
     conflict."""
-    made = []
+    made: list[str] = []
     for sha in chain[start:]:
         tree = merge_tree(repo, repo.parent(sha), parent, sha)
         if tree is None:
@@ -348,23 +357,25 @@ def replay(repo, committer, chain, start, parent):
     return made
 
 
-def absorb(repo, committer, base, round_one_end, signed, index_path):
+def absorb(
+    repo: Repo, committer: Committer, base: str, round_one_end: str, signed: str, index_path: str,
+) -> tuple[list[str], list[list[tuple[str, list[str] | None, str | None]]]]:
     """(chain, sources): the folded history oldest first, and for each of its
     commits the (original sha, files or None for the whole commit, why it
     stayed) it was built from."""
     chain = [s for s in repo.out("rev-list", "--reverse", "%s..%s" % (base, round_one_end)).split("\n") if s]
-    sources = [[(sha, None, ROUND_ONE)] for sha in chain]
+    sources: list[list[tuple[str, list[str] | None, str | None]]] = [[(sha, None, ROUND_ONE)] for sha in chain]
     later = [s for s in repo.out("rev-list", "--reverse", "%s..%s" % (round_one_end, signed)).split("\n") if s]
     for commit in later:
         tip = chain[-1] if chain else base
         split = Split(repo, chain, tip, commit, index_path)
         owners = split.owners()
-        done = set()
+        done: set[int] = set()
         for i in sorted(o for o in owners if o is not None):
             want = split.tree_with(done | {i})
             fix = committer.make(want, chain[-1], commit)
             tree = merge_tree(repo, chain[-1], chain[i], fix)
-            folded = None
+            folded: list[str] | None = None
             if tree is not None:
                 head = committer.make(tree, repo.parent(chain[i]), chain[i])
                 rest = replay(repo, committer, chain, i + 1, head)
@@ -384,7 +395,7 @@ def absorb(repo, committer, base, round_one_end, signed, index_path):
     return chain, sources
 
 
-def resign(repo, committer, base, chain, originals):
+def resign(repo: Repo, committer: Committer, base: str, chain: list[str], originals: list[str]) -> list[str]:
     """The chain with every commit the absorb made made again, signed: the
     absorb's own commits are unsigned. A leading commit the fold kept as it
     was stays."""
@@ -399,15 +410,8 @@ def resign(repo, committer, base, chain, originals):
     return result
 
 
-def and_list(items):
-    items = list(items)
-    if len(items) <= 1:
-        return "".join(items)
-    return "%s and %s" % (", ".join(items[:-1]), items[-1])
-
-
-def report(repo, chain, sources):
-    lines = []
+def report(repo: Repo, chain: list[str], sources: list[list[tuple[str, list[str] | None, str | None]]]) -> list[str]:
+    lines: list[str] = []
     for sha, source in zip(chain, sources):
         lines.append("  %s %s" % (repo.short(sha), repo.subject(sha)))
         for original, files, why in source:
@@ -417,29 +421,19 @@ def report(repo, chain, sources):
             elif why:
                 part = "" if files is None else ": %s" % and_list(files)
                 lines.append("      %s%s, its own commit: %s" % (what, part, why))
-            else:
+            elif files is not None:
                 lines.append("    + %s: %s" % (what, and_list(files)))
     return lines
 
 
 # --- the command ---
 
-def pr_step(loop):
-    """The Next: line after the fold or a skip: the PR step."""
-    pr, _ = loop.setting("PR")
-    branch, _ = loop.setting("Feature branch")
-    if pr == "no":
-        return ("Run %s loop close --slug %s --write, then print \"Loop signed off. `PR: no`: `%s` stays local, "
-                "nothing pushed.\" and stop." % (places.command(), loop.slug, branch))
-    return "Invoke the vdd-create-pr skill in your own Session, never as a subagent."
-
-
-def fold_command(loop, harness, write=True):
+def fold_command(loop: Loop, harness: Harness, write: bool = True) -> str:
     return "%s loop fold --slug %s --harness %s%s" % (places.command(), loop.slug, harness.name,
                                                        " --write" if write else "")
 
 
-def signed_commit(state):
+def signed_commit(state: loopstate.State) -> tuple[int, str]:
     """(round, sha) of the code round whose review signed off, or a Failure."""
     review = state.last_review("code")
     if review is None or not review.signed_off:
@@ -459,7 +453,7 @@ def signed_commit(state):
     return review.round, sha
 
 
-def run(loop, harness, write):
+def run(loop: Loop, harness: Harness, write: bool) -> int:
     state = loopstate.open_loop(loop, "loop fold")
     _, signed = signed_commit(state)
     out = Output()
@@ -471,7 +465,7 @@ def run(loop, harness, write):
                 loop.slug, branch, recorded[1]))
         else:
             out.line("The fold of %s was already skipped: %s. Nothing was written." % (loop.slug, recorded[2]))
-        return out.finish(pr_step(loop))
+        return out.finish(signoff.pr_step(loop))
     repo = Repo(loop.root)
     index_path = os.path.join(loop.dir, INDEX_NAME)
     try:
@@ -505,10 +499,12 @@ def run(loop, harness, write):
     out.line("Wrote the final commits to %s/%s." % (loop.tracker, recap.NAME))
     out.tell("Folded %s: %d commits into %d. The tree equals the signed tree; RECAP.md lists the commits."
              % (branch, before, len(chain)))
-    return out.finish(pr_step(loop))
+    return out.finish(signoff.pr_step(loop))
 
 
-def fold(loop, state, repo, signed, index_path, write):
+def fold(
+    loop: Loop, state: loopstate.State, repo: Repo, signed: str, index_path: str, write: bool,
+) -> tuple[int, list[str], list[list[tuple[str, list[str] | None, str | None]]], str, list[str]]:
     """(commits before, final chain, sources, new tip, report lines), or a
     Skip. Moves the branch only with write."""
     found, text = gitcmd.version(loop.root)
@@ -521,7 +517,9 @@ def fold(loop, state, repo, signed, index_path, write):
         raise Skip("a git error: %s: %s" % (command_text(error.call), error.call.first_error()))
 
 
-def checked_fold(loop, state, repo, signed, index_path, write):
+def checked_fold(
+    loop: Loop, state: loopstate.State, repo: Repo, signed: str, index_path: str, write: bool,
+) -> tuple[int, list[str], list[list[tuple[str, list[str] | None, str | None]]], str, list[str]]:
     base_branch, _ = loop.setting("Base branch")
     branch, _ = loop.setting("Feature branch")
     ref = "refs/heads/" + branch
@@ -570,7 +568,9 @@ def checked_fold(loop, state, repo, signed, index_path, write):
     return before, chain, sources, tip, lines
 
 
-def skipped(loop, state, out, signed, reason, write, harness):
+def skipped(
+    loop: Loop, state: loopstate.State, out: Output, signed: str, reason: str, write: bool, harness: Harness,
+) -> int:
     branch, _ = loop.setting("Feature branch")
     if not write:
         out.line("Would skip the fold: %s. %s would stay at the signed commit %s." % (reason, branch, signed[:7]))
@@ -584,4 +584,4 @@ def skipped(loop, state, out, signed, reason, write, harness):
     after = "The branch stays local." if pr == "no" else "The loop goes on to the PR."
     out.tell("Not folded: %s stays exactly as the Code-Reviewer signed it off (%s), because %s. %s" % (
         branch, signed[:7], reason, after))
-    return out.finish(pr_step(loop))
+    return out.finish(signoff.pr_step(loop))

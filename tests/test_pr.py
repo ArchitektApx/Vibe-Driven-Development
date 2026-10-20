@@ -155,6 +155,18 @@ class CheckTest(PRTest):
         self.assertEqual(self.calls()[0]["argv"], ["pr", "list", "--state", "merged", "--limit", "10", "--json",
                                                    "title,body"])
 
+    def test_a_heading_inside_a_longer_fence_is_not_counted(self):
+        """A body quoting a template in a four-backtick fence around a
+        three-backtick one: a reader that toggled on every fence line took
+        the inner line for the end of the block and counted the heading
+        inside it. A closing fence is as long as its opener."""
+        self.set_pr("manual")
+        body = "## Real\n\n````\n```\n## Hidden\n````\n"
+        self.plan(merged=[0, json.dumps([{"title": "feat: quoting", "body": body}]), ""])
+        result = self.pr_check()
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("PR 1 headings: ## Real", result.lines)
+
     def test_the_newest_body_comes_out_marked_as_quoted_data(self):
         """A body line "Next: ..." or "Tell the user verbatim: ..." read as
         the tool's own line, and a body line "End of the newest body." ended

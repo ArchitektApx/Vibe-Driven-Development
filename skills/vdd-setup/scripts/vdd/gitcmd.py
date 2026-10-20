@@ -8,9 +8,12 @@ failure, by a marker on stderr after a non-zero exit only (a call that exits
 0 is judged by its exit code alone, 9e820de).
 """
 
+from __future__ import annotations
+
 import os
 import re
 import subprocess
+from typing import Any
 
 from . import textfile
 
@@ -34,14 +37,19 @@ REFUSAL_MARKERS = (
 # git translates its messages into the system's language, and the markers
 # above are English.
 ENGLISH = {"LC_ALL": "C"}
+# git fails instead of prompting: GIT_TERMINAL_PROMPT for git's own prompt,
+# GCM_INTERACTIVE for Git Credential Manager, which ignores the first and
+# opens a sign-in window that a hidden Session never closes.
+NO_PROMPT = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
 
 
-def environment(extra=None):
-    """The environment for a git or gh call: this one, in English, plus
-    extra."""
+def environment(extra: dict[str, str] | None = None) -> dict[str, str]:
+    """The environment for a git or gh call: this one plus extra, in English
+    and never prompting; extra cannot change either."""
     full = dict(os.environ)
-    full.update(ENGLISH)
     full.update(extra or {})
+    full.update(ENGLISH)
+    full.update(NO_PROMPT)
     return full
 
 
@@ -49,7 +57,7 @@ class Call:
     """One finished call: its exit code (None when it could not start),
     stdout and stderr as text, and stdout as bytes."""
 
-    def __init__(self, argv, code, data, error):
+    def __init__(self, argv: list[str], code: int | None, data: bytes, error: bytes) -> None:
         self.argv = argv
         self.code = code
         self.data = data
@@ -57,14 +65,14 @@ class Call:
         self.err = textfile.decode(error)
 
     @property
-    def ok(self):
+    def ok(self) -> bool:
         return self.code == 0
 
     @property
-    def refused(self):
+    def refused(self) -> bool:
         return is_refusal(self.code, self.err)
 
-    def first_error(self):
+    def first_error(self) -> str:
         """The line of stderr, else of stdout, that names the cause, else a
         line naming the exit."""
         for text in (self.err, self.out):
@@ -76,7 +84,7 @@ class Call:
         return "%s exited %d and printed nothing" % (" ".join(self.argv[:2]), self.code)
 
 
-def reason(lines):
+def reason(lines: list[str]) -> str:
     """The line that names the cause among a failed call's lines: the first
     one left once git push's "To <url>" header, gh's and git's "warning:"
     lines in any case, ssh's "** " notices, git's "hint:" lines and bare
@@ -97,12 +105,12 @@ def reason(lines):
 class Refused(Exception):
     """A git or gh call a sandbox refused."""
 
-    def __init__(self, call):
+    def __init__(self, call: Call) -> None:
         Exception.__init__(self, call.first_error())
         self.call = call
 
 
-def is_refusal(code, stderr):
+def is_refusal(code: int | None, stderr: str | None) -> bool:
     """Whether a call that exited code with stderr was refused by a sandbox."""
     if code == 0 or code is None:
         return False
@@ -110,7 +118,13 @@ def is_refusal(code, stderr):
     return any(marker in text for marker in REFUSAL_MARKERS)
 
 
-def run(root, argv, data=None, env=None, timeout=None):
+def run(
+    root: str,
+    argv: list[str],
+    data: bytes | None = None,
+    env: dict[str, str] | None = None,
+    timeout: float | None = None,
+) -> Call:
     """Run argv in root and return its Call. data, bytes, goes to standard
     input; without it standard input is empty. env adds variables."""
     full = environment(env)
@@ -129,11 +143,30 @@ def run(root, argv, data=None, env=None, timeout=None):
     return Call(argv, proc.returncode, proc.stdout, proc.stderr)
 
 
-def git(root, *argv, **kwargs):
+def git(root: str, *argv: str, **kwargs: Any) -> Call:
     return run(root, ["git"] + list(argv), **kwargs)
 
 
-def version(root=None):
+def project_root(cwd: str) -> str:
+    """The directory the loops live under: the repository's top level, so a
+    command run from a subdirectory, the tracker directory included, finds
+    them; the working directory outside git."""
+    call = git(cwd, "rev-parse", "--show-toplevel")
+    top = call.out.strip()
+    if call.code != 0 or not top:
+        return cwd
+    return os.path.normpath(top)
+
+
+def current_branch(root: str) -> str:
+    """The checked-out branch, or "" on a detached HEAD or outside git."""
+    call = git(root, "branch", "--show-current")
+    if call.code != 0:
+        return ""
+    return call.out.strip()
+
+
+def version(root: str | None = None) -> tuple[tuple[int, int] | None, str]:
     """((major, minor) or None, the text git --version printed). None for
     the tuple when git cannot run or prints no version."""
     call = git(root or os.getcwd(), "--version")
@@ -146,11 +179,11 @@ def version(root=None):
     return (int(match.group(1)), int(match.group(2))), text
 
 
-def number(text):
+def number(text: str) -> str:
     """The version number in git --version's text: "2.39.5" from
     "git version 2.39.5"."""
     return text[len("git version "):].strip() if text.startswith("git version ") else text
 
 
-def too_old(found):
+def too_old(found: tuple[int, int] | None) -> bool:
     return found is not None and found < MINIMUM

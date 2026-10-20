@@ -39,6 +39,50 @@ class EntryTest(ToolTest):
                 self.assertIn("loop show --role <Role> --slug <slug>", result.last)
                 self.assertNotIn("Setup", result.text)
 
+    def test_a_value_that_swallowed_the_next_option_is_refused_with_the_reason(self):
+        """Windows PowerShell 5.1 joins `--slug "C:\\dir\\" --role Coder` into
+        one value `C:\\dir" --role Coder`; the Role then ran on a mangled
+        value and read the wrong failure. The refusal names the shell and says
+        to drop the trailing backslash."""
+        result = self.box.run("loop", "show", "--slug", 'demo" --role Coder')
+        self.assertNotEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("--slug's value holds '\" --role': demo\" --role Coder.", result.text)
+        self.assertIn("Windows PowerShell 5.1", result.text)
+        self.assertNext(result, "no value ending in a backslash")
+
+    def test_a_value_that_only_mentions_a_word_that_is_no_option_is_text(self):
+        """A value quoting a command, such as `git log" --oneline`, holds
+        `" --word` for a word the command does not take; refusing it as
+        PowerShell's mangling would reject text a Role means."""
+        result = self.box.run("loop", "show", "--slug", 'demo" --oneline')
+        self.assertNotIn("PowerShell", result.text)
+        self.assertNotIn("Unknown option", result.text)
+
+    def test_an_unknown_option_lists_what_the_command_takes_and_the_closest(self):
+        """A mistyped option sent the Role to --help for the spelling; the
+        refusal lists the options and names the closest one."""
+        result = self.box.run("loop", "show", "--rol", "Coder")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("Unknown option: --rol", result.lines)
+        self.assertTrue(any(l.startswith("This command takes: --base,") and ", --role," in l for l in result.lines),
+                        result)
+        self.assertIn("Closest: --role.", result.lines)
+        self.assertNext(result, "again with --role")
+        self.assertNotIn("rerun Setup", result.text)
+
+    def test_an_unknown_option_with_none_close_says_to_rerun_setup(self):
+        """An option this copy lacks, written by a newer skill, has no close
+        spelling: the refusal tells the Role to have the user rerun Setup."""
+        result = self.box.run("loop", "show", "--fresh-coder")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertIn("Unknown option: --fresh-coder", result.lines)
+        self.assertIn("This command takes: --base, --base-branch, --branch, --feature, --feature-branch, "
+                      "--harness, --harness-line, --leftover, --minors, --pr, --role, --slug, --write.", result.lines)
+        self.assertNotIn("Closest", result.text)
+        self.assertNext(result, "tell the user to rerun Setup")
+
     def test_output_is_utf8_with_lf_whatever_the_console(self):
         """Printed through sys.stdout.buffer as UTF-8 with LF, every CR
         removed: printed through sys.stdout, a non-ASCII line reaches a

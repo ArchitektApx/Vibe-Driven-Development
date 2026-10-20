@@ -39,16 +39,34 @@ contract test, `tests/test_harness_contract.py`, which imports the package to
 check that every Harness module implements the whole interface. A test that
 replaces a guardrail says in its docstring which failure it prevents.
 
+## Code layout
+
+The VDD tool is the package `skills/vdd-setup/scripts/vdd/`.
+
+- Shared helpers sit at the top of the package. A group with modules of its
+  own is a subpackage, as `setup/`, `loop/` and `review/` are, and so is a
+  concern with several modules, as `harness/` is.
+- A group module holds its command surface: help, parsing, dispatch and
+  printed lines. No group module imports another group's module; `loop fold`
+  is part of the `loop` group.
+- Code with one user stays in that group's subpackage. It moves to the top
+  when a second group adopts it.
+- One concern per module, about 500 lines at most, as guidance.
+- A helper returns facts, and the group that calls it words what the Role
+  reads. A line every caller prints word for word may live with the helper,
+  once; lines that differ between callers are worded by each caller.
+- Tests reach the tool through `vdd.py`, as under Tests; the Harness contract
+  test stays the one that imports the package.
+
 ## Landing a change
 
 A loop's pull request targets `beta`. The user merges every pull request;
 never merge one yourself.
 
-Commit subjects carry a conventional prefix: `feat`, `fix`, `docs`, `ci`,
-`chore`. The prefix names what the change does, not which file it touches. The
-skill files are this plugin's product, so a change to what a Role does is `feat`
-or `fix` even though the file is prose, and `docs` is for a change that leaves
-behaviour alone.
+Commit subjects carry a Conventional Commits prefix that names what the
+change does, not which file it touches. The skill files are this plugin's
+product, so a change to what a Role does is `feat` or `fix` even though the
+file is prose.
 
 ## Invariants
 

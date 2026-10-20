@@ -7,7 +7,12 @@ an HTML comment or a fenced code block is never a heading or a label, so a
 finding that quotes Markdown cannot break the frame.
 """
 
+from __future__ import annotations
+
 import re
+from typing import Iterable, overload
+
+from .out import and_list
 
 FINDING = re.compile(r"^### ([0-9]+)\. (\S+) \(([^)]*)\): (.+?)\s*$")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
@@ -18,39 +23,40 @@ class Line:
     """One line of a file: its number from 1, its text, and whether it is
     frame (outside every comment and fence)."""
 
-    def __init__(self, number, text, frame):
+    def __init__(self, number: int, text: str, frame: bool) -> None:
         self.number = number
         self.text = text
         self.frame = frame
 
 
-def split(text):
+def split(text: str) -> list[str]:
     lines = text.split("\n")
     if lines and lines[-1] == "":
         lines.pop()
     return lines
 
 
-def classify(texts):
+def classify(texts: Iterable[str]) -> list[Line]:
     """Every line as a Line, a comment's or a fence's lines marked as not
     frame."""
     return walk(texts)[0]
 
 
-def walk(texts):
+def walk(texts: Iterable[str]) -> tuple[list[Line], Line | None]:
     """(the Lines as classify gives them, the Line that opens a comment or
     fence still open at the end of the file, or None)."""
-    out = []
+    out: list[Line] = []
     in_comment = False
-    in_fence = False
+    # The run the open fence was opened with, None outside a fence.
+    fence = None
     opener = None
     for number, text in enumerate(texts, 1):
-        frame = not in_comment and not in_fence
+        frame = not in_comment and fence is None
         stripped = text.strip()
         line = Line(number, text, frame)
-        if in_fence:
-            if closes(text, fence_run(opener.text)):
-                in_fence = False
+        if fence is not None:
+            if closes(text, fence):
+                fence = None
         elif in_comment:
             if "-->" in text:
                 in_comment = False
@@ -61,13 +67,13 @@ def walk(texts):
                 opener = line
         elif fence_run(text):
             line.frame = False
-            in_fence = True
+            fence = fence_run(text)
             opener = line
         out.append(line)
-    return out, (opener if in_comment or in_fence else None)
+    return out, (opener if in_comment or fence is not None else None)
 
 
-def fence_run(text):
+def fence_run(text: str) -> str | None:
     """The backtick or tilde run a line opens a fence with, or None: at most
     three spaces of indent, three or more of one character, and for
     backticks no backtick after the run."""
@@ -77,7 +83,7 @@ def fence_run(text):
     return match.group(1)
 
 
-def closes(text, run):
+def closes(text: str, run: str) -> bool:
     """Whether the line closes a fence opened with run: at most three spaces
     of indent, a run of the same character at least as long, and nothing
     after it but whitespace."""
@@ -86,7 +92,27 @@ def closes(text, run):
             and not match.group(2).strip())
 
 
-def unclosed_text(opener):
+def outside_fences(texts: Iterable[str]) -> list[str]:
+    """The lines that sit outside a fenced code block and are no fence line,
+    by the same fence rule: HTML comments are not skipped."""
+    out: list[str] = []
+    run = None
+    for text in texts:
+        if run is not None:
+            if closes(text, run):
+                run = None
+            continue
+        run = fence_run(text)
+        if run is None:
+            out.append(text)
+    return out
+
+
+@overload
+def unclosed_text(opener: Line) -> str: ...
+@overload
+def unclosed_text(opener: None) -> None: ...
+def unclosed_text(opener: Line | None) -> str | None:
     """The refusal for a comment or fence left open, or None."""
     if opener is None:
         return None
@@ -98,21 +124,22 @@ def unclosed_text(opener):
 
 
 class Section:
-    def __init__(self, name, line):
+    def __init__(self, name: str, line: Line) -> None:
         self.name = name
         self.line = line
-        self.body = []
+        self.body: list[Line] = []
 
 
 class Block:
     """A "###" heading and the lines under it, up to the next heading."""
 
-    def __init__(self, heading, section):
+    def __init__(self, heading: Line, section: Section | None) -> None:
         self.heading = heading
         self.section = section
-        self.body = []
+        self.body: list[Line] = []
         match = FINDING.match(heading.text)
         self.match = match
+        self.number: int | None
         if match:
             self.number = int(match.group(1))
             self.severity = match.group(2)
@@ -121,34 +148,36 @@ class Block:
         else:
             self.number = None
 
-    def text_lines(self):
+    def text_lines(self) -> list[str]:
         """The heading and its body as text, trailing blank lines dropped."""
         lines = [self.heading.text] + [line.text for line in self.body]
         while lines and not lines[-1].strip():
             lines.pop()
         return lines
 
-    def labels(self, names):
+    def labels(self, names: Iterable[str]) -> list[tuple[str, str, Line]]:
         """(label, joined text, Line) for each frame line under the heading
         that starts with "<label>:", the text running on over the following
         non-blank frame lines that start no other label."""
-        out = []
-        current = None
+        out: list[tuple[str, str, Line]] = []
+        # Whether the lines below run on the text of the last label in out.
+        running = False
         for line in self.body:
             label = label_of(line, names)
             if label:
-                current = [label, line.text[len(label) + 1:].strip(), line]
-                out.append(current)
-            elif current is not None and line.frame and line.text.strip():
-                current[1] = (current[1] + " " + line.text.strip()).strip()
+                out.append((label, line.text[len(label) + 1:].strip(), line))
+                running = True
+            elif running and line.frame and line.text.strip():
+                name, text, start = out[-1]
+                out[-1] = (name, (text + " " + line.text.strip()).strip(), start)
             else:
-                current = None
-        return [tuple(item) for item in out]
+                running = False
+        return out
 
-    def problem(self, names):
+    def problem(self, names: Iterable[str]) -> list[str]:
         """The body without its label spans, blank lines at either end
         dropped: what the finding said was wrong."""
-        lines = []
+        lines: list[str] = []
         inside = False
         for line in self.body:
             if label_of(line, names):
@@ -165,7 +194,7 @@ class Block:
         return lines
 
 
-def label_of(line, names):
+def label_of(line: Line, names: Iterable[str]) -> str | None:
     if not line.frame:
         return None
     for name in names:
@@ -178,13 +207,13 @@ class Parsed:
     """A framed file: its title line, its "##" sections in order and the
     "###" blocks of each."""
 
-    def __init__(self, text):
+    def __init__(self, text: str) -> None:
         self.texts = split(text)
         self.lines, self.unclosed = walk(self.texts)
-        self.title = None
-        self.preamble = []
-        self.sections = []
-        self.blocks = []
+        self.title: Line | None = None
+        self.preamble: list[Line] = []
+        self.sections: list[Section] = []
+        self.blocks: list[Block] = []
         section = None
         block = None
         for line in self.lines:
@@ -208,20 +237,20 @@ class Parsed:
             else:
                 self.preamble.append(line)
 
-    def section(self, name):
+    def section(self, name: str) -> Section | None:
         for section in self.sections:
             if section.name == name:
                 return section
         return None
 
-    def blocks_in(self, name):
+    def blocks_in(self, name: str) -> list[Block]:
         return [block for block in self.blocks if block.section is not None and block.section.name == name]
 
 
-def without_guides(texts):
+def without_guides(texts: Iterable[str]) -> list[str]:
     """The lines with every tool guidance comment (one starting "<!-- VDD:")
     removed."""
-    out = []
+    out: list[str] = []
     inside = False
     for text in texts:
         if inside:
@@ -236,9 +265,9 @@ def without_guides(texts):
     return out
 
 
-def squeeze(texts):
+def squeeze(texts: Iterable[str]) -> list[str]:
     """No two blank lines in a row, none at the end."""
-    out = []
+    out: list[str] = []
     for text in texts:
         if not text.strip() and out and not out[-1].strip():
             continue
@@ -248,9 +277,6 @@ def squeeze(texts):
     return out
 
 
-def join_numbers(numbers):
+def join_numbers(numbers: Iterable[int | str]) -> str:
     """1 -> "1"; 1, 2 -> "1 and 2"; 1, 2, 3 -> "1, 2 and 3"."""
-    words = [str(n) for n in numbers]
-    if len(words) <= 1:
-        return "".join(words)
-    return ", ".join(words[:-1]) + " and " + words[-1]
+    return and_list(str(n) for n in numbers)

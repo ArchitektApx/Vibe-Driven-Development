@@ -11,26 +11,19 @@ its #fragment stripped; a URL, an absolute path and a <placeholder> target
 are skipped. Only that link syntax is read, never the text around it.
 """
 
+from __future__ import annotations
+
 import posixpath
 import re
-import subprocess
+from typing import Container
 
-from . import gitcmd, textfile
+from .. import gitcmd
 
 LINK = re.compile(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 
 
-def git(root, *argv):
-    try:
-        proc = subprocess.run(["git"] + list(argv), cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              env=gitcmd.environment())
-    except OSError:
-        return 1, ""
-    return proc.returncode, textfile.decode(proc.stdout)
-
-
-def direct(path, tree):
+def direct(path: str, tree: Container[str]) -> bool:
     """Whether path is an Agent document by its own name and place."""
     if not path.endswith(".md"):
         return False
@@ -46,10 +39,10 @@ def direct(path, tree):
     return False
 
 
-def targets(path, text):
+def targets(path: str, text: str) -> list[str]:
     """The repository paths a document links to or @-includes."""
-    found = []
-    raw = LINK.findall(text)
+    found: list[str] = []
+    raw: list[str] = LINK.findall(text)
     for line in text.split("\n"):
         if line.startswith("@"):
             word = line[1:].strip().split()
@@ -69,25 +62,25 @@ def targets(path, text):
     return found
 
 
-def listed(root, base, tip):
+def listed(root: str, base: str, tip: str) -> list[str] | None:
     """The Agent documents in base...tip, sorted, or None when git cannot
     read the range."""
-    code, text = git(root, "diff", "--name-only", "%s...%s" % (base, tip))
-    if code != 0:
+    call = gitcmd.git(root, "diff", "--name-only", "%s...%s" % (base, tip))
+    if not call.ok:
         return None
-    changed = set(line.strip() for line in text.split("\n") if line.strip())
-    code, text = git(root, "ls-tree", "-r", "--name-only", tip)
-    if code != 0:
+    changed = set(line.strip() for line in call.out.split("\n") if line.strip())
+    call = gitcmd.git(root, "ls-tree", "-r", "--name-only", tip)
+    if not call.ok:
         return None
-    tree = set(line.strip() for line in text.split("\n") if line.strip())
+    tree = set(line.strip() for line in call.out.split("\n") if line.strip())
     found = set(path for path in changed if direct(path, tree))
     for path in sorted(tree):
         if not direct(path, tree):
             continue
-        code, content = git(root, "show", "%s:%s" % (tip, path))
-        if code != 0:
+        call = gitcmd.git(root, "show", "%s:%s" % (tip, path))
+        if not call.ok:
             continue
-        for target in targets(path, content):
+        for target in targets(path, call.out):
             if target in changed and target.endswith(".md"):
                 found.add(target)
     return sorted(found)

@@ -1,5 +1,7 @@
 """Seam 1: the doorbell commands, driven from outside."""
 
+from __future__ import annotations
+
 import os
 import re
 import stat
@@ -26,7 +28,7 @@ class DoorbellTest(ToolTest):
         ToolTest.setUp(self)
         self.box.write_loop("x")
 
-    def db(self, *args, env=None, harness="claude-code", slug="x"):
+    def db(self, *args, env=None, harness="claude-code", slug: str | None = "x"):
         tail = ["--harness", harness] + (["--slug", slug] if slug else [])
         return self.box.run("doorbell", *(list(args) + tail), env=env)
 
@@ -448,6 +450,21 @@ class DoorbellTest(ToolTest):
                 self.assertIn("could not read its files", result.text)
                 self.assertNext(result, "paste", "--pasted")
                 self.assertNotIn("stop.", result.last)
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
+    def test_a_ring_that_cannot_append_prints_the_line_for_the_user_to_paste(self):
+        """A ring whose append to the Doorbell file fails ends on the refusal
+        that hands the line to the user, not on a traceback: the write
+        refusal is built in the ring itself, around the append."""
+        tracker = self.box.path(".scratch", "x")
+        os.chmod(tracker, stat.S_IRUSR | stat.S_IXUSR)
+        self.addCleanup(os.chmod, tracker, stat.S_IRWXU)
+        result = self.db("ring", "--role", "Planner", "--write")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertNotIn("Traceback", result.text)
+        self.assertTrue(result.lines[0].startswith("Could not write the Doorbell file "), result)
+        self.assertNext(result, "outside the sandbox", "print the Doorbell line for the user to paste")
 
     @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
     def test_a_take_that_cannot_record_ends_on_the_escalation_and_records_nothing(self):
