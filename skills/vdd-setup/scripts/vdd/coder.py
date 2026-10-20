@@ -20,22 +20,24 @@ from .out import Failure, Output
 SUBCOMMANDS = ("start", "check")
 TICKET_FILE = re.compile(r"^([0-9]+)-.+\.md$")
 ANSWERS = ("fixed", "pushback")
+SNAPSHOT = "coder-untracked-%d"
 
 HELP = [
     "coder start --slug <slug> --write",
     "  The Coder's first call each round. Refuses unless the plan Loop is signed off (round 1) or the last",
     "  code round's review left findings open (a later round). On the base branch it switches to the feature",
     "  branch, creating it from the base when it does not exist; on the feature branch it stays; on any other",
-    "  branch it refuses. It records and prints \"Round <n> starts at <sha>.\" and writes the round's frame of",
-    "  FIXES.md: one entry per Ticket in round 1, one per open finding later. A second start in a round",
-    "  already started writes nothing and prints the same again.",
+    "  branch it refuses. It records and prints \"Round <n> starts at <sha>.\", records the untracked files",
+    "  already there and writes the round's frame of FIXES.md: one entry per Ticket in round 1, one per open",
+    "  finding later. A second start in a round already started writes nothing and prints the same again.",
     "",
     "coder check --slug <slug> [--write]",
-    "  Lint FIXES.md against its frame, and refuse uncommitted changes to tracked files and a round whose",
-    "  recorded start is gone from the branch's history (an earlier commit amended, rebased or reset): every",
-    "  refusal names the line or file and the fix and writes nothing. With --write on a passing round it",
-    "  removes the guidance comment, records the branch tip as the round's end, copies round 1's Ticket",
-    "  entries to .scratch/<slug>/RECAP.md and prints the Doorbell line to end your turn with.",
+    "  Lint FIXES.md against its frame, and refuse uncommitted changes to tracked files, a file left untracked",
+    "  since coder start, and a round whose recorded start is gone from the branch's history (an earlier",
+    "  commit amended, rebased or reset): every refusal names the line or file and the fix and writes",
+    "  nothing. With --write on a passing round it removes the guidance comment, records the branch tip as",
+    "  the round's end, copies round 1's Ticket entries to .scratch/<slug>/RECAP.md and prints the Doorbell",
+    "  line to end your turn with.",
     "",
     "--slug names the loop; pass it on every call. Run every command from the repository root.",
 ]
@@ -93,6 +95,17 @@ def dirty(root: str) -> list[str]:
     return [line.strip() for line in call.out.strip().split("\n") if line.strip()]
 
 
+def untracked(root: str) -> list[str]:
+    """The work tree's untracked, not ignored files, from git's NUL-separated
+    list. A path that holds a line break is left out: a snapshot keeps one
+    path per line."""
+    call = git(root, "ls-files", "--others", "--exclude-standard", "-z")
+    if not call.ok:
+        raise Failure("git ls-files failed: %s" % call.err.strip(),
+                      "Tell the user git ls-files fails in this repository, and stop.")
+    return [name for name in call.out.split("\0") if name and "\n" not in name]
+
+
 class Round:
     """The code round a command acts on."""
 
@@ -113,6 +126,17 @@ class Round:
 
     def command(self, sub: str, write: bool = True) -> str:
         return "%s coder %s --slug %s%s" % (places.command(), sub, self.loop.slug, " --write" if write else "")
+
+    def snapshot_name(self) -> str:
+        return SNAPSHOT % self.number
+
+    def snapshot(self) -> list[str] | None:
+        """The untracked files recorded when the round started, or None for a
+        round started on a version that recorded none."""
+        text = textfile.read(os.path.join(self.loop.dir, self.snapshot_name()))
+        if text is None:
+            return None
+        return [line for line in text.split("\n") if line]
 
     def path(self, name: str) -> str:
         return "%s/%s" % (self.loop.tracker, name)
@@ -291,6 +315,10 @@ def start(round_: Round, write: bool) -> int:
         sha = head(round_.loop.root)
         textfile.write_or_refuse(round_.file, "\n".join(lines) + "\n", round_.relative,
                                  "Otherwise tell the user FIXES.md cannot be written, and stop.")
+        found = untracked(round_.loop.root)
+        textfile.write_or_refuse(os.path.join(round_.loop.dir, round_.snapshot_name()),
+                                 "".join(name + "\n" for name in found), round_.path(round_.snapshot_name()),
+                                 "Otherwise tell the user the round's snapshot cannot be written, and stop.")
         round_.state.append("code %d start %s" % (round_.number, sha))
         out.line("Wrote the frame of %s." % round_.relative)
     out.line("Round %d starts at %s." % (round_.number, sha))
@@ -424,6 +452,11 @@ def check(round_: Round, write: bool) -> int:
     if changed:
         problems.append("The working tree has uncommitted changes to tracked files: %s. Uncommitted work is not "
                         "reviewed; commit it with git." % ", ".join(changed))
+    left = new_untracked(round_)
+    if left:
+        problems.append("The round left untracked files that were not untracked when it started: %s. A file never "
+                        "added misses the commits, the fold and the PR: commit it with git if it belongs to the "
+                        "work, or delete it if it is a by-product." % ", ".join(left))
     if problems:
         raise Failure(problems + ["Nothing written."],
                       "Fix the lines above, then run %s again." % round_.command("check", write))
@@ -444,6 +477,17 @@ def check(round_: Round, write: bool) -> int:
         out.line("Copied the Ticket entries to %s." % round_.path(recap.NAME))
     out.line(loopstate.coder_doorbell(round_.number))
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
+
+
+def new_untracked(round_: Round) -> list[str]:
+    """The untracked, not ignored files the round's start did not record. A
+    round with no snapshot (started on an older version) has none."""
+    before = round_.snapshot()
+    if before is None:
+        return []
+    known = set(before)
+    known.add(round_.path(round_.snapshot_name()))
+    return [name for name in untracked(round_.loop.root) if name not in known]
 
 
 def start_gone(round_: Round) -> str | None:
