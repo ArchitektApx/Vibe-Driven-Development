@@ -29,11 +29,17 @@ many findings the round added and closed, and its Checks lines. Every line
 kind starts with its own word or words, so no line reads as another.
 """
 
+from __future__ import annotations
+
 import os
 import re
+from typing import TYPE_CHECKING, Iterable, Literal, Sequence
 
 from . import textfile
 from .out import TELL, Failure
+
+if TYPE_CHECKING:
+    from .loopfile import Loop
 
 STATE_NAME = "loop-state"
 STATE_PREFIX = "vdd loop-state "
@@ -58,7 +64,10 @@ EXTRA = re.compile(r" (next|new|closed) ([0-9]+)")
 class Review:
     """One recorded review: its round, outcome, open findings and counts."""
 
-    def __init__(self, kind, round_number, outcome, open_numbers, counts, next_number, new, closed, checks):
+    def __init__(
+        self, kind: str, round_number: int, outcome: str, open_numbers: list[int], counts: tuple[int, int, int],
+        next_number: int, new: int, closed: int, checks: str,
+    ) -> None:
         self.kind = kind
         self.round = round_number
         self.signed_off = outcome == "signed-off"
@@ -74,7 +83,7 @@ class Damaged(Failure):
     """A state file whose header this tool never wrote."""
 
 
-def header(path, lines):
+def header(path: str, lines: list[str]) -> str:
     """The version of the state file whose lines these are. Raises Damaged
     when its header is not one this tool wrote, and the Failure for a version
     this copy does not know."""
@@ -87,7 +96,7 @@ def header(path, lines):
     return version
 
 
-def read_state(directory):
+def read_state(directory: str) -> str | None:
     """OPEN or CLOSED from the state file in directory, or None when there is
     none. A file with no loop line reads as CLOSED."""
     path = os.path.join(directory, STATE_NAME)
@@ -103,7 +112,7 @@ def read_state(directory):
     return state
 
 
-def state_version(directory):
+def state_version(directory: str) -> str | None:
     """The state file's version, "1" or "2", or None when there is none."""
     lines = textfile.lines(os.path.join(directory, STATE_NAME), 2.0)
     if not lines or not lines[0].startswith(STATE_PREFIX):
@@ -111,7 +120,7 @@ def state_version(directory):
     return lines[0][len(STATE_PREFIX):].strip()
 
 
-def refuse_v1(loop, command):
+def refuse_v1(loop: Loop, command: str) -> None:
     """Refuse a command that reads the loop's rounds on a loop whose state
     file is version 1: that loop was started by 0.16.0-beta.3, and this
     version reads no rounds from it."""
@@ -132,7 +141,7 @@ def refuse_v1(loop, command):
     )
 
 
-def needs_new_state(directory):
+def needs_new_state(directory: str) -> bool:
     """Whether a new loop in directory writes its state file whole: there is
     none, or a damaged one. False for a readable one, which a new loop appends
     to. A newer format version refuses, before anything is written."""
@@ -142,12 +151,12 @@ def needs_new_state(directory):
         return True
 
 
-def start_state(directory):
+def start_state(directory: str) -> None:
     """Write a new state file holding one open loop, replacing a damaged one."""
     textfile.write_text(os.path.join(directory, STATE_NAME), STATE_PREFIX + STATE_VERSION + "\nloop %s\n" % OPEN)
 
 
-def append_state(directory, state):
+def append_state(directory: str, state: str) -> None:
     """Append "loop <state>" to the state file, writing its header first when
     the file is new."""
     textfile.append(os.path.join(directory, STATE_NAME), "loop %s\n" % state, STATE_PREFIX + STATE_VERSION + "\n")
@@ -156,19 +165,19 @@ def append_state(directory, state):
 class State:
     """Every line of the state file, read once."""
 
-    def __init__(self, directory):
+    def __init__(self, directory: str) -> None:
         self.dir = directory
         self.path = os.path.join(directory, STATE_NAME)
-        lines = textfile.lines(self.path, 2.0) or []
+        lines: list[str] = textfile.lines(self.path, 2.0) or []
         if lines:
             header(self.path, lines)
         self.lines = lines[1:]
 
     # --- reading ---
 
-    def reviews(self, kind):
+    def reviews(self, kind: str) -> dict[int, Review]:
         """round -> Review, the last line for a round winning."""
-        found = {}
+        found: dict[int, Review] = {}
         for line in self.lines:
             match = REVIEWED.match(line)
             if not match or match.group(1) != kind:
@@ -188,27 +197,27 @@ class State:
             )
         return found
 
-    def last_review(self, kind):
+    def last_review(self, kind: str) -> Review | None:
         reviews = self.reviews(kind)
         return reviews[max(reviews)] if reviews else None
 
-    def review(self, kind, round_number):
+    def review(self, kind: str, round_number: int) -> Review | None:
         return self.reviews(kind).get(round_number)
 
-    def review_started(self, kind, round_number):
+    def review_started(self, kind: str, round_number: int) -> bool:
         return ("%s %d review-started" % (kind, round_number)) in self.lines
 
-    def code_mark(self, which, round_number):
+    def code_mark(self, which: str, round_number: int) -> str | None:
         """The sha of a code round's start or end line, the last winning, or
         None."""
         prefix = "code %d %s " % (round_number, which)
-        sha = None
+        sha: str | None = None
         for line in self.lines:
             if line.startswith(prefix):
                 sha = line[len(prefix):].strip()
         return sha
 
-    def code_round(self):
+    def code_round(self) -> int:
         """The newest code round with a start line, or 0."""
         newest = 0
         for line in self.lines:
@@ -217,10 +226,10 @@ class State:
                 newest = max(newest, int(match.group(1)))
         return newest
 
-    def fold_outcome(self):
+    def fold_outcome(self) -> tuple[Literal["folded"], str, None] | tuple[Literal["skipped"], str, str] | None:
         """The fold's recorded outcome, the last line winning: ("folded",
         new tip, None), ("skipped", signed sha, reason), or None."""
-        found = None
+        found: tuple[Literal["folded"], str, None] | tuple[Literal["skipped"], str, str] | None = None
         for line in self.lines:
             match = re.match(r"^fold folded (\S+)", line)
             if match:
@@ -231,7 +240,7 @@ class State:
                 found = ("skipped", match.group(1), match.group(2))
         return found
 
-    def next_number(self, kind):
+    def next_number(self, kind: str) -> int:
         """The number a round's new findings start at: the last review's
         next, or 1."""
         last = self.last_review(kind)
@@ -239,12 +248,12 @@ class State:
 
     # --- writing ---
 
-    def append(self, *lines):
+    def append(self, *lines: str) -> None:
         """Append lines to the state file, or raise a refused Failure."""
         self.persist(*lines)
         self.lines.extend(lines)
 
-    def persist(self, *lines):
+    def persist(self, *lines: str) -> None:
         """Append lines to the state file on disk only: for lines already
         added to self.lines so the files written before them saw them."""
         try:
@@ -254,7 +263,10 @@ class State:
                                          "Otherwise tell the user the loop state file cannot be written, and stop.")
 
 
-def reviewed_line(kind, round_number, signed_off, open_numbers, counts, next_number, new, closed, checks):
+def reviewed_line(
+    kind: str, round_number: int, signed_off: bool, open_numbers: Iterable[int], counts: Sequence[int],
+    next_number: int, new: int, closed: int, checks: str,
+) -> str:
     numbers = ",".join(str(n) for n in open_numbers) or "-"
     return "%s %d reviewed %s %s counts %d %d %d next %d new %d closed %d checks %s" % (
         kind, round_number, "signed-off" if signed_off else "open", numbers, counts[0], counts[1], counts[2],
@@ -266,7 +278,7 @@ def reviewed_line(kind, round_number, signed_off, open_numbers, counts, next_num
 REVIEW_FILES = {"plan": ("Plan-Reviewer", "PLAN-REVIEW.md"), "code": ("Code-Reviewer", "CODEREVIEW.md")}
 
 
-def review_doorbell(review):
+def review_doorbell(review: Review) -> str:
     role, name = REVIEW_FILES[review.kind]
     if review.signed_off:
         return "VDD %s: %s SIGNED OFF, round %d." % (role, name, review.round)
@@ -274,15 +286,15 @@ def review_doorbell(review):
         (role, name, review.round) + tuple(review.counts))
 
 
-def planner_doorbell(tracker, round_number):
+def planner_doorbell(tracker: str, round_number: int) -> str:
     return "VDD Planner: %s/ ready, round %d. Read spec.md and issues/." % (tracker, round_number)
 
 
-def coder_doorbell(round_number):
+def coder_doorbell(round_number: int) -> str:
     return "VDD Coder: FIXES.md written, round %d. Read it." % round_number
 
 
-def closed_loop(slug, why=""):
+def closed_loop(slug: str, why: str = "") -> Failure:
     """The Failure for a command that needs an open loop. why, when given,
     follows "is closed" in the first line."""
     return Failure(
@@ -291,7 +303,7 @@ def closed_loop(slug, why=""):
     )
 
 
-def open_loop(loop, command):
+def open_loop(loop: Loop, command: str) -> State:
     """Refuse a round command on a version 1 or a closed loop."""
     refuse_v1(loop, command)
     if not loop.is_open():

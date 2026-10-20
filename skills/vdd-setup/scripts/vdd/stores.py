@@ -6,8 +6,11 @@ search matches <skill>/SKILL.md at any depth, following symlinked
 directories, so a skills-CLI install that links a skill into a store counts.
 """
 
+from __future__ import annotations
+
 import glob
 import os
+from typing import Iterable
 
 from . import places
 
@@ -20,7 +23,7 @@ PROJECT = "project"
 SKIPPED_DIRS = {".git", "node_modules"}
 
 
-def env(name):
+def env(name: str) -> str:
     """An environment variable, empty when unset."""
     return os.environ.get(name, "")
 
@@ -31,27 +34,27 @@ class Root:
     pattern, on a plugin cache, is a glob below path that the search starts
     from, such as */mattpocock-skills for Claude Code's cache."""
 
-    def __init__(self, path, kind, scope, owner, pattern=None):
+    def __init__(self, path: str, kind: str, scope: str, owner: str, pattern: str | None = None) -> None:
         self.path = os.path.normpath(path)
         self.kind = kind
         self.scope = scope
         self.owner = owner
         self.pattern = pattern
 
-    def key(self):
+    def key(self) -> tuple[str, str | None]:
         return (os.path.normcase(self.path), self.pattern)
 
-    def label(self, cwd):
+    def label(self, cwd: str) -> str:
         return display(self.path, cwd)
 
-    def starts(self):
+    def starts(self) -> list[str]:
         """The directories the search walks."""
         if not self.pattern:
             return [self.path]
         return sorted(glob.glob(os.path.join(glob.escape(self.path), self.pattern)))
 
 
-def display(path, cwd):
+def display(path: str, cwd: str) -> str:
     """A path as the user reads it: ./ under the project, ~/ under home."""
     path = os.path.normpath(path)
     for base, prefix in ((cwd, "."), (places.home(), "~")):
@@ -66,11 +69,11 @@ def display(path, cwd):
 class Hit:
     """One SKILL.md the search found: its root and its path."""
 
-    def __init__(self, root, path):
+    def __init__(self, root: Root, path: str) -> None:
         self.root = root
         self.path = path
 
-    def parts(self):
+    def parts(self) -> list[str]:
         """The path's directories below the root's own directory."""
         rel = os.path.relpath(self.path, self.root.path)
         return rel.replace(os.sep, "/").split("/")
@@ -80,7 +83,7 @@ class Store:
     """Where a set of hits sits: a root, and on a plugin cache the
     marketplace and plugin the path names."""
 
-    def __init__(self, hit, cwd):
+    def __init__(self, hit: Hit, cwd: str) -> None:
         self.root = hit.root
         self.kind = hit.root.kind
         self.scope = hit.root.scope
@@ -90,16 +93,16 @@ class Store:
         self.first = parts[0] if len(parts) > 1 else ""
         self.second = parts[1] if len(parts) > 2 else ""
 
-    def key(self):
+    def key(self) -> tuple[tuple[str, str | None] | str, ...]:
         if self.kind == PLUGIN_CACHE:
             return (self.root.key(), self.first, self.second)
         return (self.root.key(),)
 
 
-def search(roots, skills):
+def search(roots: Iterable[Root], skills: Iterable[str]) -> dict[str, list[Hit]]:
     """skill -> list of Hit, for each skill with a SKILL.md under the roots."""
     wanted = set(skills)
-    hits = {}
+    hits: dict[str, list[Hit]] = {}
     for root in roots:
         for start in root.starts():
             if not os.path.isdir(start):
@@ -118,10 +121,10 @@ def search(roots, skills):
     return hits
 
 
-def union(root_lists):
+def union(root_lists: Iterable[Iterable[Root]]) -> list[Root]:
     """Roots from several Harnesses, each once, in order."""
-    seen = set()
-    out = []
+    seen: set[tuple[str, str | None]] = set()
+    out: list[Root] = []
     for roots in root_lists:
         for root in roots:
             if root.key() in seen:
@@ -133,13 +136,13 @@ def union(root_lists):
 
 # The skills-CLI routes every Harness shares, by the scope of the store.
 
-def cli_add(scope):
+def cli_add(scope: str) -> str:
     if scope == PROJECT:
         return "npx skills@latest add mattpocock/skills (no -g, run in this repository)"
     return "npx skills@latest add -g mattpocock/skills"
 
 
-def cli_update(scope):
+def cli_update(scope: str) -> str:
     if scope == PROJECT:
         return "npx skills update -p"
     return "npx skills update -g"

@@ -13,11 +13,15 @@ round of each Doorbell it acted on. A running wait keeps
 The model carries no count, no record and no wait.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import time
+from typing import Callable
 
 from . import gitcmd, loopfile, loopstate, places, textfile
+from .harness import Harness
 from .out import Failure, Output
 
 
@@ -61,17 +65,17 @@ STALE_GRACE_SECONDS = 5.0
 class Doorbell:
     """A Doorbell line, parsed: who sent it and for which round."""
 
-    def __init__(self, text, sender, round_number, signed_off=False):
+    def __init__(self, text: str, sender: str, round_number: int, signed_off: bool = False) -> None:
         self.text = text
         self.sender = sender
         self.round = round_number
         self.signed_off = signed_off
 
-    def key(self):
+    def key(self) -> tuple[str, int]:
         return (self.sender, self.round)
 
 
-def parse(text, to_role, tracker):
+def parse(text: str, to_role: str, tracker: str) -> Doorbell | None:
     """The Doorbell text holds when addressed to to_role, or None when it
     matches no template for that Role."""
     if to_role == "Orchestrator":
@@ -91,7 +95,7 @@ def parse(text, to_role, tracker):
 class Entry:
     """One line of the Doorbell file addressed to a Role."""
 
-    def __init__(self, number, raw, text, doorbell):
+    def __init__(self, number: int, raw: str, text: str, doorbell: Doorbell | None) -> None:
         self.number = number
         self.raw = raw
         self.text = text
@@ -102,36 +106,43 @@ class Place:
     """The files of one loop: its tracker directory, the Doorbell file, the
     state files."""
 
-    def __init__(self, root, slug):
+    def __init__(self, root: str, slug: str, loop: loopfile.Loop | None = None) -> None:
         self.root = root
         self.slug = slug
         self.tracker = ".scratch/" + slug
         self.dir = loopfile.tracker_dir(root, slug)
         self.file = os.path.join(self.dir, FILE_NAME)
+        # The checked Loop, when the Place is built from one; the Codex Stop
+        # hook builds it from a slug alone.
+        self.loop = loop
 
     @classmethod
-    def find(cls, slug=None):
+    def find(cls, slug: str | None = None) -> Place:
         """The Place of the loop --slug names, or the lookup finds."""
         loop = loopfile.find(gitcmd.project_root(os.getcwd()), slug)
-        place = cls(loop.root, loop.slug)
-        place.loop = loop
-        return place
+        return cls(loop.root, loop.slug, loop)
 
-    def require_open(self, what):
+    def require_loop(self) -> loopfile.Loop:
+        """The Loop the Place was built from."""
+        if self.loop is None:
+            raise RuntimeError("The Place of %s was built without its Loop." % self.slug)
+        return self.loop
+
+    def require_open(self, what: str) -> None:
         """Refuse ring and wait on a closed loop: no Session would ever answer."""
-        if not self.loop.is_open():
+        if not self.require_loop().is_open():
             raise loopstate.closed_loop(self.slug, ", so %s would never be answered" % what)
 
-    def state_path(self, role):
+    def state_path(self, role: str) -> str:
         return os.path.join(self.dir, "doorbell-state-" + role.lower())
 
-    def entries(self, role, retry=0.0):
+    def entries(self, role: str, retry: float = 0.0) -> list[Entry]:
         """Every line addressed to role, oldest first."""
         lines = textfile.lines(self.file, retry)
         if lines is None:
             return []
         textfile.check_header(self.file, lines, HEADER_PREFIX, (FILE_VERSION,))
-        out = []
+        out: list[Entry] = []
         for number, line in enumerate(lines, 1):
             match = ADDRESS.match(line)
             if not match or match.group(2) != role:
@@ -140,7 +151,7 @@ class Place:
             out.append(Entry(number, line, text, parse(text, role, self.tracker)))
         return out
 
-    def load_state(self, role):
+    def load_state(self, role: str) -> State:
         lines = textfile.lines(self.state_path(role), LOCK_RETRY_SECONDS)
         state = State()
         if not lines:
@@ -158,7 +169,7 @@ class Place:
                 state.handled.add((parts[1], int(parts[2])))
         return state
 
-    def save_state(self, role, state):
+    def save_state(self, role: str, state: State) -> None:
         """Write the state file whole, or raise a refused Failure and record
         nothing: a Doorbell is printed only once it is recorded as handled."""
         lines = [STATE_PREFIX + STATE_VERSION, "count %d" % state.count]
@@ -169,19 +180,19 @@ class Place:
             ["Nothing was recorded as handled."],
         )
 
-    def append(self, role, text):
+    def append(self, role: str, text: str) -> None:
         os.makedirs(self.dir, exist_ok=True)
         textfile.append(self.file, "%s to: %s %s\n" % (time.strftime("%H:%M:%S"), role, text),
                         HEADER_PREFIX + FILE_VERSION + "\n")
 
 
 class State:
-    def __init__(self):
+    def __init__(self) -> None:
         self.count = 0
-        self.handled = set()
+        self.handled: set[tuple[str, int]] = set()
 
 
-def pending(entries, state):
+def pending(entries: list[Entry], state: State) -> tuple[list[Entry], list[Entry]]:
     """The lines beyond the handled count, and of them the Doorbells not yet
     handled."""
     beyond = entries[state.count:] if state.count <= len(entries) else []
@@ -189,7 +200,7 @@ def pending(entries, state):
     return beyond, new
 
 
-def tell_not_doorbells(out, entries):
+def tell_not_doorbells(out: Output, entries: list[Entry]) -> None:
     for entry in entries:
         if entry.doorbell is None:
             out.tell(
@@ -203,29 +214,29 @@ def tell_not_doorbells(out, entries):
 # Every command the tool prints for a Role to run names the loop it ran on.
 
 
-def take_command(role, harness, slug, entry=None):
+def take_command(role: str, harness: Harness, slug: str, entry: str | None = None) -> str:
     """The take command, naming the copy at entry (the running one by default)."""
     return "%s doorbell take --role %s --harness %s --slug %s" % (places.command(entry), role, harness.name, slug)
 
 
-def wait_command(role, harness, slug, entry=None):
+def wait_command(role: str, harness: Harness, slug: str, entry: str | None = None) -> str:
     return "%s doorbell wait --role %s --harness %s --slug %s" % (places.command(entry), role, harness.name, slug)
 
 
-def ring_command(role, harness, slug):
+def ring_command(role: str, harness: Harness, slug: str) -> str:
     return "%s doorbell ring --role %s --harness %s --slug %s --write" % (places.command(), role, harness.name, slug)
 
 
-def paste_command(role, harness, slug, entry=None):
+def paste_command(role: str, harness: Harness, slug: str, entry: str | None = None) -> str:
     return '%s doorbell take --role %s --pasted "<the line the user pastes>" --harness %s --slug %s' % (
         places.command(entry), role, harness.name, slug)
 
 
-def wait_next(role, harness, slug, entry=None):
+def wait_next(role: str, harness: Harness, slug: str, entry: str | None = None) -> str:
     return harness.wait_next(role, wait_command(role, harness, slug, entry), paste_command(role, harness, slug, entry))
 
 
-def mark_handled(place, role, out):
+def mark_handled(place: Place, role: str, out: Output) -> None:
     """Record every line addressed to role so far as handled, as take does,
     without printing a Doorbell: the Orchestrator's start acts on what was
     rung before it from the state, so the relay after it names the wait
@@ -243,12 +254,12 @@ def mark_handled(place, role, out):
     place.save_state(role, state)
 
 
-def last_plan_review(place):
+def last_plan_review(place: Place) -> loopstate.Review | None:
     """The last plan review the state file records, or None."""
     return loopstate.State(place.dir).last_review("plan")
 
 
-def plan_signed_off(place):
+def plan_signed_off(place: Place) -> bool:
     """The last plan review signed off and the Planner has rung no round
     after it: the plan Loop is over and neither Role waits."""
     review = last_plan_review(place)
@@ -261,13 +272,13 @@ def plan_signed_off(place):
 # --- the wait ---
 
 
-def timings():
+def timings() -> tuple[float, float]:
     poll = float(os.environ.get("VDD_WAIT_POLL_SECONDS") or POLL_SECONDS)
     total = float(os.environ.get("VDD_WAIT_TIMEOUT_SECONDS") or TIMEOUT_SECONDS)
     return poll, total
 
 
-def watch(place, role, floor=0, beat=None):
+def watch(place: Place, role: str, floor: int = 0, beat: Callable[[], None] | None = None) -> bool:
     """Wait until a new Doorbell addressed to role is pending. Returns True on
     one, False on the timeout. Raises Failure or OSError when the file cannot
     be read. beat, when given, runs once per poll."""
@@ -296,11 +307,11 @@ def watch(place, role, floor=0, beat=None):
 # older than a few polls is stale: its wait was killed without cleaning up.
 
 
-def marker_path(place, role):
+def marker_path(place: Place, role: str) -> str:
     return os.path.join(place.dir, "doorbell-wait-" + role.lower())
 
 
-def read_marker(place, role):
+def read_marker(place: Place, role: str) -> tuple[str, float, float] | None:
     """(token, poll seconds, age in seconds), or None when there is no
     readable marker."""
     path = marker_path(place, role)
@@ -309,7 +320,7 @@ def read_marker(place, role):
         age = time.time() - os.path.getmtime(path)
     except OSError:
         return None
-    if textfile.check_header(path, lines, WAIT_PREFIX, (WAIT_VERSION,)) is None:
+    if lines is None or textfile.check_header(path, lines, WAIT_PREFIX, (WAIT_VERSION,)) is None:
         return None
     parts = lines[1].split() if len(lines) > 1 else []
     try:
@@ -321,7 +332,7 @@ def read_marker(place, role):
     return parts[0], poll, age
 
 
-def wait_runs(place, role):
+def wait_runs(place: Place, role: str) -> bool:
     marker = read_marker(place, role)
     if marker is None:
         return False
@@ -329,7 +340,7 @@ def wait_runs(place, role):
     return age <= STALE_POLLS * poll + STALE_GRACE_SECONDS
 
 
-def wait_or_hold(place, role, harness):
+def wait_or_hold(place: Place, role: str, harness: Harness) -> str:
     """The Next: step that waits: the Harness's wait, or, while a wait of the
     Role still runs, ending the turn; after the plan Sign-off, none."""
     if plan_signed_off(place):
@@ -342,7 +353,7 @@ def wait_or_hold(place, role, harness):
     return wait_next(role, harness, place.slug)
 
 
-def own_marker(place, role, token):
+def own_marker(place: Place, role: str, token: str) -> bool:
     try:
         lines = textfile.lines(marker_path(place, role)) or []
     except OSError:
@@ -350,7 +361,7 @@ def own_marker(place, role, token):
     return len(lines) > 1 and lines[1].split()[:1] == [token]
 
 
-def clear_marker(place, role, token=None):
+def clear_marker(place: Place, role: str, token: str | None = None) -> None:
     """Remove the marker: any marker, or with token only the wait's own."""
     if token is not None and not own_marker(place, role, token):
         return
@@ -363,7 +374,7 @@ def clear_marker(place, role, token=None):
 class Marker:
     """The marker of the wait this process runs."""
 
-    def __init__(self, place, role, poll):
+    def __init__(self, place: Place, role: str, poll: float) -> None:
         self.place = place
         self.role = role
         self.token = "%d-%s" % (os.getpid(), os.urandom(6).hex())
@@ -374,18 +385,18 @@ class Marker:
         except OSError:
             pass
 
-    def beat(self):
+    def beat(self) -> None:
         if own_marker(self.place, self.role, self.token):
             try:
                 os.utime(marker_path(self.place, self.role), None)
             except OSError:
                 pass
 
-    def clear(self):
+    def clear(self) -> None:
         clear_marker(self.place, self.role, self.token)
 
 
-def timeout_next(role, harness, slug, entry=None):
+def timeout_next(role: str, harness: Harness, slug: str, entry: str | None = None) -> str:
     return (
         "Ask the user whether to keep waiting. On yes: %s On no, ask the user to paste the %s's next "
         "Doorbell here, then run: %s"
@@ -393,23 +404,23 @@ def timeout_next(role, harness, slug, entry=None):
     )
 
 
-def hand_relay(role, harness, slug):
+def hand_relay(role: str, harness: Harness, slug: str) -> str:
     return (
         "Tell the user in one line that this wait cannot run, so they paste the %s's next Doorbell here. "
         "With the pasted line, run: %s" % (OTHER[role], paste_command(role, harness, slug))
     )
 
 
-def armed_path(place, thread):
+def armed_path(place: Place, thread: str) -> str:
     return os.path.join(place.dir, loopfile.ARMED_PREFIX + thread)
 
 
-def claim_path(place, thread):
+def claim_path(place: Place, thread: str) -> str:
     """The claim marker of the Codex Stop hook for the thread's armed file."""
     return os.path.join(place.dir, loopfile.CLAIM_PREFIX + thread)
 
 
-def arm(place, role, harness):
+def arm(place: Place, role: str, harness: Harness) -> None:
     thread = os.environ.get("CODEX_THREAD_ID", "")
     if not THREAD_ID.match(thread):
         raise Failure(

@@ -3,20 +3,23 @@ LF, a leading byte order mark dropped. The default encoding is never relied
 on: on Windows it is the ANSI code page. Writing files: whole, through a
 temporary file in the same directory renamed over the target."""
 
+from __future__ import annotations
+
 import os
 import time
+from typing import Container, Iterable
 
 from .out import Failure, refused
 
 
-def decode(data):
+def decode(data: bytes) -> str:
     text = data.decode("utf-8", "replace")
     if text.startswith("\ufeff"):
         text = text[1:]
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
-def read_bytes(path, retry_seconds=0.0):
+def read_bytes(path: str, retry_seconds: float = 0.0) -> bytes:
     """The file's bytes. Raises OSError, FileNotFoundError included.
 
     With retry_seconds, a PermissionError is retried until that much time has
@@ -32,7 +35,7 @@ def read_bytes(path, retry_seconds=0.0):
             time.sleep(0.1)
 
 
-def read(path, retry_seconds=0.0):
+def read(path: str, retry_seconds: float = 0.0) -> str | None:
     """The file's text, or None when it does not exist. retry_seconds as in
     read_bytes."""
     try:
@@ -43,7 +46,7 @@ def read(path, retry_seconds=0.0):
         return None
 
 
-def lines(path, retry_seconds=0.0):
+def lines(path: str, retry_seconds: float = 0.0) -> list[str] | None:
     """The file's lines without line ends, or None when it does not exist."""
     text = read(path, retry_seconds)
     if text is None:
@@ -53,7 +56,7 @@ def lines(path, retry_seconds=0.0):
     return text.split("\n") if text else []
 
 
-def write(path, data):
+def write(path: str, data: bytes) -> None:
     """Write bytes to path whole: a reader sees the old file or the new one.
 
     The rename is retried on PermissionError for two seconds: on Windows a
@@ -79,19 +82,19 @@ def write(path, data):
                 pass
 
 
-def write_text(path, text):
+def write_text(path: str, text: str) -> None:
     """write, with text encoded as UTF-8."""
     write(path, text.encode("utf-8"))
 
 
-def write_refusal(what, error, otherwise, extra=()):
+def write_refusal(what: str, error: OSError, otherwise: str, extra: Iterable[str] = ()) -> Failure:
     """The Failure for a write that failed: "Could not write <what>: <error>",
     then the extra lines. otherwise is its Next: step after the one escalated
     retry (out.refused)."""
     return refused(["Could not write %s: %s" % (what, error)] + list(extra), otherwise)
 
 
-def write_or_refuse(path, text, what, otherwise, extra=()):
+def write_or_refuse(path: str, text: str, what: str, otherwise: str, extra: Iterable[str] = ()) -> None:
     """write_text, or raise write_refusal when the write fails."""
     try:
         write_text(path, text)
@@ -99,7 +102,7 @@ def write_or_refuse(path, text, what, otherwise, extra=()):
         raise write_refusal(what, error, otherwise, extra)
 
 
-def append(path, text, header=""):
+def append(path: str, text: str, header: str = "") -> None:
     """Append text to path, whole in one write; header goes first when the
     file is new, missing or empty. Raises OSError when the write fails."""
     data = text
@@ -109,7 +112,7 @@ def append(path, text, header=""):
         handle.write(data.encode("utf-8"))
 
 
-def check_header(path, lines, prefix, versions):
+def check_header(path: str, lines: list[str], prefix: str, versions: Container[str]) -> str | None:
     """The version a file's first line carries after prefix, or None when the
     file has no such header. Raises the Failure for a version not in versions:
     this copy of the VDD tool is older than the file."""

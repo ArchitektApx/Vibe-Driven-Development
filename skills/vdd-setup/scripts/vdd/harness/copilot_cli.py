@@ -1,15 +1,17 @@
 """Copilot CLI."""
 
+from __future__ import annotations
+
 import os
 
 from . import Harness
 from .. import places
-from ..stores import PLUGIN_CACHE, PROJECT, SKILL_STORE, USER, Root, cli_add, cli_update, env
+from ..stores import PLUGIN_CACHE, PROJECT, SKILL_STORE, USER, Root, Store, cli_add, cli_update, env
 
 RELOAD = "/skills reload or a new copilot Session"
 
 
-def agents_store_line():
+def agents_store_line() -> str:
     """With COPILOT_HOME set, Copilot CLI does not read ~/.agents/skills, which
     the skills CLI's -g writes, so the store is added by hand. The path goes
     in expanded: PowerShell does not expand ~ for a program it runs."""
@@ -26,13 +28,13 @@ class CopilotCli(Harness):
     name = "copilot-cli"
     label = "Copilot CLI"
 
-    def borrowed_skill(self, skill):
+    def borrowed_skill(self, skill: str) -> str:
         return "/" + skill
 
-    def vdd_skill(self, skill):
+    def vdd_skill(self, skill: str) -> str:
         return "/vdd:" + skill
 
-    def present_roots(self, cwd):
+    def present_roots(self, cwd: str) -> list[Root]:
         # Copilot's own store and plugin directory move with COPILOT_HOME,
         # and it reads ~/.agents/skills only while COPILOT_HOME is unset.
         home = places.home()
@@ -48,14 +50,14 @@ class CopilotCli(Harness):
             roots.append(Root(os.path.join(home, ".agents", "skills"), SKILL_STORE, USER, self.name))
         return roots
 
-    def route_not_present(self):
+    def route_not_present(self) -> list[str]:
         return [
             "Install Matt Pocock's collection: npx skills@latest add -g mattpocock/skills, selecting "
             "GitHub Copilot when the installer asks which agents to install for.%s Then run %s "
             "before you rerun %s." % (agents_store_line(), RELOAD, self.vdd_skill("vdd-setup"))
         ]
 
-    def route_present_not_resolvable(self, store):
+    def route_present_not_resolvable(self, store: Store) -> list[str]:
         if store.kind == PLUGIN_CACHE:
             if store.first == "_direct":
                 command = "copilot plugin enable %s" % store.second
@@ -68,7 +70,7 @@ class CopilotCli(Harness):
             "Copilot: %s.%s Then run %s." % (RELOAD, cli_add(store.scope), extra, RELOAD)
         ]
 
-    def route_old_collection(self, store):
+    def route_old_collection(self, store: Store | None) -> list[str] | None:
         if store is None:
             return None
         if store.kind == PLUGIN_CACHE:
@@ -80,19 +82,19 @@ class CopilotCli(Harness):
             return ["Update it: copilot plugin update %s@%s" % (store.second, store.first)]
         return ["Update it: %s" % cli_update(store.scope)]
 
-    def no_hit_continuation(self):
+    def no_hit_continuation(self) -> str:
         return ""
 
-    def respawn_recommendation(self):
+    def respawn_recommendation(self) -> tuple[str | None, str | None]:
         return ("every round", None)
 
-    def codex_hook_steps(self):
+    def codex_hook_steps(self) -> bool:
         return False
 
-    def orchestrator_launch(self, slug):
+    def orchestrator_launch(self, slug: str) -> str:
         return "run copilot in a terminal in this repository, then /vdd:vdd-orchestrator %s in that Session" % slug
 
-    def wait_next(self, role, wait_command, paste_command):
+    def wait_next(self, role: str, wait_command: str, paste_command: str) -> str:
         return "Run this in async or detach mode, never sync, then end your turn: %s" % wait_command
 
 

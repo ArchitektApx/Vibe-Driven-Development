@@ -1,11 +1,18 @@
 """The code Sign-off, as the PR-Author and the Orchestrator meet it: the check
 that the state file records it, and the Next: step after the fold or a skip."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from . import loopstate, places
 from .out import Failure
 
+if TYPE_CHECKING:
+    from .loopfile import Loop
 
-def require_code_sign_off(loop):
+
+def require_code_sign_off(loop: Loop) -> None:
     """The PR-Author runs only once the state file records the code
     Sign-off: an unsigned review has no PR to open yet."""
     loopstate.refuse_v1(loop, "loop show --role PR-Author")
@@ -20,7 +27,7 @@ def require_code_sign_off(loop):
         )
 
 
-def pr_step(loop):
+def pr_step(loop: Loop) -> str:
     """The Next: line after the fold or a skip: the PR step."""
     pr, _ = loop.setting("PR")
     branch, _ = loop.setting("Feature branch")

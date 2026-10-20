@@ -1,7 +1,10 @@
 """Command-line options: --name value, --name=value, and --flag."""
 
+from __future__ import annotations
+
 import difflib
 import re
+from typing import Any, Callable, Container, Iterable, NoReturn, Sequence
 
 from . import harness, places
 from .out import Failure, Output
@@ -13,11 +16,11 @@ FLAG = "flag"
 JOINED = re.compile(r'" --([A-Za-z][A-Za-z0-9-]*)')
 
 
-def parse(argv, spec, usage):
+def parse(argv: Sequence[str], spec: dict[str, str], usage: str) -> dict[str, Any]:
     """The options in argv as a dict, every option in spec present (None or
     False when not given). spec maps an option name to VALUE or FLAG. usage is
     the --help command to name when argv is wrong. --help and -h set "help"."""
-    values = {name: (False if kind == FLAG else None) for name, kind in spec.items()}
+    values: dict[str, Any] = {name: (False if kind == FLAG else None) for name, kind in spec.items()}
     values["help"] = False
     i = 0
     while i < len(argv):
@@ -70,7 +73,14 @@ def parse(argv, spec, usage):
     return values
 
 
-def run_group(argv, group, specs, help_lines, help_next, handle):
+def run_group(
+    argv: Sequence[str],
+    group: str,
+    specs: dict[str, dict[str, str]],
+    help_lines: Iterable[str],
+    help_next: str,
+    handle: Callable[[str, dict[str, Any]], int],
+) -> int:
     """The entry of a command group: its help, a command it does not know,
     the options of the command, and the help after parsing. specs maps each
     command of the group to its option spec. handle(command, values) runs the
@@ -90,7 +100,7 @@ def run_group(argv, group, specs, help_lines, help_next, handle):
     return handle(command, values)
 
 
-def mangled(value, spec):
+def mangled(value: str, spec: Container[str]) -> str | None:
     """The name of the first option of spec that value holds as `" --<name>`,
     or None. A word that is no option of the command is text."""
     for match in JOINED.finditer(value):
@@ -99,7 +109,7 @@ def mangled(value, spec):
     return None
 
 
-def unknown_option(name, spec, usage):
+def unknown_option(name: str, spec: Iterable[str], usage: str) -> Failure:
     """The Failure for an option the command does not take: the options it
     takes, and the closest one when one is close."""
     takes = sorted(spec)
@@ -119,7 +129,7 @@ def unknown_option(name, spec, usage):
     )
 
 
-def unknown_command(typed, usage):
+def unknown_command(typed: str, usage: str) -> NoReturn:
     """Raise the Failure for a word in a command's place that names no
     command. typed is the command as far as it was read ("loop --slug"); usage
     is the --help command that lists the commands there. An option in that
@@ -141,14 +151,14 @@ def unknown_command(typed, usage):
     )
 
 
-def choice(value, allowed, message, next_step):
+def choice(value: str | None, allowed: Container[str | None], message: str, next_step: str) -> None:
     """Raise Failure(message, next_step) unless value is one of allowed. The
     site words both: what the option takes, and where to look."""
     if value not in allowed:
         raise Failure(message, next_step)
 
 
-def check_slug(slug, pattern, named, short, joiners):
+def check_slug(slug: str | None, pattern: str, named: str, short: str, joiners: str) -> None:
     """Raise unless slug matches the regular expression pattern. named is the
     slug as the first line calls it ("a Feature slug"), short as the rest do
     ("a slug"), joiners what may join its words ("hyphens")."""
@@ -160,21 +170,26 @@ def check_slug(slug, pattern, named, short, joiners):
         )
 
 
-def require(values, names, usage):
+def require(values: dict[str, Any], names: Iterable[str], usage: str) -> None:
     missing = [name for name in names if values.get(name) is None]
     if missing:
-        raise Failure(
-            "Missing: %s" % ", ".join("--" + name for name in missing),
-            "Run %s for this command's usage." % usage,
-        )
+        refuse_missing(missing, usage)
 
 
-def harness_of(values, usage):
+def refuse_missing(missing: Sequence[str], usage: str) -> NoReturn:
+    """Raise the Failure for the options in missing, which were not given."""
+    raise Failure(
+        "Missing: %s" % ", ".join("--" + name for name in missing),
+        "Run %s for this command's usage." % usage,
+    )
+
+
+def harness_of(values: dict[str, Any], usage: str) -> harness.Harness:
     """The Harness the --harness option names, as the slug or as the Loop
     file's Harness: line spells it ("Claude Code", "Copilot CLI")."""
     name = values.get("harness")
     if name is None:
-        require(values, ["harness"], usage)
+        refuse_missing(["harness"], usage)
     found = harness.get("-".join(name.lower().split()))
     if found is None:
         raise Failure(

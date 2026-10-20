@@ -7,6 +7,8 @@ has been observed printing "fatal: failed to store" on a call that exited 0
 may.
 """
 
+from __future__ import annotations
+
 import re
 import shutil
 
@@ -15,20 +17,20 @@ from . import gitcmd
 TIMEOUT_SECONDS = 60
 
 
-def call(root, argv):
+def call(root: str, argv: list[str]) -> gitcmd.Call:
     """The finished gitcmd.Call; its code is None when the command cannot
     run or times out."""
     return gitcmd.run(root, argv, timeout=TIMEOUT_SECONDS)
 
 
-def remotes(root):
+def remotes(root: str) -> list[str]:
     result = call(root, ["git", "remote"])
     if result.code != 0:
         return []
     return [line.strip() for line in result.out.split("\n") if line.strip()]
 
 
-def remote_of(root, base):
+def remote_of(root: str, base: str) -> str:
     """The remote the base branch tracks, else the single configured remote,
     else origin."""
     result = call(root, ["git", "config", "--get", "branch.%s.remote" % base])
@@ -41,7 +43,7 @@ def remote_of(root, base):
     return "origin"
 
 
-def host_of(url):
+def host_of(url: str) -> str:
     """The host a remote URL names: https://host/..., ssh://user@host:port/...,
     or the scp form user@host:path."""
     url = url.strip()
@@ -58,14 +60,14 @@ class Check:
     """One capability: passed, why it failed, and the call a sandbox refused
     (None when none was)."""
 
-    def __init__(self, name, passed, why="", refused=None):
+    def __init__(self, name: str, passed: bool, why: str = "", refused: gitcmd.Call | None = None) -> None:
         self.name = name
         self.passed = passed
         self.why = why
         self.refused = refused
 
 
-def can_push(root, remote):
+def can_push(root: str, remote: str) -> Check:
     name = "can push"
     if remote not in remotes(root):
         return Check(name, False, "no remote %s is configured" % remote)
@@ -77,7 +79,7 @@ def can_push(root, remote):
     return Check(name, True)
 
 
-def can_open(root, remote):
+def can_open(root: str, remote: str) -> Check:
     name = "can open a PR"
     if shutil.which("gh") is None:
         return Check(name, False, "gh is not on PATH")
@@ -93,14 +95,14 @@ def can_open(root, remote):
     return Check(name, True)
 
 
-def checks(root, base):
+def checks(root: str, base: str) -> tuple[str, list[Check]]:
     """(remote, [Check]) for both capabilities. After the refusal check, exit
     codes alone decide."""
     remote = remote_of(root, base)
     return remote, [can_push(root, remote), can_open(root, remote)]
 
 
-def run(root, base):
+def run(root: str, base: str) -> tuple[str, list[tuple[str, bool, str]]]:
     """(remote, [(check name, passed, why)]) for both checks."""
     remote, found = checks(root, base)
     return remote, [(check.name, check.passed, check.why) for check in found]

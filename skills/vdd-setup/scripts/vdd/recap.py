@@ -6,21 +6,28 @@ is written. Its sections, Tickets, Plan findings, Code findings, Commits and
 Not carried, keep what earlier writes put there, and each write appends to them.
 """
 
+from __future__ import annotations
+
 import os
+from typing import TYPE_CHECKING
 
 from . import textfile, workfile
+
+if TYPE_CHECKING:
+    from .loopfile import Loop
+    from .loopstate import Review, State
 
 NAME = "RECAP.md"
 SECTIONS = ("Tickets", "Plan findings", "Code findings", "Commits", "Not carried")
 
 
-def path(loop):
+def path(loop: Loop) -> str:
     return os.path.join(loop.dir, NAME)
 
 
-def read_sections(loop):
+def read_sections(loop: Loop) -> dict[str, list[str]]:
     """Section name -> its lines, from the RECAP.md on disk."""
-    sections = dict((name, []) for name in SECTIONS)
+    sections: dict[str, list[str]] = dict((name, []) for name in SECTIONS)
     text = textfile.read(path(loop))
     if text is None:
         return sections
@@ -41,7 +48,7 @@ def read_sections(loop):
     return sections
 
 
-def open_after(review):
+def open_after(review: Review) -> str:
     if review.signed_off:
         if review.counts[2]:
             return "SIGNED OFF, %d minor left" % review.counts[2]
@@ -49,7 +56,7 @@ def open_after(review):
     return "%d blocker, %d major, %d minor" % tuple(review.counts)
 
 
-def loop_line(name, reviews):
+def loop_line(name: str, reviews: dict[int, Review]) -> str:
     if not reviews:
         return "%s Loop: not started." % name
     last = reviews[max(reviews)]
@@ -60,7 +67,7 @@ def loop_line(name, reviews):
     return "%s Loop: %s, open after round %d." % (name, rounds, last.round)
 
 
-def code_line(state):
+def code_line(state: State) -> str:
     """The code Loop's line, naming a Coder round no review has recorded
     yet."""
     reviews = state.reviews("code")
@@ -73,7 +80,7 @@ def code_line(state):
     return "%s; round %d not reviewed yet." % (line[:-1], newest)
 
 
-def fold_text(state):
+def fold_text(state: State) -> str:
     """The fold's outcome for the Code Loop line: folded or not folded."""
     outcome = state.fold_outcome()
     if outcome is None:
@@ -83,7 +90,7 @@ def fold_text(state):
     return "; not folded: " + outcome[2]
 
 
-def render(loop, state, sections):
+def render(loop: Loop, state: State, sections: dict[str, list[str]]) -> str:
     base, _ = loop.setting("Base branch")
     branch, _ = loop.setting("Feature branch")
     plan = state.reviews("plan")
@@ -112,7 +119,7 @@ def render(loop, state, sections):
     return "\n".join(lines) + "\n"
 
 
-def write(loop, state, additions):
+def write(loop: Loop, state: State, additions: dict[str, list[str]]) -> None:
     """Append each section's new lines in additions (name -> lines) and write
     RECAP.md whole, the header and table from state."""
     sections = read_sections(loop)

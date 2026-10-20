@@ -1,6 +1,10 @@
 """Dispatch and the top level of --help. Each command group lives in its own
 module, imported only when that group runs."""
 
+from __future__ import annotations
+
+from types import ModuleType
+
 from . import args, places
 from .out import Failure, Output, refused
 
@@ -26,7 +30,7 @@ ABOUT = [
 ]
 
 
-def top_help():
+def top_help() -> int:
     out = Output()
     for text in ABOUT:
         out.line(text % places.command() if "%s" in text else text)
@@ -37,7 +41,7 @@ def top_help():
     return out.finish("Run %s <group> --help for the group your skill names." % places.command())
 
 
-def load(name):
+def load(name: str) -> ModuleType:
     """The module of a command group, which has run(argv). A plain relative
     import: the static check refuses an import by a computed name."""
     if name == "codex-stop":
@@ -47,7 +51,7 @@ def load(name):
     elif name == "doorbell":
         from . import doorbell as module
     elif name == "loop":
-        from . import loop as module
+        from .loop import loop as module
     elif name == "orchestrator":
         from . import orchestrator as module
     elif name == "review":
@@ -57,11 +61,11 @@ def load(name):
     elif name == "wayfinder":
         from . import wayfinder as module
     else:
-        from . import setup as module
+        from .setup import setup as module
     return module
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     try:
         if not argv or argv[0] in ("-h", "--help", "help"):
             return top_help()

@@ -12,8 +12,11 @@ version: no command reads it, and every command that needs a loop refuses
 while it exists.
 """
 
+from __future__ import annotations
+
 import os
 import re
+from typing import Iterable
 
 from . import args, gitcmd, loopstate, textfile
 from .out import TELL, Failure
@@ -47,7 +50,7 @@ LABELS = {
 }
 
 # The lines each Role acts on, as loop show --role prints them.
-ROLES = {
+ROLES: dict[str, tuple[str, ...]] = {
     "Planner": ("Feature", "Harness"),
     "Plan-Reviewer": ("Minors", "Harness"),
     "Coder": ("Base branch", "Feature branch", "Harness"),
@@ -59,7 +62,7 @@ ROLES = {
 NO_STATE = "no-state"
 
 
-def accepted(name, value):
+def accepted(name: str, value: str) -> bool:
     """Whether value is one the line name accepts, matched exactly."""
     if name == "Minors":
         return value in MINORS
@@ -70,7 +73,7 @@ def accepted(name, value):
     return bool(value)
 
 
-def accepted_text(name):
+def accepted_text(name: str) -> str:
     if name == "Minors":
         return "fix or leave"
     if name == "PR":
@@ -80,16 +83,16 @@ def accepted_text(name):
     return "a value"
 
 
-def harness_slug(label):
+def harness_slug(label: str) -> str:
     for slug, text in LABELS.items():
         if text == label:
             return slug
     return "generic"
 
 
-def fields_of(lines):
+def fields_of(lines: Iterable[str]) -> dict[str, str]:
     """The first value of every "<Name>: <value>" line."""
-    fields = {}
+    fields: dict[str, str] = {}
     for line in lines:
         match = LINE.match(line)
         if match and match.group(1) not in fields:
@@ -97,19 +100,19 @@ def fields_of(lines):
     return fields
 
 
-def scratch(root):
+def scratch(root: str) -> str:
     return os.path.join(root, ".scratch")
 
 
-def tracker_dir(root, slug):
+def tracker_dir(root: str, slug: str) -> str:
     return os.path.join(scratch(root), slug)
 
 
-def check_slug(slug):
+def check_slug(slug: str) -> None:
     args.check_slug(slug, SLUG_PATTERN, "a Feature slug", "a slug", "hyphens")
 
 
-def has_root_file(root):
+def has_root_file(root: str) -> bool:
     """Whether root holds a file named exactly LOOP.md. A listing, not a path
     test: on a case-insensitive file system the path LOOP.md also finds a
     loop.md."""
@@ -119,7 +122,7 @@ def has_root_file(root):
         return False
 
 
-def refuse_root(root):
+def refuse_root(root: str) -> None:
     """Refuse while a format-1 root LOOP.md exists."""
     if has_root_file(root):
         raise Failure(
@@ -132,7 +135,7 @@ def refuse_root(root):
         )
 
 
-def kind(root, slug):
+def kind(root: str, slug: str) -> str | None:
     """What .scratch/<slug> is: None when it does not exist, OPEN or CLOSED
     for a loop, NO_STATE for any other existing path, a damaged state file
     included. A state file of a newer format version still refuses."""
@@ -149,10 +152,10 @@ def kind(root, slug):
     return NO_STATE
 
 
-def delete_armed(directory):
+def delete_armed(directory: str) -> list[str]:
     """Delete every Codex armed file in directory, and every claim marker; the
     names of the armed files deleted."""
-    gone = []
+    gone: list[str] = []
     try:
         names = sorted(os.listdir(directory))
     except OSError:
@@ -173,17 +176,17 @@ def delete_armed(directory):
 class Loop:
     """One loop: its slug, its tracker directory and its Loop file's lines."""
 
-    def __init__(self, root, slug):
+    def __init__(self, root: str, slug: str) -> None:
         self.root = root
         self.slug = slug
         self.dir = tracker_dir(root, slug)
         self.tracker = ".scratch/" + slug
         self.file = os.path.join(self.dir, NAME)
         self.relative = ".scratch/%s/%s" % (slug, NAME)
-        self.lines = textfile.lines(self.file, 2.0) or []
+        self.lines: list[str] = textfile.lines(self.file, 2.0) or []
         self.fields = fields_of(self.lines)
 
-    def check(self):
+    def check(self) -> Loop:
         """Refuse a Loop file this copy does not read, or one that lacks a
         line naming the loop."""
         value = self.fields.get("Format", "")
@@ -207,7 +210,7 @@ class Loop:
                 )
         return self
 
-    def setting(self, name):
+    def setting(self, name: str) -> tuple[str, str | None]:
         """(value, fault): the line's value, or its default with fault
         "missing" or "malformed"."""
         if name not in self.fields:
@@ -219,17 +222,17 @@ class Loop:
             return DEFAULTS[name], "malformed"
         return value, None
 
-    def harness_file(self):
+    def harness_file(self) -> str:
         return "harness-%s.md" % harness_slug(self.setting("Harness")[0])
 
-    def state(self):
+    def state(self) -> str | None:
         return loopstate.read_state(self.dir)
 
-    def is_open(self):
+    def is_open(self) -> bool:
         return self.state() == loopstate.OPEN
 
 
-def render(fields):
+def render(fields: dict[str, str]) -> str:
     """A Loop file's text from its lines' values, in the fixed order."""
     lines = ["# VDD Loop", ""]
     for name in ORDER:
@@ -237,12 +240,12 @@ def render(fields):
     return "\n".join(lines) + "\n"
 
 
-def write(directory, fields):
+def write(directory: str, fields: dict[str, str]) -> None:
     os.makedirs(directory, exist_ok=True)
     textfile.write_text(os.path.join(directory, NAME), render(fields))
 
 
-def replace_line(lines, name, value):
+def replace_line(lines: Iterable[str], name: str, value: str) -> list[str]:
     """lines with name's line set to value: in place when it exists, else
     inserted after the last line that comes before it in the fixed order."""
     out = list(lines)
@@ -263,13 +266,13 @@ def replace_line(lines, name, value):
 
 # --- finding the loop ---
 
-def loops(root):
+def loops(root: str) -> list[tuple[str, str]]:
     """Every loop under .scratch/: (slug, state), by slug."""
     try:
         names = sorted(os.listdir(scratch(root)))
     except OSError:
         return []
-    found = []
+    found: list[tuple[str, str]] = []
     for name in names:
         directory = os.path.join(scratch(root), name)
         if os.path.isdir(directory) and os.path.isfile(os.path.join(directory, NAME)):
@@ -282,7 +285,7 @@ def loops(root):
     return found
 
 
-def find(root, slug=None):
+def find(root: str, slug: str | None = None) -> Loop:
     """The loop --slug names, else the loop whose Feature branch is checked
     out, else the only open loop; a checked Loop. Refuses otherwise."""
     refuse_root(root)
@@ -317,12 +320,12 @@ def find(root, slug=None):
     )
 
 
-def branch_of(root, slug):
+def branch_of(root: str, slug: str) -> str:
     lines = textfile.lines(os.path.join(tracker_dir(root, slug), NAME)) or []
     return fields_of(lines).get("Feature branch", "")
 
 
-def named(root, slug):
+def named(root: str, slug: str) -> Loop:
     check_slug(slug)
     found = kind(root, slug)
     if found is None:
