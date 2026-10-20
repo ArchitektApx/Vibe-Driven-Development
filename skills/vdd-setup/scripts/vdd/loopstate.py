@@ -286,16 +286,16 @@ class State:
                 newest = max(newest, int(match.group(1)))
         return newest
 
-    def fold_record(self) -> Fold | None:
-        """The fold's last recorded outcome, the last line winning, or None."""
+    def fold_record(self, kind: str | None = None) -> Fold | None:
+        """The fold's last recorded outcome, of kind when given, or None."""
         found: Fold | None = None
         for line in self.lines:
             match = re.match(r"^fold folded (\S+) signed (\S+)", line)
-            if match:
+            if match and kind in (None, "folded"):
                 found = Fold("folded", match.group(2), tip=match.group(1))
                 continue
             match = re.match(r"^fold skipped (\S+) (.*)$", line)
-            if match:
+            if match and kind in (None, "skipped"):
                 found = Fold("skipped", match.group(1), reason=match.group(2))
         return found
 

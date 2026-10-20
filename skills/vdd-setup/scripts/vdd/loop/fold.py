@@ -537,6 +537,10 @@ def checked_fold(
                          ok=(0, 128))
     if upstream.code == 0 and upstream.out.strip():
         raise Skip("%s has an upstream, %s, so someone may have fetched it" % (branch, upstream.out.strip()))
+    for remote in repo.out("remote").split():
+        tracking = "refs/remotes/%s/%s" % (remote, branch)
+        if repo.call("rev-parse", "--verify", "--quiet", tracking, ok=(0, 1)).code == 0:
+            raise Skip("%s was pushed to %s, so someone may have fetched it" % (branch, remote))
     merge_base = repo.out("merge-base", base_branch, signed)
     # The loop starts where round 1 started: a commit on the feature branch
     # before it is the user's own and stays as it is.
@@ -569,11 +573,12 @@ def checked_fold(
 
 
 def chain_of(state: loopstate.State, repo: Repo, base: str, signed: str) -> tuple[str, str]:
-    """(the chain's end, what the chain began as): the new tip of the fold
-    the last fold line records, else round 1's recorded end. Raises the Skip
-    when that commit is not a sound end of the signed history."""
-    record = state.fold_record()
-    if record is not None and record.kind == "folded":
+    """(the chain's end, what the chain began as): the new tip of the last
+    fold that moved the branch, a later skip notwithstanding, else round 1's
+    recorded end. Raises the Skip when that commit is not a sound end of the
+    signed history."""
+    record = state.fold_record("folded")
+    if record is not None:
         tip = record.tip
         rounds = [r for r in sorted(state.reviewer_reviews("code")) if state.code_mark("end", r) == record.signed]
         earlier = "folded after round %d" % rounds[-1] if rounds else "an earlier fold"

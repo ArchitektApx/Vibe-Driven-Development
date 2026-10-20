@@ -645,6 +645,14 @@ class SkipTest(FoldTest):
         self.git("branch", "--set-upstream-to=main", "demo")
         self.skipped(signed, self.fold(), "has an upstream")
 
+    def test_a_branch_pushed_without_an_upstream(self):
+        """A branch pushed by hand without -u has no upstream, yet someone may
+        have fetched it, and a rewrite would reject the next push."""
+        signed = self.signed_loop()
+        self.git("remote", "add", "origin", "https://example.invalid/demo.git")
+        self.git("update-ref", "refs/remotes/origin/demo", signed)
+        self.skipped(signed, self.fold(), "demo was pushed to origin")
+
     def test_a_skip_on_pr_no_says_the_branch_stays_local(self):
         """The Tell line said the loop goes on to the PR while the Next: line
         closed the loop with nothing pushed."""
@@ -876,6 +884,32 @@ class SecondFoldTest(FoldTest):
         self.assertIn("(round 1)", result.text)
         self.assertNotIn(FOLDED_AFTER, result.text)
         self.assertIn("Not folded: ", first.text)
+
+    def test_a_fold_after_a_skipped_one_folds_from_the_last_folded_tip(self):
+        """A skip after a fold left the chain at round 1's pre-fold end, gone
+        from the history, so every later fold skipped with a wrong reason."""
+        self.folded_once()
+        skipped = self.round_three({CSV: STDLIB}, "fix(report): name the import", reviewed=True)
+        self.git("branch", "--set-upstream-to=main", "demo")
+        self.fold()
+        self.assertIn("fold skipped %s " % skipped, self.state())
+        self.git("branch", "--unset-upstream", "demo")
+        self.box.write(os.path.join(".scratch", "demo", "CODEREVIEW.md"),
+                       SIGNED_REVIEW.replace("round 2", "round 3"))
+        self.box.write("findings.md", USER_FINDINGS.replace("Name the module's import.", "Say why."))
+        added = self.box.run("review", "add", "--slug", "demo", "--from", "findings.md", "--write")
+        self.assertEqual(added.code, 0, added)
+        started = self.box.run("coder", "start", "--slug", "demo", "--write")
+        self.assertEqual(started.code, 0, started)
+        self.commit({NOTES: "VALUE = 1\n"}, "fix(report): add the notes")
+        signed = self.sha()
+        self.stage("code 4 end %s" % signed,
+                   "code 4 reviewed signed-off - counts 0 0 0 next 4 new 0 closed 1 checks code-review ran")
+        result = self.fold()
+        subjects = self.folded(signed, result)
+        self.assertEqual(subjects, [T01_SUBJECT, T02_SUBJECT])
+        self.assertIn("VALUE = 1", self.at(T01_SUBJECT, NOTES))
+        self.assertIn(FOLDED_AFTER, result.text)
 
 
 if __name__ == "__main__":
