@@ -15,8 +15,9 @@ import re
 import textwrap
 from typing import Any, Iterable
 
-from . import agentdocs, args, doorbells, fixes, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
-from .out import Failure, Output
+from .. import args, doorbells, fixes, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
+from ..out import Failure, Output
+from . import agentdocs
 
 SUBCOMMANDS = ("start", "check")
 REVIEWERS = {"Plan-Reviewer": "plan", "Code-Reviewer": "code"}

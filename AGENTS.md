@@ -43,14 +43,13 @@ replaces a guardrail says in its docstring which failure it prevents.
 
 The VDD tool is the package `skills/vdd-setup/scripts/vdd/`.
 
-- Shared helpers sit at the top of the package. A group or concern with
-  several modules of its own may be a subpackage, as `harness/`, `setup/` and
-  `loop/` are.
+- Shared helpers sit at the top of the package. A group with modules of its
+  own is a subpackage, as `setup/`, `loop/` and `review/` are, and so is a
+  concern with several modules, as `harness/` is.
 - A group module holds its command surface: help, parsing, dispatch and
   printed lines. No group module imports another group's module; `loop fold`
   is part of the `loop` group.
-- Code with one user stays with that user: in the group's subpackage, or
-  beside the group's module when the group is one module. It moves to the top
+- Code with one user stays in that group's subpackage. It moves to the top
   when a second group adopts it.
 - One concern per module, about 500 lines at most, as guidance.
 - A helper returns facts, and the group that calls it words what the Role

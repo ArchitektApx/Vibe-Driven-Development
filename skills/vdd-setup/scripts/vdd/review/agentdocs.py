@@ -17,7 +17,7 @@ import posixpath
 import re
 from typing import Container
 
-from . import gitcmd
+from .. import gitcmd
 
 LINK = re.compile(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")

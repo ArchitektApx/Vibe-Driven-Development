@@ -55,7 +55,7 @@ def load(name: str) -> ModuleType:
     elif name == "orchestrator":
         from . import orchestrator as module
     elif name == "review":
-        from . import review as module
+        from .review import review as module
     elif name == "pr":
         from . import pr as module
     elif name == "wayfinder":
