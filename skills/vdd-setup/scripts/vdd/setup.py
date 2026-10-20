@@ -59,11 +59,12 @@ def run(argv):
         return out.finish("Run %s setup with the options above, without --write first." % places.command())
     harness = args.harness_of(values, usage())
     args.require(values, ["listed", "glossary-named"], usage())
-    if values["glossary-named"] not in ("yes", "no", "absent"):
-        raise Failure("--glossary-named takes yes, no or absent.", "Run %s for this command's usage." % usage())
+    args.choice(values["glossary-named"], ("yes", "no", "absent"), "--glossary-named takes yes, no or absent.",
+                "Run %s for this command's usage." % usage())
     answer = values["user-answer"]
-    if answer is not None and answer not in ("resolves", "does-not-resolve"):
-        raise Failure("--user-answer takes resolves or does-not-resolve.", "Run %s for this command's usage." % usage())
+    if answer is not None:
+        args.choice(answer, ("resolves", "does-not-resolve"), "--user-answer takes resolves or does-not-resolve.",
+                    "Run %s for this command's usage." % usage())
     return Setup(harness, values).run()
 
 

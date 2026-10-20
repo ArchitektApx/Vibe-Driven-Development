@@ -71,8 +71,7 @@ def run(argv):
         return run(["--help"])
     harness = args.harness_of(values, usage())
     role = values["role"]
-    if role not in doorbells.ROLES:
-        raise Failure("--role takes Planner or Orchestrator.", "Run %s for the usage." % usage())
+    args.choice(role, doorbells.ROLES, "--role takes Planner or Orchestrator.", "Run %s for the usage." % usage())
     place = doorbells.Place.find(values["slug"])
     if sub == "ring":
         return ring(place, role, harness, values["write"])

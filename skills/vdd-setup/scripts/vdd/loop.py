@@ -386,11 +386,9 @@ def aside(root, values):
 def show(root, values):
     loop = loopfile.find(root, values["slug"])
     role = values["role"]
-    if role is not None and role not in loopfile.ROLES:
-        raise Failure(
-            "--role takes one of: %s." % ", ".join(loopfile.ROLES),
-            "Run the command again with your Role's name.",
-        )
+    if role is not None:
+        args.choice(role, loopfile.ROLES, "--role takes one of: %s." % ", ".join(loopfile.ROLES),
+                    "Run the command again with your Role's name.")
     if role == "PR-Author":
         require_code_sign_off(loop)
     names = loopfile.ROLES[role] if role else loopfile.IDENTITY + loopfile.SETTINGS

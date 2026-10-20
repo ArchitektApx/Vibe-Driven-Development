@@ -83,8 +83,8 @@ def run(argv):
         return tokens(flow, values)
     args.require(values, ["role", "harness"], usage())
     role = values["role"]
-    if role not in HOSTED + ("Planner",):
-        raise Failure("--role takes Planner, Plan-Reviewer, Coder or Code-Reviewer.", "Run %s for the usage." % usage())
+    args.choice(role, HOSTED + ("Planner",), "--role takes Planner, Plan-Reviewer, Coder or Code-Reviewer.",
+                "Run %s for the usage." % usage())
     return returned(flow, role)
 
 
@@ -535,8 +535,7 @@ def planner_returned(flow):
 
 def respawn(flow, values):
     role = values["role"]
-    if role not in HOSTED:
-        raise Failure("--role takes Plan-Reviewer, Coder or Code-Reviewer.", "Run %s for the usage." % usage())
+    args.choice(role, HOSTED, "--role takes Plan-Reviewer, Coder or Code-Reviewer.", "Run %s for the usage." % usage())
     if (values["policy"] is None) == (not values["once"]):
         raise Failure("Give --policy or --once, not both and not neither.", "Run %s for the usage." % usage())
     out = Output()
@@ -584,8 +583,7 @@ def respawn(flow, values):
 def tokens(flow, values):
     args.require(values, ["role", "tokens"], usage())
     role = values["role"]
-    if role not in HOSTED:
-        raise Failure("--role takes Plan-Reviewer, Coder or Code-Reviewer.", "Run %s for the usage." % usage())
+    args.choice(role, HOSTED, "--role takes Plan-Reviewer, Coder or Code-Reviewer.", "Run %s for the usage." % usage())
     if flow.harness.name != "claude-code":
         raise Failure(
             "%s reports no subagent token count, so there is none to record." % flow.harness_label,

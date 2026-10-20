@@ -79,8 +79,7 @@ def run(argv):
     if values["help"]:
         return run(["--help"])
     role = values["role"]
-    if role not in REVIEWERS:
-        raise Failure("--role takes Plan-Reviewer or Code-Reviewer.", "Run %s for the usage." % usage())
+    args.choice(role, REVIEWERS, "--role takes Plan-Reviewer or Code-Reviewer.", "Run %s for the usage." % usage())
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     state = loopstate.open_loop(loop, "review %s" % sub)
     round_ = Round(loop, state, role)
