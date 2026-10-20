@@ -157,6 +157,16 @@ jobs:
       - name: Shipped code passes the static checks
         run: python3 .github/scripts/check_shipped_code.py
 
+      # Without a check, annotations drift until pyright reports again. Any
+      # report fails, warnings too. The action downloads pyright without an
+      # integrity check, so both the action (a commit) and pyright (a version)
+      # are pinned to what was read; it needs no token.
+      - name: Pyright reports nothing
+        uses: jakebailey/pyright-action@8ec14b5cfe41f26e5f41686a31eb6012758217ef # v3.0.2
+        with:
+          version: 1.1.414
+          warnings: true
+
       # release.yml alone may write to the repository, and only from a version tag
       # push or a workflow_dispatch; a pull_request trigger there would run PR-head
       # content with write access. The runner has no YAML parser, so these are text

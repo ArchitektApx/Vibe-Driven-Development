@@ -31,7 +31,7 @@ class HarnessContractTest(unittest.TestCase):
     def test_every_harness_implements_every_method(self):
         for name in harness.NAMES:
             with self.subTest(harness=name):
-                found = harness.get(name)
+                found = harness.known(name)
                 self.assertIsInstance(found, harness.Harness)
                 self.assertEqual(found.name, name)
                 cls = type(found)
@@ -55,7 +55,7 @@ class HarnessContractTest(unittest.TestCase):
         }
         for name, pair in expected.items():
             with self.subTest(harness=name):
-                self.assertEqual(harness.get(name).respawn_recommendation(), pair)
+                self.assertEqual(harness.known(name).respawn_recommendation(), pair)
 
     def test_unknown_name(self):
         self.assertIsNone(harness.get("nonsense"))
