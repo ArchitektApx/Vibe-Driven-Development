@@ -1,27 +1,11 @@
-"""loop fold: the rewrite of a loop's commits after a code Sign-off.
+"""loop fold: the rewrite of a loop's commits after each code Sign-off.
 
-The loop's commits run from round 1's recorded start up to the signed
-commit, the recorded end of the code round whose review signed off. A commit
-before round 1's start, on the base branch or on the feature branch before
-the loop, is never rewritten and owns nothing. The chain is the history so
-far: round 1's commits, up to round 1's recorded end, or, when an earlier fold
-moved the branch, up to that fold's new tip. Each commit after the chain's end
-is absorbed in order: every changed hunk is blamed against the history as
-folded so far and moved into the loop commit that wrote those lines. Lines no
-loop commit wrote go to the latest loop commit that changed the same file; a
-new file joins the commit's single target; an insertion is owned by the lines
-around it; a deleted file goes to the owner of its last lines. What has no
-owner, or would conflict with a later commit, stays in a commit on top with
-the Coder's message, author and date, and a later fix to its lines folds into
-it.
-
-All of it runs in git's object store: blame, merge-tree --write-tree
---merge-base, commit-tree, and a temporary index under .scratch/<slug>/ for a
-split. One update-ref, guarded by the signed commit, moves the branch, and
-only when the folded tree equals the signed tree. Every case it cannot fold
-is a skip, and a skip leaves the branch exactly as signed. The fold never
-stops to ask. It runs again at each later code Sign-off, after the user's
-findings reopened the loop.
+The chain is round 1's commits, or the branch as the last fold left it. Each
+later commit up to the signed commit is split by hunk, and each hunk moves into
+the loop commit blame says wrote its lines; what has no owner or would conflict
+stays on top as its own commit. One update-ref, guarded by the signed commit,
+moves the branch only when the folded tree equals the signed tree; anything
+else is a skip that leaves the branch as signed.
 """
 
 from __future__ import annotations
@@ -207,6 +191,7 @@ class Split:
                 added.add(name)
                 continue
             if not has_new:
+                # A deleted file goes to the owner of its last lines.
                 owner = self.latest(self.blame(name, 1, len(old_lines))) if old_lines else None
                 self.whole[name] = owner if owner is not None else self.file_owner(name)
                 continue

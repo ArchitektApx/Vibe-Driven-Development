@@ -101,7 +101,7 @@ each loop's fixes into the commits they fix, at every Sign-off.
   lines it changes, so the branch reads as one commit per ticket plus any
   commit no ticket owned. A fix that would clash stays as its own commit.
   The branch moves only when it holds exactly what was reviewed, and never
-  when it has an upstream; otherwise it stays as reviewed and you are told
+  once it was pushed; otherwise it stays as reviewed and you are told
   why. When your findings reopen the loop, the next Sign-off folds again.
   `RECAP.md` lists each final commit and what it was built from.
 - **Findings you add after Sign-off reopen the loop.** Put them in a file and

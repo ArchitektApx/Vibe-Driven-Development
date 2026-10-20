@@ -140,8 +140,8 @@ class DryRunAndWriteTest(AddTest):
     def test_help_documents_review_add(self):
         result = self.box.run("review", "--help")
         self.assertEqual(result.code, 0, result)
-        for fragment in ("review add --slug <slug> --from <file> [--write]", "### <blocker|major|minor>: <reference>",
-                         "For example", "plan Loop takes no user findings", "Without --write"):
+        for fragment in ("review add --slug <slug> --from <file> [--write]", "### major: src/app.py:12",
+                         "Severity is blocker, major or minor", "signed-off code Loop", "Without --write"):
             self.assertIn(fragment, result.text.replace("\n  ", " "))
 
     def test_the_dry_run_numbers_from_the_states_next_and_changes_nothing(self):
