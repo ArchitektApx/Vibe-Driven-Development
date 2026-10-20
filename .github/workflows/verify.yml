@@ -38,14 +38,14 @@ jobs:
             head -n 1 "$f" | grep -qx -- '---' || { echo "missing frontmatter: $f"; rc=1; }
             grep -qE '^name:' "$f" || { echo "missing name: $f"; rc=1; }
             grep -qE '^description:' "$f" || { echo "missing description: $f"; rc=1; }
-          done < <(find skills -name SKILL.md)
+          done < <(git ls-files -- skills | grep -E '(^|/)SKILL\.md$')
           exit $rc
 
       # `npx skills add` installs by frontmatter name, so a duplicate silently
       # clobbers the other skill.
       - name: Skill names are unique
         run: |
-          dupes=$(grep -h '^name:' skills/*/SKILL.md | sort | uniq -d)
+          dupes=$(git ls-files -- skills | grep -E '^skills/[^/]+/SKILL\.md$' | while IFS= read -r f; do grep -h '^name:' "$f" || true; done | sort | uniq -d)
           if [ -n "$dupes" ]; then
             echo "duplicate skill names:"; echo "$dupes"; exit 1
           fi
@@ -71,7 +71,7 @@ jobs:
             if [ "$size" -gt 8192 ]; then
               echo "$f: $size bytes, over 8 KB"; rc=1
             fi
-          done < <(find skills -type f -path '*/references/*')
+          done < <(git ls-files -- skills | grep '/references/')
           exit $rc
 
       # A skill that ships a Harness file and leaves a Harness out of ## Harnesses
@@ -147,7 +147,7 @@ jobs:
             if [ -n "$bad" ]; then
               echo "$f: top-level keys other than interface and policy:"; echo "$bad"; rc=1
             fi
-          done < <(find skills -type f -path '*/agents/openai.yaml')
+          done < <(git ls-files -- skills | grep -E '/agents/openai\.yaml$')
           exit $rc
 
       # Shipped code runs on every installer's machine through a named interpreter,

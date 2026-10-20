@@ -1,9 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
-// find, not git ls-files, so a plain copy of the tree is checked too.
-const find = (...args) => execFileSync("find", ["skills", ...args], { encoding: "utf8" })
-  .split("\n").filter(Boolean).map((p) => path.normalize(p));
+const tracked = execFileSync("git", ["ls-files", "-z", "--", "skills"], { encoding: "utf8" })
+  .split("\0").filter(Boolean).map((p) => path.normalize(p));
 const frontmatter = (f) => {
   const lines = fs.readFileSync(f, "utf8").split("\n");
   if (lines[0] !== "---") return [];
@@ -20,7 +19,7 @@ const implicitOff = (f) => {
   }
   return false;
 };
-const policies = new Set(find("-type", "f", "-path", "*/agents/openai.yaml"));
+const policies = new Set(tracked.filter((f) => f.endsWith(path.join(path.sep, "agents", "openai.yaml"))));
 let rc = 0;
 for (const p of policies) {
   const skill = path.join(path.dirname(path.dirname(p)), "SKILL.md");
@@ -29,7 +28,7 @@ for (const p of policies) {
     rc = 1;
   }
 }
-for (const skill of find("-mindepth", "2", "-maxdepth", "2", "-type", "f", "-name", "SKILL.md")) {
+for (const skill of tracked.filter((f) => f.split(path.sep).length === 3 && path.basename(f) === "SKILL.md")) {
   const dir = path.dirname(skill);
   const blocked = frontmatter(skill).some((l) => /^disable-model-invocation:\s*true\s*$/.test(l));
   const p = path.join(dir, "agents", "openai.yaml");
