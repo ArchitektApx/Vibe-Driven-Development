@@ -653,6 +653,15 @@ class SkipTest(FoldTest):
         self.git("update-ref", "refs/remotes/origin/demo", signed)
         self.skipped(signed, self.fold(), "demo was pushed to origin")
 
+    def test_a_remote_branch_of_the_same_name_outside_the_loop_folds(self):
+        """The acceptance run's origin held an older, unrelated branch of the
+        loop's name, and the fold skipped as if the loop had been pushed."""
+        signed = self.signed_loop()
+        self.git("remote", "add", "origin", "https://example.invalid/demo.git")
+        stray = self.out("commit-tree", "%s^{tree}" % self.out("merge-base", "main", signed), "-m", "unrelated")
+        self.git("update-ref", "refs/remotes/origin/demo", stray)
+        self.folded(signed, self.fold())
+
     def test_a_skip_on_pr_no_says_the_branch_stays_local(self):
         """The Tell line said the loop goes on to the PR while the Next: line
         closed the loop with nothing pushed."""

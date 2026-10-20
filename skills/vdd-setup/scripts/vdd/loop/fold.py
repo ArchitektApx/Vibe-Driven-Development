@@ -522,10 +522,6 @@ def checked_fold(
                          ok=(0, 128))
     if upstream.code == 0 and upstream.out.strip():
         raise Skip("%s has an upstream, %s, so someone may have fetched it" % (branch, upstream.out.strip()))
-    for remote in repo.out("remote").split():
-        tracking = "refs/remotes/%s/%s" % (remote, branch)
-        if repo.call("rev-parse", "--verify", "--quiet", tracking, ok=(0, 1)).code == 0:
-            raise Skip("%s was pushed to %s, so someone may have fetched it" % (branch, remote))
     merge_base = repo.out("merge-base", base_branch, signed)
     # The loop starts where round 1 started: a commit on the feature branch
     # before it is the user's own and stays as it is.
@@ -536,6 +532,7 @@ def checked_fold(
         raise Skip("round 1's start %s does not descend from the base branch's merge base" % base[:7])
     if repo.out("rev-list", "--merges", "%s..%s" % (base, signed)):
         raise Skip("the loop's history holds a merge commit")
+    pushed_to(repo, branch, base, signed)
     chain_end, earlier = chain_of(state, repo, base, signed)
     before = int(repo.out("rev-list", "--count", "%s..%s" % (base, signed)))
     sign = write and repo.call("config", "--bool", "commit.gpgSign", ok=(0, 1)).out.strip() == "true"
@@ -555,6 +552,21 @@ def checked_fold(
     if write and tip != signed:
         repo.call("update-ref", "-m", "vdd loop fold", ref, tip, signed)
     return before, chain, sources, tip, lines
+
+
+def pushed_to(repo: Repo, branch: str, base: str, signed: str) -> None:
+    """Raises the Skip when a remote-tracking ref of the branch holds a loop
+    commit, as a push without -u leaves it. A remote's own branch of the same
+    name, outside the loop's history, is not a push."""
+    for remote in repo.out("remote").split():
+        tracking = "refs/remotes/%s/%s" % (remote, branch)
+        sha = repo.call("rev-parse", "--verify", "--quiet", tracking, ok=(0, 1)).out.strip()
+        if not sha:
+            continue
+        in_loop = repo.call("merge-base", "--is-ancestor", sha, signed, ok=(0, 1, 128)).code == 0
+        before = repo.call("merge-base", "--is-ancestor", sha, base, ok=(0, 1, 128)).code == 0
+        if in_loop and not before:
+            raise Skip("%s was pushed to %s, so someone may have fetched it" % (branch, remote))
 
 
 def chain_of(state: loopstate.State, repo: Repo, base: str, signed: str) -> tuple[str, str]:
