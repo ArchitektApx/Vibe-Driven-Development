@@ -21,7 +21,7 @@ if sys.version_info < (3, 10):
 
 # Outside these directories every tracked file is one of the kinds below.
 UNSHIPPED_DIRS = ("skills/", ".github/", "tests/", "docs/")
-ROOT_FILES = (".gitignore", ".gitattributes", "LICENSE")
+ROOT_FILES = (".gitignore", ".gitattributes", "LICENSE", "pyrightconfig.json")
 MANIFEST_DIRS = (".claude-plugin/", ".codex-plugin/")
 
 # Modules that open a network connection, or serve or fetch over one, and

@@ -390,8 +390,9 @@ jobs:
       # - File kinds as an allow list: under skills/ only .md,
       #   agents/openai.yaml and .py;
       #   elsewhere outside .github/, tests/ and docs/ only .md, the manifests'
-      #   .json, .gitignore, .gitattributes and LICENSE. New code is .py, or a
-      #   deliberate edit of this step.
+      #   .json, .gitignore, .gitattributes, LICENSE and pyrightconfig.json,
+      #   which pyright and its editor plugin read only at the root. New code
+      #   is .py, or a deliberate edit of this step.
       # - Every file under skills/ at mode 644, and no .py with a shebang:
       #   nothing runs by its own path.
       # - Every .py ASCII only: a non-ASCII byte reaches a Windows console in

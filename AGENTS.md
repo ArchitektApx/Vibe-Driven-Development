@@ -90,7 +90,7 @@ exception edits the step in the same PR so the reviewer sees both.
 - Under `skills/` every tracked file is `.md`, `agents/openai.yaml` or `.py`.
 - Outside `skills/`, `.github/`, `tests/` and `docs/` every tracked file is
   `.md`, a manifest `.json` under `.claude-plugin/` or `.codex-plugin/`,
-  `.gitignore`, `.gitattributes` or `LICENSE`.
+  `.gitignore`, `.gitattributes`, `LICENSE` or `pyrightconfig.json`.
 - Every tracked file under `skills/` is at mode 644, and no `.py` starts
   with a shebang.
 - Every `.py` under `skills/` is ASCII only and parses as Python 3.9.
