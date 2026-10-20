@@ -14,7 +14,7 @@ how the Coder restarts for the least cost on your agent, and code reviews on
 Claude Code and Codex are fixed. Each loop keeps its settings in its own
 directory, every loop starts with Start-Loop, and a finished loop leaves a
 `RECAP.md` that says how it went. VDD also needs git 2.40 or newer: it folds
-each loop's fixes into the commits they fix, once, at the end.
+each loop's fixes into the commits they fix, at every Sign-off.
 
 ### Migrating from 0.15
 
@@ -80,7 +80,7 @@ each loop's fixes into the commits they fix, once, at the end.
   them in `.scratch/<slug>/` for you, so two loops in one repository never
   share them, and there is no `LOOP.md` to delete after a loop. A finished
   loop is closed and its files stay as its record. To fix something before
-  you merge, ask the Orchestrator to reopen it.
+  you merge, send it back with `review add`.
 - **Start-Loop asks less.** It no longer asks whether to delete an old
   `LOOP.md`. When an earlier loop used your slug, it offers only what fits:
   continue an interrupted loop, start fresh with the old files moved aside
@@ -96,13 +96,28 @@ each loop's fixes into the commits they fix, once, at the end.
 - **Commits no longer carry `Ticket NN`.** The Coder commits in your
   repository's own style: one commit per ticket, then its fixes as plain
   commits in later rounds.
-- **The branch is folded once, at the end, by VDD.** After the code review
+- **The branch is folded at each Sign-off, by VDD.** After the code review
   signs off, each later round's fix moves into the commit that wrote the
   lines it changes, so the branch reads as one commit per ticket plus any
   commit no ticket owned. A fix that would clash stays as its own commit.
   The branch moves only when it holds exactly what was reviewed, and never
   when it has an upstream; otherwise it stays as reviewed and you are told
-  why. `RECAP.md` lists each final commit and what it was built from.
+  why. When your findings reopen the loop, the next Sign-off folds again.
+  `RECAP.md` lists each final commit and what it was built from.
+- **Findings you add after Sign-off reopen the loop.** Put them in a file and
+  run `review add`: it numbers them, you set each one's severity, and a
+  fresh Coder takes them in the next round. The Code-Reviewer reviews only
+  that round's fixes, and `RECAP.md` shows your findings in a row of their
+  own, apart from the reviewers' rounds. Minors that a `Minors: leave`
+  Sign-off left open do not come back unless you list them. The workflow page shows the call.
+- **Start-Loop shows you its warnings and summary.** The slug, the Harness
+  and how to correct it, and the warnings about a push or a PR that will fail
+  are printed by VDD and relayed to you before the Planner starts. They were
+  dropped in every Claude Code Start-Loop since 2026-10-17.
+- **The Coder cannot leave a new file out of the commits.** When a round ends
+  with a file the Coder created and never added, VDD refuses it and names the
+  file. A file that was already untracked when the round started, and an
+  ignored one, pass.
 - **A later round is reviewed on its own diff.** The Code-Reviewer reviews
   the fixes since its last round instead of the whole branch again, and
   still reruns the verification on the whole branch. A reviewer who skips a

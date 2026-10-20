@@ -109,8 +109,12 @@ The Python program the plugin ships in the Setup skill, `scripts/vdd.py` and its
 _Avoid_: script, CLI, helper
 
 **Sign-off**:
-A reviewer's round recorded as `SIGNED OFF`, the status line the VDD tool writes under the review file's title. The only thing that ends a Loop, withheld while a blocker or a major is open and, on a Minors answer of `fix`, while any minor is open; hedged approval is not sign-off.
+A reviewer's round recorded as `SIGNED OFF`, the status line the VDD tool writes under the review file's title. The only thing that ends a Loop; a code Sign-off ends the code Loop unless User findings reopen it. Withheld while a blocker or a major is open and, on a Minors answer of `fix`, while any minor is open; hedged approval is not sign-off.
 _Avoid_: approval, LGTM, done
+
+**User findings**:
+Findings the user adds to a signed-off code Loop, which reopen it for one or more Coder and Code-Review rounds. They are recorded as the user's, apart from any reviewer's round. The plan Loop takes none.
+_Avoid_: owner findings, grading findings, external review
 
 **Minors answer**:
 The `Minors:` line in the Loop file, `fix` or `leave`, given by the user at Workflow start and read by both reviewers. It decides whether an open minor holds up Sign-off.
@@ -125,7 +129,7 @@ A hosted Role spawned anew at a later round of the same Loop, in place of a resu
 _Avoid_: fresh spawn, restart
 
 **Fold**:
-The VDD tool's one rewrite of a Loop's commits, after the code Sign-off. It moves each later-round fix into the commit that wrote the lines it changes, and leaves the branch as signed when the result would differ.
+The VDD tool's rewrite of a Loop's commits after each code Sign-off. It moves each later-round fix into the commit that wrote the lines it changes, and leaves the branch as signed when the result would differ.
 _Avoid_: squash, autosquash, rebase
 
 **Recap**:
