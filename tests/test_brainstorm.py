@@ -638,3 +638,145 @@ class FindAndCheck(BrainstormTest):
                      "file: index.md is a 0.15 index",
                      "file: late.md has no History line 'created'"):
             self.assertIn(line, result.text)
+
+
+class Families(BrainstormTest):
+    def setUp(self):
+        BrainstormTest.setUp(self)
+        self.new("t3code-support", "T3 Code support", "VDD in T3 Code.")
+
+    def split(self):
+        return self.ok("split", "--idea", "t3code-support", "--part", "t3-threads | Threads | Launch threads.",
+                       "--part", "t3-names | Names \\| labels | Name sessions.", "--write")
+
+    def test_split_creates_the_parts_under_the_idea(self):
+        """Prevents a large idea that cannot become a family (spec story 28):
+        split creates each part under the idea, which records 'split into'
+        for each, and start lists them under it."""
+        result = self.split()
+        self.assertIn("Split t3code-support into t3-threads, t3-names; it stays their parent [idea].", result.text)
+        self.assertNext(result, "Read its file and Edit that section")
+        names = self.read("t3-names.md")
+        self.assertIn("parent: t3code-support\n", names)
+        self.assertIn("\n# Names | labels\n", names)
+        self.assertIn("- %s: created under t3code-support" % TODAY, names)
+        parent = self.read("t3code-support.md")
+        self.assertIn("- %s: split into t3-threads\n- %s: split into t3-names" % (TODAY, TODAY), parent)
+        self.assertRegex(self.ok("start").text, r"\n- t3code-support \[idea\].*\n  - t3-names \[idea\].*\n  - "
+                                                r"t3-threads \[idea\]")
+
+    def test_a_part_not_in_three_fields_is_refused(self):
+        """Prevents a part with no title or tldr: every --part is
+        '<slug> | <title> | <tldr>'."""
+        before = self.ideas_tree()
+        result = self.bs("split", "--idea", "t3code-support", "--part", "t3-threads | Threads", "--write")
+        self.assertEqual(result.code, 1, result)
+        self.assertIn("is not '<slug> | <title> | <tldr>'", result.text)
+        self.assertEqual(self.ideas_tree(), before)
+
+    def test_move_out_and_back_records_history_on_all_three(self):
+        """Prevents a re-parent that leaves no trace (spec story 32): the
+        part, its old parent and its new one each record the move; a
+        relation between part and parent is the user's and stays (finding
+        14)."""
+        self.split()
+        self.ok("move", "--set", "t3-names=top", "--write", today="2026-10-21")
+        self.assertNotIn("parent:", self.read("t3-names.md"))
+        self.assertIn("- 2026-10-21: moved to top level", self.read("t3-names.md"))
+        self.assertIn("- 2026-10-21: part removed t3-names", self.read("t3code-support.md"))
+        self.ok("move", "--set", "t3-names=t3-threads", "--write", today="2026-10-22")
+        self.assertIn("parent: t3-threads\n", self.read("t3-names.md"))
+        self.assertIn("- 2026-10-22: moved under t3-threads", self.read("t3-names.md"))
+        self.assertIn("- 2026-10-22: part added t3-names", self.read("t3-threads.md"))
+        self.ok("note", "--idea", "t3-names", "--section", "Related Ideas", "--text",
+                "depends on t3code-support: the detection rule.", "--write")
+        self.ok("note", "--idea", "t3code-support", "--section", "Related Ideas", "--text",
+                "enables t3-names: part 3.", "--write")
+        self.ok("move", "--set", "t3-names=t3code-support", "--write", today="2026-10-23")
+        self.assertIn("- 2026-10-23: part removed t3-names", self.read("t3-threads.md"))
+        self.assertIn("- 2026-10-23: part added t3-names", self.read("t3code-support.md"))
+        self.assertIn("- depends on t3code-support: the detection rule.", self.read("t3-names.md"))
+        self.assertIn("- enables t3-names: part 3.", self.read("t3code-support.md"))
+
+    def test_a_move_to_a_fourth_level_or_into_a_loop_is_refused(self):
+        """Prevents a family deeper than three levels or a parent loop (spec
+        story 32): move and split refuse and write nothing."""
+        self.split()
+        self.new("leaf", "Leaf", "Deepest.", "--parent", "t3-threads")
+        self.new("other-root", "Other root", "Elsewhere.")
+        self.new("other-kid", "Other kid", "Below.", "--parent", "other-root")
+        before = self.ideas_tree()
+        for argv, says in ((["move", "--set", "other-root=leaf"], "levels deep"),
+                           (["move", "--set", "other-root=t3-names"], "levels deep"),
+                           (["move", "--set", "t3code-support=leaf"], "one of its own parts"),
+                           (["split", "--idea", "leaf", "--part", "x-one | X | x."], "its parts would be deeper")):
+            with self.subTest(argv=argv):
+                result = self.bs(*(argv + ["--write"]))
+                self.assertEqual(result.code, 1, result)
+                self.assertIn(says, result.text)
+        self.assertEqual(self.ideas_tree(), before)
+
+    def test_merge_is_refused_while_an_open_part_is_left(self):
+        """Prevents an open part stranded under a dropped idea (spec story
+        30): the refusal names each open part at any level and the move that
+        files it; with only closed parts the merge goes and they stay."""
+        self.split()
+        self.new("leaf", "Leaf", "Deepest.", "--parent", "t3-threads")
+        self.new("survivor", "Survivor", "Takes it all.")
+        before = self.ideas_tree()
+        argv = ["merge", "--idea", "t3code-support", "--into", "survivor", "--reason", "one idea", "--reopen-when",
+                "they differ", "--write"]
+        result = self.bs(*argv)
+        self.assertEqual(result.code, 1, result)
+        self.assertIn("t3code-support has open parts: t3-names, t3-threads, leaf.", result.text)
+        self.assertIn("  brainstorm move --set leaf=<parent>|top --write", result.text)
+        self.assertEqual(self.ideas_tree(), before)
+        self.ok("set", "--idea", "t3-names", "--idea", "t3-threads", "--idea", "leaf", "--status", "done",
+                "--decision", "PR 1", "--write")
+        result = self.ok(*argv)
+        self.assertIn("Its closed parts stay under t3code-support: t3-names, t3-threads.", result.text)
+        self.assertIn("parent: t3code-support\n", self.read("t3-names.md"))
+
+    def test_merge_into_a_closed_idea_or_its_own_part_is_refused(self):
+        """Prevents open steps moving into a closed idea and a merge that
+        loops the family (red team D1, U1, D15)."""
+        self.split()
+        self.new("closed-one", "Closed one", "Gone.")
+        self.ok("set", "--idea", "closed-one", "--status", "done", "--decision", "x", "--write")
+        self.ok("set", "--idea", "t3-names", "--idea", "t3-threads", "--status", "done", "--decision", "x", "--write")
+        self.new("t3-open", "Open part", "Still open.", "--parent", "t3code-support")
+        before = self.ideas_tree()
+        for into, says in (("closed-one", "merges only into an open one"), ("t3-open", "is a part of t3code-support")):
+            result = self.bs("merge", "--idea", "t3code-support", "--into", into, "--reason", "x", "--reopen-when", "y",
+                             "--write")
+            self.assertEqual(result.code, 1, result)
+            self.assertIn(says, result.text)
+        self.assertEqual(self.ideas_tree(), before)
+
+    def test_merge_moves_open_steps_and_records_both_sides(self):
+        """Prevents a merge recorded on one side only, losing a step, or
+        leaving the moved steps open in the dropped idea too (spec story
+        29), or listing a step the survivor holds open twice (finding 26)."""
+        self.new("survivor", "Survivor", "Takes it all.")
+        self.ok("note", "--idea", "t3code-support", "--section", "Next Steps", "--text", "Count the cost.", "--write")
+        path = self.box.path(S + "t3code-support.md")
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(text.replace("- [ ] Count the cost.", "- [ ] Count the cost.\n-  [ ] Odd spacing step."))
+        result = self.ok("merge", "--idea", "t3code-support", "--into", "survivor", "--reason", "one idea",
+                         "--reopen-when", "they differ again", "--write")
+        self.assertIn("t3code-support is merged into survivor and dropped; 2 open steps moved over.", result.text)
+        absorbed = self.read("t3code-support.md")
+        self.assertIn("status: dropped", absorbed)
+        self.assertIn("Dropped %s: merged into survivor, one idea\nReopen when: they differ again" % TODAY, absorbed)
+        self.assertIn("- %s: merged into survivor" % TODAY, absorbed)
+        self.assertNotIn("- [ ]", absorbed)
+        self.assertNotIn("Count the cost.", absorbed)
+        self.assertNotIn("Odd spacing step.", absorbed)
+        survivor = self.read("survivor.md")
+        self.assertIn("- [ ] Count the cost. (from t3code-support)", survivor)
+        self.assertIn("- [ ] Odd spacing step. (from t3code-support)", survivor)
+        self.assertEqual(survivor.count("Talk it through with the user."), 1, survivor)
+        self.assertIn("- %s: merged from t3code-support" % TODAY, survivor)
+        self.assertIn("No problems.", self.ok("check").text)

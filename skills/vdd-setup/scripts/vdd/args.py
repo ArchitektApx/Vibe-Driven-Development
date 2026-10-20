@@ -129,7 +129,9 @@ def unknown_option(name: str, spec: Iterable[str], usage: str) -> Failure:
     takes, and the closest one when one is close."""
     takes = sorted(spec)
     close = difflib.get_close_matches(name, takes, n=1, cutoff=0.6)
-    lines = ["Unknown option: --%s" % name, "This command takes: %s." % ", ".join("--" + n for n in takes)]
+    lines = ["Unknown option: --%s" % name,
+             "This command takes: %s." % ", ".join("--" + n for n in takes) if takes
+             else "This command takes no options."]
     if close:
         lines.append("Closest: --%s." % close[0])
         return Failure(
@@ -138,9 +140,9 @@ def unknown_option(name: str, spec: Iterable[str], usage: str) -> Failure:
         )
     return Failure(
         lines,
-        "Run the command again with the options above, as your skill writes them (%s shows the usage). If your "
-        "skill writes --%s exactly, this copy of the VDD tool is older than the skill: tell the user to rerun "
-        "Setup." % (usage, name),
+        "Run the command again %s, as your skill writes it (%s shows the usage). If your skill writes --%s exactly, "
+        "this copy of the VDD tool is older than the skill: tell the user to rerun Setup."
+        % ("with the options above" if takes else "without --%s" % name, usage, name),
     )
 
 
@@ -186,7 +188,9 @@ def check_slug(slug: str | None, pattern: str, named: str, short: str, joiners: 
 
 
 def require(values: dict[str, Any], names: Iterable[str], usage: str) -> None:
-    missing = [name for name in names if values.get(name) is None]
+    """Refuse the options in names that were not given: a VALUE that is None,
+    a LIST that is empty."""
+    missing = [name for name in names if values.get(name) is None or values.get(name) == []]
     if missing:
         refuse_missing(missing, usage)
 

@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Tuple
 
 from .. import args, gitcmd, places, textfile
 from ..out import Output
-from . import journal, moves, reads
+from . import journal, moves, reads, restructure
 from .lock import Lock
 from .store import LAYOUT, LAYOUT_FILE, Store, layout, require_layout, store_dir
 
@@ -36,6 +36,9 @@ SPECS: dict[str, dict[str, str]] = {
     "note": {"idea": V, "section": V, "text": L, "tick": V, "write": W},
     "set": dict({"idea": L, "status": V, "decision": V, "reopen-when": V, "tldr": V, "title": V, "write": W},
                 **METRIC_OPTIONS),
+    "move": {"set": L, "write": W},
+    "split": {"idea": V, "part": L, "write": W},
+    "merge": {"idea": V, "into": V, "reason": V, "reopen-when": V, "write": W},
 }
 REQUIRED = {
     "show": ["idea"],
@@ -43,6 +46,9 @@ REQUIRED = {
     "new": ["slug", "title", "tldr"],
     "note": ["idea"],
     "set": ["idea"],
+    "move": ["set"],
+    "split": ["idea", "part"],
+    "merge": ["idea", "into", "reason", "reopen-when"],
 }
 
 HELP = [
@@ -71,12 +77,20 @@ HELP = [
     "  Status idea, discussed, shaped, decided, in-progress, done or dropped. done, dropped and decided need",
     "  --decision, dropped also --reopen-when; dropping an idea drops its open parts at every level; an open",
     "  status on a closed idea reopens it.",
+    "brainstorm move --set <part>=<parent>|top [--set ...]",
+    "  Files a part under a parent, or back at the top level.",
+    "brainstorm split --idea <slug> --part '<slug> | <title> | <tldr>' [--part ...]",
+    "  New parts under the idea, which stays their parent.",
+    "brainstorm merge --idea <slug> --into <slug> --reason <text> --reopen-when <text>",
+    "  Drops the first idea into the second, which takes its open Next Steps. An idea with an open part, at any",
+    "  level, cannot merge; its closed parts stay under it.",
     "",
     "Run every command from the repository root. Every write needs --write; without it the command is a dry run.",
 ]
 
 Move = Callable[[Store, Dict[str, Any]], Tuple[List[str], str, str]]
-WRITES: dict[str, Move] = {"new": moves.new, "note": moves.note, "set": moves.set_cmd}
+WRITES: dict[str, Move] = {"new": moves.new, "note": moves.note, "set": moves.set_cmd, "move": restructure.move,
+                           "split": restructure.split, "merge": restructure.merge}
 Read = Callable[[Store, Dict[str, Any], Output], int]
 READS: dict[str, Read] = {"show": reads.show, "find": reads.find, "check": reads.check}
 
