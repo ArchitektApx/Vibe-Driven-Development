@@ -117,6 +117,14 @@ each loop's fixes into the commits they fix, once, at the end.
   briefing, on every agent.
 - **The Codex hook starts Python only for a wait.** Outside a Codex
   session's wait for a Doorbell it ends at once, under zsh too.
+- **A mistyped option names its fix.** When a VDD command gets an option it
+  does not take, it lists the options the command takes and names the
+  closest one. When none is close, it says your copy of the VDD tool is
+  older than the skill and asks you to rerun Setup.
+- **A value Windows PowerShell 5.1 mangled is refused.** When a
+  value ends in a backslash, PowerShell 5.1 pulls the options after it into
+  that value. VDD now refuses such a value and says why, and the Role runs
+  the command again without the backslash.
 
 #### Internal
 
