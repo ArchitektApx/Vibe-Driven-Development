@@ -269,8 +269,8 @@ class CodexHookTest(ToolTest):
         self.assertSilent(self.hook(stop_input(ID)))
 
     def test_two_turn_ends_racing_claim_the_arm_once(self):
-        """Two turn ends can race for the same armed file; the claim renames it
-        away first, so only one of them waits. The 0.15 hook deleted the armed
+        """Two turn ends can race for the same armed file; only one of them
+        creates the claim marker, so only one of them waits. The 0.15 hook deleted the armed
         file before it waited (e89c906), which left a window between its read
         and its delete."""
         self.loop()
