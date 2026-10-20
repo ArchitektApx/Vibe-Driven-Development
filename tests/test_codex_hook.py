@@ -8,6 +8,7 @@ loop through the Session's armed file and reads no Loop file.
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import threading
@@ -315,6 +316,49 @@ class CodexHookTest(ToolTest):
         self.ring("Orchestrator", P1)
         before = self.snapshot()
         self.assertSilent(self.hook(stop_input(ID)), before)
+
+    def pin(self, path):
+        """Make deleting path fail, as a program holding it open does on
+        Windows, and return the call that undoes it."""
+        if WINDOWS:
+            return open(path, "rb").close
+        os.chflags(path, stat.UF_IMMUTABLE)
+        return lambda: os.chflags(path, 0)
+
+    @unittest.skipUnless(WINDOWS or hasattr(os, "chflags"), "a file that refuses its delete needs Windows or chflags")
+    def test_an_armed_file_that_cannot_be_deleted_is_claimed_once(self):
+        """The claim removed its marker even when the armed file outlived it,
+        so the next turn end claimed the same wait again and blocked for the
+        whole timeout on a Doorbell already taken. The marker now stays until
+        the next arm."""
+        self.loop()
+        self.armed(ID)
+        self.ring("Orchestrator", P1)
+        marker = self.box.path(TRACKER, "codex-claim-" + ID)
+        release = self.pin(self.box.path(TRACKER, "codex-armed-" + ID))
+        try:
+            self.assertBlock(self.hook(stop_input(ID)))
+            self.assertFalse(self.gone(ID))
+            self.assertTrue(os.path.exists(marker))
+            self.assertSilent(self.hook(stop_input(ID)))
+        finally:
+            release()
+
+    @unittest.skipUnless(WINDOWS or hasattr(os, "chflags"), "a file that refuses its delete needs Windows or chflags")
+    def test_an_armed_file_held_for_a_moment_is_still_deleted(self):
+        """A delete refused for a moment, as a scanner briefly holding the file
+        on Windows refuses it, is retried, so the claim ends as usual."""
+        self.loop()
+        self.armed(ID)
+        self.ring("Orchestrator", P1)
+        timer = threading.Timer(1.0, self.pin(self.box.path(TRACKER, "codex-armed-" + ID)))
+        timer.start()
+        try:
+            self.assertBlock(self.hook(stop_input(ID)))
+        finally:
+            timer.join()
+        self.assertTrue(self.gone(ID))
+        self.assertFalse(os.path.exists(self.box.path(TRACKER, "codex-claim-" + ID)))
 
     def test_the_hook_names_the_shared_copy(self):
         self.loop()

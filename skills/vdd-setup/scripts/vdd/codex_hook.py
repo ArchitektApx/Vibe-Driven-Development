@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 
 from . import doorbells, loopfile, places, textfile
 from .harness import codex as codex_harness
@@ -102,12 +103,14 @@ def claim(path: str, marker: str) -> tuple[str, int] | None:
     reads the armed file, then deletes it first and the marker second, so a
     later racer finds no armed file once the marker is gone. (Role, count), or
     None when another turn end has the wait, the file is gone, cannot be read
-    or is not well formed (a malformed one is deleted); the claimer's own
-    marker never outlives the call."""
+    or is not well formed (a malformed one is deleted). The claimer's own
+    marker outlives the call only when the armed file cannot be deleted, so no
+    later turn end takes the wait again; the next arm clears it."""
     try:
         os.close(os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
     except OSError:
         return None
+    keep = False
     try:
         try:
             lines = textfile.lines(path, doorbells.LOCK_RETRY_SECONDS)
@@ -115,16 +118,33 @@ def claim(path: str, marker: str) -> tuple[str, int] | None:
             return None
         claimed = well_formed(lines)
         if lines is not None:
-            try:
-                os.remove(path)
-            except OSError:
-                pass
+            keep = not removed(path)
         return claimed
     finally:
+        if not keep:
+            try:
+                os.remove(marker)
+            except OSError:
+                pass
+
+
+def removed(path: str) -> bool:
+    """Delete path, retrying a PermissionError for LOCK_RETRY_SECONDS: on
+    Windows a program holding the file open refuses the delete. True once the
+    file is gone."""
+    deadline = time.monotonic() + doorbells.LOCK_RETRY_SECONDS
+    while True:
         try:
-            os.remove(marker)
+            os.remove(path)
+            return True
+        except FileNotFoundError:
+            return True
+        except PermissionError:
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.1)
         except OSError:
-            pass
+            return False
 
 
 def well_formed(lines: list[str] | None) -> tuple[str, int] | None:
