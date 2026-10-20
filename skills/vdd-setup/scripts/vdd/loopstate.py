@@ -10,6 +10,7 @@ closed; the round commands refuse it. Besides the loop lines it holds:
   code <r> review-started
   <plan|code> <r> reviewed <open|signed-off> <numbers|-> counts <b> <m> <p> next <n> new <k> closed <c>
       checks <text>
+  code <r> user open <numbers> counts <b> <m> <p> next <n> new <k>
   code <r> start <sha>
   code <r> end <sha>
   respawn <Role> <every round|never|over <n>k>
@@ -25,8 +26,13 @@ closed; the round commands refuse it. Besides the loop lines it holds:
 
 A reviewed line names the findings still open after the round, the open
 counts per severity, the number the next round's new findings start at, how
-many findings the round added and closed, and its Checks lines. Every line
-kind starts with its own word or words, so no line reads as another.
+many findings the round added and closed, and its Checks lines. A user line,
+written only by review add after the signed-off line of round <r>, names the
+findings the user raised after that Sign-off: all of them open, counted per
+severity, the number the next new finding takes and how many the entry holds;
+the last user line after a round wins. It has no closed and no checks part,
+and the plan Loop takes none. Every line kind starts with its own word or
+words, so no line reads as another.
 """
 
 from __future__ import annotations
@@ -59,6 +65,7 @@ REVIEWED = re.compile(
     r"^(plan|code) ([1-9][0-9]*) reviewed (open|signed-off) ([0-9,]+|-) counts ([0-9]+) ([0-9]+) ([0-9]+)(.*)$"
 )
 EXTRA = re.compile(r" (next|new|closed) ([0-9]+)")
+USER = re.compile(r"^code ([1-9][0-9]*) user open ([0-9,]+) counts ([0-9]+) ([0-9]+) ([0-9]+) next ([0-9]+) new ([0-9]+)$")
 
 
 class Review:
@@ -66,7 +73,7 @@ class Review:
 
     def __init__(
         self, kind: str, round_number: int, outcome: str, open_numbers: list[int], counts: tuple[int, int, int],
-        next_number: int, new: int, closed: int, checks: str,
+        next_number: int, new: int, closed: int, checks: str, user: bool = False,
     ) -> None:
         self.kind = kind
         self.round = round_number
@@ -77,6 +84,25 @@ class Review:
         self.new = new
         self.closed = closed
         self.checks = checks
+        # Whether this is the user's entry after round <round>'s Sign-off,
+        # standing in for that round's review.
+        self.user = user
+
+    def raised(self) -> list[int]:
+        """The finding numbers a user entry holds, which run without gaps
+        up to its next number."""
+        return list(range(self.next - self.new, self.next))
+
+
+class Fold:
+    """One recorded fold outcome: "folded" with the branch's new tip, or
+    "skipped" with the reason, and the signed commit it ran on."""
+
+    def __init__(self, kind: Literal["folded", "skipped"], signed: str, tip: str = "", reason: str = "") -> None:
+        self.kind = kind
+        self.signed = signed
+        self.tip = tip
+        self.reason = reason
 
 
 class Damaged(Failure):
@@ -175,8 +201,9 @@ class State:
 
     # --- reading ---
 
-    def reviews(self, kind: str) -> dict[int, Review]:
-        """round -> Review, the last line for a round winning."""
+    def reviewer_reviews(self, kind: str) -> dict[int, Review]:
+        """round -> Review, the reviewers' rounds only, the last line for a
+        round winning."""
         found: dict[int, Review] = {}
         for line in self.lines:
             match = REVIEWED.match(line)
@@ -195,6 +222,39 @@ class State:
                 (int(match.group(5)), int(match.group(6)), int(match.group(7))),
                 next_number, extra.get("new", 0), extra.get("closed", 0), checks.strip(),
             )
+        return found
+
+    def user_entries(self) -> dict[int, Review]:
+        """round -> the user's entry after that round's Sign-off, the last
+        line for a round winning."""
+        found: dict[int, Review] = {}
+        for line in self.lines:
+            match = USER.match(line)
+            if not match:
+                continue
+            round_number = int(match.group(1))
+            found[round_number] = Review(
+                "code", round_number, "open", [int(n) for n in match.group(2).split(",") if n],
+                (int(match.group(3)), int(match.group(4)), int(match.group(5))),
+                int(match.group(6)), int(match.group(7)), 0, "", user=True,
+            )
+        return found
+
+    def reviews(self, kind: str) -> dict[int, Review]:
+        """round -> Review as the Workflow places it: a user entry stands in
+        for the review of the round it follows, open and not signed off."""
+        found = self.reviewer_reviews(kind)
+        if kind == "code":
+            found.update(self.user_entries())
+        return found
+
+    def user_raised(self) -> dict[int, int]:
+        """finding number -> the round whose Sign-off the user raised it
+        after."""
+        found: dict[int, int] = {}
+        for round_number, entry in self.user_entries().items():
+            for number in entry.raised():
+                found[number] = round_number
         return found
 
     def last_review(self, kind: str) -> Review | None:
@@ -226,18 +286,17 @@ class State:
                 newest = max(newest, int(match.group(1)))
         return newest
 
-    def fold_outcome(self) -> tuple[Literal["folded"], str, None] | tuple[Literal["skipped"], str, str] | None:
-        """The fold's recorded outcome, the last line winning: ("folded",
-        new tip, None), ("skipped", signed sha, reason), or None."""
-        found: tuple[Literal["folded"], str, None] | tuple[Literal["skipped"], str, str] | None = None
+    def fold_record(self) -> Fold | None:
+        """The fold's last recorded outcome, the last line winning, or None."""
+        found: Fold | None = None
         for line in self.lines:
-            match = re.match(r"^fold folded (\S+)", line)
+            match = re.match(r"^fold folded (\S+) signed (\S+)", line)
             if match:
-                found = ("folded", match.group(1), None)
+                found = Fold("folded", match.group(2), tip=match.group(1))
                 continue
             match = re.match(r"^fold skipped (\S+) (.*)$", line)
             if match:
-                found = ("skipped", match.group(1), match.group(2))
+                found = Fold("skipped", match.group(1), reason=match.group(2))
         return found
 
     def next_number(self, kind: str) -> int:
@@ -261,6 +320,14 @@ class State:
         except OSError as error:
             raise textfile.write_refusal("the loop state file %s" % self.path, error,
                                          "Otherwise tell the user the loop state file cannot be written, and stop.")
+
+
+def user_line(
+    round_number: int, open_numbers: Iterable[int], counts: Sequence[int], next_number: int, new: int,
+) -> str:
+    numbers = ",".join(str(n) for n in open_numbers)
+    return "code %d user open %s counts %d %d %d next %d new %d" % (
+        round_number, numbers, counts[0], counts[1], counts[2], next_number, new)
 
 
 def reviewed_line(

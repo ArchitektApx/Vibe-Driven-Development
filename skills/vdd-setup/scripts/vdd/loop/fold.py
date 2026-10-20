@@ -437,8 +437,7 @@ def signed_commit(state: loopstate.State) -> tuple[int, str]:
     """(round, sha) of the code round whose review signed off, or a Failure."""
     review = state.last_review("code")
     if review is None or not review.signed_off:
-        where = "no code review is recorded" if review is None else "code round %d's review left findings open" % (
-            review.round)
+        where = signoff.not_signed_off(review)
         raise Failure(
             "The code Loop is not signed off: %s, so there is nothing to fold. Nothing was written." % where,
             "Stop, and tell the user the Loop is not finished: the code review has not signed off.",
@@ -458,13 +457,13 @@ def run(loop: Loop, harness: Harness, write: bool) -> int:
     _, signed = signed_commit(state)
     out = Output()
     branch, _ = loop.setting("Feature branch")
-    recorded = state.fold_outcome()
-    if recorded is not None:
-        if recorded[0] == "folded":
+    recorded = state.fold_record()
+    if recorded is not None and not signoff.fold_owed(state):
+        if recorded.kind == "folded":
             out.line("The loop %s is already folded: %s is at %s. Nothing was written." % (
-                loop.slug, branch, recorded[1]))
+                loop.slug, branch, recorded.tip))
         else:
-            out.line("The fold of %s was already skipped: %s. Nothing was written." % (loop.slug, recorded[2]))
+            out.line("The fold of %s was already skipped: %s. Nothing was written." % (loop.slug, recorded.reason))
         return out.finish(signoff.pr_step(loop))
     repo = Repo(loop.root)
     index_path = os.path.join(loop.dir, INDEX_NAME)

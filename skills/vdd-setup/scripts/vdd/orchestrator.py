@@ -342,14 +342,14 @@ def after_sign_off(flow: Flow, out: Output) -> int:
     """The step after the code Sign-off: the fold while no fold outcome is
     recorded, on every PR: value, else the PR step."""
     out.line("Code Loop: signed off.")
-    outcome = flow.state.fold_outcome()
-    if outcome is None:
+    outcome = flow.state.fold_record()
+    if outcome is None or signoff.fold_owed(flow.state):
         out.line("Fold: not run yet.")
         return out.finish(
             "Run %s, relay its Tell the user verbatim line, then do what its Next: line says." % flow.command(
                 "loop fold --slug %s --harness %s --write" % (flow.slug, flow.harness.name))
         )
-    out.line("Fold: %s." % outcome[0])
+    out.line("Fold: %s." % outcome.kind)
     return out.finish(signoff.pr_step(flow.loop))
 
 

@@ -60,10 +60,32 @@ HELP = [
     "  title, moves every closed finding to .scratch/<slug>/RECAP.md, records the round in the state file",
     "  and prints the Doorbell line to end your turn with.",
     "",
+    "review add --slug <slug> --from <file> [--write]",
+    "  The user's own command, not a Role's: it sends the user's findings back into a signed-off code Loop.",
+    "  --from names a file that holds findings only, each a heading \"### <blocker|major|minor>: <reference>\"",
+    "  and a body, with no number: the tool numbers them from the state file's next number. The reference is",
+    "  free text. For example:",
+    "",
+    "      ### major: docs/VDD-WORKFLOW.md:40",
+    "",
+    "      The paragraph names a command the tool no longer has. Name the one it has.",
+    "",
+    "  Refused, each refusal naming the line and the fix, with nothing written: text before the first",
+    "  finding, a severity that is none of the three or is not in lower case, a numbered heading, an empty",
+    "  reference or body, a # or ## heading in a body, a file with no finding or one that cannot be read. Also",
+    "  refused: a version 1 state file, a code Loop with no review, a code round whose review left findings",
+    "  open, and a round the Coder has started on the user's earlier findings; a second add before the Coder",
+    "  starts joins the first. Without --write it prints the numbered headings and counts, the files it would",
+    "  write and the minors a Minors: leave Sign-off left open, which it does not carry. With --write it",
+    "  rewrites CODEREVIEW.md as the user's open review, records the findings in the state file, writes the",
+    "  Recap's row for them and reopens a closed Loop file. Tell the Orchestrator the loop has your findings;",
+    "  it carries on with orchestrator start. The plan Loop takes no user findings.",
+    "",
     "--slug names the loop; pass it on every call. Run every command from the repository root.",
 ]
 
 SPEC = {"role": args.VALUE, "slug": args.VALUE, "write": args.FLAG}
+ADD_SPEC = {"slug": args.VALUE, "from": args.VALUE, "write": args.FLAG}
 
 
 def usage() -> str:
@@ -71,11 +93,18 @@ def usage() -> str:
 
 
 def run(argv: list[str]) -> int:
-    return args.run_group(argv, "review", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
+    specs: dict[str, dict[str, str]] = dict.fromkeys(SUBCOMMANDS, SPEC)
+    specs["add"] = ADD_SPEC
+    return args.run_group(argv, "review", specs, HELP,
                           "Run the review command your skill or the last Next: line names.", dispatch)
 
 
 def dispatch(sub: str, values: dict[str, Any]) -> int:
+    if sub == "add":
+        from . import add
+        args.require(values, ["slug", "from"], usage())
+        return add.run(loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"]), values["from"],
+                       values["write"])
     role = values["role"]
     args.choice(role, REVIEWERS, "--role takes Plan-Reviewer or Code-Reviewer.", "Run %s for the usage." % usage())
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
@@ -635,11 +664,16 @@ def cleaned(
 
 def recap_findings(round_: Round, closed: list[workfile.Block]) -> list[str]:
     lines = []
+    raised = round_.state.user_raised()
     for block in closed:
         if lines:
             lines.append("")
-        lines.append("### %d. %s, %s in round %d: %s" % (
-            block.number, block.severity, block.state, round_.number, block.reference))
+        if block.number in raised:
+            lines.append("### %d. %s, raised by the user after round %d, %s in round %d: %s" % (
+                block.number, block.severity, raised[block.number], block.state, round_.number, block.reference))
+        else:
+            lines.append("### %d. %s, %s in round %d: %s" % (
+                block.number, block.severity, block.state, round_.number, block.reference))
         problem = block.problem(LABELS)
         lines.append("")
         if problem:

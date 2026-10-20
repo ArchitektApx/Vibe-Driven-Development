@@ -371,10 +371,11 @@ def open_pr(loop: loopfile.Loop, harness: Harness, wanted: str, write: bool) -> 
                 places.command(), loop.slug, harness.name),
         )
     state = loopstate.State(loop.dir)
-    if state.fold_outcome() is None:
+    signoff.require_code_sign_off(loop)
+    if signoff.fold_owed(state):
         raise Failure(
-            "The fold's outcome is not recorded: the branch is pushed only after the code Sign-off and the fold. "
-            "Nothing was pushed.",
+            "The fold's outcome is not recorded for the code Sign-off: the branch is pushed only after the Sign-off "
+            "and the fold. Nothing was pushed.",
             "Stop, and tell the user the fold has not run; the Orchestrator runs %s loop fold --slug %s --harness "
             "%s --write at the code Sign-off." % (places.command(), loop.slug, harness.name),
         )
