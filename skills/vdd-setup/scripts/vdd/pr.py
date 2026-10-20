@@ -12,7 +12,7 @@ import os
 import re
 import shutil
 
-from . import args, gitcmd, loopfile, loopstate, places, preflight, signoff, textfile
+from . import args, gitcmd, loopfile, loopstate, places, preflight, signoff, textfile, workfile
 from .gitcmd import Refused
 from .out import Failure, Output, refused
 
@@ -149,15 +149,8 @@ def history(root):
 
 
 def headings(body):
-    found = []
-    fenced = False
-    for line in body.replace("\r\n", "\n").split("\n"):
-        if line.lstrip().startswith(("```", "~~~")):
-            fenced = not fenced
-            continue
-        if not fenced and HEADING.match(line):
-            found.append(line.strip())
-    return found
+    lines = workfile.outside_fences(body.replace("\r\n", "\n").split("\n"))
+    return [line.strip() for line in lines if HEADING.match(line)]
 
 
 # Marks each line of the newest body as quoted data, so a body line such as

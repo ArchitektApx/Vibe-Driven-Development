@@ -88,6 +88,22 @@ def closes(text, run):
             and not match.group(2).strip())
 
 
+def outside_fences(texts):
+    """The lines that sit outside a fenced code block and are no fence line,
+    by the same fence rule: HTML comments are not skipped."""
+    out = []
+    run = None
+    for text in texts:
+        if run is not None:
+            if closes(text, run):
+                run = None
+            continue
+        run = fence_run(text)
+        if run is None:
+            out.append(text)
+    return out
+
+
 def unclosed_text(opener):
     """The refusal for a comment or fence left open, or None."""
     if opener is None:
