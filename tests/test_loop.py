@@ -9,12 +9,12 @@ from vddtest import ToolTest
 ANSWERS = ["--minors", "fix", "--pr", "ask at sign-off"]
 SUMMARY = [
     "The loop's slug is demo. The Orchestrator's launch line will carry it.",
-    "The Harness is Claude Code. If that is wrong, say so now, before the Planner starts.",
+    "The Harness is Claude Code. If that is wrong, say so and it will be corrected.",
     "You can ask the Orchestrator to respawn any hosted Role at any round.",
 ]
 NEXT_AFTER_NEW = (
-    "Next: Relay every Tell the user verbatim line above unchanged, then invoke vdd-planner as your skill says. "
-    "The loop's slug is demo: pass --slug demo on every VDD tool call from here on."
+    "Next: Relay every Tell the user verbatim line above unchanged; only after doing that, invoke vdd-planner "
+    "as your skill says. The loop's slug is demo: pass --slug demo on every VDD tool call from here on."
 )
 ROOT_FIX = (
     "Delete `LOOP.md`. To carry on the loop it belongs to, run `vdd-start-loop` with its slug and answer continue."
@@ -108,7 +108,7 @@ class NewTest(LoopTest):
     def test_the_summary_names_the_harness_label(self):
         result = self.new("demo", *ANSWERS, harness="codex", write=True)
         self.assertEqual(result.tells()[1],
-                         "The Harness is Codex. If that is wrong, say so now, before the Planner starts.")
+                         "The Harness is Codex. If that is wrong, say so and it will be corrected.")
 
     def test_write_needs_every_answer(self):
         result = self.new("demo", "--minors", "fix", write=True)
