@@ -78,7 +78,8 @@ class EntryTest(ToolTest):
         result = self.box.run("loop", "show", "--fresh-coder")
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("Unknown option: --fresh-coder", result.lines)
-        self.assertTrue(any(l.startswith("This command takes: --base,") for l in result.lines), result)
+        self.assertIn("This command takes: --base, --base-branch, --branch, --feature, --feature-branch, "
+                      "--harness, --harness-line, --leftover, --minors, --pr, --role, --slug, --write.", result.lines)
         self.assertNotIn("Closest", result.text)
         self.assertNext(result, "tell the user to rerun Setup")
 

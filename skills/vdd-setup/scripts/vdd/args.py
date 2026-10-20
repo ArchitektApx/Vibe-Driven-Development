@@ -114,7 +114,7 @@ def unknown_option(name: str, spec: Iterable[str], usage: str) -> Failure:
     takes, and the closest one when one is close."""
     takes = sorted(spec)
     close = difflib.get_close_matches(name, takes, n=1, cutoff=0.6)
-    lines = ["Unknown option: --%s" % name, "This command takes: %s" % ", ".join("--" + n for n in takes)]
+    lines = ["Unknown option: --%s" % name, "This command takes: %s." % ", ".join("--" + n for n in takes)]
     if close:
         lines.append("Closest: --%s." % close[0])
         return Failure(
