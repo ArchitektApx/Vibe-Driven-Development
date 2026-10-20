@@ -7,6 +7,15 @@ import unittest
 from vddtest import ToolTest
 
 ANSWERS = ["--minors", "fix", "--pr", "ask at sign-off"]
+SUMMARY = [
+    "The loop's slug is demo. The Orchestrator's launch line will carry it.",
+    "The Harness is Claude Code. If that is wrong, say so and it will be corrected.",
+    "You can ask the Orchestrator to respawn any hosted Role at any round.",
+]
+NEXT_AFTER_NEW = (
+    "Next: Relay every Tell the user verbatim line above unchanged; only after doing that, invoke vdd-planner "
+    "as your skill says. The loop's slug is demo: pass --slug demo on every VDD tool call from here on."
+)
 ROOT_FIX = (
     "Delete `LOOP.md`. To carry on the loop it belongs to, run `vdd-start-loop` with its slug and answer continue."
 )
@@ -82,6 +91,24 @@ class NewTest(LoopTest):
         )
         self.assertEqual(self.file(name="loop-state"), "vdd loop-state 2\nloop open\n")
         self.assertNext(result, "--slug demo")
+
+    def test_write_prints_the_summary_as_tell_lines_and_relays_them_in_next(self):
+        """A7: in all 7 Claude Code Start-Loops since 2026-10-17 the model
+        wrote the closing summary into its thinking and never showed the user
+        the Tell lines. The tool now prints the summary's facts itself, and
+        the Next: line names relaying them."""
+        result = self.new("demo", "--minors", "fix", "--pr", "manual", write=True)
+        self.assertEqual(result.tells(), SUMMARY)
+        self.assertEqual(result.last, NEXT_AFTER_NEW)
+        for tell in SUMMARY:
+            self.assertIn('Tell the user verbatim: "%s"' % tell, result.lines)
+        self.assertLess(result.lines.index("Harness: Claude Code"), result.lines.index(
+            'Tell the user verbatim: "%s"' % SUMMARY[0]))
+
+    def test_the_summary_names_the_harness_label(self):
+        result = self.new("demo", *ANSWERS, harness="codex", write=True)
+        self.assertEqual(result.tells()[1],
+                         "The Harness is Codex. If that is wrong, say so and it will be corrected.")
 
     def test_write_needs_every_answer(self):
         result = self.new("demo", "--minors", "fix", write=True)
@@ -562,6 +589,8 @@ class LeftoverTest(LoopTest):
         self.assertEqual(self.box.read(os.path.join(".scratch", "demo", "issues", "01-x.md")), "ticket\n")
         self.assertIn("Format: 2\n", self.file())
         self.assertEqual(self.file(name="loop-state"), "vdd loop-state 2\nloop open\n")
+        self.assertEqual(written.tells(), SUMMARY)
+        self.assertEqual(written.last, NEXT_AFTER_NEW)
 
     def test_a_damaged_state_file_reads_as_a_directory_with_no_state_file(self):
         """A damaged loop-state stopped loop new and loop aside alike, leaving
@@ -748,16 +777,18 @@ class PreflightTest(LoopTest):
         self.assertEqual(result.code, 0, result)
         self.assertIn("Preflight, can push, remote origin: passed.", result.lines)
         self.assertIn("Preflight, can open a PR, remote origin: passed.", result.lines)
-        self.assertEqual(result.tells(), [])
+        self.assertEqual(result.tells(), SUMMARY)
 
     def test_a_failed_check_warns_and_still_writes(self):
         self.box.git("remote", "add", "origin", "https://example.com/repo.git")
         result = self.write_yes(self.stub(2))
         self.assertEqual(result.code, 0, result)
         tells = result.tells()
-        self.assertEqual(len(tells), 2, result)
+        self.assertEqual(len(tells), 5, result)
         self.assertIn("can push", tells[0])
         self.assertIn("can open a PR", tells[1])
+        self.assertEqual(tells[2:], SUMMARY)
+        self.assertEqual(result.last, NEXT_AFTER_NEW)
         self.assertIn("PR: yes\n", self.file())
 
     def test_no_preflight_unless_pr_yes(self):

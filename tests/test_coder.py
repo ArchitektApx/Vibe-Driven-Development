@@ -324,6 +324,59 @@ class CheckTest(CoderTest):
         self.box.write("a.txt", "changed\n")
         self.refused("uncommitted changes to tracked files: a.txt")
 
+    def test_a_new_untracked_file_is_refused_by_name(self):
+        """A file the Coder creates and never adds passed coder check, so it
+        missed the commits, the fold and the PR (loop 05's grading)."""
+        self.started()
+        self.put("FIXES.md", filled_round_one(self.read("FIXES.md")))
+        self.box.write("made.txt", "never added\n")
+        result = self.refused("untracked files", "made.txt", "commit it with git if it belongs to the work",
+                              "delete it if it is a by-product")
+        self.assertNotIn("code 1 end", self.state())
+        self.assertEqual(result.text.count("made.txt"), 1, result)
+
+    def test_a_file_untracked_before_the_round_passes(self):
+        """Setup's files, the Planner's files and the user's own notes are
+        untracked when the round starts and must not block it."""
+        self.box.write("notes.txt", "mine\n")
+        self.started()
+        self.put("FIXES.md", filled_round_one(self.read("FIXES.md")))
+        result = self.coder("check")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("code 1 end %s" % self.sha(), self.state())
+
+    def test_an_ignored_new_file_passes(self):
+        """A by-product the repository ignores is no part of the work."""
+        self.box.write(".gitignore", ".scratch/\n*.log\n")
+        self.box.git("add", ".gitignore")
+        self.box.git("commit", "-q", "-m", "ignore logs")
+        self.started()
+        self.put("FIXES.md", filled_round_one(self.read("FIXES.md")))
+        self.box.write("run.log", "noise\n")
+        result = self.coder("check")
+        self.assertEqual(result.code, 0, result)
+
+    def test_a_round_without_a_snapshot_checks_as_before(self):
+        """A round started before this version recorded no snapshot: an
+        upgrade in the middle of a loop must not block its Coder."""
+        self.started()
+        os.remove(self.box.path(".scratch", "demo", "coder-untracked-1"))
+        self.put("FIXES.md", filled_round_one(self.read("FIXES.md")))
+        self.box.write("made.txt", "never added\n")
+        result = self.coder("check")
+        self.assertEqual(result.code, 0, result)
+
+    def test_start_records_the_snapshot_outside_git_status(self):
+        self.box.write("notes.txt", "mine\n")
+        self.started()
+        self.assertEqual(self.read("coder-untracked-1"), "notes.txt\n")
+        self.assertEqual(self.out("status", "--porcelain"), "?? notes.txt")
+
+    def test_help_names_the_untracked_refusal(self):
+        result = self.box.run("coder", "--help")
+        self.assertIn("a file left untracked", result.text)
+        self.assertIn("since coder start", result.text)
+
     def test_a_passing_round_one(self):
         self.started()
         self.commit("a.txt", "one\n", "feat: one")

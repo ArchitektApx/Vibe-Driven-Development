@@ -566,6 +566,19 @@ class OpenTest(PRTest):
         self.assertTrue(self.closed())
         self.assertIn("gh auth status --hostname github.com did not exit 0", result.tells()[0])
         self.assertIn("web UI", result.tells()[0])
+    def test_the_existing_path_pushes_to_the_open_pr(self):
+        """A loop the user's findings reopened after its PR was opened closed
+        with nothing pushed, so the new rounds never reached the PR."""
+        url = "https://github.com/example/repo/pull/3"
+        self.plan(auth=[0, "", ""], head=[0, json.dumps([{"url": url}]), ""])
+        result = self.pr_open("existing")
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertEqual(self.pushed(), self.sha("demo"))
+        self.assertEqual(self.created(), [])
+        self.assertTrue(self.closed())
+        self.assertEqual(result.tells(), ["Pushed demo to origin: the PR %s has the new commits." % url])
+
 
 if __name__ == "__main__":
     unittest.main()

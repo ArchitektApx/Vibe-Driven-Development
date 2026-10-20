@@ -1,24 +1,11 @@
-"""loop fold: the one rewrite of a loop's commits, after the code Sign-off.
+"""loop fold: the rewrite of a loop's commits after each code Sign-off.
 
-The loop's commits run from round 1's recorded start up to the signed
-commit, the recorded end of the code round whose review signed off. A commit
-before round 1's start, on the base branch or on the feature branch before
-the loop, is never rewritten and owns nothing. Round 1's commits, up to
-round 1's recorded end, are the chain. Each commit after round 1's end is
-absorbed in order: every changed hunk is blamed against the history as folded
-so far and moved into the loop commit that wrote those lines. Lines no loop commit wrote go to the latest
-loop commit that changed the same file; a new file joins the commit's single
-target; an insertion is owned by the lines around it; a deleted file goes to
-the owner of its last lines. What has no owner, or would conflict with a
-later commit, stays in a commit on top with the Coder's message, author and
-date, and a later fix to its lines folds into it.
-
-All of it runs in git's object store: blame, merge-tree --write-tree
---merge-base, commit-tree, and a temporary index under .scratch/<slug>/ for a
-split. One update-ref, guarded by the signed commit, moves the branch, and
-only when the folded tree equals the signed tree. Every case it cannot fold
-is a skip, and a skip leaves the branch exactly as signed. The fold never
-stops to ask.
+The chain is round 1's commits, or the branch as the last fold left it. Each
+later commit up to the signed commit is split by hunk, and each hunk moves into
+the loop commit blame says wrote its lines; what has no owner or would conflict
+stays on top as its own commit. One update-ref, guarded by the signed commit,
+moves the branch only when the folded tree equals the signed tree; anything
+else is a skip that leaves the branch as signed.
 """
 
 from __future__ import annotations
@@ -204,6 +191,7 @@ class Split:
                 added.add(name)
                 continue
             if not has_new:
+                # A deleted file goes to the owner of its last lines.
                 owner = self.latest(self.blame(name, 1, len(old_lines))) if old_lines else None
                 self.whole[name] = owner if owner is not None else self.file_owner(name)
                 continue
@@ -358,14 +346,14 @@ def replay(repo: Repo, committer: Committer, chain: list[str], start: int, paren
 
 
 def absorb(
-    repo: Repo, committer: Committer, base: str, round_one_end: str, signed: str, index_path: str,
+    repo: Repo, committer: Committer, base: str, chain_end: str, signed: str, index_path: str,
 ) -> tuple[list[str], list[list[tuple[str, list[str] | None, str | None]]]]:
     """(chain, sources): the folded history oldest first, and for each of its
     commits the (original sha, files or None for the whole commit, why it
     stayed) it was built from."""
-    chain = [s for s in repo.out("rev-list", "--reverse", "%s..%s" % (base, round_one_end)).split("\n") if s]
+    chain = [s for s in repo.out("rev-list", "--reverse", "%s..%s" % (base, chain_end)).split("\n") if s]
     sources: list[list[tuple[str, list[str] | None, str | None]]] = [[(sha, None, ROUND_ONE)] for sha in chain]
-    later = [s for s in repo.out("rev-list", "--reverse", "%s..%s" % (round_one_end, signed)).split("\n") if s]
+    later = [s for s in repo.out("rev-list", "--reverse", "%s..%s" % (chain_end, signed)).split("\n") if s]
     for commit in later:
         tip = chain[-1] if chain else base
         split = Split(repo, chain, tip, commit, index_path)
@@ -410,14 +398,18 @@ def resign(repo: Repo, committer: Committer, base: str, chain: list[str], origin
     return result
 
 
-def report(repo: Repo, chain: list[str], sources: list[list[tuple[str, list[str] | None, str | None]]]) -> list[str]:
+def report(
+    repo: Repo, chain: list[str], sources: list[list[tuple[str, list[str] | None, str | None]]], earlier: str,
+) -> list[str]:
+    """The report lines; earlier names the history the chain began as:
+    "round 1", or "folded after round 2"."""
     lines: list[str] = []
     for sha, source in zip(chain, sources):
         lines.append("  %s %s" % (repo.short(sha), repo.subject(sha)))
         for original, files, why in source:
             what = "%s %s" % (repo.short(original), repo.subject(original))
             if why == ROUND_ONE:
-                lines.append("      %s (round 1)" % what)
+                lines.append("      %s (%s)" % (what, earlier))
             elif why:
                 part = "" if files is None else ": %s" % and_list(files)
                 lines.append("      %s%s, its own commit: %s" % (what, part, why))
@@ -437,8 +429,7 @@ def signed_commit(state: loopstate.State) -> tuple[int, str]:
     """(round, sha) of the code round whose review signed off, or a Failure."""
     review = state.last_review("code")
     if review is None or not review.signed_off:
-        where = "no code review is recorded" if review is None else "code round %d's review left findings open" % (
-            review.round)
+        where = signoff.not_signed_off(review)
         raise Failure(
             "The code Loop is not signed off: %s, so there is nothing to fold. Nothing was written." % where,
             "Stop, and tell the user the Loop is not finished: the code review has not signed off.",
@@ -458,13 +449,13 @@ def run(loop: Loop, harness: Harness, write: bool) -> int:
     _, signed = signed_commit(state)
     out = Output()
     branch, _ = loop.setting("Feature branch")
-    recorded = state.fold_outcome()
-    if recorded is not None:
-        if recorded[0] == "folded":
+    recorded = state.fold_record()
+    if recorded is not None and not signoff.fold_owed(state):
+        if recorded.kind == "folded":
             out.line("The loop %s is already folded: %s is at %s. Nothing was written." % (
-                loop.slug, branch, recorded[1]))
+                loop.slug, branch, recorded.tip))
         else:
-            out.line("The fold of %s was already skipped: %s. Nothing was written." % (loop.slug, recorded[2]))
+            out.line("The fold of %s was already skipped: %s. Nothing was written." % (loop.slug, recorded.reason))
         return out.finish(signoff.pr_step(loop))
     repo = Repo(loop.root)
     index_path = os.path.join(loop.dir, INDEX_NAME)
@@ -541,17 +532,12 @@ def checked_fold(
         raise Skip("round 1's start %s does not descend from the base branch's merge base" % base[:7])
     if repo.out("rev-list", "--merges", "%s..%s" % (base, signed)):
         raise Skip("the loop's history holds a merge commit")
-    round_one_end = state.code_mark("end", 1)
-    if not round_one_end or repo.call("merge-base", "--is-ancestor", round_one_end, signed,
-                                      ok=(0, 1, 128)).code != 0:
-        raise Skip("round 1's end %s is not in the signed history, as in a loop whose Coder folded each round "
-                   "before VDD 0.16.0-beta.5" % (round_one_end[:7] if round_one_end else "(not recorded)"))
-    if repo.call("merge-base", "--is-ancestor", base, round_one_end, ok=(0, 1)).code != 0:
-        raise Skip("round 1's end %s does not descend from round 1's start %s" % (round_one_end[:7], base[:7]))
+    pushed_to(repo, branch, base, signed)
+    chain_end, earlier = chain_of(state, repo, base, signed)
     before = int(repo.out("rev-list", "--count", "%s..%s" % (base, signed)))
     sign = write and repo.call("config", "--bool", "commit.gpgSign", ok=(0, 1)).out.strip() == "true"
     committer = Committer(repo, sign)
-    chain, sources = absorb(repo, committer, base, round_one_end, signed, index_path)
+    chain, sources = absorb(repo, committer, base, chain_end, signed, index_path)
     originals = [s for s in repo.out("rev-list", "--reverse", "%s..%s" % (base, signed)).split("\n") if s]
     if sign and chain != originals:
         try:
@@ -562,10 +548,50 @@ def checked_fold(
     differ = repo.names("diff-tree", "-z", "-r", "--name-only", signed, tip)
     if differ:
         raise Skip("the folded tree would differ from the signed tree in: %s" % ", ".join(differ))
-    lines = report(repo, chain, sources)
+    lines = report(repo, chain, sources, earlier)
     if write and tip != signed:
         repo.call("update-ref", "-m", "vdd loop fold", ref, tip, signed)
     return before, chain, sources, tip, lines
+
+
+def pushed_to(repo: Repo, branch: str, base: str, signed: str) -> None:
+    """Raises the Skip when a remote-tracking ref of the branch holds a loop
+    commit, as a push without -u leaves it. A remote's own branch of the same
+    name, outside the loop's history, is not a push."""
+    for remote in repo.out("remote").split():
+        tracking = "refs/remotes/%s/%s" % (remote, branch)
+        sha = repo.call("rev-parse", "--verify", "--quiet", tracking, ok=(0, 1)).out.strip()
+        if not sha:
+            continue
+        in_loop = repo.call("merge-base", "--is-ancestor", sha, signed, ok=(0, 1, 128)).code == 0
+        before = repo.call("merge-base", "--is-ancestor", sha, base, ok=(0, 1, 128)).code == 0
+        if in_loop and not before:
+            raise Skip("%s was pushed to %s, so someone may have fetched it" % (branch, remote))
+
+
+def chain_of(state: loopstate.State, repo: Repo, base: str, signed: str) -> tuple[str, str]:
+    """(the chain's end, what the chain began as): the new tip of the last
+    fold that moved the branch, a later skip notwithstanding, else round 1's
+    recorded end. Raises the Skip when that commit is not a sound end of the
+    signed history."""
+    record = state.fold_record("folded")
+    if record is not None:
+        tip = record.tip
+        rounds = [r for r in sorted(state.reviewer_reviews("code")) if state.code_mark("end", r) == record.signed]
+        earlier = "folded after round %d" % rounds[-1] if rounds else "an earlier fold"
+        if repo.call("merge-base", "--is-ancestor", tip, signed, ok=(0, 1, 128)).code != 0:
+            raise Skip("the earlier fold's tip %s is not in the signed history" % tip[:7])
+        if repo.call("merge-base", "--is-ancestor", base, tip, ok=(0, 1, 128)).code != 0:
+            raise Skip("the earlier fold's tip %s does not descend from round 1's start %s" % (tip[:7], base[:7]))
+        return tip, earlier
+    round_one_end = state.code_mark("end", 1)
+    if not round_one_end or repo.call("merge-base", "--is-ancestor", round_one_end, signed,
+                                      ok=(0, 1, 128)).code != 0:
+        raise Skip("round 1's end %s is not in the signed history, as in a loop whose Coder folded each round "
+                   "before VDD 0.16.0-beta.5" % (round_one_end[:7] if round_one_end else "(not recorded)"))
+    if repo.call("merge-base", "--is-ancestor", base, round_one_end, ok=(0, 1)).code != 0:
+        raise Skip("round 1's end %s does not descend from round 1's start %s" % (round_one_end[:7], base[:7]))
+    return round_one_end, ROUND_ONE
 
 
 def skipped(

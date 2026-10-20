@@ -56,12 +56,16 @@ def open_after(review: Review) -> str:
     return "%d blocker, %d major, %d minor" % tuple(review.counts)
 
 
-def loop_line(name: str, reviews: dict[int, Review]) -> str:
+def loop_line(name: str, reviews: dict[int, Review], placed: Review | None = None) -> str:
+    """The Loop's line. reviews are the reviewers' rounds; placed, when given,
+    is the newest record the Workflow places, which may be a user entry."""
     if not reviews:
         return "%s Loop: not started." % name
-    last = reviews[max(reviews)]
+    last = placed or reviews[max(reviews)]
     count = len(reviews)
     rounds = "%d round%s" % (count, "" if count == 1 else "s")
+    if last.user:
+        return "%s Loop: %s, reopened by the user's findings after round %d." % (name, rounds, last.round)
     if last.signed_off:
         return "%s Loop: %s, signed off in round %d." % (name, rounds, last.round)
     return "%s Loop: %s, open after round %d." % (name, rounds, last.round)
@@ -69,32 +73,33 @@ def loop_line(name: str, reviews: dict[int, Review]) -> str:
 
 def code_line(state: State) -> str:
     """The code Loop's line, naming a Coder round no review has recorded
-    yet."""
-    reviews = state.reviews("code")
-    line = loop_line("Code", reviews)
+    yet. It counts the reviewers' rounds only; the user's entries reopen it."""
+    placed = state.reviews("code")
+    line = loop_line("Code", state.reviewer_reviews("code"), placed[max(placed)] if placed else None)
     newest = state.code_round()
-    if not newest or newest in reviews:
+    if not newest or newest in placed:
         return line[:-1] + fold_text(state) + "."
-    if not reviews:
+    if not placed:
         return "Code Loop: round %d, not reviewed yet." % newest
     return "%s; round %d not reviewed yet." % (line[:-1], newest)
 
 
 def fold_text(state: State) -> str:
     """The fold's outcome for the Code Loop line: folded or not folded."""
-    outcome = state.fold_outcome()
+    outcome = state.fold_record()
     if outcome is None:
         return ""
-    if outcome[0] == "folded":
+    if outcome.kind == "folded":
         return "; folded"
-    return "; not folded: " + outcome[2]
+    return "; not folded: " + outcome.reason
 
 
 def render(loop: Loop, state: State, sections: dict[str, list[str]]) -> str:
     base, _ = loop.setting("Base branch")
     branch, _ = loop.setting("Feature branch")
-    plan = state.reviews("plan")
-    code = state.reviews("code")
+    plan = state.reviewer_reviews("plan")
+    code = state.reviewer_reviews("code")
+    users = state.user_entries()
     lines = [
         "# Recap: %s" % loop.slug,
         "",
@@ -112,6 +117,9 @@ def render(loop: Loop, state: State, sections: dict[str, list[str]]) -> str:
             review = reviews[number]
             lines.append("| %s | %d | %d | %d | %s | %s |" % (
                 kind, number, review.new, review.closed, open_after(review), review.checks or "none"))
+            if kind == "code" and number in users:
+                entry = users[number]
+                lines.append("| code | %d, user | %d | 0 | %s | none |" % (number, entry.new, open_after(entry)))
     for name in SECTIONS:
         lines += ["", "## " + name]
         if sections[name]:

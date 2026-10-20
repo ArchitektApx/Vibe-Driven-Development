@@ -36,12 +36,9 @@ HELP = [
     "  feature branch never change.",
     "",
     "loop fold --slug <slug> --harness <h> [--write]",
-    "  The Orchestrator runs it once at the code Sign-off, on every PR: value, without asking the user. It",
-    "  folds each later round's fixes into the loop commit that wrote the lines they change, keeps what",
-    "  cannot fold as a commit on top with the Coder's message, and moves the feature branch only when the",
-    "  folded tree equals the signed tree. When it cannot fold (git older than 2.40, the branch moved or has",
-    "  an upstream, a merge commit, a git error) the branch stays as signed and the skip is recorded. It",
-    "  never stops to ask. Without --write it prints what it would do. It writes the Recap's ## Commits.",
+    "  Run at each code Sign-off, on every PR: value, without asking the user. Moves each later round's fix",
+    "  into the commit that wrote its lines; when it cannot, the branch stays as signed and it says why.",
+    "  Without --write it prints what it would do.",
     "",
     "loop close [--slug <slug>] --write",
     "  Close the loop: it stays on disk as the record, a ring or a wait on it is refused, and its Codex armed",
@@ -250,9 +247,12 @@ def write_new(root: str, slug: str, fields: dict[str, str], out: Output, continu
              % (slug, loopfile.NAME, " Every other file there stays." if continuing else ""))
     for name in loopfile.ORDER:
         out.line("%s: %s" % (name, fields[name]))
+    out.tell("The loop's slug is %s. The Orchestrator's launch line will carry it." % slug)
+    out.tell("The Harness is %s. If that is wrong, say so and it will be corrected." % fields["Harness"])
+    out.tell("You can ask the Orchestrator to respawn any hosted Role at any round.")
     return out.finish(
-        "Give the user the closing summary your skill names. The loop's slug is %s: pass --slug %s on every "
-        "VDD tool call from here on." % (slug, slug)
+        "Relay every Tell the user verbatim line above unchanged; only after doing that, invoke vdd-planner "
+        "as your skill says. The loop's slug is %s: pass --slug %s on every VDD tool call from here on." % (slug, slug)
     )
 
 
