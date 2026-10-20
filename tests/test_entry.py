@@ -59,6 +59,16 @@ class EntryTest(ToolTest):
         self.assertNotIn("PowerShell", result.text)
         self.assertNotIn("Unknown option", result.text)
 
+    def test_a_value_option_given_twice_is_refused_and_writes_nothing(self):
+        """Red team F10, D12: a value option given twice kept the last value,
+        so a command meant for one slug ran on the other without a word."""
+        self.box.init_git()
+        result = self.box.run("loop", "new", "--slug", "a", "--slug", "b", "--harness", "claude-code", "--write")
+        self.assertNotEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("--slug is given twice (a, then b); this command takes it once.", result.text)
+        self.assertFalse(os.path.exists(self.box.path(".scratch")))
+
     def test_an_unknown_option_lists_what_the_command_takes_and_the_closest(self):
         """A mistyped option sent the Role to --help for the spelling; the
         refusal lists the options and names the closest one."""
