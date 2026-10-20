@@ -11,16 +11,11 @@ import os
 import re
 import textwrap
 
-from . import args, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
+from . import args, fixes, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
 from .out import Failure, Output
 
 SUBCOMMANDS = ("start", "check")
-NAME = "FIXES.md"
 TICKET_FILE = re.compile(r"^([0-9]+)-.+\.md$")
-TICKET_HEADING = re.compile(r"^## Ticket ([0-9]+): (.+?)\s*$")
-FINDING_HEADING = re.compile(r"^## Finding ([0-9]+)\. (\S+): (.+?)\s*$")
-TICKET_LABELS = ("Files", "Change", "Verified", "Deviations", "Why")
-FINDING_LABELS = ("Answer", "Why")
 ANSWERS = ("fixed", "pushback")
 
 HELP = [
@@ -50,17 +45,11 @@ def usage():
 
 
 def run(argv):
-    if not argv or argv[0] in ("-h", "--help", "help"):
-        out = Output()
-        for line in HELP:
-            out.line(line)
-        return out.finish("Run the coder command your skill or the last Next: line names.")
-    sub, rest = argv[0], argv[1:]
-    if sub not in SUBCOMMANDS:
-        args.unknown_command("coder " + sub, usage())
-    values = args.parse(rest, SPEC, usage())
-    if values["help"]:
-        return run(["--help"])
+    return args.run_group(argv, "coder", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
+                          "Run the coder command your skill or the last Next: line names.", dispatch)
+
+
+def dispatch(sub, values):
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     state = loopstate.open_loop(loop, "coder %s" % sub)
     round_ = Round(loop, state)
@@ -109,8 +98,8 @@ class Round:
         self.state = state
         self.base = loop.setting("Base branch")[0]
         self.branch = loop.setting("Feature branch")[0]
-        self.file = os.path.join(loop.dir, NAME)
-        self.relative = "%s/%s" % (loop.tracker, NAME)
+        self.file = os.path.join(loop.dir, fixes.NAME)
+        self.relative = "%s/%s" % (loop.tracker, fixes.NAME)
         newest = state.code_round()
         self.newest = newest
         self.started = bool(newest) and state.code_mark("end", newest) is None
@@ -317,50 +306,12 @@ def start(round_, write):
 
 # --- check ---
 
-class Entry:
-    """One "##" entry of FIXES.md and its labels."""
-
-    def __init__(self, heading):
-        self.heading = heading
-        self.body = []
-
-    def labels(self, names):
-        """label -> (joined text, Line): the label line plus every line after
-        it up to the next label or heading, joined with single spaces."""
-        found = {}
-        current = None
-        for line in self.body:
-            label = workfile.label_of(line, names)
-            if label:
-                current = [line.text[len(label) + 1:].strip(), line]
-                if label not in found:
-                    found[label] = current
-                continue
-            if current is not None and line.frame and line.text.strip():
-                current[0] = (current[0] + " " + line.text.strip()).strip()
-        return dict((label, tuple(value)) for label, value in found.items())
-
-
-def entries(parsed):
-    out = []
-    current = None
-    for line in parsed.lines:
-        if line.frame and line.text.startswith("## "):
-            current = Entry(line)
-            out.append(current)
-        elif line.frame and line.text.startswith("# "):
-            current = None
-        elif current is not None:
-            current.body.append(line)
-    return out
-
-
 def lint(round_, parsed):
     problems = []
 
     def at(line, text):
-        problems.append((line.number if line else 0, "%s line %d: %s" % (NAME, line.number, text) if line
-                         else "%s: %s" % (NAME, text)))
+        problems.append((line.number if line else 0, "%s line %d: %s" % (fixes.NAME, line.number, text) if line
+                         else "%s: %s" % (fixes.NAME, text)))
 
     title = "# Fixes, round %d" % round_.number
     if parsed.title is None:
@@ -369,7 +320,7 @@ def lint(round_, parsed):
         at(parsed.title, "the title is \"%s\", as the tool wrote it." % title)
     if parsed.unclosed is not None:
         at(parsed.unclosed, workfile.unclosed_text(parsed.unclosed))
-    found = entries(parsed)
+    found = fixes.entries(parsed)
     if round_.number == 1:
         lint_tickets(round_, found, at)
     else:
@@ -380,7 +331,7 @@ def lint(round_, parsed):
 def lint_tickets(round_, found, at):
     by_number = {}
     for entry in found:
-        match = TICKET_HEADING.match(entry.heading.text)
+        match = fixes.TICKET_HEADING.match(entry.heading.text)
         if not match:
             at(entry.heading, "\"%s\" is not an entry of this file. An entry is \"## Ticket <NN>: <file name>\", "
                "as the tool wrote it." % entry.heading.text)
@@ -392,7 +343,7 @@ def lint_tickets(round_, found, at):
             at(None, "Ticket %s's entry \"## Ticket %s: %s\" is missing. Put it back and fill it in: every "
                "Ticket gets an entry." % (number, number, name))
             continue
-        labels = entry.labels(TICKET_LABELS)
+        labels = entry.labels(fixes.TICKET_LABELS)
         for label in ("Files", "Change", "Verified"):
             text, line = labels.get(label, ("", None))
             if line is None:
@@ -407,7 +358,7 @@ def lint_tickets(round_, found, at):
 def lint_findings(round_, found, at):
     by_number = {}
     for entry in found:
-        match = FINDING_HEADING.match(entry.heading.text)
+        match = fixes.FINDING_HEADING.match(entry.heading.text)
         if not match:
             at(entry.heading, "\"%s\" is not an entry of this file. An entry is \"## Finding <n>. <severity>: "
                "<reference>\", as the tool wrote it." % entry.heading.text)
@@ -423,7 +374,7 @@ def lint_findings(round_, found, at):
             at(None, "finding %d's entry is missing. Put back \"%s\" as the tool wrote it and answer it: every "
                "open finding gets an entry." % (number, headings[number]))
             continue
-        labels = entry.labels(FINDING_LABELS)
+        labels = entry.labels(fixes.FINDING_LABELS)
         answer, line = labels.get("Answer", ("", None))
         if line is None:
             at(entry.heading, "finding %d has no Answer: line. Write \"Answer: fixed\" or \"Answer: pushback\" "
@@ -475,7 +426,7 @@ def check(round_, write):
                       "Fix the lines above, then run %s again." % round_.command("check", write))
     out = Output()
     if not write:
-        out.line("%s passes: round %d." % (NAME, round_.number))
+        out.line("%s passes: round %d." % (fixes.NAME, round_.number))
         return out.finish("Run %s" % round_.command("check"))
     tip = head(root)
     cleaned = workfile.squeeze(workfile.without_guides(parsed.texts))
@@ -484,7 +435,7 @@ def check(round_, write):
     if round_.number == 1:
         recap.write(round_.loop, round_.state, {"Tickets": recap_tickets(workfile.Parsed("\n".join(cleaned)))})
     round_.state.append("code %d end %s" % (round_.number, tip))
-    out.line("%s: round %d checked and written." % (NAME, round_.number))
+    out.line("%s: round %d checked and written." % (fixes.NAME, round_.number))
     out.line("Round %d ends at %s." % (round_.number, tip))
     if round_.number == 1:
         out.line("Copied the Ticket entries to %s." % round_.path(recap.NAME))
@@ -509,7 +460,7 @@ def start_gone(round_):
 
 def recap_tickets(parsed):
     lines = []
-    for entry in entries(parsed):
+    for entry in fixes.entries(parsed):
         if lines:
             lines.append("")
         lines.append("#" + entry.heading.text)

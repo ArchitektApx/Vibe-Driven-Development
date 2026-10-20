@@ -13,7 +13,7 @@ outward step itself, so the user can pause the Loop before any of them.
 import os
 import re
 
-from . import args, doorbells, fold, gitcmd, harness as harnesses, loopfile, loopstate, places
+from . import args, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, places, signoff
 from .out import Failure, Output
 
 SUBCOMMANDS = ("start", "return", "respawn", "tokens")
@@ -63,17 +63,11 @@ def usage():
 
 
 def run(argv):
-    if not argv or argv[0] in ("-h", "--help", "help"):
-        out = Output()
-        for line in HELP:
-            out.line(line)
-        return out.finish("Run the orchestrator command your skill or the last Next: line names.")
-    sub, rest = argv[0], argv[1:]
-    if sub not in SUBCOMMANDS:
-        args.unknown_command("orchestrator " + sub, usage())
-    values = args.parse(rest, SPECS[sub], usage())
-    if values["help"]:
-        return run(["--help"])
+    return args.run_group(argv, "orchestrator", SPECS, HELP,
+                          "Run the orchestrator command your skill or the last Next: line names.", dispatch)
+
+
+def dispatch(sub, values):
     flow = Flow.find(values, "orchestrator %s" % sub)
     if sub == "start":
         return start(flow)
@@ -346,7 +340,7 @@ def after_sign_off(flow, out):
                 "loop fold --slug %s --harness %s --write" % (flow.slug, flow.harness.name))
         )
     out.line("Fold: %s." % outcome[0])
-    return out.finish(fold.pr_step(flow.loop))
+    return out.finish(signoff.pr_step(flow.loop))
 
 
 # --- where the Workflow stands ---

@@ -15,11 +15,10 @@ while it exists.
 import os
 import re
 
-from . import gitcmd, loopstate, textfile
+from . import args, gitcmd, loopstate, textfile
 from .out import TELL, Failure
 
 SLUG_PATTERN = "[a-z0-9]+(-[a-z0-9]+)*"
-SLUG = re.compile("^" + SLUG_PATTERN + "$")
 FORMAT = 2
 NAME = "loop.md"
 ARMED_PREFIX = "codex-armed-"
@@ -104,12 +103,7 @@ def tracker_dir(root, slug):
 
 
 def check_slug(slug):
-    if not slug or SLUG.match(slug) is None:
-        raise Failure(
-            "Not a Feature slug: %s. A slug matches %s: lowercase letters and digits, in words joined by "
-            "single hyphens." % (slug, SLUG_PATTERN),
-            "Ask the user for a slug that matches %s, then run the command again with it." % SLUG_PATTERN,
-        )
+    args.check_slug(slug, SLUG_PATTERN, "a Feature slug", "a slug", "hyphens")
 
 
 def has_root_file(root):

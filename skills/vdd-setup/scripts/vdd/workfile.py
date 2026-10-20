@@ -9,6 +9,8 @@ finding that quotes Markdown cannot break the frame.
 
 import re
 
+from .out import and_list
+
 FINDING = re.compile(r"^### ([0-9]+)\. (\S+) \(([^)]*)\): (.+?)\s*$")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 GUIDE_START = "<!-- VDD:"
@@ -250,7 +252,4 @@ def squeeze(texts):
 
 def join_numbers(numbers):
     """1 -> "1"; 1, 2 -> "1 and 2"; 1, 2, 3 -> "1, 2 and 3"."""
-    words = [str(n) for n in numbers]
-    if len(words) <= 1:
-        return "".join(words)
-    return ", ".join(words[:-1]) + " and " + words[-1]
+    return and_list(str(n) for n in numbers)

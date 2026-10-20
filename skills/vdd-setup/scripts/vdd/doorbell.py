@@ -58,17 +58,11 @@ def usage():
 
 
 def run(argv):
-    if not argv or argv[0] in ("-h", "--help", "help"):
-        out = Output()
-        for line in HELP:
-            out.line(line)
-        return out.finish("Run the command your skill or the last Next: line names.")
-    sub, rest = argv[0], argv[1:]
-    if sub not in ("ring", "wait", "take"):
-        args.unknown_command("doorbell " + sub, usage())
-    values = args.parse(rest, SPEC, usage())
-    if values["help"]:
-        return run(["--help"])
+    return args.run_group(argv, "doorbell", dict.fromkeys(("ring", "wait", "take"), SPEC), HELP,
+                          "Run the command your skill or the last Next: line names.", dispatch)
+
+
+def dispatch(sub, values):
     harness = args.harness_of(values, usage())
     role = values["role"]
     args.choice(role, doorbells.ROLES, "--role takes Planner or Orchestrator.", "Run %s for the usage." % usage())

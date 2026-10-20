@@ -120,10 +120,7 @@ class Place:
     def require_open(self, what):
         """Refuse ring and wait on a closed loop: no Session would ever answer."""
         if not self.loop.is_open():
-            raise Failure(
-                "The loop %s is closed, so %s would never be answered. Nothing was written." % (self.slug, what),
-                "Tell the user the loop %s is closed. To carry on, they ask the Orchestrator to reopen it." % self.slug,
-            )
+            raise loopstate.closed_loop(self.slug, ", so %s would never be answered" % what)
 
     def state_path(self, role):
         return os.path.join(self.dir, "doorbell-state-" + role.lower())

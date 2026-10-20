@@ -23,6 +23,14 @@ def one_line(text):
     return "".join(c for c in text if c == "\t" or ord(c) >= 32 and ord(c) != 127)
 
 
+def and_list(items):
+    """"1", "1 and 2", "1, 2 and 3" for the strings in items."""
+    items = list(items)
+    if len(items) <= 1:
+        return "".join(items)
+    return "%s and %s" % (", ".join(items[:-1]), items[-1])
+
+
 class Output:
     """Collects lines and writes them once, ending in the Next: line."""
 

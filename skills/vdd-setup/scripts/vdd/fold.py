@@ -24,8 +24,8 @@ stops to ask.
 import os
 import re
 
-from . import gitcmd, loopstate, places, recap
-from .out import Failure, Output
+from . import gitcmd, loopstate, places, recap, signoff
+from .out import Failure, Output, and_list
 
 HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 BLAME = re.compile(r"^([0-9a-f]{40}) \d+ \d+")
@@ -399,13 +399,6 @@ def resign(repo, committer, base, chain, originals):
     return result
 
 
-def and_list(items):
-    items = list(items)
-    if len(items) <= 1:
-        return "".join(items)
-    return "%s and %s" % (", ".join(items[:-1]), items[-1])
-
-
 def report(repo, chain, sources):
     lines = []
     for sha, source in zip(chain, sources):
@@ -423,16 +416,6 @@ def report(repo, chain, sources):
 
 
 # --- the command ---
-
-def pr_step(loop):
-    """The Next: line after the fold or a skip: the PR step."""
-    pr, _ = loop.setting("PR")
-    branch, _ = loop.setting("Feature branch")
-    if pr == "no":
-        return ("Run %s loop close --slug %s --write, then print \"Loop signed off. `PR: no`: `%s` stays local, "
-                "nothing pushed.\" and stop." % (places.command(), loop.slug, branch))
-    return "Invoke the vdd-create-pr skill in your own Session, never as a subagent."
-
 
 def fold_command(loop, harness, write=True):
     return "%s loop fold --slug %s --harness %s%s" % (places.command(), loop.slug, harness.name,
@@ -471,7 +454,7 @@ def run(loop, harness, write):
                 loop.slug, branch, recorded[1]))
         else:
             out.line("The fold of %s was already skipped: %s. Nothing was written." % (loop.slug, recorded[2]))
-        return out.finish(pr_step(loop))
+        return out.finish(signoff.pr_step(loop))
     repo = Repo(loop.root)
     index_path = os.path.join(loop.dir, INDEX_NAME)
     try:
@@ -505,7 +488,7 @@ def run(loop, harness, write):
     out.line("Wrote the final commits to %s/%s." % (loop.tracker, recap.NAME))
     out.tell("Folded %s: %d commits into %d. The tree equals the signed tree; RECAP.md lists the commits."
              % (branch, before, len(chain)))
-    return out.finish(pr_step(loop))
+    return out.finish(signoff.pr_step(loop))
 
 
 def fold(loop, state, repo, signed, index_path, write):
@@ -584,4 +567,4 @@ def skipped(loop, state, out, signed, reason, write, harness):
     after = "The branch stays local." if pr == "no" else "The loop goes on to the PR."
     out.tell("Not folded: %s stays exactly as the Code-Reviewer signed it off (%s), because %s. %s" % (
         branch, signed[:7], reason, after))
-    return out.finish(pr_step(loop))
+    return out.finish(signoff.pr_step(loop))

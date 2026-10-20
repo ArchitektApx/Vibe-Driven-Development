@@ -3,8 +3,8 @@
 import difflib
 import re
 
-from .out import Failure
 from . import harness, places
+from .out import Failure, Output
 
 VALUE = "value"
 FLAG = "flag"
@@ -70,6 +70,26 @@ def parse(argv, spec, usage):
     return values
 
 
+def run_group(argv, group, specs, help_lines, help_next, handle):
+    """The entry of a command group: its help, a command it does not know,
+    the options of the command, and the help after parsing. specs maps each
+    command of the group to its option spec. handle(command, values) runs the
+    command and returns its exit code."""
+    usage = "%s %s --help" % (places.command(), group)
+    if not argv or argv[0] in ("-h", "--help", "help"):
+        out = Output()
+        for line in help_lines:
+            out.line(line)
+        return out.finish(help_next)
+    command, rest = argv[0], argv[1:]
+    if command not in specs:
+        unknown_command("%s %s" % (group, command), usage)
+    values = parse(rest, specs[command], usage)
+    if values["help"]:
+        return run_group(["--help"], group, specs, help_lines, help_next, handle)
+    return handle(command, values)
+
+
 def mangled(value, spec):
     """The name of the first option of spec that value holds as `" --<name>`,
     or None. A word that is no option of the command is text."""
@@ -126,6 +146,18 @@ def choice(value, allowed, message, next_step):
     site words both: what the option takes, and where to look."""
     if value not in allowed:
         raise Failure(message, next_step)
+
+
+def check_slug(slug, pattern, named, short, joiners):
+    """Raise unless slug matches the regular expression pattern. named is the
+    slug as the first line calls it ("a Feature slug"), short as the rest do
+    ("a slug"), joiners what may join its words ("hyphens")."""
+    if not slug or re.match("^" + pattern + "$", slug) is None:
+        raise Failure(
+            "Not %s: %s. %s matches %s: lowercase letters and digits, in words joined by single %s."
+            % (named, slug, short[0].upper() + short[1:], pattern, joiners),
+            "Ask the user for %s that matches %s, then run the command again with it." % (short, pattern),
+        )
 
 
 def require(values, names, usage):

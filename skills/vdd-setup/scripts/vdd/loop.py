@@ -3,7 +3,7 @@ changed, closed and reopened only here."""
 
 import os
 
-from . import args, gitcmd, loopfile, loopstate, places, preflight, textfile
+from . import args, gitcmd, loopfile, loopstate, places, preflight, signoff, textfile
 from .out import Failure, Output, refused
 
 SUBCOMMANDS = ("new", "aside", "show", "set", "fold", "close", "reopen")
@@ -82,17 +82,11 @@ def usage():
 
 
 def run(argv):
-    if not argv or argv[0] in ("-h", "--help", "help"):
-        out = Output()
-        for line in HELP:
-            out.line(line)
-        return out.finish("Run the loop command your skill or the last Next: line names.")
-    sub, rest = argv[0], argv[1:]
-    if sub not in SUBCOMMANDS:
-        args.unknown_command("loop " + sub, usage())
-    values = args.parse(rest, SPEC, usage())
-    if values["help"]:
-        return run(["--help"])
+    return args.run_group(argv, "loop", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
+                          "Run the loop command your skill or the last Next: line names.", dispatch)
+
+
+def dispatch(sub, values):
     harness = args.harness_of(values, usage()) if values["harness"] is not None or sub == "new" else None
     root = gitcmd.project_root(os.getcwd())
     if sub == "new":
@@ -390,7 +384,7 @@ def show(root, values):
         args.choice(role, loopfile.ROLES, "--role takes one of: %s." % ", ".join(loopfile.ROLES),
                     "Run the command again with your Role's name.")
     if role == "PR-Author":
-        require_code_sign_off(loop)
+        signoff.require_code_sign_off(loop)
     names = loopfile.ROLES[role] if role else loopfile.IDENTITY + loopfile.SETTINGS
     out = Output()
     out.line("Slug: %s" % loop.slug)
@@ -413,21 +407,6 @@ def show(root, values):
     return out.finish(
         "Pass --slug %s on every VDD tool call from here on, and go on as your skill says." % loop.slug
     )
-
-
-def require_code_sign_off(loop):
-    """The PR-Author runs only once the state file records the code
-    Sign-off: an unsigned review has no PR to open yet."""
-    loopstate.refuse_v1(loop, "loop show --role PR-Author")
-    review = loopstate.State(loop.dir).last_review("code")
-    if review is None or not review.signed_off:
-        where = "no code review is recorded" if review is None else "code round %d's review left findings open" % (
-            review.round)
-        raise Failure(
-            "The code Loop is not signed off: %s. The Loop is not finished, so there is no PR to open yet."
-            % where,
-            "Stop, and tell the user the Loop is not finished: the code review has not signed off.",
-        )
 
 
 # --- set ---

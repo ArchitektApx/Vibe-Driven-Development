@@ -7,7 +7,6 @@ alone.
 """
 
 import os
-import re
 
 from . import args, gitcmd, places, stores
 from .out import Failure, Output
@@ -17,7 +16,6 @@ TEMPLATES = ("overview-template.md", "handoff-template.md")
 # A Feature slug, with dots allowed between words: an effort is often named
 # for a release, as beta-0.16.0-work is.
 EFFORT_PATTERN = "[a-z0-9]+([.-][a-z0-9]+)*"
-EFFORT = re.compile("^" + EFFORT_PATTERN + "$")
 
 HELP = [
     "wayfinder start --effort <slug> --skill-dir <dir>",
@@ -69,17 +67,11 @@ def usage():
 
 
 def run(argv):
-    if not argv or argv[0] in ("-h", "--help", "help"):
-        out = Output()
-        for line in HELP:
-            out.line(line)
-        return out.finish("Run the wayfinder command your skill names.")
-    sub, rest = argv[0], argv[1:]
-    if sub not in SUBCOMMANDS:
-        args.unknown_command("wayfinder " + sub, usage())
-    values = args.parse(rest, SPEC, usage())
-    if values["help"]:
-        return run(["--help"])
+    return args.run_group(argv, "wayfinder", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
+                          "Run the wayfinder command your skill names.", dispatch)
+
+
+def dispatch(sub, values):
     args.require(values, ["effort", "skill-dir"], usage())
     return start(values["effort"], values["skill-dir"])
 
@@ -118,12 +110,7 @@ def briefing(effort, overview, handoff):
 
 
 def check_effort(effort):
-    if not effort or EFFORT.match(effort) is None:
-        raise Failure(
-            "Not an effort slug: %s. An effort slug matches %s: lowercase letters and digits, in words joined by "
-            "single hyphens or dots." % (effort, EFFORT_PATTERN),
-            "Ask the user for an effort slug that matches %s, then run the command again with it." % EFFORT_PATTERN,
-        )
+    args.check_slug(effort, EFFORT_PATTERN, "an effort slug", "an effort slug", "hyphens or dots")
 
 
 def start(effort, skill_dir):

@@ -282,12 +282,18 @@ def coder_doorbell(round_number):
     return "VDD Coder: FIXES.md written, round %d. Read it." % round_number
 
 
+def closed_loop(slug, why=""):
+    """The Failure for a command that needs an open loop. why, when given,
+    follows "is closed" in the first line."""
+    return Failure(
+        "The loop %s is closed%s. Nothing was written." % (slug, why),
+        "Tell the user the loop %s is closed. To carry on, they ask the Orchestrator to reopen it." % slug,
+    )
+
+
 def open_loop(loop, command):
     """Refuse a round command on a version 1 or a closed loop."""
     refuse_v1(loop, command)
     if not loop.is_open():
-        raise Failure(
-            "The loop %s is closed. Nothing was written." % loop.slug,
-            "Tell the user the loop %s is closed. To carry on, they ask the Orchestrator to reopen it." % loop.slug,
-        )
+        raise closed_loop(loop.slug)
     return State(loop.dir)

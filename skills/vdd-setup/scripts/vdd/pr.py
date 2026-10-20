@@ -12,7 +12,7 @@ import os
 import re
 import shutil
 
-from . import args, fold, gitcmd, loop as loopcommands, loopfile, loopstate, places, preflight, textfile
+from . import args, gitcmd, loopfile, loopstate, places, preflight, signoff, textfile
 from .gitcmd import Refused
 from .out import Failure, Output, refused
 
@@ -62,22 +62,16 @@ def usage():
 
 
 def run(argv):
-    if not argv or argv[0] in ("-h", "--help", "help"):
-        out = Output()
-        for line in HELP:
-            out.line(line)
-        return out.finish("Run the pr command your skill or the last Next: line names.")
-    sub, rest = argv[0], argv[1:]
-    if sub not in SUBCOMMANDS:
-        args.unknown_command("pr " + sub, usage())
-    values = args.parse(rest, SPEC, usage())
-    if values["help"]:
-        return run(["--help"])
+    return args.run_group(argv, "pr", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
+                          "Run the pr command your skill or the last Next: line names.", dispatch)
+
+
+def dispatch(sub, values):
     args.require(values, ["slug", "harness"], usage())
     harness = args.harness_of(values, usage())
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     loopstate.open_loop(loop, "pr %s" % sub)
-    loopcommands.require_code_sign_off(loop)
+    signoff.require_code_sign_off(loop)
     if sub == "open":
         return open_pr(loop, harness, values["path"], values["write"])
     return check(loop, harness)
@@ -296,7 +290,7 @@ def check(loop, harness):
                       "tell the user %s was refused, and stop." % call_text(error.call))
     print_path(out, path)
     if path.name == NO_PR:
-        return out.finish(fold.pr_step(loop))
+        return out.finish(signoff.pr_step(loop))
     return out.finish(
         "Assemble the title and body as your skill's step 3 says and write them to %s/%s, then go on from its "
         "step 4 (the PR: line)." % (loop.tracker, BODY_NAME)

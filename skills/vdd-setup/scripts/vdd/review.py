@@ -12,7 +12,7 @@ import os
 import re
 import textwrap
 
-from . import agentdocs, args, coder, doorbells, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
+from . import agentdocs, args, doorbells, fixes, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
 from .out import Failure, Output
 
 SUBCOMMANDS = ("start", "check")
@@ -67,17 +67,11 @@ def usage():
 
 
 def run(argv):
-    if not argv or argv[0] in ("-h", "--help", "help"):
-        out = Output()
-        for line in HELP:
-            out.line(line)
-        return out.finish("Run the review command your skill or the last Next: line names.")
-    sub, rest = argv[0], argv[1:]
-    if sub not in SUBCOMMANDS:
-        args.unknown_command("review " + sub, usage())
-    values = args.parse(rest, SPEC, usage())
-    if values["help"]:
-        return run(["--help"])
+    return args.run_group(argv, "review", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
+                          "Run the review command your skill or the last Next: line names.", dispatch)
+
+
+def dispatch(sub, values):
     role = values["role"]
     args.choice(role, REVIEWERS, "--role takes Plan-Reviewer or Code-Reviewer.", "Run %s for the usage." % usage())
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
@@ -263,15 +257,15 @@ def carried_blocks(round_):
 
 def coder_answers(round_):
     """number -> this round's Coder: line, from FIXES.md's answers."""
-    text = textfile.read(os.path.join(round_.loop.dir, coder.NAME))
+    text = textfile.read(os.path.join(round_.loop.dir, fixes.NAME))
     if text is None:
         return {}
     found = {}
-    for entry in coder.entries(workfile.Parsed(text)):
-        match = coder.FINDING_HEADING.match(entry.heading.text)
+    for entry in fixes.entries(workfile.Parsed(text)):
+        match = fixes.FINDING_HEADING.match(entry.heading.text)
         if not match:
             continue
-        labels = entry.labels(coder.FINDING_LABELS)
+        labels = entry.labels(fixes.FINDING_LABELS)
         answer = labels.get("Answer", ("", None))[0]
         why = labels.get("Why", ("", None))[0]
         if answer == "fixed":
