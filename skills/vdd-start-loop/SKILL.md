@@ -88,13 +88,9 @@ the Loop file and opens the loop.
 
 ## 7. Hand over to the Planner
 
-This Session is the Planner. Print a closing summary of the Loop file the
-tool wrote. It names the slug and says the Orchestrator's launch line will
-carry it. It names the Harness, and says the user corrects it by saying so
-now, before the Planner starts. It also says the user can ask the
-Orchestrator to respawn any hosted Role at any round. On a correction, run
+This Session is the Planner. When the user corrects the Harness, run
 `loop set --slug <slug> --harness-line "<Claude Code, Codex, Cursor, Copilot
-CLI or Generic>" --harness <corrected h> --write`, and print this step again.
+CLI or Generic>" --harness <corrected h> --write`.
 
 Then carry straight on: immediately invoke the `vdd-planner` skill in this same
 Session. If you cannot invoke skills, tell the user to invoke `vdd-planner`
