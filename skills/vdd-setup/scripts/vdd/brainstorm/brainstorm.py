@@ -16,6 +16,7 @@ from typing import Any, Callable, Dict, List, Tuple
 from .. import args, gitcmd, places, textfile
 from ..out import Output
 from . import moves, reads
+from .lock import Lock
 from .store import LAYOUT, LAYOUT_FILE, Store, layout, require_layout, store_dir
 
 V, W, L = args.VALUE, args.FLAG, args.LIST
@@ -99,10 +100,10 @@ def dispatch(command: str, values: dict[str, Any]) -> int:
 
 def write(root: str, command: str, values: dict[str, Any]) -> int:
     handler = WRITES[command]
-    store = Store(root)
-    lines, nxt, label = handler(store, values)
     out = Output()
     if not values["write"]:
+        store = Store(root)
+        lines, _, _ = handler(store, values)
         would = store.planned()
         out.line("Dry run, nothing was written. With --write, brainstorm %s would write %s:"
                  % (command, ", ".join(would) or "nothing"))
@@ -110,8 +111,12 @@ def write(root: str, command: str, values: dict[str, Any]) -> int:
             out.line(line)
         return out.finish(store.dry_next or "If this is what the user asked for, run the same command again with "
                           "--write.")
-    stamped = list(store.stamped)
-    store.save(label)
+    # The lock is taken before the store is read, so no update is lost.
+    with Lock(root) as lock:
+        store = Store(root)
+        lines, nxt, label = handler(store, values)
+        stamped = list(store.stamped)
+        store.save(label, lock)
     for line in lines:
         out.line(line)
     if stamped:
