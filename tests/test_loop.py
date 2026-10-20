@@ -97,7 +97,7 @@ class NewTest(LoopTest):
         wrote the closing summary into its thinking and never showed the user
         the Tell lines. The tool now prints the summary's facts itself, and
         the Next: line names relaying them."""
-        result = self.new("demo", *ANSWERS, write=True)
+        result = self.new("demo", "--minors", "fix", "--pr", "manual", write=True)
         self.assertEqual(result.tells(), SUMMARY)
         self.assertEqual(result.last, NEXT_AFTER_NEW)
         for tell in SUMMARY:
