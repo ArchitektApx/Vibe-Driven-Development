@@ -29,7 +29,9 @@ ANSWER = "Answer the user's message from this overview; read or run nothing else
 SPECS: dict[str, dict[str, str]] = {
     "start": {},
     "show": {"idea": V},
-    "new": dict({"slug": V, "title": V, "tldr": V, "parent": V, "summary": V, "relate": L, "write": W},
+    "find": {"text": L},
+    "check": {},
+    "new": dict({"slug": V, "title": V, "tldr": V, "parent": V, "summary": V, "relate": L, "despite": L, "write": W},
                 **METRIC_OPTIONS),
     "note": {"idea": V, "section": V, "text": L, "tick": V, "write": W},
     "set": dict({"idea": L, "status": V, "decision": V, "reopen-when": V, "tldr": V, "title": V, "write": W},
@@ -37,6 +39,7 @@ SPECS: dict[str, dict[str, str]] = {
 }
 REQUIRED = {
     "show": ["idea"],
+    "find": ["text"],
     "new": ["slug", "title", "tldr"],
     "note": ["idea"],
     "set": ["idea"],
@@ -49,9 +52,17 @@ HELP = [
     "brainstorm show --idea <slug>",
     "  One idea and its family at every level: status, Decision, open Next Steps and open questions of every",
     "  open member, what it waits on and what waits on it, and the file's path.",
+    "brainstorm find --text <words> [--text <words> ...]",
+    "  Every idea, open, closed or removed, whose text holds any of the words; the matching lines.",
+    "brainstorm check",
+    "  The store's problems: links that do not resolve, relations to no idea, parents missing, looping or too",
+    "  deep, a leftover index.md, an idea file without History.",
     "brainstorm new --slug <slug> --title <title> --tldr <one sentence> [--parent <slug>] [--summary <text>]",
     "    [--importance|--size|--fog <xsmall..xlarge|unknown>] [--relate '<kind> <slug>: <why>' ...]",
-    "  Captures an idea: its file with frontmatter, title, Summary and a created History line.",
+    "    [--despite <slug> ...]",
+    "  Captures an idea: its file with frontmatter, title, Summary and a created History line. Without --write",
+    "  it lists the ideas, open, closed or removed, that look like the same one, to ask the user about before",
+    "  capturing; --despite <slug> leaves one out of that list.",
     "brainstorm note --idea <slug> (--section <name> --text <text> [--text ...] | --tick <step>)",
     "  Adds prose to a section (Evidence items are dated, Next Steps become open steps), or ticks the open",
     "  Next Step that starts with --tick. To rewrite a section, Read the file and Edit it.",
@@ -66,6 +77,8 @@ HELP = [
 
 Move = Callable[[Store, Dict[str, Any]], Tuple[List[str], str, str]]
 WRITES: dict[str, Move] = {"new": moves.new, "note": moves.note, "set": moves.set_cmd}
+Read = Callable[[Store, Dict[str, Any], Output], int]
+READS: dict[str, Read] = {"show": reads.show, "find": reads.find, "check": reads.check}
 
 
 def usage() -> str:
@@ -97,7 +110,7 @@ def dispatch(command: str, values: dict[str, Any]) -> int:
     for line in recover_quietly(root):
         out.line(line)
     store = Store(root)
-    return reads.show(store, values, out)
+    return READS[command](store, values, out)
 
 
 def recover_quietly(root: str) -> list[str]:

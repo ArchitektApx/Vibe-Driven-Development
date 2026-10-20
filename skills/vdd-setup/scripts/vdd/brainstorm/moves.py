@@ -11,6 +11,7 @@ import re
 from typing import Any, List, Tuple
 
 from ..out import Failure
+from . import dupes
 from .ideafile import (CLOSED, DEPTH_MAX, HISTORY, KIND_RE, KINDS, METRICS, ORDER, RESERVED, SLUG_PATTERN,
                        STATUSES, TLDR_MAX, Idea, is_open_step, squash, today, usable_slug)
 from .store import Store, rel, removed_entry, unknown_lines
@@ -130,6 +131,10 @@ def new(store: Store, values: dict[str, Any]) -> Result:
         check_parent(store, parent)
     metrics = metrics_of(values, "unknown")
     relates = [relation_line(store, slug, r) for r in values["relate"]]
+    hits = dupes.similar(store, " ".join([slug.replace("-", " "), values["title"], values["tldr"],
+                                          values["summary"] or ""]),
+                         exclude=list(values["despite"]) + ([parent] if parent else []))
+    looks = match_lines(store, hits[:3])
     idea = new_idea(store, slug, values["title"], values["tldr"], parent, values["summary"] or values["tldr"],
                     metrics, relates, "created" + ((" under " + parent) if parent else ""))
     store.add(idea)
@@ -139,8 +144,44 @@ def new(store: Store, values: dict[str, Any]) -> Result:
     lines = ["Captured %s [idea]%s, file %s." % (slug, (" as a part of " + parent) if parent else "",
                                                  rel(store.root, idea.path))]
     lines += tldr_warning(slug, idea.tldr)
-    return lines, "Tell the user in one line what you captured and where it sits, then carry on with them.", \
-        "new " + slug
+    nxt = "Tell the user in one line what you captured and where it sits, then carry on with them."
+    if not values["write"]:
+        if looks:
+            store.dry_next = (
+                "Before capturing, tell the user which ideas above theirs looks like (a closed one with its Reopen "
+                "when) and ask whether it is one of them. If it is a new idea, run the same command again with "
+                "--write; if it is one of them, work the new thought into that idea instead (note, or set --status "
+                "idea to reopen a closed one).")
+        else:
+            looks = ["No idea in the store, open, closed or removed, looks like this one."]
+    elif looks:
+        nxt = ("Tell the user in one line what you captured. If you have not asked them yet whether it is one of the "
+               "ideas it looks like, ask now; if it is, offer to merge it into that idea.")
+    return lines + looks, nxt, "new " + slug
+
+
+def match_lines(store: Store, hits: list[dupes.Match]) -> list[str]:
+    """The likely matches of a new idea, each with its status, tldr or
+    removed line, the words it shares, and a closed one's Reopen when."""
+    if not hits:
+        return []
+    lines = ["It looks like %s (shared words in the slug and title, tldr or Reopen when):"
+             % ("this idea" if len(hits) == 1 else "these ideas")]
+    for hit in hits:
+        shared = ", ".join(hit.shared)
+        if hit.where == "removed":
+            entry = removed_entry(store.root, hit.slug) or {}
+            lines.append("%s [removed %s, was %s]: %s (shared: %s)" % (hit.slug, entry.get("removed", "?"),
+                                                                       entry.get("status", "?"),
+                                                                       entry.get("title", ""), shared))
+            lines.append(quoted(entry.get("gist", "")))
+            continue
+        idea = store.ideas[hit.slug]
+        lines.append("%s [%s, %s]: %s (shared: %s)" % (hit.slug, idea.status, idea.get("last-updated"), idea.tldr,
+                                                       shared))
+        if not idea.is_open:
+            lines.append(quoted("Reopen when: " + (idea.reopen_when() or "not recorded")))
+    return lines
 
 
 def section_name(idea: Idea, name: str) -> str:

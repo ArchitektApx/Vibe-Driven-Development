@@ -528,3 +528,113 @@ class Nesting(BrainstormTest):
         result = self.bs("set", "--idea", "b", "--size", "large", "--write")
         self.assertEqual(result.code, 1, result)
         self.assertIn("parent loop", result.text)
+
+
+class Duplicates(BrainstormTest):
+    def setUp(self):
+        BrainstormTest.setUp(self)
+        self.new("autosave", "Autosave", "Save drafts to disk.")
+
+    def test_a_dry_run_lists_a_likely_match_and_writes_nothing(self):
+        """Prevents a second idea about the same thing going unasked (spec
+        story 12): the dry run lists the match with its status and shared
+        words, writes nothing and exits 0."""
+        before = self.ideas_tree()
+        result = self.ok("new", "--slug", "disk-autosave", "--title", "Autosave to disk", "--tldr",
+                         "Write drafts to disk.")
+        self.assertIn("autosave [idea, %s]: Save drafts to disk. (shared: " % TODAY, result.text)
+        self.assertIn("disk", result.text)
+        self.assertNext(result, "ask whether it is one of them")
+        self.assertEqual(self.ideas_tree(), before)
+
+    def test_a_closed_match_shows_its_reopen_when_and_despite_leaves_it_out(self):
+        """Prevents a dropped idea coming back unnoticed (red team U6): a
+        closed match shows its Reopen when; --despite leaves it out."""
+        self.ok("set", "--idea", "autosave", "--status", "dropped", "--decision", "too slow", "--reopen-when",
+                "disks get faster", "--write")
+        argv = ["new", "--slug", "disk-autosave", "--title", "Autosave to disk", "--tldr", "Write drafts to disk."]
+        result = self.ok(*argv)
+        self.assertIn("autosave [dropped", result.text)
+        self.assertIn("  > Reopen when: disks get faster", result.text)
+        result = self.ok(*(argv + ["--despite", "autosave"]))
+        self.assertNotIn("autosave [dropped", result.text)
+        self.assertIn("No idea in the store, open, closed or removed, looks like this one.", result.text)
+
+    def test_write_captures_despite_a_match_and_never_refuses(self):
+        """Prevents a capture refused for similarity (red team M6, spec story
+        13): --write captures, lists the match again and asks only if not
+        asked yet."""
+        result = self.ok("new", "--slug", "disk-autosave", "--title", "Autosave to disk", "--tldr",
+                         "Write drafts to disk.", "--write")
+        self.assertTrue(self.exists("disk-autosave.md"))
+        self.assertIn("autosave [idea", result.text)
+        self.assertNext(result, "If you have not asked them yet")
+
+    def test_an_unrelated_idea_passes(self):
+        """Prevents a false duplicate: words that share nothing pass."""
+        result = self.ok("new", "--slug", "plan-mode", "--title", "Plan mode", "--tldr", "Grill in plan mode.")
+        self.assertIn("No idea in the store, open, closed or removed, looks like this one.", result.text)
+
+    def test_a_parent_is_left_out_of_its_parts_matches(self):
+        """Prevents a part reported as a duplicate of its own parent."""
+        result = self.ok("new", "--slug", "autosave-disk", "--title", "Autosave disk", "--tldr",
+                         "Save drafts to disk fast.", "--parent", "autosave")
+        self.assertNotIn("autosave [idea", result.text)
+
+    def test_one_word_titles_and_other_scripts_are_matched(self):
+        """Prevents the misses of red team M6: a one-word title, and an exact
+        duplicate written in Cyrillic or Japanese."""
+        for slug, title, tldr in (
+                ("concurrency", "Concurrency", "Two loops at once."),
+                ("okna", "Окна на рабочем "
+                         "столе", "Идея про "
+                                                           "окна."),
+                ("nihongo", "日本語のアイデア", "テストです"
+                                                                                "。")):
+            with self.subTest(slug=slug):
+                self.new(slug, title, tldr)
+                result = self.ok("new", "--slug", slug + "-again", "--title", title, "--tldr", tldr)
+                self.assertIn("%s [idea" % slug, result.text)
+
+
+class FindAndCheck(BrainstormTest):
+    def setUp(self):
+        BrainstormTest.setUp(self)
+        self.new("autosave", "Autosave", "Save drafts to disk.")
+        self.new("old-thing", "Old thing", "Sessions named themselves.")
+        self.ok("set", "--idea", "old-thing", "--status", "dropped", "--decision", "Doorbells no longer go by name",
+                "--reopen-when", "a Doorbell goes by name again", "--write")
+
+    def test_find_quotes_the_matching_lines_closed_ideas_included(self):
+        """Prevents a false 'we never talked about it' (spec story 10): find
+        searches open and closed ideas and quotes the lines."""
+        result = self.ok("find", "--text", "drafts")
+        self.assertIn("autosave [idea]: Save drafts to disk.", result.text)
+        self.assertIn("  > Save drafts to disk.", result.text)
+        result = self.ok("find", "--text", "Doorbells no longer", "--text", "nothing-here")
+        self.assertIn("old-thing [dropped, closed]", result.text)
+        result = self.ok("find", "--text", "zebra")
+        self.assertIn("No idea, open, closed or removed, holds 'zebra'.", result.text)
+
+    def test_check_reports_each_problem_and_none_on_a_clean_store(self):
+        """Prevents problems in the store going unseen (spec story 11, red
+        team F8): a broken link, relations naming no idea, a missing parent,
+        a leftover index.md and a file without History are each reported."""
+        self.assertIn("No problems.", self.ok("check").text)
+        self.ok("note", "--idea", "autosave", "--section", "Summary", "--text", "See [notes](research/autosave/x.md).",
+                "--write")
+        text = self.read("autosave.md").replace("## Next Steps", "## Related Ideas\n\n- depends on no-such-idea: x\n"
+                                                "- related the doorbell: x\n\n## Next Steps")
+        self.box.write(S + "autosave.md", text)
+        text = self.read("old-thing.md").replace("status: dropped", "status: dropped\nparent: gone-parent")
+        self.box.write(S + "old-thing.md", text)
+        self.box.write(S + "index.md", "# Brainstorming Index\n")
+        self.box.write(S + "late.md", "---\nstatus: idea\n---\n\n# Late\n")
+        result = self.ok("check")
+        for line in ("link: autosave -> research/autosave/x.md does not resolve",
+                     "relation: autosave depends on no-such-idea names no idea",
+                     "relation: autosave line 'related the doorbell: x' names no idea",
+                     "parent: old-thing names gone-parent, which is no idea",
+                     "file: index.md is a 0.15 index",
+                     "file: late.md has no History line 'created'"):
+            self.assertIn(line, result.text)

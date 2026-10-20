@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import os
+import re
 from typing import Any
 
-from ..out import Output
-from .ideafile import Idea, squash
+from ..out import Failure, Output
+from .ideafile import DEPTH_MAX, STATUSES, Idea, is_idea_name, reflow, squash
 from .moves import QUOTE, quoted, step_line
-from .store import Store, rel, removed_entries, removed_entry
+from .store import REMOVED, Store, rel, removed_entries, removed_entry
+
+FIND_MAX = 10
+LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 
 
 def metrics(idea: Idea) -> str:
@@ -139,3 +144,92 @@ def show(store: Store, values: dict[str, Any], out: Output) -> int:
     if history:
         out.line("History: %s" % "; ".join("%s %s" % (d, t) for d, t in history[-4:]))
     return out.finish("Answer the user from these lines; Read the file above only when you need its full prose.")
+
+
+def find(store: Store, values: dict[str, Any], out: Output) -> int:
+    """Every idea, open, closed or removed, whose text holds any of the
+    words, with the matching lines quoted."""
+    words = [w.strip() for w in values["text"] if w.strip()]
+    if not words:
+        raise Failure("--text is empty. Nothing was searched.", "Run the command again with the words to find.")
+    pats = [re.compile(re.escape(w), re.I) for w in words]
+    hits: list[tuple[int, str, Idea, list[str]]] = []
+    for slug, idea in sorted(store.ideas.items()):
+        lines = [idea.title, idea.tldr] + reflow(idea.text())
+        found = [line for line in lines if any(p.search(line) for p in pats)]
+        if found:
+            hits.append((len(found), slug, idea, found))
+    hits.sort(key=lambda h: (-h[0], h[1]))
+    gone = [e for e in removed_entries(store.root) if e["slug"] not in store.ideas
+            and any(p.search(" ".join([e["slug"], e["title"], e["gist"]])) for p in pats)]
+    if not hits and not gone:
+        out.line("No idea, open, closed or removed, holds %s." % " or ".join(repr(w) for w in words))
+        return out.finish("Tell the user nothing in the ideas mentions it.")
+    for _, slug, idea, found in hits[:FIND_MAX]:
+        out.line("%s [%s%s]: %s" % (slug, idea.status, "" if idea.is_open else ", closed", idea.tldr))
+        for line in found[:2]:
+            line = squash(line)
+            match = next((m for m in (p.search(line) for p in pats) if m), None)
+            if match and len(line) > 240:
+                start = max(0, match.start() - 110)
+                line = ("... " if start else "") + line[start:start + 230] + " ..."
+            out.line(QUOTE + line)
+    if len(hits) > FIND_MAX:
+        out.line("%d more ideas match; search with more specific words." % (len(hits) - FIND_MAX))
+    for entry in gone[:5]:
+        removed_out(out, entry)
+    return out.finish("Answer the user from these lines; show --idea <slug> opens one.")
+
+
+def problems(store: Store) -> list[str]:
+    """The store's problems: unknown statuses, files the tool did not write,
+    missing or looping parents, families too deep, relations naming no idea,
+    links that do not resolve, a leftover index.md. A slug removed.md holds
+    counts as known."""
+    out: list[str] = []
+    known = set(store.ideas) | {e["slug"] for e in removed_entries(store.root)}
+    for slug, idea in sorted(store.ideas.items()):
+        if idea.status not in STATUSES:
+            out.append("status: %s has status %r" % (slug, idea.status))
+        if not idea.created():
+            out.append("file: %s.md has no History line 'created'; this tool did not write it" % slug)
+        parent = idea.parent
+        if parent and parent not in store.ideas:
+            out.append("parent: %s names %s, which is no idea" % (slug, parent))
+        elif parent and store.in_cycle(slug):
+            out.append("parent: %s sits in a parent loop: %s" % (slug, " -> ".join([slug] + store.ancestors(slug))))
+        elif parent and store.depth(slug) > DEPTH_MAX:
+            out.append("parent: %s sits deeper than %d levels" % (slug, DEPTH_MAX))
+        for kind, tokens, _, raw in idea.relation_items():
+            named = [t for t in tokens if t in known]
+            missing = [t for t in tokens if "-" in t and t not in known]
+            for token in missing:
+                out.append("relation: %s %s %s names no idea" % (slug, kind, token))
+            if not named and not missing:
+                out.append("relation: %s line '%s' names no idea" % (slug, squash(raw)[:80]))
+        base = os.path.dirname(idea.path)
+        for match in LINK.finditer(idea.text()):
+            target = match.group(1).split("#")[0]
+            if not target or re.match(r"^[a-z][a-z0-9+.-]*:", target):
+                continue
+            if not os.path.exists(os.path.normpath(os.path.join(base, target))):
+                out.append("link: %s -> %s does not resolve" % (slug, match.group(1)))
+    try:
+        names = os.listdir(store.dir)
+    except OSError:
+        names = []
+    if "index.md" in names:
+        out.append("file: index.md is a 0.15 index; a Brainstormer from VDD 0.15 still writes this store")
+    for name in sorted(names):
+        if name.endswith(".md") and name not in ("index.md", REMOVED) and not is_idea_name(name):
+            out.append("file: %s is not named as an idea (<slug>.md) and is not read" % name)
+    return out
+
+
+def check(store: Store, values: dict[str, Any], out: Output) -> int:
+    found = problems(store)
+    for line in found:
+        out.line(line)
+    if not found:
+        out.line("No problems.")
+    return out.finish("Tell the user only the problems that matter to what they asked; fix none unasked.")
