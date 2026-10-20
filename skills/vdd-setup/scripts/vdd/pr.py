@@ -48,13 +48,14 @@ HELP = [
     "  history, or could not read. Unless PR: manual or no, it runs the preflight (can push, can open a PR)",
     "  and the existing-PR check, and prints the path: open, push-only, neither or existing.",
     "",
-    "pr open --path <open|push-only> --slug <slug> --harness <h> --write",
+    "pr open --path <open|push-only|existing> --slug <slug> --harness <h> --write",
     "  After the user confirmed the title and body in .scratch/<slug>/pr-body.md (the title, a blank line, the",
     "  body). --path is the path pr check printed. Refuses before the fold's outcome is recorded and on a",
     "  malformed pr-body.md. Runs the preflight and the existing-PR check again and pushes nothing when they",
     "  give another path. Pushes with git push -u <remote> <feature branch>; on the open path runs gh pr",
-    "  create with the title as an argument and the body on standard input; closes the loop. A failed push",
-    "  leaves the loop open; a refused call asks for a rerun outside the sandbox.",
+    "  create with the title as an argument and the body on standard input, and on the existing path only",
+    "  pushes; closes the loop. A failed push leaves the loop open; a refused call asks for a rerun outside",
+    "  the sandbox.",
     "",
     "--slug names the loop; pass it on every call. --harness names the Harness this Session runs in.",
     "Run every command from the repository root.",
@@ -364,9 +365,9 @@ def close(loop: loopfile.Loop, out: Output) -> None:
 
 
 def open_pr(loop: loopfile.Loop, harness: Harness, wanted: str, write: bool) -> int:
-    if wanted not in (OPEN, PUSH_ONLY):
+    if wanted not in (OPEN, PUSH_ONLY, EXISTING):
         raise Failure(
-            "--path takes open or push-only: the path pr check printed.",
+            "--path takes open, push-only or existing: the path pr check printed.",
             "Run %s pr check --slug %s --harness %s, and copy the path from its Path: line." % (
                 places.command(), loop.slug, harness.name),
         )
@@ -395,8 +396,8 @@ def open_pr(loop: loopfile.Loop, harness: Harness, wanted: str, write: bool) -> 
     branch, _ = loop.setting("Feature branch")
     base, _ = loop.setting("Base branch")
     if not write:
-        out.line("Would push %s to %s%s, then close the loop." % (
-            branch, path.remote, " and open the PR into %s" % base if wanted == OPEN else ""))
+        what = {OPEN: " and open the PR into %s" % base, EXISTING: ", to the PR %s" % path.url}.get(wanted, "")
+        out.line("Would push %s to %s%s, then close the loop." % (branch, path.remote, what))
         return out.finish("Run %s" % command)
     push = gitcmd.run(loop.root, ["git", "push", "-u", path.remote, branch],
                       timeout=PUSH_TIMEOUT_SECONDS)
@@ -409,6 +410,10 @@ def open_pr(loop: loopfile.Loop, harness: Harness, wanted: str, write: bool) -> 
         return out.finish(
             "Relay the line above and wait for the user to fix it; when they say it is fixed, run %s" % command, 1)
     out.line("Pushed %s to %s." % (branch, path.remote))
+    if wanted == EXISTING:
+        close(loop, out)
+        out.tell("Pushed %s to %s: the PR %s has the new commits." % (branch, path.remote, path.url))
+        return out.finish("Relay the line above and stop.")
     if wanted == PUSH_ONLY:
         failed = path.failed()
         close(loop, out)

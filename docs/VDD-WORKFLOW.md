@@ -118,7 +118,7 @@ The Code-Reviewer runs Matt Pocock's `code-review` over the branch against the s
 
 ### 🚢 Phase 3: Ship
 
-On each code Sign-off the Orchestrator first folds the branch, without asking: each later round's fix moves into the commit that wrote the lines it changes, and a fix that has no such commit, or would clash with a later one, stays as its own commit with the Coder's message. The fold moves the branch only when the result holds exactly what the Code-Reviewer signed off. Otherwise it leaves the branch as reviewed and tells you why, for example when your git is older than 2.40 or the branch has an upstream someone may have fetched.
+On each code Sign-off the Orchestrator first folds the branch, without asking: each later round's fix moves into the commit that wrote the lines it changes, and a fix that has no such commit, or would clash with a later one, stays as its own commit with the Coder's message. The fold moves the branch only when the result holds exactly what the Code-Reviewer signed off. Otherwise it leaves the branch as reviewed and tells you why, for example when your git is older than 2.40 or the branch was already pushed and someone may have fetched it.
 
 Then the Orchestrator runs the PR-Author in its own session, which follows the Loop file's `PR:` line:
 
@@ -133,7 +133,7 @@ Then:
 2. The loop is closed by then. Read `.scratch/<slug>/RECAP.md` for how it went: the rounds, each ticket, every closed finding with what was wrong and how it was resolved, and each final commit with the commits it was built from. `.scratch/<slug>/` keeps it beside the Loop file, the spec and the tickets. It is gitignored, so it stays on this machine. To fix something before you merge, a finding from an outside review for example, send it back with `review add`, below.
 3. Start the next loop with fresh sessions.
 
-To send your own findings back into a signed-off loop, write them in a file, each as `### <blocker|major|minor>: <reference>` and a body, and run `python3 ~/.local/share/vdd/vdd.py review add --slug <slug> --from <file>` from the repository root. It shows what it would do; add `--write` to do it. `python3 ~/.local/share/vdd/vdd.py review --help` has the rest. On native Windows in PowerShell, run `py -3 "$env:LOCALAPPDATA\vdd\vdd.py" ...` instead. Then tell the Orchestrator: "I sent findings back after the Sign-off with review add, and the loop is open again. Run orchestrator start for <slug> and do what it prints." A fresh Coder takes your findings, the Code-Reviewer reviews its fixes, and the fold runs again at the next Sign-off.
+To send your own findings back into a signed-off loop, write them in a file, each as `### <blocker|major|minor>: <reference>` and a body, and run `python3 ~/.local/share/vdd/vdd.py review add --slug <slug> --from <file>` from the repository root. It shows what it would do; add `--write` to do it. `python3 ~/.local/share/vdd/vdd.py review --help` has the rest. On native Windows in PowerShell, run `py -3 "$env:LOCALAPPDATA\vdd\vdd.py" ...` instead. Then tell the Orchestrator: "I sent findings back after the Sign-off with review add, and the loop is open again. Run orchestrator start for <slug> and do what it prints." A fresh Coder takes your findings, the Code-Reviewer reviews its fixes, and the fold runs again at the next Sign-off. When the PR is already open, the fixes stay as their own commits and the PR-Author pushes them to it.
 
 ## 🧭 Before the loop
 

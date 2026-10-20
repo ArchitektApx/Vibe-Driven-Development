@@ -119,7 +119,8 @@ Act on the `Path:` line `pr check` printed.
 - **`neither`.** Print the body, push nothing, name the check that failed,
   close the loop and stop.
 - **`existing <url>`.** A PR is already open for the branch: print its URL
-  and the body, close the loop and stop, pushing nothing.
+  and continue to step 7 with `existing` as the path. The push adds the new
+  commits to that PR.
 
 ## 7. Show, confirm, open
 

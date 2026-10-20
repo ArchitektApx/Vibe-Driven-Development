@@ -109,7 +109,9 @@ each loop's fixes into the commits they fix, at every Sign-off.
   fresh Coder takes them in the next round. The Code-Reviewer reviews only
   that round's fixes, and `RECAP.md` shows your findings in a row of their
   own, apart from the reviewers' rounds. Minors that a `Minors: leave`
-  Sign-off left open do not come back unless you list them. The workflow page shows the call.
+  Sign-off left open do not come back unless you list them. When the PR is
+  already open, the PR-Author pushes the fixes to it as new commits. The
+  workflow page shows the call.
 - **Start-Loop shows you its warnings and summary.** The slug, the Harness
   and how to correct it, and the warnings about a push or a PR that will fail
   are printed by VDD and relayed to you before the Planner starts. They were
