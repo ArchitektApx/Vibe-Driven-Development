@@ -32,23 +32,12 @@ jobs:
 
       # A Harness finds a skill by the name and description in its frontmatter.
       - name: Check every skill has frontmatter
-        run: |
-          rc=0
-          while IFS= read -r f; do
-            head -n 1 "$f" | grep -qx -- '---' || { echo "missing frontmatter: $f"; rc=1; }
-            grep -qE '^name:' "$f" || { echo "missing name: $f"; rc=1; }
-            grep -qE '^description:' "$f" || { echo "missing description: $f"; rc=1; }
-          done < <(git ls-files -- skills | grep -E '(^|/)SKILL\.md$')
-          exit $rc
+        run: bash .github/scripts/frontmatter.sh
 
       # `npx skills add` installs by frontmatter name, so a duplicate silently
       # clobbers the other skill.
       - name: Skill names are unique
-        run: |
-          dupes=$(git ls-files -- skills | grep -E '^skills/[^/]+/SKILL\.md$' | while IFS= read -r f; do grep -h '^name:' "$f" || true; done | sort | uniq -d)
-          if [ -n "$dupes" ]; then
-            echo "duplicate skill names:"; echo "$dupes"; exit 1
-          fi
+        run: bash .github/scripts/unique-names.sh
 
       # A link to a file that does not ship strands its reader, in a Reference
       # file as in a skill file.
@@ -64,15 +53,7 @@ jobs:
       # Some Harnesses truncate a long file, so a Role can miss the end of a
       # Reference file it reads in one call.
       - name: Reference files are at most 8 KB
-        run: |
-          rc=0
-          while IFS= read -r f; do
-            size=$(wc -c < "$f")
-            if [ "$size" -gt 8192 ]; then
-              echo "$f: $size bytes, over 8 KB"; rc=1
-            fi
-          done < <(git ls-files -- skills | grep '/references/')
-          exit $rc
+        run: bash .github/scripts/reference-size.sh
 
       # A skill that ships a Harness file and leaves a Harness out of ## Harnesses
       # sends that reader nowhere.
@@ -88,27 +69,12 @@ jobs:
       # sentence, and the Spawn prompt is the one that says it (ticket 76): an edit
       # to either side makes every spawn refuse.
       - name: The Spawn prompt and the hosted skills share the start sentence
-        run: |
-          rc=0
-          sentence='An Orchestrator hosts this Workflow.'
-          if ! grep -qF "You are the <Role> in a Vibe Driven Development loop. $sentence" skills/vdd-orchestrator/SKILL.md; then
-            echo "skills/vdd-orchestrator/SKILL.md: the Spawn prompt lacks: $sentence"; rc=1
-          fi
-          for f in skills/vdd-plan-reviewer/SKILL.md skills/vdd-coder/SKILL.md skills/vdd-code-reviewer/SKILL.md; do
-            if ! grep -qF "If the prompt that started you does not say \"$sentence\"" "$f"; then
-              echo "$f: the start check lacks: $sentence"; rc=1
-            fi
-          done
-          exit $rc
+        run: bash .github/scripts/start-sentence.sh
 
       # Claude Code reads CLAUDE.md first, so a house rule added only to AGENTS.md
       # never reaches it, and one added to both is read twice.
       - name: CLAUDE.md is a stub for AGENTS.md
-        run: |
-          if [ "$(cat CLAUDE.md)" != "@AGENTS.md" ]; then
-            echo "CLAUDE.md must contain exactly the line: @AGENTS.md"
-            exit 1
-          fi
+        run: bash .github/scripts/claude-md.sh
 
       # No symlinks, executable files, MCP servers or hook but one: each would end
       # up on every installer's machine. That one is the Codex Stop hook inline in
@@ -116,39 +82,9 @@ jobs:
       # its command string and a changed string is a hook every user trusts again.
       # The guard uses find, not a bare glob: zsh aborts on an unmatched glob, which
       # Codex shows as "Hook failed" at every turn end. A deliberate change edits
-      # this step or codex-hook-form.js in the same PR.
+      # executable-surface.sh or codex-hook-form.js in the same PR.
       - name: Reject executable surface
-        run: |
-          rc=0
-          while IFS= read -r entry; do
-            mode=${entry%% *}
-            case "$mode" in
-              120000) echo "symlink in distributed content: ${entry#* }"; rc=1 ;;
-              100755) echo "executable in distributed content: ${entry#* }"; rc=1 ;;
-            esac
-          done < <(git ls-files -s | awk '{print $1" "$4}')
-          for f in .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
-            if grep -qE '"(hooks|mcpServers)"' "$f"; then
-              echo "$f declares hooks or MCP servers; only .codex-plugin/plugin.json carries the one hook"; rc=1
-            fi
-          done
-          node .github/scripts/codex-hook-form.js || rc=1
-          while IFS= read -r f; do
-            echo "unexpected hook or MCP config: $f"; rc=1
-          done < <(git ls-files | grep -E '(^|/)(hooks\.json|\.mcp\.json|mcp\.json)$' || true)
-          # A `dependencies` key in agents/openai.yaml can declare tools and
-          # MCP servers: `interface` and `policy` are the only keys allowed.
-          while IFS= read -r f; do
-            first=$(grep -vE '^([[:space:]]*#|[[:space:]]*$|---$)' "$f" | head -1)
-            case "$first" in
-              [[:space:]]*) echo "$f: top-level keys must start at column 0"; rc=1 ;;
-            esac
-            bad=$(grep -vE '^([[:space:]]|#|$|---$|\.\.\.$)' "$f" | grep -vE '^(interface|policy)[[:space:]]*:' || true)
-            if [ -n "$bad" ]; then
-              echo "$f: top-level keys other than interface and policy:"; echo "$bad"; rc=1
-            fi
-          done < <(git ls-files -- skills | grep -E '/agents/openai\.yaml$')
-          exit $rc
+        run: bash .github/scripts/executable-surface.sh
 
       # Shipped code runs on every installer's machine through a named interpreter,
       # so check_shipped_code.py holds it to that promise (the rules are in
@@ -170,38 +106,9 @@ jobs:
       # release.yml alone may write to the repository, and only from a version tag
       # push or a workflow_dispatch; a pull_request trigger there would run PR-head
       # content with write access. The runner has no YAML parser, so these are text
-      # checks on the lines that are not comments, spelled so this step's own text
-      # never matches them.
+      # checks on the lines that are not comments.
       - name: Only release.yml grants write access
-        run: |
-          rc=0
-          r=.github/workflows/release.yml
-          [ -f "$r" ] || { echo "missing $r"; exit 1; }
-          trig=$(awk '/^[[:space:]]*#/ {next} /^on:[[:space:]]*$/ {f=1; next} /^[^[:space:]]/ {f=0} f && /^  [^[:space:]]/ {sub(/:.*/, ""); sub(/^ +/, ""); print}' "$r" | sort | paste -sd' ' -)
-          [ "$trig" = "push workflow_dispatch" ] || { echo "$r: triggers are '$trig', expected push and workflow_dispatch"; rc=1; }
-          push=$(awk '/^[[:space:]]*#/ {next} /^on:[[:space:]]*$/ {o=1; next} /^[^[:space:]]/ {o=0} o && /^  push:/ {p=1; next} o && /^  [^[:space:]]/ {p=0} o && p && /^    [^[:space:]]/ {sub(/:.*/, ""); sub(/^ +/, ""); print}' "$r" | sort | paste -sd' ' -)
-          [ "$push" = "tags" ] || { echo "$r: push filters are '$push', expected tags only"; rc=1; }
-          if awk '/^[[:space:]]*#/ {next} /pull_request/ {f=1} END {exit !f}' "$r"; then
-            echo "$r: names a pull_request trigger"; rc=1
-          fi
-          perms=$(awk '/^[[:space:]]*#/ {next} /^permissions:/ {f=1; print; next} /^[^[:space:]]/ {f=0} f && NF' "$r" | paste -sd'|' -)
-          [ "$perms" = "permissions:|  contents: read" ] || { echo "$r: workflow-level permissions are '$perms', expected contents read"; rc=1; }
-          if ! awk '/^[[:space:]]*#/ {next} /^jobs:/ {j=1} !j && /contents:[[:space:]]*writ[e]/ {f=1} END {exit f}' "$r"; then
-            echo "$r: grants contents write access outside a job"; rc=1
-          fi
-          writes=$(awk '/^[[:space:]]*#/ {next} /contents:[[:space:]]*writ[e]/ {n++} END {print n+0}' "$r")
-          [ "$writes" = 1 ] || { echo "$r: grants contents write access in $writes places, expected the release job alone"; rc=1; }
-          for f in .github/workflows/*.yml .github/workflows/*.yaml; do
-            [ -f "$f" ] || continue
-            if awk '/^[[:space:]]*#/ {next} /write[-]all/ {f=1} END {exit !f}' "$f"; then
-              echo "$f: grants every permission at once"; rc=1
-            fi
-            [ "$f" = "$r" ] && continue
-            if awk '/^[[:space:]]*#/ {next} /contents:[[:space:]]*writ[e]/ {f=1} END {exit !f}' "$f"; then
-              echo "$f: grants contents write access, which only release.yml's release job may"; rc=1
-            fi
-          done
-          exit $rc
+        run: bash .github/scripts/release-write.sh
 
   # The VDD tool runs on the user's Python on macOS, Linux and native Windows,
   # from 3.9 (Apple's Command Line Tools) to the newest, so a new Python or a
