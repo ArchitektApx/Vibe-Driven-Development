@@ -111,7 +111,7 @@ class FoldTest(ToolTest):
         with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
             handle.write("".join(line + "\n" for line in lines))
 
-    def code_round(self, commits, open_after=1, steps=()):
+    def code_round(self, commits, open_after=1, steps=(), reviewed=True):
         """One code round: its commits (files, message), then its recorded
         start and end and a review leaving open_after findings open (0 signs
         off). steps run git before the commits."""
@@ -122,6 +122,8 @@ class FoldTest(ToolTest):
         for files, message in commits:
             self.commit(files, message)
         self.stage("code %d start %s" % (self.rounds, start), "code %d end %s" % (self.rounds, self.sha()))
+        if not reviewed:
+            return self.sha()
         if open_after:
             self.stage("code %d reviewed open 1 counts 0 0 %d next 2 new 1 closed 0 checks code-review ran"
                        % (self.rounds, open_after))
@@ -753,6 +755,127 @@ class SandboxAndSigningTest(FoldTest):
                              "  echo 'fatal: Unable to create lock: Permission denied' >&2; exit 128\nfi\n"
                              "exec '%s' \"$@\"\n" % real)
         self.assertRerun(self.fold(env=self.box.stub_env()), signed)
+
+
+STDLIB = T01.replace("import csv\n", "import csv  # stdlib\n")
+NOTES = "ledger/notes.py"
+USER_FINDINGS = "### minor: ledger/report_csv.py:1\n\nName the module's import.\n"
+SIGNED_REVIEW = "# Code review, round 2\n\nSIGNED OFF. Nothing open.\n\n## New findings\n"
+FOLDED_AFTER = "(folded after round 2)"
+
+
+class SecondFoldTest(FoldTest):
+    """A loop reopened by the user's findings folds again at its next Sign-off
+    (loop 06 left its grading fixes on top as commits because the fold ran
+    once, and the reopened round's review range showed the whole loop)."""
+
+    def folded_once(self):
+        """Round 1, a round-2 fix signed off, folded, and the user's finding
+        added through the tool."""
+        self.round_one()
+        self.code_round([({CSV: fixed_return(T01)}, "fix(report): two decimals")], 0)
+        signed = self.sha()
+        first = self.fold()
+        self.folded(signed, first)
+        self.first_tip = self.sha("demo")
+        self.box.write(os.path.join(".scratch", "demo", "CODEREVIEW.md"), SIGNED_REVIEW)
+        self.box.write("findings.md", USER_FINDINGS)
+        added = self.box.run("review", "add", "--slug", "demo", "--from", "findings.md", "--write")
+        self.assertEqual(added.code, 0, added)
+        return signed
+
+    def round_three(self, files, message, reviewed=False, steps=()):
+        """The reopened round, started through the tool, with its commit."""
+        started = self.box.run("coder", "start", "--slug", "demo", "--write")
+        self.assertEqual(started.code, 0, started)
+        # coder start recorded the round's start; the commit and the end
+        # follow as the Coder's work does.
+        self.commit(files, message)
+        self.stage("code 3 end %s" % self.sha())
+        if reviewed:
+            self.stage("code 3 reviewed signed-off - counts 0 0 0 next 3 new 0 closed 1 checks code-review ran")
+        return self.sha()
+
+    def test_the_second_fold_folds_the_reopened_rounds_fixes_into_their_tickets(self):
+        self.folded_once()
+        signed = self.round_three({CSV: STDLIB, NOTES: "VALUE = 1\n"}, "fix(report): name the import",
+                                  reviewed=True)
+        result = self.fold()
+        subjects = self.folded(signed, result)
+        self.assertEqual(subjects, [T01_SUBJECT, T02_SUBJECT])
+        self.assertIn("# stdlib", self.at(T01_SUBJECT, CSV))
+        self.assertIn("VALUE = 1", self.at(T01_SUBJECT, NOTES))
+        self.assertIn(FOLDED_AFTER, result.text)
+        self.assertIn("fold folded %s signed %s" % (self.sha("demo"), signed), self.state())
+        commits = self.recap().split("## Commits")[1].split("## Not carried")[0]
+        self.assertEqual(commits.count("Folded demo: "), 2, commits)
+        self.assertIn(FOLDED_AFTER, commits)
+        again = self.fold()
+        self.assertIn("The loop demo is already folded", again.text)
+
+    def test_the_reopened_round_is_reviewed_on_its_own_fixes_from_the_folded_tip(self):
+        signed_two = self.folded_once()
+        self.round_three({CSV: STDLIB}, "fix(report): name the import")
+        started = self.box.run("review", "start", "--role", "Code-Reviewer", "--slug", "demo", "--write")
+        self.assertEqual(started.code, 0, started)
+        self.assertNotEqual(self.first_tip, signed_two)
+        self.assertIn("Fixed point: %s, the branch as folded after round 2's Sign-off." % self.first_tip,
+                      started.lines)
+        self.assertTrue(any(line.startswith("Review range: %s...demo" % self.first_tip) for line in started.lines),
+                        started)
+        self.assertNotIn("No commits in this round's range", started.text)
+
+    def test_a_fix_no_loop_commit_owns_stays_on_top_with_the_coders_message(self):
+        self.folded_once()
+        signed = self.round_three({"README.md": README3}, README_SUBJECT, reviewed=True)
+        subjects = self.folded(signed, self.fold())
+        self.assertEqual(subjects, [T01_SUBJECT, T02_SUBJECT, README_SUBJECT])
+
+    def test_a_branch_with_an_upstream_skips_the_second_fold(self):
+        self.folded_once()
+        signed = self.round_three({CSV: STDLIB}, "fix(report): name the import", reviewed=True)
+        self.git("branch", "--set-upstream-to=main", "demo")
+        result = self.fold()
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(self.sha("demo"), signed)
+        self.assertIn("has an upstream", result.text)
+        self.assertIn("fold skipped %s " % signed, self.state())
+
+    def test_pr_open_and_the_orchestrator_wait_for_the_second_fold(self):
+        self.folded_once()
+        self.round_three({CSV: STDLIB}, "fix(report): name the import", reviewed=True)
+        opened = self.box.run("pr", "open", "--slug", "demo", "--harness", "claude-code", "--path", "open",
+                              "--write")
+        self.assertNotEqual(opened.code, 0, opened)
+        self.assertIn("The fold's outcome is not recorded for the code Sign-off", opened.text)
+        self.stage("respawn Coder never", "orchestrator session 1", "spawn Code-Reviewer 3 session 1")
+        placed = self.box.run("orchestrator", "return", "--role", "Code-Reviewer", "--slug", "demo",
+                              "--harness", "claude-code")
+        self.assertEqual(placed.code, 0, placed)
+        self.assertIn("Fold: not run yet.", placed.lines)
+        self.assertNext(placed, "loop fold --slug demo --harness claude-code --write")
+        self.fold()
+        opened = self.box.run("pr", "open", "--slug", "demo", "--harness", "claude-code", "--path", "open",
+                              "--write")
+        self.assertNotIn("The fold's outcome is not recorded", opened.text)
+
+    def test_a_loop_whose_first_fold_skipped_folds_from_round_ones_end(self):
+        self.round_one()
+        self.code_round([({CSV: fixed_return(T01)}, "fix(report): two decimals")], 0)
+        self.git("branch", "--set-upstream-to=main", "demo")
+        first = self.fold()
+        self.assertIn("fold skipped", self.state())
+        self.git("branch", "--unset-upstream", "demo")
+        self.box.write(os.path.join(".scratch", "demo", "CODEREVIEW.md"), SIGNED_REVIEW)
+        self.box.write("findings.md", USER_FINDINGS)
+        self.assertEqual(self.box.run("review", "add", "--slug", "demo", "--from", "findings.md", "--write").code, 0)
+        signed = self.round_three({CSV: STDLIB}, "fix(report): name the import", reviewed=True)
+        result = self.fold()
+        subjects = self.folded(signed, result)
+        self.assertEqual(subjects, [T01_SUBJECT, T02_SUBJECT])
+        self.assertIn("(round 1)", result.text)
+        self.assertNotIn(FOLDED_AFTER, result.text)
+        self.assertIn("Not folded: ", first.text)
 
 
 if __name__ == "__main__":

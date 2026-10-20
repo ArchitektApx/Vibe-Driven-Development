@@ -159,12 +159,25 @@ class Round:
     def fixed_point(self) -> str:
         """code-review's fixed point: the base branch in round 1, and in a
         later code round the previous round's recorded end, so the round is
-        reviewed on its own diff (ticket 90)."""
+        reviewed on its own diff (ticket 90). When the fold rewrote the branch
+        after the previous round's Sign-off, the branch as folded."""
         if self.kind == "code" and self.number > 1:
             end = self.state.code_mark("end", self.number - 1)
+            folded = self.folded_tip()
+            if folded:
+                return folded
             if end:
                 return end
         return self.base()
+
+    def folded_tip(self) -> str | None:
+        """The branch's tip as the last fold left it, when that fold ran on
+        the previous code round's recorded end, else None."""
+        record = self.state.fold_record()
+        end = self.state.code_mark("end", self.number - 1)
+        if record is not None and record.kind == "folded" and record.signed == end:
+            return record.tip
+        return None
 
     def review_range(self) -> str:
         return "%s...%s" % (self.fixed_point(), self.branch())
@@ -380,7 +393,11 @@ def start(round_: Round, write: bool) -> int:
             out.line("Review range: %s, with %s as code-review's fixed point and Step 2's diff." % (
                 round_.review_range(), round_.base()))
         else:
-            out.line("Fixed point: %s, code round %d's recorded end." % (round_.fixed_point(), round_.number - 1))
+            if round_.folded_tip():
+                out.line("Fixed point: %s, the branch as folded after round %d's Sign-off." % (
+                    round_.fixed_point(), round_.number - 1))
+            else:
+                out.line("Fixed point: %s, code round %d's recorded end." % (round_.fixed_point(), round_.number - 1))
             out.line("Review range: %s, this round's own diff: code-review's fixed point is %s, and Step 2 reads "
                      "the diff over this range. The verification runs on the whole branch." % (
                          round_.review_range(), round_.fixed_point()))
