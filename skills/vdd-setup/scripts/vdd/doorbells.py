@@ -401,7 +401,12 @@ def hand_relay(role, harness, slug):
 
 
 def armed_path(place, thread):
-    return os.path.join(place.dir, "codex-armed-" + thread)
+    return os.path.join(place.dir, loopfile.ARMED_PREFIX + thread)
+
+
+def claim_path(place, thread):
+    """The claim marker of the Codex Stop hook for the thread's armed file."""
+    return os.path.join(place.dir, loopfile.CLAIM_PREFIX + thread)
 
 
 def arm(place, role, harness):
@@ -420,6 +425,11 @@ def arm(place, role, harness):
     data = "%s%s\n%s %d\n" % (ARMED_PREFIX, ARMED_VERSION, role, count)
     try:
         os.makedirs(place.dir, exist_ok=True)
+        # A claim marker a killed hook left would block this wait.
+        try:
+            os.remove(claim_path(place, thread))
+        except FileNotFoundError:
+            pass
         textfile.write_text(armed_path(place, thread), data)
     except OSError as error:
         raise Failure("Cannot write the armed file: %s" % error, hand_relay(role, harness, place.slug))

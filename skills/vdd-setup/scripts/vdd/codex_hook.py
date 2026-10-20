@@ -5,8 +5,8 @@ Codex wait, .scratch/<slug>/codex-armed-<session id> (the hook string's shell
 guard keeps Python from starting otherwise). It reads the hook input on
 standard input and finds this Session's armed file, which `doorbell wait
 --harness codex` wrote, in any loop's tracker directory: the loop is that
-directory. It claims (deletes) the file, waits on the Doorbell file as `wait`
-does, and on a pending Doorbell or TIMEOUT prints Codex's block decision, so
+directory. It claims the wait with an exclusive marker, deletes the file, waits
+on the Doorbell file as `wait` does, and on a pending Doorbell or TIMEOUT prints Codex's block decision, so
 Codex continues the Session with the reason as its prompt. It reads no Loop
 file: only a Codex wait writes an armed file.
 
@@ -58,7 +58,7 @@ def hook():
         except OSError:
             pass
     _, path, slug = found[-1]
-    claimed = claim(path)
+    claimed = claim(path, os.path.join(os.path.dirname(path), loopfile.CLAIM_PREFIX + session))
     if claimed is None:
         return
     role, count = claimed
@@ -94,25 +94,40 @@ def armed_files(root, session):
     return found
 
 
-def claim(path):
-    """Take the armed file: rename it away, so of two turn ends racing for it
-    only one gets it, then read and delete it. (Role, count), or None when it
-    is not there or not well formed (it is deleted either way)."""
-    if not os.path.isfile(path):
-        return None
-    taken = "%s.claimed-%d" % (path, os.getpid())
+def claim(path, marker):
+    """Take the armed wait: of turn ends racing for it exactly one creates the
+    claim marker, so the others find it there and take nothing. The winner
+    reads the armed file, then deletes it first and the marker second, so a
+    later racer finds no armed file once the marker is gone. (Role, count), or
+    None when another turn end has the wait, the file is gone, cannot be read
+    or is not well formed (a malformed one is deleted); the claimer's own
+    marker never outlives the call."""
     try:
-        os.rename(path, taken)
+        os.close(os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
     except OSError:
         return None
     try:
-        lines = textfile.lines(taken) or []
+        try:
+            lines = textfile.lines(path, doorbells.LOCK_RETRY_SECONDS)
+        except OSError:
+            return None
+        claimed = well_formed(lines)
+        if lines is not None:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        return claimed
     finally:
         try:
-            os.remove(taken)
+            os.remove(marker)
         except OSError:
             pass
-    if len(lines) < 2 or lines[0] != doorbells.ARMED_PREFIX + doorbells.ARMED_VERSION:
+
+
+def well_formed(lines):
+    """(Role, count) of an armed file's lines, or None."""
+    if lines is None or len(lines) < 2 or lines[0] != doorbells.ARMED_PREFIX + doorbells.ARMED_VERSION:
         return None
     parts = lines[1].split()
     if len(parts) != 2 or parts[0] not in doorbells.ROLES or not parts[1].isdigit():

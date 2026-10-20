@@ -22,6 +22,9 @@ SLUG_PATTERN = "[a-z0-9]+(-[a-z0-9]+)*"
 FORMAT = 2
 NAME = "loop.md"
 ARMED_PREFIX = "codex-armed-"
+# The claim marker beside an armed file: its name must not start with
+# ARMED_PREFIX, which the Codex Stop hook's shell guard looks for.
+CLAIM_PREFIX = "codex-claim-"
 ROOT_FILE = "LOOP.md"
 ROOT_FIX = (
     "Delete `LOOP.md`. To carry on the loop it belongs to, run `vdd-start-loop` with its slug and answer continue."
@@ -147,17 +150,19 @@ def kind(root, slug):
 
 
 def delete_armed(directory):
-    """Delete every Codex armed file in directory; the names deleted."""
+    """Delete every Codex armed file in directory, and every claim marker; the
+    names of the armed files deleted."""
     gone = []
     try:
         names = sorted(os.listdir(directory))
     except OSError:
         return gone
     for name in names:
-        if name.startswith(ARMED_PREFIX):
+        if name.startswith((ARMED_PREFIX, CLAIM_PREFIX)):
             try:
                 os.remove(os.path.join(directory, name))
-                gone.append(name)
+                if name.startswith(ARMED_PREFIX):
+                    gone.append(name)
             except OSError:
                 pass
     return gone

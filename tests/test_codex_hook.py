@@ -286,6 +286,36 @@ class CodexHookTest(ToolTest):
         self.assertEqual(len(blocks), 1, results)
         self.assertTrue(all(r.code == 0 for r in results))
 
+    def test_a_marker_a_killed_hook_left_blocks_no_later_wait(self):
+        """A hook killed between its claim and its cleanup leaves its claim
+        marker behind; with the marker kept, every later wait of the Session
+        was taken as already claimed and the Doorbell was never waited for.
+        Arming a wait clears the marker, so the next turn end blocks once."""
+        self.loop()
+        self.armed(ID)
+        marker = self.box.path(TRACKER, "codex-claim-" + ID)
+        self.box.write(os.path.join(TRACKER, "codex-claim-" + ID), "")
+        self.ring("Orchestrator", P1)
+        armed = self.box.run("doorbell", "wait", "--role", "Orchestrator", "--harness", "codex", "--slug", "feat",
+                             env=self.box.env(CODEX_THREAD_ID=ID))
+        self.assertEqual(armed.code, 0, armed)
+        self.assertFalse(os.path.exists(marker))
+        self.assertBlock(self.hook(stop_input(ID)))
+        self.assertTrue(self.gone(ID))
+        self.assertFalse(os.path.exists(marker))
+        self.assertSilent(self.hook(stop_input(ID)))
+
+    def test_a_turn_end_finding_the_wait_claimed_takes_nothing(self):
+        """The claim marker says another turn end has this wait: this one
+        exits 0 without blocking and without touching the armed file, so the
+        wait is never taken by two turn ends."""
+        self.loop()
+        self.armed(ID)
+        self.box.write(os.path.join(TRACKER, "codex-claim-" + ID), "")
+        self.ring("Orchestrator", P1)
+        before = self.snapshot()
+        self.assertSilent(self.hook(stop_input(ID)), before)
+
     def test_the_hook_names_the_shared_copy(self):
         self.loop()
         self.armed(ID)
