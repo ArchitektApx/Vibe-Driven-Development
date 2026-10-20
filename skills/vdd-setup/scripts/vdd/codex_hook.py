@@ -15,6 +15,8 @@ and repeats it without limit. Everything it needs is imported here, at start,
 so a Setup swapping the Shared copy mid-wait cannot mix versions.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import sys
@@ -24,7 +26,7 @@ from .harness import codex as codex_harness
 from .out import Output
 
 
-def run(argv):
+def run(argv: list[str]) -> int:
     if "--help" in argv or "-h" in argv:
         out = Output()
         out.line("codex-stop: the Codex Stop hook. Codex runs it at a turn end, with the hook input on standard input.")
@@ -36,7 +38,7 @@ def run(argv):
     return 0
 
 
-def hook():
+def hook() -> None:
     cwd = os.getcwd()
     data = sys.stdin.buffer.read() if hasattr(sys.stdin, "buffer") else b""
     try:
@@ -76,9 +78,9 @@ def hook():
     sys.stdout.buffer.flush()
 
 
-def armed_files(root, session):
+def armed_files(root: str, session: str) -> list[tuple[float, str, str]]:
     """[(modification time, path, slug)] of .scratch/*/codex-armed-<session>."""
-    found = []
+    found: list[tuple[float, str, str]] = []
     scratch = loopfile.scratch(root)
     try:
         names = os.listdir(scratch)
@@ -94,7 +96,7 @@ def armed_files(root, session):
     return found
 
 
-def claim(path, marker):
+def claim(path: str, marker: str) -> tuple[str, int] | None:
     """Take the armed wait: of turn ends racing for it exactly one creates the
     claim marker, so the others find it there and take nothing. The winner
     reads the armed file, then deletes it first and the marker second, so a
@@ -125,7 +127,7 @@ def claim(path, marker):
             pass
 
 
-def well_formed(lines):
+def well_formed(lines: list[str] | None) -> tuple[str, int] | None:
     """(Role, count) of an armed file's lines, or None."""
     if lines is None or len(lines) < 2 or lines[0] != doorbells.ARMED_PREFIX + doorbells.ARMED_VERSION:
         return None

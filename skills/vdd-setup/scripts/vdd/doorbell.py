@@ -4,9 +4,14 @@ doorbells.py, which the Orchestrator, the reviews and the Codex Stop hook
 share.
 """
 
-import signal
+from __future__ import annotations
 
-from . import args, doorbells, loopstate, places
+import signal
+from types import FrameType
+from typing import Any, NoReturn
+
+from . import args, doorbells, loopstate, places, textfile
+from .harness import Harness
 from .out import Failure, Output
 
 
@@ -53,16 +58,16 @@ SPEC = {
 }
 
 
-def usage():
+def usage() -> str:
     return "%s doorbell --help" % places.command()
 
 
-def run(argv):
+def run(argv: list[str]) -> int:
     return args.run_group(argv, "doorbell", dict.fromkeys(("ring", "wait", "take"), SPEC), HELP,
                           "Run the command your skill or the last Next: line names.", dispatch)
 
 
-def dispatch(sub, values):
+def dispatch(sub: str, values: dict[str, Any]) -> int:
     harness = args.harness_of(values, usage())
     role = values["role"]
     args.choice(role, doorbells.ROLES, "--role takes Planner or Orchestrator.", "Run %s for the usage." % usage())
@@ -74,11 +79,11 @@ def dispatch(sub, values):
     return take(place, role, harness, values["pasted"], values["resumed"])
 
 
-def composed(place, role):
+def composed(place: doorbells.Place, role: str) -> str:
     """The Doorbell line role rings, from the loop's state: the Planner's
     round is the last plan review's plus one, or 1; the Orchestrator relays
     the last plan review."""
-    loopstate.refuse_v1(place.loop, "doorbell ring")
+    loopstate.refuse_v1(place.require_loop(), "doorbell ring")
     last = loopstate.State(place.dir).last_review("plan")
     if role == "Planner":
         return loopstate.planner_doorbell(place.tracker, last.round + 1 if last else 1)
@@ -91,11 +96,13 @@ def composed(place, role):
     return loopstate.review_doorbell(last)
 
 
-def ring(place, role, harness, write):
+def ring(place: doorbells.Place, role: str, harness: Harness, write: bool) -> int:
     to = doorbells.OTHER[role]
     place.require_open("a ring")
     line = composed(place, role)
     doorbell = doorbells.parse(line, to, place.tracker)
+    if doorbell is None:
+        raise RuntimeError("The composed Doorbell line does not parse: %s" % line)
     out = Output()
     last = place.entries(to)
     already = bool(last) and last[-1].text == line
@@ -135,7 +142,7 @@ def ring(place, role, harness, write):
     return out.finish(doorbells.wait_or_hold(place, role, harness))
 
 
-def take(place, role, harness, pasted, resumed=False):
+def take(place: doorbells.Place, role: str, harness: Harness, pasted: str | None, resumed: bool = False) -> int:
     if resumed:
         if role != "Planner":
             raise Failure(
@@ -163,7 +170,8 @@ def take(place, role, harness, pasted, resumed=False):
     return out.finish(act_next(place, role, harness))
 
 
-def take_pasted(place, role, harness, entries, state, line, out):
+def take_pasted(place: doorbells.Place, role: str, harness: Harness, entries: list[doorbells.Entry],
+                state: doorbells.State, line: str, out: Output) -> int:
     doorbell = doorbells.parse(line, role, place.tracker)
     if doorbell is None:
         out.tell("This is not a Doorbell for the %s, so it was not acted on: %s" % (role, line))
@@ -180,7 +188,7 @@ def take_pasted(place, role, harness, entries, state, line, out):
     return out.finish(act_next(place, role, harness))
 
 
-def act_next(place, role, harness):
+def act_next(place: doorbells.Place, role: str, harness: Harness) -> str:
     """The step after a Doorbell take printed: the Orchestrator runs
     orchestrator return for the Planner's Doorbell."""
     if role == "Orchestrator":
@@ -189,17 +197,18 @@ def act_next(place, role, harness):
     return "Act on this Doorbell as your skill says."
 
 
-def after_nothing(place, role, harness, entries, state):
+def after_nothing(place: doorbells.Place, role: str, harness: Harness, entries: list[doorbells.Entry],
+                  state: doorbells.State) -> str:
     _, new = doorbells.pending(entries, state)
     if new:
         return "A Doorbell for you is waiting in the Doorbell file. Run: %s" % doorbells.take_command(role, harness, place.slug)
     return doorbells.wait_or_hold(place, role, harness)
 
 
-def end_on_signal():
+def end_on_signal() -> None:
     """Turn SIGTERM and SIGHUP into SystemExit, so a wait its Harness stops
     still removes its marker."""
-    def stop(signum, frame):
+    def stop(signum: int, frame: FrameType | None) -> NoReturn:
         raise SystemExit(1)
     for name in ("SIGTERM", "SIGHUP"):
         if hasattr(signal, name):
@@ -209,7 +218,7 @@ def end_on_signal():
                 pass
 
 
-def wait(place, role, harness):
+def wait(place: doorbells.Place, role: str, harness: Harness) -> int:
     place.require_open("a wait")
     if harness.name == "codex":
         doorbells.arm(place, role, harness)

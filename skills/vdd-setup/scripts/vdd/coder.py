@@ -7,9 +7,12 @@ FIXES.md. coder check lints FIXES.md and the working tree and, with --write,
 records where the round ends and prints the Coder's Doorbell line.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import textwrap
+from typing import Any, Callable
 
 from . import args, fixes, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
 from .out import Failure, Output
@@ -40,16 +43,16 @@ HELP = [
 SPEC = {"slug": args.VALUE, "write": args.FLAG}
 
 
-def usage():
+def usage() -> str:
     return "%s coder --help" % places.command()
 
 
-def run(argv):
+def run(argv: list[str]) -> int:
     return args.run_group(argv, "coder", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
                           "Run the coder command your skill or the last Next: line names.", dispatch)
 
 
-def dispatch(sub, values):
+def dispatch(sub: str, values: dict[str, Any]) -> int:
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     state = loopstate.open_loop(loop, "coder %s" % sub)
     round_ = Round(loop, state)
@@ -60,7 +63,7 @@ def dispatch(sub, values):
 
 # --- git ---
 
-def git(root, *argv):
+def git(root: str, *argv: str) -> gitcmd.Call:
     """The finished gitcmd.Call of a git command run in root; refuses when git
     cannot run."""
     call = gitcmd.git(root, *argv)
@@ -69,7 +72,7 @@ def git(root, *argv):
     return call
 
 
-def head(root):
+def head(root: str) -> str:
     call = git(root, "rev-parse", "HEAD")
     sha = call.out.strip()
     if not call.ok or not sha:
@@ -78,11 +81,11 @@ def head(root):
     return sha
 
 
-def branch_exists(root, branch):
+def branch_exists(root: str, branch: str) -> bool:
     return git(root, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch).ok
 
 
-def dirty(root):
+def dirty(root: str) -> list[str]:
     """The tracked files with uncommitted changes."""
     call = git(root, "diff", "--name-only", "HEAD")
     if not call.ok:
@@ -93,7 +96,7 @@ def dirty(root):
 class Round:
     """The code round a command acts on."""
 
-    def __init__(self, loop, state):
+    def __init__(self, loop: loopfile.Loop, state: loopstate.State) -> None:
         self.loop = loop
         self.state = state
         self.base = loop.setting("Base branch")[0]
@@ -106,20 +109,20 @@ class Round:
         self.number = newest if self.started else newest + 1
         previous = state.review("code", self.number - 1) if self.number > 1 else None
         self.previous = previous
-        self.open_numbers = list(previous.open) if previous else []
+        self.open_numbers: list[int] = list(previous.open) if previous else []
 
-    def command(self, sub, write=True):
+    def command(self, sub: str, write: bool = True) -> str:
         return "%s coder %s --slug %s%s" % (places.command(), sub, self.loop.slug, " --write" if write else "")
 
-    def path(self, name):
+    def path(self, name: str) -> str:
         return "%s/%s" % (self.loop.tracker, name)
 
-    def read_list(self):
+    def read_list(self) -> list[str]:
         names = (["CODEREVIEW.md"] if self.number > 1 else []) + ["spec.md", "issues/"]
         return [self.path(name) for name in names]
 
 
-def tickets(loop):
+def tickets(loop: loopfile.Loop) -> list[tuple[str, str]]:
     """(NN, file name) of every Ticket file, in NN order."""
     directory = os.path.join(loop.dir, "issues")
     try:
@@ -136,7 +139,7 @@ def tickets(loop):
 
 # --- start ---
 
-def precondition(round_):
+def precondition(round_: Round) -> None:
     """Refuse a round its loop is not ready for."""
     state = round_.state
     if round_.started:
@@ -165,7 +168,7 @@ def precondition(round_):
         )
 
 
-def to_branch(round_, out, write=True):
+def to_branch(round_: Round, out: Output, write: bool = True) -> bool:
     """Put the Coder on the feature branch, or refuse naming both branches.
     Without write, switch nothing and return whether a switch is owed."""
     root = round_.loop.root
@@ -209,7 +212,7 @@ def to_branch(round_, out, write=True):
     return False
 
 
-def ticket_guidance():
+def ticket_guidance() -> list[str]:
     return textwrap.wrap(
         "<!-- VDD: the VDD tool wrote this frame, and `coder check` reads it. Under each Ticket fill Files, "
         "Change and Verified. Verified is the result of each check you ran, never its output. Add Deviations: "
@@ -217,7 +220,7 @@ def ticket_guidance():
         "comment when the file passes. -->", 76, break_long_words=False, break_on_hyphens=False)
 
 
-def finding_guidance():
+def finding_guidance() -> list[str]:
     return textwrap.wrap(
         "<!-- VDD: the VDD tool wrote this frame, and `coder check` reads it. Under each finding set Answer to "
         "`fixed` or `pushback`. Why is required for pushback, and optional for fixed: write it when your fix "
@@ -225,7 +228,7 @@ def finding_guidance():
         "comment when the file passes. -->", 76, break_long_words=False, break_on_hyphens=False)
 
 
-def open_findings(round_):
+def open_findings(round_: Round) -> list[tuple[int, str, str]]:
     """(number, severity, reference) of every finding the last review left
     open, from CODEREVIEW.md's headings, else carried-code.md's."""
     found = {}
@@ -246,7 +249,7 @@ def open_findings(round_):
     return [found[n] for n in round_.open_numbers]
 
 
-def skeleton(round_):
+def skeleton(round_: Round) -> list[str]:
     lines = ["# Fixes, round %d" % round_.number, ""]
     if round_.number == 1:
         lines += ticket_guidance()
@@ -260,7 +263,7 @@ def skeleton(round_):
     return lines
 
 
-def start(round_, write):
+def start(round_: Round, write: bool) -> int:
     precondition(round_)
     if round_.number == 1 and not tickets(round_.loop):
         raise Failure(
@@ -306,10 +309,10 @@ def start(round_, write):
 
 # --- check ---
 
-def lint(round_, parsed):
-    problems = []
+def lint(round_: Round, parsed: workfile.Parsed) -> list[str]:
+    problems: list[tuple[int, str]] = []
 
-    def at(line, text):
+    def at(line: workfile.Line | None, text: str) -> None:
         problems.append((line.number if line else 0, "%s line %d: %s" % (fixes.NAME, line.number, text) if line
                          else "%s: %s" % (fixes.NAME, text)))
 
@@ -328,7 +331,7 @@ def lint(round_, parsed):
     return [text for _, text in sorted(problems, key=lambda p: p[0])]
 
 
-def lint_tickets(round_, found, at):
+def lint_tickets(round_: Round, found: list[fixes.Entry], at: Callable[[workfile.Line | None, str], None]) -> None:
     by_number = {}
     for entry in found:
         match = fixes.TICKET_HEADING.match(entry.heading.text)
@@ -355,7 +358,7 @@ def lint_tickets(round_, found, at):
                 at(line, "Ticket %s's %s: is empty. Write %s." % (number, label, fix))
 
 
-def lint_findings(round_, found, at):
+def lint_findings(round_: Round, found: list[fixes.Entry], at: Callable[[workfile.Line | None, str], None]) -> None:
     by_number = {}
     for entry in found:
         match = fixes.FINDING_HEADING.match(entry.heading.text)
@@ -389,7 +392,7 @@ def lint_findings(round_, found, at):
                % number)
 
 
-def check(round_, write):
+def check(round_: Round, write: bool) -> int:
     if not round_.started:
         if round_.newest and round_.state.review("code", round_.newest) is None:
             out = Output()
@@ -443,7 +446,7 @@ def check(round_, write):
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
 
 
-def start_gone(round_):
+def start_gone(round_: Round) -> str | None:
     """The refusal for a round whose recorded start is no longer in HEAD's
     history, or None. The fold after the code Sign-off reads every round's
     recorded end; an amend, rebase or reset of an earlier round's commit
@@ -458,7 +461,7 @@ def start_gone(round_):
             "changes, then commit the change as a new commit." % (round_.number, start, round_.branch, start))
 
 
-def recap_tickets(parsed):
+def recap_tickets(parsed: workfile.Parsed) -> list[str]:
     lines = []
     for entry in fixes.entries(parsed):
         if lines:

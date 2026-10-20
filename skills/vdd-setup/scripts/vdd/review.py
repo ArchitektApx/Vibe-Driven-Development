@@ -8,9 +8,12 @@ status line, moves every closed finding to the Recap, records the round's
 outcome in the state file and prints the Doorbell line.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import textwrap
+from typing import Any, Iterable
 
 from . import agentdocs, args, doorbells, fixes, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
 from .out import Failure, Output
@@ -33,7 +36,7 @@ STATUS_LINE = re.compile(r"^(Open: [0-9]+ blocker, [0-9]+ major, [0-9]+ minor\.|
                          r"|SIGNED OFF\. Open minors left, as Minors: leave allows: [0-9]+\.)\s*$")
 STATES = ("open", "fixed", "accepted")
 
-CHECKS = {
+CHECKS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
     "plan": (("writing-for-agents", ("ran", "did not resolve")),),
     "code": (
         ("code-review", ("ran", "did not resolve, the Spec reviewed by hand")),
@@ -62,16 +65,16 @@ HELP = [
 SPEC = {"role": args.VALUE, "slug": args.VALUE, "write": args.FLAG}
 
 
-def usage():
+def usage() -> str:
     return "%s review --help" % places.command()
 
 
-def run(argv):
+def run(argv: list[str]) -> int:
     return args.run_group(argv, "review", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
                           "Run the review command your skill or the last Next: line names.", dispatch)
 
 
-def dispatch(sub, values):
+def dispatch(sub: str, values: dict[str, Any]) -> int:
     role = values["role"]
     args.choice(role, REVIEWERS, "--role takes Plan-Reviewer or Code-Reviewer.", "Run %s for the usage." % usage())
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
@@ -86,7 +89,7 @@ class Round:
     """The review round a command acts on: the next one after the last
     recorded review."""
 
-    def __init__(self, loop, state, role):
+    def __init__(self, loop: loopfile.Loop, state: loopstate.State, role: str) -> None:
         self.loop = loop
         self.state = state
         self.role = role
@@ -96,34 +99,34 @@ class Round:
         self.relative = "%s/%s" % (loop.tracker, self.name)
         self.last = state.last_review(self.kind)
         self.number = (self.last.round + 1) if self.last else 1
-        self.carried_numbers = list(self.last.open) if self.last else []
+        self.carried_numbers: list[int] = list(self.last.open) if self.last else []
         self.first_new = state.next_number(self.kind)
         self.carried_file = os.path.join(loop.dir, CARRIED % self.kind)
 
-    def command(self, sub, write=True):
+    def command(self, sub: str, write: bool = True) -> str:
         return "%s review %s --role %s --slug %s%s" % (
             places.command(), sub, self.role, self.loop.slug, " --write" if write else "")
 
-    def minors(self):
+    def minors(self) -> str:
         return self.loop.setting("Minors")[0]
 
-    def path(self, name):
+    def path(self, name: str) -> str:
         return "%s/%s" % (self.loop.tracker, name)
 
-    def read_list(self):
+    def read_list(self) -> list[str]:
         names = [self.name] if self.number > 1 else []
         names += ["spec.md", "issues/"]
         if self.kind == "code" and self.number == 1:
             names.append("FIXES.md")
         return [self.path(name) for name in names]
 
-    def base(self):
+    def base(self) -> str:
         return self.loop.setting("Base branch")[0]
 
-    def branch(self):
+    def branch(self) -> str:
         return self.loop.setting("Feature branch")[0]
 
-    def fixed_point(self):
+    def fixed_point(self) -> str:
         """code-review's fixed point: the base branch in round 1, and in a
         later code round the previous round's recorded end, so the round is
         reviewed on its own diff (ticket 90)."""
@@ -133,17 +136,17 @@ class Round:
                 return end
         return self.base()
 
-    def review_range(self):
+    def review_range(self) -> str:
         return "%s...%s" % (self.fixed_point(), self.branch())
 
-    def no_commits(self):
+    def no_commits(self) -> bool:
         """Whether a later code round's range holds no commit."""
         if self.kind != "code" or self.number == 1:
             return False
         call = gitcmd.git(self.loop.root, "rev-list", "--count", "%s..%s" % (self.fixed_point(), self.branch()))
         return call.ok and call.out.strip() == "0"
 
-    def agent_documents(self):
+    def agent_documents(self) -> list[str]:
         """The Agent documents in the review range, computed once."""
         if not hasattr(self, "_documents"):
             found = agentdocs.listed(self.loop.root, self.fixed_point(), self.branch())
@@ -155,12 +158,12 @@ class Round:
             self._documents = found
         return self._documents
 
-    def accepted_checks(self, name, accepted):
+    def accepted_checks(self, name: str, accepted: tuple[str, ...]) -> tuple[str, ...]:
         if self.kind == "code" and name == "writing-for-agents" and not self.agent_documents():
             return accepted + (NO_AGENT_DOCUMENT,)
         return accepted
 
-    def filled(self, name):
+    def filled(self, name: str) -> str | None:
         """The value the tool fills a Checks line with, or None."""
         if self.kind != "code":
             return None
@@ -170,7 +173,7 @@ class Round:
             return NO_COMMITS
         return None
 
-    def skip_allowed(self, name):
+    def skip_allowed(self, name: str) -> bool:
         """Whether the Checks line takes "not needed, <reason>": on
         writing-for-agents in any round, and on code-review from round 2
         (ticket 90): round 1 gets one full Borrowed review."""
@@ -178,7 +181,7 @@ class Round:
             return True
         return name == "code-review" and self.number > 1
 
-    def placeholder(self, name):
+    def placeholder(self, name: str) -> str:
         """The frame's placeholder: exactly the values the line takes in this
         round."""
         values = list(dict(CHECKS[self.kind])[name])
@@ -189,14 +192,14 @@ class Round:
 
 # --- start ---
 
-def planner_rung(loop):
+def planner_rung(loop: loopfile.Loop) -> int:
     """The newest round the Planner rang, or 0."""
     place = doorbells.Place(loop.root, loop.slug)
     rounds = [e.doorbell.round for e in place.entries("Orchestrator") if e.doorbell]
     return max(rounds) if rounds else 0
 
 
-def require_round(round_):
+def require_round(round_: Round) -> None:
     if round_.last and round_.last.signed_off:
         raise Failure(
             "The %s Loop signed off in round %d: there is no round %d to review. Nothing was written."
@@ -220,7 +223,7 @@ def require_round(round_):
             )
 
 
-def round_available(round_):
+def round_available(round_: Round) -> bool:
     try:
         require_round(round_)
     except Failure:
@@ -228,10 +231,10 @@ def round_available(round_):
     return True
 
 
-def carried_blocks(round_):
+def carried_blocks(round_: Round) -> list[list[str]]:
     """number -> the block's lines, for every finding still open, from the
     review file as the last check left it, else from the carried file."""
-    blocks = {}
+    blocks: dict[int, list[str]] = {}
     for path in (round_.file, round_.carried_file):
         text = textfile.read(path)
         if text is None:
@@ -255,12 +258,12 @@ def carried_blocks(round_):
     return [blocks[n] for n in round_.carried_numbers]
 
 
-def coder_answers(round_):
+def coder_answers(round_: Round) -> dict[int, str]:
     """number -> this round's Coder: line, from FIXES.md's answers."""
     text = textfile.read(os.path.join(round_.loop.dir, fixes.NAME))
     if text is None:
         return {}
-    found = {}
+    found: dict[int, str] = {}
     for entry in fixes.entries(workfile.Parsed(text)):
         match = fixes.FINDING_HEADING.match(entry.heading.text)
         if not match:
@@ -278,7 +281,7 @@ def coder_answers(round_):
     return found
 
 
-def guidance(round_):
+def guidance(round_: Round) -> list[str]:
     reference = "<Spec section or Ticket NN>" if round_.kind == "plan" else "<file>:<line>"
     head = textwrap.wrap("<!-- VDD: the VDD tool wrote this frame, and `review check` reads it. Fill each "
                          "Checks line. Add each finding under New findings as a heading", 76)
@@ -297,7 +300,7 @@ def guidance(round_):
     return head + textwrap.wrap(" ".join(words), 76, break_long_words=False, break_on_hyphens=False)
 
 
-def skeleton(round_, blocks):
+def skeleton(round_: Round, blocks: list[list[str]]) -> list[str]:
     lines = ["# %s, round %d" % (TITLES[round_.kind], round_.number), ""]
     lines += guidance(round_)
     lines += ["", "## Checks", ""]
@@ -313,7 +316,7 @@ def skeleton(round_, blocks):
     return lines
 
 
-def start(round_, write):
+def start(round_: Round, write: bool) -> int:
     require_round(round_)
     out = Output()
     again = round_.state.review_started(round_.kind, round_.number)
@@ -369,23 +372,23 @@ def start(round_, write):
 class Lint:
     """The refusals of one check, in file order."""
 
-    def __init__(self, round_):
+    def __init__(self, round_: Round) -> None:
         self.round = round_
-        self.problems = []
+        self.problems: list[tuple[int, list[str]]] = []
 
-    def at(self, line, text):
+    def at(self, line: workfile.Line | None, text: str) -> None:
         if line is None:
             self.problems.append((0, ["%s: %s" % (self.round.name, text)]))
         else:
             self.problems.append((line.number, ["%s line %d: %s" % (self.round.name, line.number, text)]))
 
-    def block(self, text, block_lines):
+    def block(self, text: str, block_lines: list[str]) -> None:
         """A refusal followed by a block to put back, one output line per
         line of the block."""
         self.problems.append((10 ** 9, ["%s: %s" % (self.round.name, text)] + block_lines))
 
 
-def sections_expected(round_):
+def sections_expected(round_: Round) -> list[str]:
     names = ["Checks"]
     if round_.number > 1:
         names.append("Open findings")
@@ -395,7 +398,7 @@ def sections_expected(round_):
     return names
 
 
-def lint(round_, parsed):
+def lint(round_: Round, parsed: workfile.Parsed) -> Lint:
     lint_ = Lint(round_)
     title = "# %s, round %d" % (TITLES[round_.kind], round_.number)
     if parsed.title is None:
@@ -421,7 +424,7 @@ def lint(round_, parsed):
     return lint_
 
 
-def lint_kept_open(round_, parsed, lint_):
+def lint_kept_open(round_: Round, parsed: workfile.Parsed, lint_: Lint) -> None:
     """A carried finding the Coder answered this round and the reviewer keeps
     open needs the reviewer's reason."""
     marker = "in round %d." % round_.number
@@ -440,12 +443,12 @@ def lint_kept_open(round_, parsed, lint_):
                      % (block.number, round_.number, round_.number))
 
 
-def not_carried(parsed, lint_):
+def not_carried(parsed: workfile.Parsed, lint_: Lint | None) -> list[tuple[str, list[int]]]:
     """The Not carried lines, a wrapped line joined: [(text, [line numbers])].
     A line that is neither a "- " line nor an indented continuation, and a
     "- " line with nothing after it, are refused when lint_ is given."""
     section = parsed.section("Not carried")
-    items = []
+    items: list[tuple[str, list[int]]] = []
     if section is None:
         return items
     firsts = []
@@ -453,10 +456,10 @@ def not_carried(parsed, lint_):
         if not line.frame or not line.text.strip():
             continue
         if line.text.startswith("- "):
-            items.append([line.text[2:].strip(), [line.number]])
+            items.append((line.text[2:].strip(), [line.number]))
             firsts.append(line)
         elif line.text[:1] in (" ", "\t") and items:
-            items[-1][0] = (items[-1][0] + " " + line.text.strip()).strip()
+            items[-1] = ((items[-1][0] + " " + line.text.strip()).strip(), items[-1][1])
             items[-1][1].append(line.number)
         elif lint_ is not None:
             lint_.at(line, "under ## Not carried every line starts with \"- \": \"- <the problem, in one line>: "
@@ -469,11 +472,11 @@ def not_carried(parsed, lint_):
     return items
 
 
-def lint_checks(round_, parsed, lint_):
+def lint_checks(round_: Round, parsed: workfile.Parsed, lint_: Lint) -> None:
     section = parsed.section("Checks")
     if section is None:
         return
-    seen = {}
+    seen: dict[str, tuple[workfile.Line, str]] = {}
     for line in section.body:
         if not line.frame or ":" not in line.text:
             continue
@@ -499,7 +502,7 @@ def lint_checks(round_, parsed, lint_):
         lint_.at(line, "\"%s\" is not filled in. Write one of: %s." % (line.text.strip(), ", ".join(written)))
 
 
-def skip_problem(round_, name, value):
+def skip_problem(round_: Round, name: str, value: str) -> str | None:
     """The refusal for a "not needed" Checks value, or None when it is
     accepted: "not needed, " and a reason with no "|", which would break the
     Recap's table row."""
@@ -517,7 +520,7 @@ def skip_problem(round_, name, value):
     return None
 
 
-def lint_findings(round_, parsed, lint_):
+def lint_findings(round_: Round, parsed: workfile.Parsed, lint_: Lint) -> None:
     carried = set(round_.carried_numbers)
     seen = set()
     new_numbers = []
@@ -569,7 +572,9 @@ def lint_findings(round_, parsed, lint_):
                         "## Open findings and set its state:" % (number, round_.number), [""] + blocks.get(number, []))
 
 
-def outcome(round_, parsed):
+def outcome(
+    round_: Round, parsed: workfile.Parsed,
+) -> tuple[list[workfile.Block], list[workfile.Block], tuple[int, ...], bool]:
     """(open blocks, closed blocks, counts, signed off)."""
     findings = [b for b in parsed.blocks if b.match is not None]
     open_blocks = [b for b in findings if b.state == "open"]
@@ -579,7 +584,7 @@ def outcome(round_, parsed):
     return open_blocks, closed, counts, signed_off
 
 
-def status_line(counts, signed_off):
+def status_line(counts: tuple[int, ...], signed_off: bool) -> str:
     if signed_off and counts[2]:
         return "SIGNED OFF. Open minors left, as Minors: leave allows: %d." % counts[2]
     if signed_off:
@@ -587,8 +592,10 @@ def status_line(counts, signed_off):
     return "Open: %d blocker, %d major, %d minor." % counts
 
 
-def checks_text(round_, parsed):
+def checks_text(round_: Round, parsed: workfile.Parsed) -> str:
     section = parsed.section("Checks")
+    if section is None:
+        return ""
     found = []
     for line in section.body:
         if line.frame and ":" in line.text:
@@ -598,7 +605,9 @@ def checks_text(round_, parsed):
     return "; ".join(found)
 
 
-def cleaned(parsed, status, closed, dropped=()):
+def cleaned(
+    parsed: workfile.Parsed, status: str, closed: list[workfile.Block], dropped: Iterable[int] = (),
+) -> list[str]:
     """The review file after a passing check: no guidance comment, the status
     line under the title, no closed finding and none of the dropped lines."""
     drop = set(dropped)
@@ -623,7 +632,7 @@ def cleaned(parsed, status, closed, dropped=()):
     return workfile.squeeze(out)
 
 
-def recap_findings(round_, closed):
+def recap_findings(round_: Round, closed: list[workfile.Block]) -> list[str]:
     lines = []
     for block in closed:
         if lines:
@@ -642,12 +651,12 @@ def recap_findings(round_, closed):
     return lines
 
 
-def recap_not_carried(round_, items):
+def recap_not_carried(round_: Round, items: list[tuple[str, list[int]]]) -> list[str]:
     """Each Not carried line with its round in front."""
     return ["- Code round %d: %s" % (round_.number, text) for text, _ in items]
 
 
-def check(round_, write):
+def check(round_: Round, write: bool) -> int:
     if not round_.state.review_started(round_.kind, round_.number):
         if round_.last and not round_available(round_):
             return already_recorded(round_, round_.last)
@@ -679,12 +688,12 @@ def check(round_, write):
             round_.name, round_.number, new, "" if new == 1 else "s", len(closed)))
         out.line(status)
         return out.finish("Run %s" % round_.command("check"))
-    numbers = sorted(b.number for b in open_blocks)
-    next_number = max([round_.first_new - 1] + [b.number for b in parsed.blocks if b.match is not None]) + 1
+    numbers = sorted(b.number for b in open_blocks if b.number is not None)
+    next_number = max([round_.first_new - 1] + [b.number for b in parsed.blocks if b.number is not None]) + 1
     line = loopstate.reviewed_line(round_.kind, round_.number, signed_off, numbers, counts, next_number, new,
                                    len(closed), checks_text(round_, parsed))
     round_.state.lines.append(line)
-    review = round_.state.review(round_.kind, round_.number)
+    review = round_.state.reviews(round_.kind)[round_.number]
     section = "Plan findings" if round_.kind == "plan" else "Code findings"
     items = not_carried(parsed, None) if round_.kind == "code" else []
     dropped = [number for _, numbers in items for number in numbers]
@@ -698,7 +707,7 @@ def check(round_, write):
     if closed:
         out.line("Moved to %s: finding%s %s." % (
             round_.path(recap.NAME), "" if len(closed) == 1 else "s",
-            workfile.join_numbers([b.number for b in closed])))
+            workfile.join_numbers([b.number for b in closed if b.number is not None])))
     if items:
         out.line("Moved to %s: %d Not carried line%s." % (
             round_.path(recap.NAME), len(items), "" if len(items) == 1 else "s"))
@@ -706,7 +715,7 @@ def check(round_, write):
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
 
 
-def already_recorded(round_, review):
+def already_recorded(round_: Round, review: loopstate.Review) -> int:
     out = Output()
     out.line("Round %d of the %s review is already recorded. Nothing was written." % (review.round, round_.kind))
     out.line(loopstate.review_doorbell(review))
