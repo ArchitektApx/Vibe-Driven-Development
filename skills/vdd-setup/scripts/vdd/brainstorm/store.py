@@ -15,14 +15,10 @@ import hashlib
 import json
 import os
 import re
-from typing import TYPE_CHECKING
 
 from .. import textfile
 from ..out import Failure
 from .ideafile import DEPTH_MAX, SLUG, Idea, frontmatter_reads_whole, is_idea_name, seam_set, stamp_text, today
-
-if TYPE_CHECKING:
-    from .lock import Lock
 
 STORE = os.path.join(".scratch", "_brainstorming")
 LAYOUT = "2"
@@ -427,34 +423,9 @@ class Store:
         return names + ["research/%s/ (renamed to research/%s/)" % (old.split("/", 1)[1], new.split("/", 1)[1])
                         for old, new in self.dir_moves]
 
-    def save(self, label: str, lock: Lock | None = None) -> list[str]:
-        """Write every changed idea, removal and extra file of one command,
-        then the ledger. label names the write. With lock, the save first
-        pauses for the test seam, and checks before each change that the
-        lock is still this run's (LockLost when not). Returns the names
-        written."""
-        ops = self.ops()
-        if not ops and not self.dir_moves:
-            return []
-        if lock is not None:
-            lock.pause()
-        for name, _, after in ops:
-            if lock is not None:
-                lock.confirm()
-            path = os.path.join(self.dir, name)
-            if after is None:
-                if os.path.lexists(path):
-                    os.remove(path)
-            else:
-                os.makedirs(self.dir, exist_ok=True)
-                textfile.write(path, after)
-        if lock is not None:
-            lock.confirm()
-        self.written(ops)
-        return [name for name, _, _ in ops]
-
     def written(self, ops: list[tuple[str, bytes | None, bytes | None]]) -> None:
-        """Record ops as on disk, and the ledger with them."""
+        """Record ops as on disk, and write the ledger with them: the save's
+        step after the files (journal.save)."""
         for name, _, after in ops:
             slug = name[:-3]
             if not is_idea_name(name):

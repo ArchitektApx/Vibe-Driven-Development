@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Tuple
 
 from .. import args, gitcmd, places, textfile
 from ..out import Output
-from . import moves, reads
+from . import journal, moves, reads
 from .lock import Lock
 from .store import LAYOUT, LAYOUT_FILE, Store, layout, require_layout, store_dir
 
@@ -94,8 +94,19 @@ def dispatch(command: str, values: dict[str, Any]) -> int:
     if command in WRITES:
         return write(root, command, values)
     out = Output()
+    for line in recover_quietly(root):
+        out.line(line)
     store = Store(root)
     return reads.show(store, values, out)
+
+
+def recover_quietly(root: str) -> list[str]:
+    """Before a read: settle a write a killed run left half done, when no
+    live writer holds the lock. A read never waits for the lock."""
+    if not journal.pending(root):
+        return []
+    with Lock(root, wait=False, on_take=journal.recover) as lock:
+        return lock.recovered
 
 
 def write(root: str, command: str, values: dict[str, Any]) -> int:
@@ -111,12 +122,16 @@ def write(root: str, command: str, values: dict[str, Any]) -> int:
             out.line(line)
         return out.finish(store.dry_next or "If this is what the user asked for, run the same command again with "
                           "--write.")
-    # The lock is taken before the store is read, so no update is lost.
-    with Lock(root) as lock:
+    # The lock is taken before the store is read, so no update is lost;
+    # inside it, a write a killed run left half done is settled first.
+    with Lock(root, on_take=journal.recover) as lock:
         store = Store(root)
         lines, nxt, label = handler(store, values)
         stamped = list(store.stamped)
-        store.save(label, lock)
+        lines += loop_lines(store)
+        journal.save(store, label, lock)
+    for line in lock.recovered:
+        out.line(line)
     for line in lines:
         out.line(line)
     if stamped:
@@ -141,6 +156,8 @@ def start(root: str, values: dict[str, Any]) -> int:
         return out.finish("Run brainstorm migrate --write: it checks the store and writes the marker back. Then "
                           "run brainstorm start again.")
     require_layout(root)
+    for line in recover_quietly(root):
+        out.line(line)
     store = Store(root)
     for line in reads.overview(store):
         out.line(line)
