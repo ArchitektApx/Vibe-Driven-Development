@@ -347,6 +347,73 @@ class ReturnTest(OrchestratorTest):
         self.assertEqual(self.files(), before)
 
 
+USER_2 = "code 2 user open 13,14 counts 0 1 1 next 15 new 2"
+USER_REASON = "for the user's findings"
+
+
+class UserFindingsTest(OrchestratorTest):
+    """The loop reopened by review add: the reopened round spawns fresh, with
+    no plan ring and no restart label."""
+
+    def earlier_session(self):
+        self.rings(P1, P2)
+        self.stage(PLAN_OPEN_1, PLAN_SIGNED_2, "orchestrator session 1", "spawn Coder 1 session 1",
+                   "code 1 start a", "code 1 end b", "return Coder 1 ok", "spawn Code-Reviewer 1 session 1",
+                   CODE_OPEN_1, "return Code-Reviewer 1 ok", "resume Coder 2 session 1", "code 2 start b",
+                   "code 2 end c", "return Coder 2 ok", "resume Code-Reviewer 2 session 1",
+                   "code 2 reviewed signed-off - counts 0 0 0 next 13 new 0 closed 1 checks code-review ran",
+                   "return Code-Reviewer 2 ok", "fold skipped c the branch moved after Sign-off", USER_2)
+
+    def test_start_spawns_a_fresh_coder_for_the_users_findings_and_rings_nothing(self):
+        """Loop 05's hand reopen sent the Orchestrator to ring the plan Loop
+        first (Already rung, a stale paste for the Planner) and labelled both
+        fresh spawns after a restart, though nothing restarted."""
+        self.earlier_session()
+        result = self.start()
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.spawned(result, "Coder", 3, USER_REASON)
+        self.assertNotIn("doorbell ring", result.text)
+        self.assertTrue(result.last.startswith("Next: Print the Spawning line above"), result)
+        self.assertIn("Code Loop: reopened by the user's findings after round 2, 0 blocker, 1 major, 1 minor open.",
+                      result.text)
+        self.assertIn("Read: .scratch/demo/CODEREVIEW.md, .scratch/demo/spec.md, .scratch/demo/issues/", result.lines)
+        lines = self.state().split("\n")
+        self.assertEqual(lines[-3:-1], ["orchestrator session 2", "spawn Coder 3 session 2 reason " + USER_REASON])
+
+    def test_the_code_reviewer_of_that_round_is_fresh_with_the_same_reason(self):
+        self.earlier_session()
+        self.start()
+        self.stage("code 3 start c", "code 3 end d")
+        result = self.back("Coder")
+        self.assertEqual(result.code, 0, result)
+        self.spawned(result, "Code-Reviewer", 3, USER_REASON)
+        self.assertIn("spawn Code-Reviewer 3 session 2 reason " + USER_REASON, self.state())
+
+    def test_from_the_round_after_each_roles_respawn_policy_applies(self):
+        self.earlier_session()
+        self.start()
+        self.stage("code 3 start c", "code 3 end d")
+        self.back("Coder")
+        self.stage("code 3 reviewed open 15 counts 0 0 1 next 16 new 1 closed 2 checks code-review ran")
+        result = self.back("Code-Reviewer")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("Resuming Coder, round 4.", result.lines)
+        self.assertNotIn(USER_REASON, result.text)
+
+    def test_a_restart_after_the_coder_started_places_as_today(self):
+        self.earlier_session()
+        self.start()
+        self.stage("code 3 start c")
+        result = self.start()
+        self.assertEqual(result.code, 0, result)
+        self.spawned(result, "Coder", 3, "after a restart")
+        self.assertIn("doorbell ring --role Orchestrator", result.last)
+        self.stage("code 3 end d")
+        result = self.back("Coder")
+        self.spawned(result, "Code-Reviewer", 3, "after a restart")
+
+
 class FoldStepTest(OrchestratorTest):
     """The code Sign-off goes to the fold first, on every PR: value, and no
     restart skips it."""
