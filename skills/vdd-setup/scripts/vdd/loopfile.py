@@ -1,15 +1,12 @@
-"""The Loop file, .scratch/<slug>/loop.md, and the loop's state file,
-.scratch/<slug>/loop-state.
+"""The Loop file, .scratch/<slug>/loop.md.
 
 The Loop file holds a loop's settings, format 2, one "<Name>: <value>" line
 each. A line it no longer names, such as the Coder's respawn line a loop
-from 0.16.0-beta.3 wrote, is read and ignored. The state file is
-append-only: a version header, then "loop open" and "loop closed" lines, the
-last one winning, and the round lines the review, coder and orchestrator
-commands append. Version 1, which only 0.16.0-beta.3 wrote,
-still reads as open or closed; the round commands refuse it.
+from 0.16.0-beta.3 wrote, is read and ignored. The loop's state file,
+.scratch/<slug>/loop-state, belongs to loopstate.py; this module asks it
+whether a loop is open or closed.
 
-A loop is a directory under .scratch/ that holds both, and its slug is that
+A loop is a directory under .scratch/ that holds the Loop file and the state file, and its slug is that
 directory's name. A root LOOP.md is a format-1 Loop file from before this
 version: no command reads it, and every command that needs a loop refuses
 while it exists.
@@ -18,20 +15,13 @@ while it exists.
 import os
 import re
 
-from . import gitcmd, textfile
+from . import gitcmd, loopstate, textfile
 from .out import TELL, Failure
 
 SLUG_PATTERN = "[a-z0-9]+(-[a-z0-9]+)*"
 SLUG = re.compile("^" + SLUG_PATTERN + "$")
 FORMAT = 2
 NAME = "loop.md"
-STATE_NAME = "loop-state"
-STATE_PREFIX = "vdd loop-state "
-STATE_VERSION = "2"
-# The versions read_state reads. Version 1 has only loop lines.
-STATE_VERSIONS = ("1", "2")
-# The one release that wrote version 1.
-V1_RELEASE = "0.16.0-beta.3"
 ARMED_PREFIX = "codex-armed-"
 ROOT_FILE = "LOOP.md"
 ROOT_FIX = (
@@ -64,8 +54,6 @@ ROLES = {
     "PR-Author": ("Base branch", "Feature branch", "PR", "Harness"),
 }
 
-OPEN = "open"
-CLOSED = "closed"
 NO_STATE = "no-state"
 
 
@@ -147,88 +135,6 @@ def refuse_root(root):
         )
 
 
-# --- the state file ---
-
-class Damaged(Failure):
-    """A state file whose header this tool never wrote."""
-
-
-def read_state(directory):
-    """OPEN or CLOSED from the state file in directory, or None when there is
-    none. A file with no loop line reads as CLOSED."""
-    path = os.path.join(directory, STATE_NAME)
-    lines = textfile.lines(path, 2.0)
-    if lines is None:
-        return None
-    if not lines or not lines[0].startswith(STATE_PREFIX):
-        raise Damaged(
-            "%s is not a loop state file this tool wrote." % path,
-            "Tell the user the loop state file is damaged, and stop.",
-        )
-    version = lines[0][len(STATE_PREFIX):].strip()
-    if version not in STATE_VERSIONS:
-        raise Failure(
-            "%s has format version %s, which this copy of the VDD tool does not know." % (path, version),
-            "Tell the user this copy of the VDD tool is out of date and to rerun Setup.",
-        )
-    state = CLOSED
-    for line in lines[1:]:
-        parts = line.split()
-        if len(parts) == 2 and parts[0] == "loop" and parts[1] in (OPEN, CLOSED):
-            state = parts[1]
-    return state
-
-
-def state_version(directory):
-    """The state file's version, "1" or "2", or None when there is none."""
-    lines = textfile.lines(os.path.join(directory, STATE_NAME), 2.0)
-    if not lines or not lines[0].startswith(STATE_PREFIX):
-        return None
-    return lines[0][len(STATE_PREFIX):].strip()
-
-
-def refuse_v1(loop, command):
-    """Refuse a command that reads the loop's rounds on a loop whose state
-    file is version 1: that loop was started by 0.16.0-beta.3, and this
-    version reads no rounds from it."""
-    if state_version(loop.dir) != "1":
-        return
-    raise Failure(
-        [
-            "The loop %s was started by VDD %s, the one release that wrote state file version 1. %s does "
-            "not run on it: this version reads no rounds from a version 1 loop."
-            % (loop.slug, V1_RELEASE, command),
-            TELL % (
-                "The loop %s was started by VDD %s. To finish it, reinstall VDD %s; or move it aside with "
-                "loop aside --slug %s --write and start the loop again with vdd-start-loop."
-                % (loop.slug, V1_RELEASE, V1_RELEASE, loop.slug)
-            ),
-        ],
-        "Relay the Tell the user verbatim line above unchanged, and stop.",
-    )
-
-
-def needs_new_state(directory):
-    """Whether a new loop in directory writes its state file whole: there is
-    none, or a damaged one. False for a readable one, which a new loop appends
-    to. A newer format version refuses, before anything is written."""
-    try:
-        return read_state(directory) is None
-    except Damaged:
-        return True
-
-
-def start_state(directory):
-    """Write a new state file holding one open loop, replacing a damaged one."""
-    textfile.write_text(os.path.join(directory, STATE_NAME), STATE_PREFIX + STATE_VERSION + "\nloop %s\n" % OPEN)
-
-
-def append_state(directory, state):
-    """Append "loop <state>" to the state file, writing its header first when
-    the file is new."""
-    textfile.append(os.path.join(directory, STATE_NAME), "loop %s\n" % state, STATE_PREFIX + STATE_VERSION + "\n")
-
-
 def kind(root, slug):
     """What .scratch/<slug> is: None when it does not exist, OPEN or CLOSED
     for a loop, NO_STATE for any other existing path, a damaged state file
@@ -238,8 +144,8 @@ def kind(root, slug):
         return None
     if os.path.isdir(directory) and os.path.isfile(os.path.join(directory, NAME)):
         try:
-            state = read_state(directory)
-        except Damaged:
+            state = loopstate.read_state(directory)
+        except loopstate.Damaged:
             return NO_STATE
         if state is not None:
             return state
@@ -318,10 +224,10 @@ class Loop:
         return "harness-%s.md" % harness_slug(self.setting("Harness")[0])
 
     def state(self):
-        return read_state(self.dir)
+        return loopstate.read_state(self.dir)
 
     def is_open(self):
-        return self.state() == OPEN
+        return self.state() == loopstate.OPEN
 
 
 def render(fields):
@@ -369,7 +275,7 @@ def loops(root):
         directory = os.path.join(scratch(root), name)
         if os.path.isdir(directory) and os.path.isfile(os.path.join(directory, NAME)):
             try:
-                state = read_state(directory)
+                state = loopstate.read_state(directory)
             except Failure:
                 continue
             if state is not None:
@@ -387,7 +293,7 @@ def find(root, slug=None):
     branch = gitcmd.current_branch(root)
     if branch:
         on_branch = [(name, state) for name, state in every if branch_of(root, name) == branch]
-        for state in (OPEN, CLOSED):
+        for state in (loopstate.OPEN, loopstate.CLOSED):
             matches = [name for name, s in on_branch if s == state]
             if len(matches) == 1:
                 return Loop(root, matches[0]).check()
@@ -397,7 +303,7 @@ def find(root, slug=None):
                     % (state, branch, ", ".join(matches)),
                     "Ask the user which loop this is, then run the command again with --slug <slug>.",
                 )
-    opened = [name for name, state in every if state == OPEN]
+    opened = [name for name, state in every if state == loopstate.OPEN]
     if len(opened) == 1:
         return Loop(root, opened[0]).check()
     if opened:
@@ -427,7 +333,7 @@ def named(root, slug):
         )
     if found == NO_STATE:
         raise Failure(
-            ".scratch/%s/ holds no loop the VDD tool started: it lacks %s or %s." % (slug, NAME, STATE_NAME),
+            ".scratch/%s/ holds no loop the VDD tool started: it lacks %s or %s." % (slug, NAME, loopstate.STATE_NAME),
             "Tell the user to run vdd-start-loop with the slug %s and answer continue, and stop." % slug,
         )
     return Loop(root, slug).check()

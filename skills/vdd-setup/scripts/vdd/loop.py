@@ -136,7 +136,7 @@ def new(root, values, harness):
     out = Output()
     leftover = loopfile.kind(root, slug)
     continuing = check_leftover(slug, leftover, values["leftover"])
-    if leftover == loopfile.OPEN and continuing:
+    if leftover == loopstate.OPEN and continuing:
         out.line("Continuing the open loop %s: every file in .scratch/%s/ stays as it is. Nothing was written."
                  % (slug, slug))
         return out.finish(
@@ -232,15 +232,15 @@ def new_command(slug, harness, base, branch, values):
 
 def write_new(root, slug, fields, out, continuing=False):
     directory = loopfile.tracker_dir(root, slug)
-    new_state = loopfile.needs_new_state(directory)
+    new_state = loopstate.needs_new_state(directory)
     if fields["PR"] == "yes":
         warn_preflight(root, fields["Base branch"], out)
     try:
         loopfile.write(directory, fields)
         if new_state:
-            loopfile.start_state(directory)
+            loopstate.start_state(directory)
         else:
-            loopfile.append_state(directory, loopfile.OPEN)
+            loopstate.append_state(directory, loopstate.OPEN)
     except OSError as error:
         raise textfile.write_refusal("the Loop file in %s" % directory, error,
                                      "Otherwise tell the user the Loop file could not be written, and stop.")
@@ -279,7 +279,7 @@ def check_leftover(slug, leftover, answer):
             "There is no .scratch/%s/ to continue. Nothing was written." % slug,
             "Run the same command without --leftover.",
         )
-    if leftover == loopfile.CLOSED:
+    if leftover == loopstate.CLOSED:
         raise Failure(
             ".scratch/%s/ holds a closed loop, and a finished loop is not continued. Nothing was written." % slug,
             "Ask the user again: start fresh on this slug, or use a different slug.",
@@ -304,10 +304,10 @@ def work_left(root, slug):
 
 
 def report_leftover(root, slug, leftover, write, out):
-    if leftover == loopfile.OPEN:
+    if leftover == loopstate.OPEN:
         out.line(".scratch/%s/ holds an open loop: an earlier Workflow on this slug that did not finish." % slug)
         answers = [ANSWER_CONTINUE, ANSWER_FRESH % slug, ANSWER_OTHER]
-    elif leftover == loopfile.CLOSED:
+    elif leftover == loopstate.CLOSED:
         out.line(".scratch/%s/ holds a closed loop: an earlier Workflow on this slug that finished." % slug)
         answers = [ANSWER_FRESH % slug, ANSWER_OTHER]
     else:
@@ -318,7 +318,7 @@ def report_leftover(root, slug, leftover, write, out):
     out.line(work_left(root, slug))
     out.line("Question 1, leftover: Answers, in this order: " + " ".join(answers))
     aside_command = "%s loop aside --slug %s --write" % (places.command(), slug)
-    on_continue = "" if leftover == loopfile.CLOSED else " On continue, run the same command with --leftover continue."
+    on_continue = "" if leftover == loopstate.CLOSED else " On continue, run the same command with --leftover continue."
     return out.finish(
         "Ask the user the Question line above, with what each answer does to the files.%s On start fresh, run "
         "%s, then this command again. On a different slug, run loop new with that slug."
@@ -358,7 +358,7 @@ def aside(root, values):
         number += 1
     target = "%s-%d" % (slug, number)
     out = Output()
-    closing = leftover == loopfile.OPEN
+    closing = leftover == loopstate.OPEN
     if not values["write"]:
         out.line("Would move .scratch/%s/ to .scratch/%s/%s." % (
             slug, target, ", closing its open loop first" if closing else ""))
@@ -366,7 +366,7 @@ def aside(root, values):
     directory = loopfile.tracker_dir(root, slug)
     try:
         if closing:
-            loopfile.append_state(directory, loopfile.CLOSED)
+            loopstate.append_state(directory, loopstate.CLOSED)
             for name in loopfile.delete_armed(directory):
                 out.line("Deleted the Codex armed file %s." % name)
             out.line("Closed the loop %s." % slug)
@@ -420,7 +420,7 @@ def show(root, values):
 def require_code_sign_off(loop):
     """The PR-Author runs only once the state file records the code
     Sign-off: an unsigned review has no PR to open yet."""
-    loopfile.refuse_v1(loop, "loop show --role PR-Author")
+    loopstate.refuse_v1(loop, "loop show --role PR-Author")
     review = loopstate.State(loop.dir).last_review("code")
     if review is None or not review.signed_off:
         where = "no code review is recorded" if review is None else "code round %d's review left findings open" % (
@@ -465,7 +465,7 @@ def set_lines(root, values):
 
 def close_or_reopen(root, values, sub):
     loop = loopfile.find(root, values["slug"])
-    target = loopfile.CLOSED if sub == "close" else loopfile.OPEN
+    target = loopstate.CLOSED if sub == "close" else loopstate.OPEN
     out = Output()
     if loop.state() == target:
         out.line("The loop %s is already %s. Nothing was written." % (loop.slug, target))
@@ -474,8 +474,8 @@ def close_or_reopen(root, values, sub):
         out.line("Would mark the loop %s %s." % (loop.slug, target))
         return out.finish("Run the same command with --write.")
     try:
-        loopfile.append_state(loop.dir, target)
-        if target == loopfile.CLOSED:
+        loopstate.append_state(loop.dir, target)
+        if target == loopstate.CLOSED:
             for name in loopfile.delete_armed(loop.dir):
                 out.line("Deleted the Codex armed file %s." % name)
     except OSError as error:
@@ -483,7 +483,7 @@ def close_or_reopen(root, values, sub):
             "Could not change the loop state file in .scratch/%s/: %s" % (loop.slug, error),
             "Otherwise tell the user the loop could not be marked %s, and stop." % target,
         )
-    if target == loopfile.CLOSED:
+    if target == loopstate.CLOSED:
         out.line("Closed: the loop %s. Its files stay in .scratch/%s/ as the record." % (loop.slug, loop.slug))
     else:
         out.line("Reopened: the loop %s is open again." % loop.slug)

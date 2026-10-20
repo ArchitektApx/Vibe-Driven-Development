@@ -6,7 +6,7 @@ temporary file in the same directory renamed over the target."""
 import os
 import time
 
-from .out import refused
+from .out import Failure, refused
 
 
 def decode(data):
@@ -107,3 +107,18 @@ def append(path, text, header=""):
         data = header + text
     with open(path, "ab") as handle:
         handle.write(data.encode("utf-8"))
+
+
+def check_header(path, lines, prefix, versions):
+    """The version a file's first line carries after prefix, or None when the
+    file has no such header. Raises the Failure for a version not in versions:
+    this copy of the VDD tool is older than the file."""
+    if not lines or not lines[0].startswith(prefix):
+        return None
+    version = lines[0][len(prefix):].strip()
+    if version not in versions:
+        raise Failure(
+            "%s has format version %s, which this copy of the VDD tool does not know." % (path, version),
+            "Tell the user this copy of the VDD tool is out of date and to rerun Setup.",
+        )
+    return version

@@ -1,8 +1,10 @@
-"""The round lines of a loop's state file, .scratch/<slug>/loop-state,
-version 2.
+"""A loop's state file, .scratch/<slug>/loop-state, version 2: the one owner
+of its name, header, versions, reads and appends.
 
-The file is append-only and later lines win. Besides "loop open" and "loop
-closed" (loopfile.py) it holds:
+The file is append-only and later lines win. It opens with a version header,
+then "loop open" and "loop closed" lines, the last one winning, and the round
+lines below. Version 1, which only 0.16.0-beta.3 wrote, still reads as open or
+closed; the round commands refuse it. Besides the loop lines it holds:
 
   plan <r> review-started
   code <r> review-started
@@ -30,8 +32,18 @@ kind starts with its own word or words, so no line reads as another.
 import os
 import re
 
-from . import loopfile, textfile
-from .out import Failure
+from . import textfile
+from .out import TELL, Failure
+
+STATE_NAME = "loop-state"
+STATE_PREFIX = "vdd loop-state "
+STATE_VERSION = "2"
+# The versions read_state reads. Version 1 has only loop lines.
+STATE_VERSIONS = ("1", "2")
+# The one release that wrote version 1.
+V1_RELEASE = "0.16.0-beta.3"
+OPEN = "open"
+CLOSED = "closed"
 
 KINDS = ("plan", "code")
 ROLES = ("Plan-Reviewer", "Coder", "Code-Reviewer")
@@ -58,13 +70,99 @@ class Review:
         self.checks = checks
 
 
+class Damaged(Failure):
+    """A state file whose header this tool never wrote."""
+
+
+def header(path, lines):
+    """The version of the state file whose lines these are. Raises Damaged
+    when its header is not one this tool wrote, and the Failure for a version
+    this copy does not know."""
+    version = textfile.check_header(path, lines, STATE_PREFIX, STATE_VERSIONS)
+    if version is None:
+        raise Damaged(
+            "%s is not a loop state file this tool wrote." % path,
+            "Tell the user the loop state file is damaged, and stop.",
+        )
+    return version
+
+
+def read_state(directory):
+    """OPEN or CLOSED from the state file in directory, or None when there is
+    none. A file with no loop line reads as CLOSED."""
+    path = os.path.join(directory, STATE_NAME)
+    lines = textfile.lines(path, 2.0)
+    if lines is None:
+        return None
+    header(path, lines)
+    state = CLOSED
+    for line in lines[1:]:
+        parts = line.split()
+        if len(parts) == 2 and parts[0] == "loop" and parts[1] in (OPEN, CLOSED):
+            state = parts[1]
+    return state
+
+
+def state_version(directory):
+    """The state file's version, "1" or "2", or None when there is none."""
+    lines = textfile.lines(os.path.join(directory, STATE_NAME), 2.0)
+    if not lines or not lines[0].startswith(STATE_PREFIX):
+        return None
+    return lines[0][len(STATE_PREFIX):].strip()
+
+
+def refuse_v1(loop, command):
+    """Refuse a command that reads the loop's rounds on a loop whose state
+    file is version 1: that loop was started by 0.16.0-beta.3, and this
+    version reads no rounds from it."""
+    if state_version(loop.dir) != "1":
+        return
+    raise Failure(
+        [
+            "The loop %s was started by VDD %s, the one release that wrote state file version 1. %s does "
+            "not run on it: this version reads no rounds from a version 1 loop."
+            % (loop.slug, V1_RELEASE, command),
+            TELL % (
+                "The loop %s was started by VDD %s. To finish it, reinstall VDD %s; or move it aside with "
+                "loop aside --slug %s --write and start the loop again with vdd-start-loop."
+                % (loop.slug, V1_RELEASE, V1_RELEASE, loop.slug)
+            ),
+        ],
+        "Relay the Tell the user verbatim line above unchanged, and stop.",
+    )
+
+
+def needs_new_state(directory):
+    """Whether a new loop in directory writes its state file whole: there is
+    none, or a damaged one. False for a readable one, which a new loop appends
+    to. A newer format version refuses, before anything is written."""
+    try:
+        return read_state(directory) is None
+    except Damaged:
+        return True
+
+
+def start_state(directory):
+    """Write a new state file holding one open loop, replacing a damaged one."""
+    textfile.write_text(os.path.join(directory, STATE_NAME), STATE_PREFIX + STATE_VERSION + "\nloop %s\n" % OPEN)
+
+
+def append_state(directory, state):
+    """Append "loop <state>" to the state file, writing its header first when
+    the file is new."""
+    textfile.append(os.path.join(directory, STATE_NAME), "loop %s\n" % state, STATE_PREFIX + STATE_VERSION + "\n")
+
+
 class State:
     """Every line of the state file, read once."""
 
     def __init__(self, directory):
         self.dir = directory
-        self.path = os.path.join(directory, loopfile.STATE_NAME)
-        self.lines = (textfile.lines(self.path, 2.0) or [])[1:]
+        self.path = os.path.join(directory, STATE_NAME)
+        lines = textfile.lines(self.path, 2.0) or []
+        if lines:
+            header(self.path, lines)
+        self.lines = lines[1:]
 
     # --- reading ---
 
@@ -186,7 +284,7 @@ def coder_doorbell(round_number):
 
 def open_loop(loop, command):
     """Refuse a round command on a version 1 or a closed loop."""
-    loopfile.refuse_v1(loop, command)
+    refuse_v1(loop, command)
     if not loop.is_open():
         raise Failure(
             "The loop %s is closed. Nothing was written." % loop.slug,

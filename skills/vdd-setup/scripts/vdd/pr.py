@@ -357,7 +357,7 @@ def changed(path, wanted):
 
 def close(loop, out):
     try:
-        loopfile.append_state(loop.dir, loopfile.CLOSED)
+        loopstate.append_state(loop.dir, loopstate.CLOSED)
         for name in loopfile.delete_armed(loop.dir):
             out.line("Deleted the Codex armed file %s." % name)
     except OSError as error:

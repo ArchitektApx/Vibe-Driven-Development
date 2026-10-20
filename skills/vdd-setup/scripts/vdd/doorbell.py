@@ -130,13 +130,7 @@ class Place:
         lines = textfile.lines(self.file, retry)
         if lines is None:
             return []
-        if lines and lines[0].startswith(HEADER_PREFIX):
-            version = lines[0][len(HEADER_PREFIX):].strip()
-            if version != FILE_VERSION:
-                raise Failure(
-                    "%s has format version %s, which this copy of the VDD tool does not know." % (self.file, version),
-                    "Tell the user this copy of the VDD tool is out of date and to rerun Setup.",
-                )
+        textfile.check_header(self.file, lines, HEADER_PREFIX, (FILE_VERSION,))
         out = []
         for number, line in enumerate(lines, 1):
             match = ADDRESS.match(line)
@@ -151,17 +145,10 @@ class Place:
         state = State()
         if not lines:
             return state
-        if not lines[0].startswith(STATE_PREFIX):
+        if textfile.check_header(self.state_path(role), lines, STATE_PREFIX, (STATE_VERSION,)) is None:
             raise Failure(
                 "%s is not a Doorbell state file this tool wrote." % self.state_path(role),
                 "Tell the user the file is damaged; deleting it makes the Role re-read every Doorbell. Then stop.",
-            )
-        version = lines[0][len(STATE_PREFIX):].strip()
-        if version != STATE_VERSION:
-            raise Failure(
-                "%s has format version %s, which this copy of the VDD tool does not know."
-                % (self.state_path(role), version),
-                "Tell the user this copy of the VDD tool is out of date and to rerun Setup.",
             )
         for line in lines[1:]:
             parts = line.split()
@@ -312,7 +299,7 @@ def composed(place, role):
     """The Doorbell line role rings, from the loop's state: the Planner's
     round is the last plan review's plus one, or 1; the Orchestrator relays
     the last plan review."""
-    loopfile.refuse_v1(place.loop, "doorbell ring")
+    loopstate.refuse_v1(place.loop, "doorbell ring")
     last = loopstate.State(place.dir).last_review("plan")
     if role == "Planner":
         return loopstate.planner_doorbell(place.tracker, last.round + 1 if last else 1)
@@ -512,14 +499,8 @@ def read_marker(place, role):
         age = time.time() - os.path.getmtime(path)
     except OSError:
         return None
-    if not lines or not lines[0].startswith(WAIT_PREFIX):
+    if textfile.check_header(path, lines, WAIT_PREFIX, (WAIT_VERSION,)) is None:
         return None
-    version = lines[0][len(WAIT_PREFIX):].strip()
-    if version != WAIT_VERSION:
-        raise Failure(
-            "%s has format version %s, which this copy of the VDD tool does not know." % (path, version),
-            "Tell the user this copy of the VDD tool is out of date and to rerun Setup.",
-        )
     parts = lines[1].split() if len(lines) > 1 else []
     try:
         poll = float(parts[1]) if len(parts) == 2 else None
