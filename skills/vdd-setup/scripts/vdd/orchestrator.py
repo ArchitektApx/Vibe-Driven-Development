@@ -13,7 +13,7 @@ outward step itself, so the user can pause the Loop before any of them.
 import os
 import re
 
-from . import args, doorbell, fold, gitcmd, harness as harnesses, loopfile, loopstate, places
+from . import args, doorbells, fold, gitcmd, harness as harnesses, loopfile, loopstate, places
 from .out import Failure, Output
 
 SUBCOMMANDS = ("start", "return", "respawn", "tokens")
@@ -113,7 +113,7 @@ class Flow:
         self.harness = harnesses.get(loopfile.harness_slug(loop.setting("Harness")[0]))
         # The Loop file's own value: Generic's Harness module has no label.
         self.harness_label = loop.setting("Harness")[0]
-        self.place = doorbell.Place(loop.root, loop.slug)
+        self.place = doorbells.Place(loop.root, loop.slug)
         self.place.loop = loop
 
     # --- the state, as the Orchestrator needs it ---
@@ -190,7 +190,7 @@ class Flow:
         return self.state.lines.count("return %s %d miss" % (role, number))
 
     def rung(self):
-        rounds = [e.doorbell.round for e in self.place.entries("Orchestrator", doorbell.LOCK_RETRY_SECONDS)
+        rounds = [e.doorbell.round for e in self.place.entries("Orchestrator", doorbells.LOCK_RETRY_SECONDS)
                   if e.doorbell]
         return max(rounds) if rounds else 0
 
@@ -213,7 +213,7 @@ class Flow:
                                                                                       self.harness.name))
 
     def ring_command(self):
-        return doorbell.ring_command("Orchestrator", self.harness, self.slug)
+        return doorbells.ring_command("Orchestrator", self.harness, self.slug)
 
     def check_command(self, role):
         if role == "Coder":
@@ -324,7 +324,7 @@ def step(flow, out, role, number, first=None):
 
 
 def planner_wait(flow):
-    return doorbell.wait_or_hold(flow.place, "Orchestrator", flow.harness)
+    return doorbells.wait_or_hold(flow.place, "Orchestrator", flow.harness)
 
 
 def ring_then_wait(flow, out):
@@ -429,9 +429,9 @@ def start(flow):
         )
     flow.state.append("orchestrator session %d" % (previous + 1))
     # A wait an earlier session started wakes that session, not this one.
-    doorbell.clear_marker(flow.place, "Orchestrator")
+    doorbells.clear_marker(flow.place, "Orchestrator")
     # The placement below acts on every Doorbell rung so far.
-    doorbell.mark_handled(flow.place, "Orchestrator", out)
+    doorbells.mark_handled(flow.place, "Orchestrator", out)
     reason = "after a restart" if previous else None
     plan = flow.state.last_review("plan")
     reviewed = plan.round if plan else 0

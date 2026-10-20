@@ -19,7 +19,7 @@ import json
 import os
 import sys
 
-from . import doorbell, loopfile, places, textfile
+from . import doorbells, loopfile, places, textfile
 from .harness import codex as codex_harness
 from .out import Output
 
@@ -44,7 +44,7 @@ def hook():
     except ValueError:
         return
     session = event.get("session_id") if isinstance(event, dict) else None
-    if not isinstance(session, str) or not doorbell.THREAD_ID.match(session):
+    if not isinstance(session, str) or not doorbells.THREAD_ID.match(session):
         return
     found = armed_files(cwd, session)
     if not found:
@@ -62,14 +62,14 @@ def hook():
     if claimed is None:
         return
     role, count = claimed
-    place = doorbell.Place(cwd, slug)
+    place = doorbells.Place(cwd, slug)
     entry = places.shared_entry()
     harness = codex_harness.HARNESS
-    if doorbell.watch(place, role, floor=count):
+    if doorbells.watch(place, role, floor=count):
         reason = "A Doorbell for the %s is waiting. Next: run %s" % (
-            role, doorbell.take_command(role, harness, slug, entry))
+            role, doorbells.take_command(role, harness, slug, entry))
     else:
-        reason = "TIMEOUT. Next: " + doorbell.timeout_next(role, harness, slug, entry)
+        reason = "TIMEOUT. Next: " + doorbells.timeout_next(role, harness, slug, entry)
     reason = "".join(c for c in reason if ord(c) >= 32 and ord(c) != 127)
     text = json.dumps({"decision": "block", "reason": reason}, ensure_ascii=True)
     sys.stdout.buffer.write((text + "\n").encode("ascii"))
@@ -112,9 +112,9 @@ def claim(path):
             os.remove(taken)
         except OSError:
             pass
-    if len(lines) < 2 or lines[0] != doorbell.ARMED_PREFIX + doorbell.ARMED_VERSION:
+    if len(lines) < 2 or lines[0] != doorbells.ARMED_PREFIX + doorbells.ARMED_VERSION:
         return None
     parts = lines[1].split()
-    if len(parts) != 2 or parts[0] not in doorbell.ROLES or not parts[1].isdigit():
+    if len(parts) != 2 or parts[0] not in doorbells.ROLES or not parts[1].isdigit():
         return None
     return parts[0], int(parts[1])
