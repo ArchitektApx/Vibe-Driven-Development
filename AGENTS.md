@@ -63,11 +63,10 @@ The VDD tool is the package `skills/vdd-setup/scripts/vdd/`.
 A loop's pull request targets `beta`. The user merges every pull request;
 never merge one yourself.
 
-Commit subjects carry a conventional prefix: `feat`, `fix`, `docs`, `ci`,
-`chore`. The prefix names what the change does, not which file it touches. The
-skill files are this plugin's product, so a change to what a Role does is `feat`
-or `fix` even though the file is prose, and `docs` is for a change that leaves
-behaviour alone.
+Commit subjects carry a Conventional Commits prefix that names what the
+change does, not which file it touches. The skill files are this plugin's
+product, so a change to what a Role does is `feat` or `fix` even though the
+file is prose.
 
 ## Invariants
 
