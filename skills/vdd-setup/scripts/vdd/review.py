@@ -12,7 +12,7 @@ import os
 import re
 import textwrap
 
-from . import agentdocs, args, coder, doorbell, loopfile, loopstate, places, recap, textfile, workfile
+from . import agentdocs, args, coder, doorbell, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
 from .out import Failure, Output, refused
 
 SUBCOMMANDS = ("start", "check")
@@ -81,7 +81,7 @@ def run(argv):
     role = values["role"]
     if role not in REVIEWERS:
         raise Failure("--role takes Plan-Reviewer or Code-Reviewer.", "Run %s for the usage." % usage())
-    loop = loopfile.find(loopfile.project_root(os.getcwd()), values["slug"])
+    loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     state = loopstate.open_loop(loop, "review %s" % sub)
     round_ = Round(loop, state, role)
     if sub == "start":
@@ -147,9 +147,8 @@ class Round:
         """Whether a later code round's range holds no commit."""
         if self.kind != "code" or self.number == 1:
             return False
-        code, text = agentdocs.git(self.loop.root, "rev-list", "--count", "%s..%s" % (self.fixed_point(),
-                                                                                   self.branch()))
-        return code == 0 and text.strip() == "0"
+        call = gitcmd.git(self.loop.root, "rev-list", "--count", "%s..%s" % (self.fixed_point(), self.branch()))
+        return call.ok and call.out.strip() == "0"
 
     def agent_documents(self):
         """The Agent documents in the review range, computed once."""

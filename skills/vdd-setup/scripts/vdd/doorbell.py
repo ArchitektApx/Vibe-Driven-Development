@@ -15,7 +15,7 @@ import re
 import signal
 import time
 
-from . import args, loopfile, loopstate, places, textfile
+from . import args, gitcmd, loopfile, loopstate, places, textfile
 from .out import Failure, Output, refused
 
 ROLES = ("Planner", "Orchestrator")
@@ -109,7 +109,7 @@ class Place:
     @classmethod
     def find(cls, slug=None):
         """The Place of the loop --slug names, or the lookup finds."""
-        loop = loopfile.find(loopfile.project_root(os.getcwd()), slug)
+        loop = loopfile.find(gitcmd.project_root(os.getcwd()), slug)
         place = cls(loop.root, loop.slug)
         place.loop = loop
         return place

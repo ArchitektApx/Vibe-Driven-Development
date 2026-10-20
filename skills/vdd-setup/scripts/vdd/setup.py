@@ -3,7 +3,6 @@
 
 import os
 import re
-import subprocess
 
 from . import args, borrowed, codex_setup, gitcmd, install, loopfile, places, stores, textfile
 from .out import Failure, Output, escalate, refused
@@ -103,17 +102,11 @@ class Setup:
     def require_root(self):
         """Refuse a run from below the repository root: every check and every
         write is relative to the working directory."""
-        try:
-            proc = subprocess.run(
-                ["git", "rev-parse", "--show-toplevel"],
-                cwd=self.cwd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-        except OSError:
+        call = gitcmd.git(self.cwd, "rev-parse", "--show-toplevel")
+        if call.code is None:
             return
-        root = textfile.decode(proc.stdout).strip()
-        if proc.returncode != 0 or not root or same_directory(root, self.cwd):
+        root = call.out.strip()
+        if not call.ok or not root or same_directory(root, self.cwd):
             return
         root = os.path.realpath(root)
         raise Failure(
@@ -321,15 +314,9 @@ class Setup:
     # --- check 4: the git repository ---
 
     def git_repository(self):
-        try:
-            proc = subprocess.run(
-                ["git", "rev-parse", "--is-inside-work-tree"],
-                cwd=self.cwd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            inside = proc.returncode == 0 and proc.stdout.strip() == b"true"
-        except OSError:
+        call = gitcmd.git(self.cwd, "rev-parse", "--is-inside-work-tree")
+        inside = call.ok and call.data.strip() == b"true"
+        if call.code is None:
             self.out.line("Git repository: git is not installed or cannot run.")
             self.out.tell("VDD needs git: install it, then rerun Setup.")
             return

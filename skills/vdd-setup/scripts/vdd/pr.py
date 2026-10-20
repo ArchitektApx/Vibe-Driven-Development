@@ -75,7 +75,7 @@ def run(argv):
         return run(["--help"])
     args.require(values, ["slug", "harness"], usage())
     harness = args.harness_of(values, usage())
-    loop = loopfile.find(loopfile.project_root(os.getcwd()), values["slug"])
+    loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     loopstate.open_loop(loop, "pr %s" % sub)
     loopcommands.require_code_sign_off(loop)
     if sub == "open":
@@ -84,7 +84,7 @@ def run(argv):
 
 
 def gh(root, *argv):
-    return gitcmd.run(root, ["gh"] + list(argv), env={"GIT_TERMINAL_PROMPT": "0"}, timeout=TIMEOUT_SECONDS)
+    return gitcmd.run(root, ["gh"] + list(argv), timeout=TIMEOUT_SECONDS)
 
 
 def call_text(call):
@@ -402,7 +402,7 @@ def open_pr(loop, harness, wanted, write):
         out.line("Would push %s to %s%s, then close the loop." % (
             branch, path.remote, " and open the PR into %s" % base if wanted == OPEN else ""))
         return out.finish("Run %s" % command)
-    push = gitcmd.run(loop.root, ["git", "push", "-u", path.remote, branch], env=preflight.NO_PROMPT,
+    push = gitcmd.run(loop.root, ["git", "push", "-u", path.remote, branch],
                       timeout=PUSH_TIMEOUT_SECONDS)
     if push.refused:
         raise refusal(push, command, "tell the user git push was refused, and stop.")
@@ -422,7 +422,7 @@ def open_pr(loop, harness, wanted, write):
         return out.finish("Relay the line above and stop.")
     created = gitcmd.run(loop.root, ["gh", "pr", "create", "--head", branch, "--base", base, "--title", title,
                                      "--body-file", "-"], data=body.encode("utf-8"),
-                         env={"GIT_TERMINAL_PROMPT": "0"}, timeout=TIMEOUT_SECONDS)
+                         timeout=TIMEOUT_SECONDS)
     if created.refused:
         raise refusal(created, command, "tell the user gh pr create was refused, and stop.",
                       "%s is pushed; no PR was opened, and the loop stays open." % branch)

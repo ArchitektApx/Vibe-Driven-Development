@@ -3,7 +3,7 @@ changed, closed and reopened only here."""
 
 import os
 
-from . import args, loopfile, loopstate, places, preflight, textfile
+from . import args, gitcmd, loopfile, loopstate, places, preflight, textfile
 from .out import Failure, Output, refused
 
 SUBCOMMANDS = ("new", "aside", "show", "set", "fold", "close", "reopen")
@@ -94,7 +94,7 @@ def run(argv):
     if values["help"]:
         return run(["--help"])
     harness = args.harness_of(values, usage()) if values["harness"] is not None or sub == "new" else None
-    root = loopfile.project_root(os.getcwd())
+    root = gitcmd.project_root(os.getcwd())
     if sub == "new":
         return new(root, values, harness)
     if sub == "aside":
@@ -147,7 +147,7 @@ def new(root, values, harness):
         return report_leftover(root, slug, leftover, values["write"], out)
     base = values["base"]
     if not base:
-        base = loopfile.current_branch(root)
+        base = gitcmd.current_branch(root)
         if not base:
             out.line("Base branch: unknown. HEAD is detached, or this is not a git repository, so the tool "
                      "does not guess it.")

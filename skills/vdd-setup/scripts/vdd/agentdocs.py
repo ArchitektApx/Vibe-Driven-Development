@@ -13,21 +13,11 @@ are skipped. Only that link syntax is read, never the text around it.
 
 import posixpath
 import re
-import subprocess
 
-from . import gitcmd, textfile
+from . import gitcmd
 
 LINK = re.compile(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
-
-
-def git(root, *argv):
-    try:
-        proc = subprocess.run(["git"] + list(argv), cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              env=gitcmd.environment())
-    except OSError:
-        return 1, ""
-    return proc.returncode, textfile.decode(proc.stdout)
 
 
 def direct(path, tree):
@@ -72,22 +62,22 @@ def targets(path, text):
 def listed(root, base, tip):
     """The Agent documents in base...tip, sorted, or None when git cannot
     read the range."""
-    code, text = git(root, "diff", "--name-only", "%s...%s" % (base, tip))
-    if code != 0:
+    call = gitcmd.git(root, "diff", "--name-only", "%s...%s" % (base, tip))
+    if not call.ok:
         return None
-    changed = set(line.strip() for line in text.split("\n") if line.strip())
-    code, text = git(root, "ls-tree", "-r", "--name-only", tip)
-    if code != 0:
+    changed = set(line.strip() for line in call.out.split("\n") if line.strip())
+    call = gitcmd.git(root, "ls-tree", "-r", "--name-only", tip)
+    if not call.ok:
         return None
-    tree = set(line.strip() for line in text.split("\n") if line.strip())
+    tree = set(line.strip() for line in call.out.split("\n") if line.strip())
     found = set(path for path in changed if direct(path, tree))
     for path in sorted(tree):
         if not direct(path, tree):
             continue
-        code, content = git(root, "show", "%s:%s" % (tip, path))
-        if code != 0:
+        call = gitcmd.git(root, "show", "%s:%s" % (tip, path))
+        if not call.ok:
             continue
-        for target in targets(path, content):
+        for target in targets(path, call.out):
             if target in changed and target.endswith(".md"):
                 found.add(target)
     return sorted(found)

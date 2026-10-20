@@ -9,7 +9,7 @@ alone.
 import os
 import re
 
-from . import args, loopfile, places, stores
+from . import args, gitcmd, loopfile, places, stores
 from .out import Failure, Output
 
 SUBCOMMANDS = ("start",)
@@ -129,7 +129,7 @@ def check_effort(effort):
 def start(effort, skill_dir):
     check_effort(effort)
     overview, handoff = templates(skill_dir)
-    root = loopfile.project_root(os.getcwd())
+    root = gitcmd.project_root(os.getcwd())
     out = Output()
     out.line("Effort: %s" % effort)
     map_path = ".scratch/%s/map.md" % effort

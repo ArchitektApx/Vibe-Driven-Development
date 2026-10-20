@@ -17,7 +17,6 @@ while it exists.
 
 import os
 import re
-import subprocess
 
 from . import gitcmd, textfile
 from .out import TELL, Failure
@@ -123,26 +122,6 @@ def check_slug(slug):
             "single hyphens." % (slug, SLUG_PATTERN),
             "Ask the user for a slug that matches %s, then run the command again with it." % SLUG_PATTERN,
         )
-
-
-def project_root(cwd):
-    """The directory the loops live under: the repository's top level, so a
-    command run from a subdirectory, the tracker directory included, finds
-    them; the working directory outside git."""
-    try:
-        proc = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=gitcmd.environment(),
-        )
-    except OSError:
-        return cwd
-    top = textfile.decode(proc.stdout).strip()
-    if proc.returncode != 0 or not top:
-        return cwd
-    return os.path.normpath(top)
 
 
 def has_root_file(root):
@@ -405,23 +384,6 @@ def loops(root):
     return found
 
 
-def current_branch(root):
-    """The checked-out branch, or "" on a detached HEAD or outside git."""
-    try:
-        proc = subprocess.run(
-            ["git", "branch", "--show-current"],
-            cwd=root,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=gitcmd.environment(),
-        )
-    except OSError:
-        return ""
-    if proc.returncode != 0:
-        return ""
-    return textfile.decode(proc.stdout).strip()
-
-
 def find(root, slug=None):
     """The loop --slug names, else the loop whose Feature branch is checked
     out, else the only open loop; a checked Loop. Refuses otherwise."""
@@ -429,7 +391,7 @@ def find(root, slug=None):
     if slug is not None:
         return named(root, slug)
     every = loops(root)
-    branch = current_branch(root)
+    branch = gitcmd.current_branch(root)
     if branch:
         on_branch = [(name, state) for name, state in every if branch_of(root, name) == branch]
         for state in (OPEN, CLOSED):

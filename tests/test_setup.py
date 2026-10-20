@@ -738,6 +738,19 @@ class GitVersionTest(ToolTest):
         return self.box.run("setup", "--harness", "claude-code", "--listed", "none", "--glossary-named", "absent",
                             env=self.box.stub_env())
 
+    def test_git_runs_under_the_c_locale(self):
+        """Prevents a Setup git call that follows the user's locale: git
+        words its messages in that language, and a marker or a line Setup
+        reads would no longer match. The stub prints the LC_ALL it runs
+        under as the repository root."""
+        self.box.stub("git", "if [ \"$1\" = --version ]; then echo 'git version 2.45.0'; exit 0; fi\n"
+                      "if [ \"$1\" = rev-parse ] && [ \"$2\" = --show-toplevel ]; then echo \"/lc-$LC_ALL\"; exit 0; fi\n"
+                      "exit 1\n")
+        result = self.box.run("setup", "--harness", "claude-code", "--listed", "none", "--glossary-named", "absent",
+                              env=self.box.stub_env(LC_ALL="de_DE.UTF-8"))
+        self.assertNotEqual(result.code, 0, result)
+        self.assertIn("The repository root: /lc-C", result.lines, result)
+
     def test_git_older_than_2_40_fails_setup_and_stops(self):
         """Prevents a loop that cannot fold at its end because git is too
         old: the fold needs git merge-tree --write-tree --merge-base, which

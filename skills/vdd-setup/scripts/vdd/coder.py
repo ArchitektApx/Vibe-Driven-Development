@@ -9,7 +9,6 @@ records where the round ends and prints the Coder's Doorbell line.
 
 import os
 import re
-import subprocess
 import textwrap
 
 from . import args, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
@@ -62,7 +61,7 @@ def run(argv):
     values = args.parse(rest, SPEC, usage())
     if values["help"]:
         return run(["--help"])
-    loop = loopfile.find(loopfile.project_root(os.getcwd()), values["slug"])
+    loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     state = loopstate.open_loop(loop, "coder %s" % sub)
     round_ = Round(loop, state)
     if sub == "start":
@@ -73,34 +72,33 @@ def run(argv):
 # --- git ---
 
 def git(root, *argv):
-    """(exit code, stdout as text) of a git command run in root."""
-    try:
-        proc = subprocess.run(["git"] + list(argv), cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              env=gitcmd.environment())
-    except OSError as error:
-        raise Failure("git could not run: %s" % error, "Tell the user git is needed for the Coder's round, and stop.")
-    return proc.returncode, textfile.decode(proc.stdout).strip(), textfile.decode(proc.stderr).strip()
+    """The finished gitcmd.Call of a git command run in root; refuses when git
+    cannot run."""
+    call = gitcmd.git(root, *argv)
+    if call.code is None:
+        raise Failure("git could not run: %s" % call.err, "Tell the user git is needed for the Coder's round, and stop.")
+    return call
 
 
 def head(root):
-    code, sha, _ = git(root, "rev-parse", "HEAD")
-    if code != 0 or not sha:
+    call = git(root, "rev-parse", "HEAD")
+    sha = call.out.strip()
+    if not call.ok or not sha:
         raise Failure("This repository has no commit, so the round has no start.",
                       "Tell the user the repository needs a first commit on the base branch, and stop.")
     return sha
 
 
 def branch_exists(root, branch):
-    code, _, _ = git(root, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)
-    return code == 0
+    return git(root, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch).ok
 
 
 def dirty(root):
     """The tracked files with uncommitted changes."""
-    code, text, error = git(root, "diff", "--name-only", "HEAD")
-    if code != 0:
-        raise Failure("git diff failed: %s" % error, "Tell the user git diff fails in this repository, and stop.")
-    return [line.strip() for line in text.split("\n") if line.strip()]
+    call = git(root, "diff", "--name-only", "HEAD")
+    if not call.ok:
+        raise Failure("git diff failed: %s" % call.err.strip(), "Tell the user git diff fails in this repository, and stop.")
+    return [line.strip() for line in call.out.strip().split("\n") if line.strip()]
 
 
 class Round:
@@ -182,7 +180,7 @@ def to_branch(round_, out, write=True):
     """Put the Coder on the feature branch, or refuse naming both branches.
     Without write, switch nothing and return whether a switch is owed."""
     root = round_.loop.root
-    current = loopfile.current_branch(root)
+    current = gitcmd.current_branch(root)
     if current == round_.branch:
         out.line("On the feature branch %s." % round_.branch)
         return False
@@ -200,13 +198,14 @@ def to_branch(round_, out, write=True):
             out.line("Would create the feature branch %s from %s and switch to it." % (round_.branch, round_.base))
         return True
     if branch_exists(root, round_.branch):
-        code, _, error = git(root, "checkout", "-q", round_.branch)
+        call = git(root, "checkout", "-q", round_.branch)
         verb = "Switched to the feature branch %s." % round_.branch
     else:
-        code, _, error = git(root, "checkout", "-q", "-b", round_.branch)
+        call = git(root, "checkout", "-q", "-b", round_.branch)
         verb = "Created the feature branch %s from %s and switched to it." % (round_.branch, round_.base)
-    if code != 0:
-        if gitcmd.is_refusal(code, error):
+    if not call.ok:
+        error = call.err.strip()
+        if call.refused:
             raise Failure(
                 "git could not switch to %s: %s" % (round_.branch, error),
                 "A sandbox refused git. Rerun %s outside the sandbox, the way your Harness grants that; when "
@@ -456,7 +455,7 @@ def check(round_, write):
             "Run %s first." % round_.command("start"),
         )
     root = round_.loop.root
-    current = loopfile.current_branch(root)
+    current = gitcmd.current_branch(root)
     if current != round_.branch:
         raise Failure(
             "The checked-out branch is %s, not the feature branch %s, so the round's end cannot be read. Nothing "
@@ -511,8 +510,7 @@ def start_gone(round_):
     start = round_.state.code_mark("start", round_.number)
     if not start:
         return None
-    code, _, _ = git(round_.loop.root, "merge-base", "--is-ancestor", start, "HEAD")
-    if code == 0:
+    if git(round_.loop.root, "merge-base", "--is-ancestor", start, "HEAD").ok:
         return None
     return ("Round %d started at %s, and that commit is no longer in %s's history: an earlier commit was amended, "
             "rebased or reset. Bring the earlier commits back with `git reset --soft %s`, which keeps your "

@@ -34,14 +34,19 @@ REFUSAL_MARKERS = (
 # git translates its messages into the system's language, and the markers
 # above are English.
 ENGLISH = {"LC_ALL": "C"}
+# git fails instead of prompting: GIT_TERMINAL_PROMPT for git's own prompt,
+# GCM_INTERACTIVE for Git Credential Manager, which ignores the first and
+# opens a sign-in window that a hidden Session never closes.
+NO_PROMPT = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
 
 
 def environment(extra=None):
-    """The environment for a git or gh call: this one, in English, plus
-    extra."""
+    """The environment for a git or gh call: this one plus extra, in English
+    and never prompting; extra cannot change either."""
     full = dict(os.environ)
-    full.update(ENGLISH)
     full.update(extra or {})
+    full.update(ENGLISH)
+    full.update(NO_PROMPT)
     return full
 
 
@@ -131,6 +136,25 @@ def run(root, argv, data=None, env=None, timeout=None):
 
 def git(root, *argv, **kwargs):
     return run(root, ["git"] + list(argv), **kwargs)
+
+
+def project_root(cwd):
+    """The directory the loops live under: the repository's top level, so a
+    command run from a subdirectory, the tracker directory included, finds
+    them; the working directory outside git."""
+    call = git(cwd, "rev-parse", "--show-toplevel")
+    top = call.out.strip()
+    if call.code != 0 or not top:
+        return cwd
+    return os.path.normpath(top)
+
+
+def current_branch(root):
+    """The checked-out branch, or "" on a detached HEAD or outside git."""
+    call = git(root, "branch", "--show-current")
+    if call.code != 0:
+        return ""
+    return call.out.strip()
 
 
 def version(root=None):

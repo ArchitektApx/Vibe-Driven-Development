@@ -13,17 +13,12 @@ import shutil
 from . import gitcmd
 
 TIMEOUT_SECONDS = 60
-# git fails instead of prompting: GIT_TERMINAL_PROMPT for git's own prompt,
-# GCM_INTERACTIVE for Git Credential Manager, which ignores the first and
-# opens a sign-in window that a hidden Session never closes.
-NO_PROMPT = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
 
 
 def call(root, argv):
     """The finished gitcmd.Call; its code is None when the command cannot
     run or times out."""
-    # A credential prompt would hang the check; git fails instead.
-    return gitcmd.run(root, argv, env=NO_PROMPT, timeout=TIMEOUT_SECONDS)
+    return gitcmd.run(root, argv, timeout=TIMEOUT_SECONDS)
 
 
 def remotes(root):

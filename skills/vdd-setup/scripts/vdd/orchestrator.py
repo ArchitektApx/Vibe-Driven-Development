@@ -13,7 +13,7 @@ outward step itself, so the user can pause the Loop before any of them.
 import os
 import re
 
-from . import args, doorbell, fold, harness as harnesses, loopfile, loopstate, places
+from . import args, doorbell, fold, gitcmd, harness as harnesses, loopfile, loopstate, places
 from .out import Failure, Output
 
 SUBCOMMANDS = ("start", "return", "respawn", "tokens")
@@ -94,7 +94,7 @@ class Flow:
 
     @classmethod
     def find(cls, values, command):
-        loop = loopfile.find(loopfile.project_root(os.getcwd()), values["slug"])
+        loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
         state = loopstate.open_loop(loop, command)
         flow = cls(loop, state)
         if values["harness"] is not None:
