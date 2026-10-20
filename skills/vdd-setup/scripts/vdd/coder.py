@@ -12,7 +12,7 @@ import re
 import textwrap
 
 from . import args, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
-from .out import Failure, Output, refused
+from .out import Failure, Output
 
 SUBCOMMANDS = ("start", "check")
 NAME = "FIXES.md"
@@ -297,13 +297,8 @@ def start(round_, write):
         lines = skeleton(round_)
         to_branch(round_, out)
         sha = head(round_.loop.root)
-        try:
-            textfile.write(round_.file, ("\n".join(lines) + "\n").encode("utf-8"))
-        except OSError as error:
-            raise refused(
-                "Could not write %s: %s" % (round_.relative, error),
-                "Otherwise tell the user FIXES.md cannot be written, and stop.",
-            )
+        textfile.write_or_refuse(round_.file, "\n".join(lines) + "\n", round_.relative,
+                                 "Otherwise tell the user FIXES.md cannot be written, and stop.")
         round_.state.append("code %d start %s" % (round_.number, sha))
         out.line("Wrote the frame of %s." % round_.relative)
     out.line("Round %d starts at %s." % (round_.number, sha))
@@ -484,13 +479,8 @@ def check(round_, write):
         return out.finish("Run %s" % round_.command("check"))
     tip = head(root)
     cleaned = workfile.squeeze(workfile.without_guides(parsed.texts))
-    try:
-        textfile.write(round_.file, ("\n".join(cleaned) + "\n").encode("utf-8"))
-    except OSError as error:
-        raise refused(
-            "Could not write %s: %s" % (round_.relative, error),
-            "Otherwise tell the user FIXES.md cannot be written, and stop.",
-        )
+    textfile.write_or_refuse(round_.file, "\n".join(cleaned) + "\n", round_.relative,
+                             "Otherwise tell the user FIXES.md cannot be written, and stop.")
     if round_.number == 1:
         recap.write(round_.loop, round_.state, {"Tickets": recap_tickets(workfile.Parsed("\n".join(cleaned)))})
     round_.state.append("code %d end %s" % (round_.number, tip))

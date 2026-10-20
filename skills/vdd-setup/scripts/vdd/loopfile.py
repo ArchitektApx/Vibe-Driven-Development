@@ -220,20 +220,13 @@ def needs_new_state(directory):
 
 def start_state(directory):
     """Write a new state file holding one open loop, replacing a damaged one."""
-    textfile.write(os.path.join(directory, STATE_NAME),
-                   (STATE_PREFIX + STATE_VERSION + "\nloop %s\n" % OPEN).encode("utf-8"))
+    textfile.write_text(os.path.join(directory, STATE_NAME), STATE_PREFIX + STATE_VERSION + "\nloop %s\n" % OPEN)
 
 
 def append_state(directory, state):
     """Append "loop <state>" to the state file, writing its header first when
     the file is new."""
-    path = os.path.join(directory, STATE_NAME)
-    data = ""
-    if not os.path.exists(path) or os.path.getsize(path) == 0:
-        data += STATE_PREFIX + STATE_VERSION + "\n"
-    data += "loop %s\n" % state
-    with open(path, "ab") as handle:
-        handle.write(data.encode("utf-8"))
+    textfile.append(os.path.join(directory, STATE_NAME), "loop %s\n" % state, STATE_PREFIX + STATE_VERSION + "\n")
 
 
 def kind(root, slug):
@@ -341,7 +334,7 @@ def render(fields):
 
 def write(directory, fields):
     os.makedirs(directory, exist_ok=True)
-    textfile.write(os.path.join(directory, NAME), render(fields).encode("utf-8"))
+    textfile.write_text(os.path.join(directory, NAME), render(fields))
 
 
 def replace_line(lines, name, value):

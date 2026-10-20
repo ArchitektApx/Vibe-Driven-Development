@@ -31,7 +31,7 @@ import os
 import re
 
 from . import loopfile, textfile
-from .out import Failure, refused
+from .out import Failure
 
 KINDS = ("plan", "code")
 ROLES = ("Plan-Reviewer", "Coder", "Code-Reviewer")
@@ -150,13 +150,10 @@ class State:
         """Append lines to the state file on disk only: for lines already
         added to self.lines so the files written before them saw them."""
         try:
-            with open(self.path, "ab") as handle:
-                handle.write("".join(line + "\n" for line in lines).encode("utf-8"))
+            textfile.append(self.path, "".join(line + "\n" for line in lines))
         except OSError as error:
-            raise refused(
-                "Could not write the loop state file %s: %s" % (self.path, error),
-                "Otherwise tell the user the loop state file cannot be written, and stop.",
-            )
+            raise textfile.write_refusal("the loop state file %s" % self.path, error,
+                                         "Otherwise tell the user the loop state file cannot be written, and stop.")
 
 
 def reviewed_line(kind, round_number, signed_off, open_numbers, counts, next_number, new, closed, checks):

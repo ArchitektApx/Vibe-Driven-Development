@@ -9,7 +9,6 @@ Not carried, keep what earlier writes put there, and each write appends to them.
 import os
 
 from . import textfile, workfile
-from .out import refused
 
 NAME = "RECAP.md"
 SECTIONS = ("Tickets", "Plan findings", "Code findings", "Commits", "Not carried")
@@ -123,10 +122,5 @@ def write(loop, state, additions):
         if sections[name]:
             sections[name].append("")
         sections[name].extend(lines)
-    try:
-        textfile.write(path(loop), render(loop, state, sections).encode("utf-8"))
-    except OSError as error:
-        raise refused(
-            "Could not write %s: %s" % (path(loop), error),
-            "Otherwise tell the user the Recap cannot be written, and stop.",
-        )
+    textfile.write_or_refuse(path(loop), render(loop, state, sections), path(loop),
+                             "Otherwise tell the user the Recap cannot be written, and stop.")

@@ -69,8 +69,7 @@ class Migration:
 
     def plan(self):
         try:
-            with open(self.path, "rb") as handle:
-                raw = handle.read()
+            raw = textfile.read_bytes(self.path, 2.0)
         except FileNotFoundError:
             return
         except OSError as error:
@@ -149,8 +148,7 @@ def trust_state(path):
     standard-library read of TOML table headers and dotted keys; anything it
     cannot follow is unknown."""
     try:
-        with open(path, "rb") as handle:
-            text = textfile.decode(handle.read())
+        text = textfile.decode(textfile.read_bytes(path, 2.0))
     except FileNotFoundError:
         return "absent"
     except OSError:
@@ -329,7 +327,7 @@ def run(setup):
             )
         if setup.write:
             try:
-                textfile.write(hooks_path, migration.after.encode("utf-8"))
+                textfile.write_text(hooks_path, migration.after)
                 json.loads(textfile.read(hooks_path))
                 out.line("%s: checked, it parses." % label)
             except (OSError, ValueError) as error:

@@ -242,10 +242,8 @@ def write_new(root, slug, fields, out, continuing=False):
         else:
             loopfile.append_state(directory, loopfile.OPEN)
     except OSError as error:
-        raise refused(
-            "Could not write the Loop file in %s: %s" % (directory, error),
-            "Otherwise tell the user the Loop file could not be written, and stop.",
-        )
+        raise textfile.write_refusal("the Loop file in %s" % directory, error,
+                                     "Otherwise tell the user the Loop file could not be written, and stop.")
     out.line("Written: .scratch/%s/%s, and the loop is open.%s"
              % (slug, loopfile.NAME, " Every other file there stays." if continuing else ""))
     for name in loopfile.ORDER:
@@ -458,13 +456,8 @@ def set_lines(root, values):
         out.line("%s %s: %s" % ("Set:" if values["write"] else "Would set:", name, values[option]))
     if not values["write"]:
         return out.finish("Run the same command with --write.")
-    try:
-        textfile.write(loop.file, ("\n".join(lines) + "\n").encode("utf-8"))
-    except OSError as error:
-        raise refused(
-            "Could not write the Loop file %s: %s" % (loop.relative, error),
-            "Otherwise tell the user the Loop file could not be changed, and stop.",
-        )
+    textfile.write_or_refuse(loop.file, "\n".join(lines) + "\n", "the Loop file %s" % loop.relative,
+                             "Otherwise tell the user the Loop file could not be changed, and stop.")
     return out.finish("Go on as your skill says, passing --slug %s." % loop.slug)
 
 

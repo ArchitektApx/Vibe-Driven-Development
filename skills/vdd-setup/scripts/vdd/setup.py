@@ -443,8 +443,7 @@ def plan_gitignore(path):
     removed only when the whole line, trimmed of surrounding whitespace,
     equals a retired entry: docs/PLAN.md and !PLAN.md are the user's own."""
     try:
-        with open(path, "rb") as handle:
-            before = handle.read()
+        before = textfile.read_bytes(path, 2.0)
     except FileNotFoundError:
         before = b""
     text = before.decode("utf-8", "surrogateescape")

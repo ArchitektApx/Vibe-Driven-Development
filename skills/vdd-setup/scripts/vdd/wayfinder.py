@@ -9,7 +9,7 @@ alone.
 import os
 import re
 
-from . import args, gitcmd, loopfile, places, stores
+from . import args, gitcmd, places, stores
 from .out import Failure, Output
 
 SUBCOMMANDS = ("start",)

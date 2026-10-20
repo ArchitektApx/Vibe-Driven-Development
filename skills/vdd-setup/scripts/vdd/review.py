@@ -13,7 +13,7 @@ import re
 import textwrap
 
 from . import agentdocs, args, coder, doorbell, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
-from .out import Failure, Output, refused
+from .out import Failure, Output
 
 SUBCOMMANDS = ("start", "check")
 REVIEWERS = {"Plan-Reviewer": "plan", "Code-Reviewer": "code"}
@@ -333,14 +333,10 @@ def start(round_, write):
     else:
         blocks = carried_blocks(round_)
         carried_text = "\n\n".join("\n".join(block) for block in blocks)
-        try:
-            textfile.write(round_.carried_file, (carried_text + "\n" if carried_text else "").encode("utf-8"))
-            textfile.write(round_.file, ("\n".join(skeleton(round_, blocks)) + "\n").encode("utf-8"))
-        except OSError as error:
-            raise refused(
-                "Could not write %s: %s" % (round_.relative, error),
-                "Otherwise tell the user the review file cannot be written, and stop.",
-            )
+        cannot = "Otherwise tell the user the review file cannot be written, and stop."
+        textfile.write_or_refuse(round_.carried_file, carried_text + "\n" if carried_text else "",
+                                 round_.relative, cannot)
+        textfile.write_or_refuse(round_.file, "\n".join(skeleton(round_, blocks)) + "\n", round_.relative, cannot)
         round_.state.append("%s %d review-started" % (round_.kind, round_.number))
         out.line("Wrote the frame of %s." % round_.relative)
     if round_.carried_numbers:
@@ -699,13 +695,8 @@ def check(round_, write):
     section = "Plan findings" if round_.kind == "plan" else "Code findings"
     items = not_carried(parsed, None) if round_.kind == "code" else []
     dropped = [number for _, numbers in items for number in numbers]
-    try:
-        textfile.write(round_.file, ("\n".join(cleaned(parsed, status, closed, dropped)) + "\n").encode("utf-8"))
-    except OSError as error:
-        raise refused(
-            "Could not write %s: %s" % (round_.relative, error),
-            "Otherwise tell the user the review file cannot be written, and stop.",
-        )
+    textfile.write_or_refuse(round_.file, "\n".join(cleaned(parsed, status, closed, dropped)) + "\n",
+                             round_.relative, "Otherwise tell the user the review file cannot be written, and stop.")
     recap.write(round_.loop, round_.state, {section: recap_findings(round_, closed),
                                             "Not carried": recap_not_carried(round_, items)})
     round_.state.persist(line)

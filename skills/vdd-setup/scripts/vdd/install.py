@@ -8,7 +8,7 @@ file in the Shared directory stays.
 import os
 import shutil
 
-from . import places
+from . import places, textfile
 
 CURRENT = "current"
 INSTALL = "install"
@@ -21,8 +21,7 @@ def tree(entry_dir):
     files = {}
     entry = os.path.join(entry_dir, "vdd.py")
     if os.path.isfile(entry):
-        with open(entry, "rb") as handle:
-            files["vdd.py"] = handle.read()
+        files["vdd.py"] = textfile.read_bytes(entry)
     package = os.path.join(entry_dir, "vdd")
     for directory, dirs, names in os.walk(package):
         dirs[:] = sorted(d for d in dirs if d != "__pycache__")
@@ -31,8 +30,7 @@ def tree(entry_dir):
                 continue
             path = os.path.join(directory, name)
             rel = os.path.relpath(path, entry_dir).replace(os.sep, "/")
-            with open(path, "rb") as handle:
-                files[rel] = handle.read()
+            files[rel] = textfile.read_bytes(path)
     return files
 
 

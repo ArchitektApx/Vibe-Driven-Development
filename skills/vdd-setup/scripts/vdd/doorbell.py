@@ -16,7 +16,7 @@ import signal
 import time
 
 from . import args, gitcmd, loopfile, loopstate, places, textfile
-from .out import Failure, Output, refused
+from .out import Failure, Output
 
 ROLES = ("Planner", "Orchestrator")
 OTHER = {"Planner": "Orchestrator", "Orchestrator": "Planner"}
@@ -176,26 +176,16 @@ class Place:
         nothing: a Doorbell is printed only once it is recorded as handled."""
         lines = [STATE_PREFIX + STATE_VERSION, "count %d" % state.count]
         lines += ["handled %s %d" % key for key in sorted(state.handled)]
-        try:
-            textfile.write(self.state_path(role), ("\n".join(lines) + "\n").encode("utf-8"))
-        except OSError as error:
-            raise refused(
-                [
-                    "Could not write the Doorbell state file %s: %s" % (self.state_path(role), error),
-                    "Nothing was recorded as handled.",
-                ],
-                "Otherwise tell the user the Doorbell state file cannot be written, and stop.",
-            )
+        textfile.write_or_refuse(
+            self.state_path(role), "\n".join(lines) + "\n", "the Doorbell state file %s" % self.state_path(role),
+            "Otherwise tell the user the Doorbell state file cannot be written, and stop.",
+            ["Nothing was recorded as handled."],
+        )
 
     def append(self, role, text):
         os.makedirs(self.dir, exist_ok=True)
-        new = not os.path.exists(self.file) or os.path.getsize(self.file) == 0
-        data = ""
-        if new:
-            data += HEADER_PREFIX + FILE_VERSION + "\n"
-        data += "%s to: %s %s\n" % (time.strftime("%H:%M:%S"), role, text)
-        with open(self.file, "ab") as handle:
-            handle.write(data.encode("utf-8"))
+        textfile.append(self.file, "%s to: %s %s\n" % (time.strftime("%H:%M:%S"), role, text),
+                        HEADER_PREFIX + FILE_VERSION + "\n")
 
 
 class State:
@@ -352,8 +342,8 @@ def ring(place, role, harness, write):
         try:
             place.append(to, line)
         except OSError as error:
-            raise refused(
-                "Could not write the Doorbell file %s: %s" % (place.file, error),
+            raise textfile.write_refusal(
+                "the Doorbell file %s" % place.file, error,
                 "Otherwise print the Doorbell line for the user to paste into the %s's Session, and stop." % to,
             )
         out.line("Rung: the Doorbell file now holds it, addressed to the %s." % to)
@@ -589,7 +579,7 @@ class Marker:
         data = "%s%s\n%s %s\n" % (WAIT_PREFIX, WAIT_VERSION, self.token, poll)
         try:
             os.makedirs(place.dir, exist_ok=True)
-            textfile.write(marker_path(place, role), data.encode("ascii"))
+            textfile.write_text(marker_path(place, role), data)
         except OSError:
             pass
 
@@ -675,7 +665,7 @@ def arm(place, role, harness):
     data = "%s%s\n%s %d\n" % (ARMED_PREFIX, ARMED_VERSION, role, count)
     try:
         os.makedirs(place.dir, exist_ok=True)
-        textfile.write(armed_path(place, thread), data.encode("utf-8"))
+        textfile.write_text(armed_path(place, thread), data)
     except OSError as error:
         raise Failure("Cannot write the armed file: %s" % error, hand_relay(role, harness, place.slug))
     out = Output()
