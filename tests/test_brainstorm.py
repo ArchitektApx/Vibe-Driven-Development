@@ -1019,3 +1019,90 @@ class Cleanup(BrainstormTest):
             self.assertEqual(result.code, 1, result)
             self.assertIn("cleanup removed", result.text)
         self.assertEqual(self.tree(), before)
+
+
+def idea_file(tldr, updated, parent=None, status="idea"):
+    """An idea file as the tool writes it, for staging a large store."""
+    return ("---\ntldr: %s\nstatus: %s\n%simportance: unknown\nsize: unknown\nfog: unknown\nlast-updated: %s\n---\n\n"
+            "# Staged\n\n## History\n\n- 2026-10-01: created\n" % (tldr, status, "parent: %s\n" % parent if parent else "",
+                                                                    updated))
+
+
+class Paging(BrainstormTest):
+    LONG = "A tldr long enough to fill the start read quickly with words that say little. " * 3
+
+    def test_a_large_store_is_paged_within_the_budget(self):
+        """Prevents a start read that grows without bound (red team F13, D16,
+        U11): about 130 open ideas give a page under the budget with the page
+        line naming what it leaves out, and --page 2 lists the next
+        families."""
+        self.new("anchor")
+        for n in range(130):
+            self.box.write(S + "gen-%03d.md" % n, idea_file(self.LONG.strip(), "2026-10-%02d" % (1 + n % 28)))
+        result = self.ok("start")
+        self.assertLess(len(result.data), 9000, len(result.data))
+        idea_lines = [line for line in result.lines if line.lstrip().startswith("- ")]
+        self.assertLessEqual(sum(len(line.encode("utf-8")) + 1 for line in idea_lines), 8000)
+        self.assertRegex(result.text, r"Page 1 of \d+: \d+ of 131 open ideas, the most recently updated families "
+                                      r"first. \d+ open ideas are left out of this page; brainstorm start --page 2 "
+                                      r"lists the next ones.")
+        self.assertIn("Long tldrs are cut at 100 characters", result.text)
+        page_two = self.ok("start", "--page", "2")
+        self.assertIn("Page 2 of", page_two.text)
+        first = {line.split(" [")[0] for line in idea_lines}
+        second = {line.split(" [")[0] for line in page_two.lines if line.lstrip().startswith("- ")}
+        self.assertTrue(second and not first & second)
+        result = self.bs("start", "--page", "99")
+        self.assertEqual(result.code, 1, result)
+        self.assertIn("There is no page 99", result.text)
+
+    def test_one_family_over_the_budget_still_fills_page_one(self):
+        """Prevents an empty page 1 when a single family alone is over the
+        budget (red team M13): the family is cut down until the page holds
+        its top idea and the line naming what it leaves out."""
+        self.new("big-family", "Big family", "One idea with many parts.")
+        for n in range(60):
+            self.box.write(S + "big-part-%02d.md" % n, idea_file(self.LONG.strip(), "2026-10-05", parent="big-family"))
+            for k in range(3):
+                self.box.write(S + "big-part-%02d-kid-with-a-longer-name-%d.md" % (n, k),
+                               idea_file(self.LONG.strip(), "2026-10-05", parent="big-part-%02d" % n))
+        result = self.ok("start")
+        self.assertLess(len(result.data), 9000, len(result.data))
+        self.assertIn("\n- big-family [idea]", result.text)
+        self.assertRegex(result.text, r"- \d+ more parts of big-family are left out of this read; brainstorm show "
+                                      r"--idea big-family lists the whole family.")
+
+    def test_parts_a_big_family_leaves_out_are_counted_apart_from_the_next_pages(self):
+        """Prevents a page line that promises the next page lists parts no
+        page lists (finding 24): the ideas left out of page 1 are the ones
+        the other pages list, and the big family's withheld parts point to
+        show --idea."""
+        self.new("big-family", "Big family", "One idea with many parts.", today="2026-10-01")
+        for n in range(60):
+            self.box.write(S + "big-part-%02d.md" % n, idea_file(self.LONG.strip(), "2026-10-01", parent="big-family"))
+            for k in range(4):
+                self.box.write(S + "big-part-%02d-kid-with-a-longer-name-%d.md" % (n, k),
+                               idea_file(self.LONG.strip(), "2026-10-01", parent="big-part-%02d" % n))
+        for n in range(5):
+            self.box.write(S + "lone-%d.md" % n, idea_file(self.LONG.strip(), "2026-10-%02d" % (10 + n)))
+        first = self.ok("start")
+        match = re.search(r"Page 1 of (\d+): (\d+) of (\d+) open ideas.*? (\d+) open ideas are left out of this page; "
+                          r"brainstorm start --page 2 lists the next ones\. (\d+) parts of families too big for a page "
+                          r"are on no page; brainstorm show --idea <family> lists them", first.text)
+        self.assertTrue(match, first.text)
+        pages, shown, total, elsewhere, withheld = (int(g) for g in match.groups())
+        listed = 0
+        for page in range(2, pages + 1):
+            text = self.ok("start", "--page", str(page)).text
+            listed += int(re.search(r"Page %d of %d: (\d+) of" % (page, pages), text).group(1))
+        self.assertEqual(listed, elsewhere)
+        self.assertEqual(shown + elsewhere + withheld, total)
+
+    def test_a_small_store_prints_no_page_line(self):
+        """Prevents a page line and cut tldrs on a store well under the
+        budget."""
+        self.new("one")
+        self.new("two")
+        result = self.ok("start")
+        self.assertNotIn("Page 1", result.text)
+        self.assertNotIn("Long tldrs are cut", result.text)

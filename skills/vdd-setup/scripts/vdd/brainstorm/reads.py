@@ -12,6 +12,9 @@ from .moves import QUOTE, quoted, step_line
 from .store import REMOVED, Store, rel, removed_entries, removed_entry
 
 FIND_MAX = 10
+# The start read's idea lines stay within this many bytes.
+START_BUDGET = 8000
+TLDR_CUTS = (None, 200, 140, 100)
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 
 
@@ -70,14 +73,121 @@ def overview_head(store: Store) -> str:
         open_n, len(store.ideas) - open_n, (", %d removed" % removed) if removed else "")
 
 
-def overview(store: Store) -> list[str]:
-    """The start read: open ideas as a tree, each part under its parent."""
+class Block:
+    """One family as the overview prints it: its lines and how many ideas
+    they list."""
+
+    def __init__(self, lines: list[str], shown: int, recent: str, withheld: int = 0) -> None:
+        self.lines = lines
+        self.shown = shown
+        self.recent = recent
+        # Parts M13 leaves out of every page: show --idea lists them.
+        self.withheld = withheld
+
+    @property
+    def size(self) -> int:
+        return sum(len(line.encode("utf-8")) + 1 for line in self.lines)
+
+
+def family_block(store: Store, top: str, note: str, waits: dict[str, list[str]], tldr_max: int | None,
+                 budget: int) -> Block:
+    """The lines of one family, tldrs cut at tldr_max. A family over budget
+    on its own is cut further (M13): its parts' tldrs go first, then its
+    deepest parts are listed by slug only, and last its tail is left out
+    behind a line naming how many parts it leaves out."""
+    members = family_members(store, top)
+    recent = max(store.ideas[s].get("last-updated") or "" for s, _ in members)
+
+    def line(slug: str, depth: int, limit: int | None, bare: bool) -> str:
+        idea = store.ideas[slug]
+        if bare:
+            text = "%s [%s] %s, updated %s" % (slug, idea.status, metrics(idea), idea.get("last-updated") or "?")
+        else:
+            text = headline(store, idea, waits, limit)
+        return "%s- %s%s" % ("  " * depth, text, note if depth == 0 else "")
+
+    block = Block([line(s, d, tldr_max, False) for s, d in members], len(members), recent)
+    if block.size <= budget or len(members) == 1:
+        return block
+    block = Block([line(s, d, tldr_max, d > 0) for s, d in members], len(members), recent)
+    if block.size <= budget:
+        return block
+    deepest = max(d for _, d in members)
+    lines: list[str] = []
+    for slug, depth in members:
+        if depth == deepest and depth > 0:
+            if lines and lines[-1].startswith("  " * depth + "- parts by slug: "):
+                lines[-1] += ", " + slug
+            else:
+                lines.append("  " * depth + "- parts by slug: " + slug)
+        else:
+            lines.append(line(slug, depth, tldr_max, depth > 0))
+    block = Block(lines, len(members), recent)
+    if block.size <= budget:
+        return block
+    kept: list[str] = []
+    size = 0
+    reserve = 200
+    for text in lines:
+        if kept and size + len(text.encode("utf-8")) + 1 > budget - reserve:
+            break
+        kept.append(text)
+        size += len(text.encode("utf-8")) + 1
+    listed = sum(1 + text.count(", ") if "parts by slug: " in text else 1 for text in kept)
+    kept.append("  - %d more parts of %s are left out of this read; brainstorm show --idea %s lists the whole "
+                "family." % (len(members) - listed, top, top))
+    return Block(kept, listed, recent, len(members) - listed)
+
+
+def overview(store: Store, page: int = 1) -> list[str]:
+    """The start read: open ideas as a tree, each part under its parent,
+    within START_BUDGET bytes of idea lines. Past the budget tldrs are cut to
+    200, 140, then 100 characters; past that whole families are paged, the
+    most recently updated first. Page 1 is never empty while an open idea
+    exists."""
     waits = store.waits_on()
+    tops = family_tops(store)
+    open_n = sum(1 for i in store.ideas.values() if i.is_open)
+    cut: int | None = None
+    blocks: list[Block] = []
+    for cut in TLDR_CUTS:
+        blocks = [family_block(store, t, n, waits, cut, START_BUDGET) for t, n in tops]
+        if sum(b.size for b in blocks) <= START_BUDGET:
+            break
+    pages: list[list[Block]] = [blocks]
+    if sum(b.size for b in blocks) > START_BUDGET:
+        order = sorted(blocks, key=lambda b: (b.recent, b.lines[0]), reverse=True)
+        pages, cur, size = [], [], 0
+        for block in order:
+            if cur and size + block.size > START_BUDGET:
+                pages.append(cur)
+                cur, size = [], 0
+            cur.append(block)
+            size += block.size
+        if cur:
+            pages.append(cur)
+    if page < 1 or page > len(pages):
+        raise Failure("There is no page %d; the start read has %d (the last is page %d)." % (page, len(pages),
+                                                                                          len(pages)),
+                      "Run brainstorm start, or brainstorm start --page with a number up to %d." % len(pages))
     lines = [overview_head(store)]
-    for top, note in family_tops(store):
-        for slug, depth in family_members(store, top):
-            lines.append("%s- %s%s" % ("  " * depth, headline(store, store.ideas[slug], waits),
-                                       note if depth == 0 else ""))
+    for block in pages[page - 1]:
+        lines += block.lines
+    if len(pages) > 1:
+        shown = sum(b.shown for b in pages[page - 1])
+        withheld = sum(b.withheld for p in pages for b in p)
+        elsewhere = open_n - shown - withheld
+        text = "Page %d of %d: %d of %d open ideas, the most recently updated families first." % (
+            page, len(pages), shown, open_n)
+        if elsewhere:
+            text += " %d open ideas are left out of this page; brainstorm start --page %d lists the %s ones." % (
+                elsewhere, page + 1 if page < len(pages) else 1, "next" if page < len(pages) else "first")
+        if withheld:
+            text += (" %d parts of families too big for a page are on no page; brainstorm show --idea <family> lists "
+                     "them, as the family's own line says." % withheld)
+        lines.append(text)
+    if cut is not None:
+        lines.append("Long tldrs are cut at %d characters to keep this read small; show --idea prints one whole." % cut)
     lines.append("Closed ideas are not listed: find --text <words> searches them, show --idea <slug> opens one.")
     return lines
 

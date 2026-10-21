@@ -14,7 +14,7 @@ import os
 from typing import Any, Callable, Dict, List, Tuple
 
 from .. import args, gitcmd, places, textfile
-from ..out import Output
+from ..out import Failure, Output
 from . import cleanup, journal, moves, reads, restructure
 from .lock import Lock
 from .store import LAYOUT, LAYOUT_FILE, Store, layout, require_layout, store_dir
@@ -27,7 +27,7 @@ ANSWER = "Answer the user's message from this overview; read or run nothing else
 # One option table per command: an option another command takes is refused
 # on this one, never silently ignored.
 SPECS: dict[str, dict[str, str]] = {
-    "start": {},
+    "start": {"page": V},
     "show": {"idea": V},
     "find": {"text": L},
     "check": {},
@@ -55,9 +55,10 @@ REQUIRED = {
 }
 
 HELP = [
-    "brainstorm start",
+    "brainstorm start [--page <n>]",
     "  The Session's first call: the open ideas, each part under its parent, with status, importance/size/fog,",
-    "  last update, what each waits on, and the tldr.",
+    "  last update, what each waits on, and the tldr. A large store is paged, the most recently updated",
+    "  families first; --page shows the next page.",
     "brainstorm show --idea <slug>",
     "  One idea and its family at every level: status, Decision, open Next Steps and open questions of every",
     "  open member, what it waits on and what waits on it, and the file's path.",
@@ -178,6 +179,30 @@ def write(root: str, command: str, values: dict[str, Any]) -> int:
     return out.finish(nxt)
 
 
+def loop_lines(store: Store) -> list[str]:
+    """A parent loop written by hand among the ideas the command writes:
+    named, with the move that breaks it."""
+    lines: list[str] = []
+    seen: set[str] = set()
+    for slug in store.existing_loops():
+        if slug in seen:
+            continue
+        chain = [slug] + store.ancestors(slug)
+        seen.update(chain)
+        lines.append("%s sit in a parent loop written by hand, left as it is: %s -> %s. To break it, file one at the "
+                     "top level: brainstorm move --set %s=top --write" % (" and ".join(sorted(chain)),
+                                                                          " -> ".join(chain), slug, slug))
+    return lines
+
+
+def page_number(value: str | None) -> int:
+    if value is None:
+        return 1
+    if not value.strip().isdigit():
+        raise Failure("--page %s is not a number. Nothing was read." % value, "Run brainstorm start --page <n>.")
+    return int(value.strip())
+
+
 def start(root: str, values: dict[str, Any]) -> int:
     found = layout(root)
     out = Output()
@@ -198,7 +223,7 @@ def start(root: str, values: dict[str, Any]) -> int:
     for line in recover_quietly(root):
         out.line(line)
     store = Store(root)
-    for line in reads.overview(store):
+    for line in reads.overview(store, page_number(values["page"])):
         out.line(line)
     return out.finish("Answer the user's message from this overview; read or run nothing else unless it needs more.")
 
