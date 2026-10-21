@@ -12,6 +12,8 @@ from .moves import QUOTE, quoted, step_line
 from .store import REMOVED, Store, rel, removed_entries, removed_entry
 
 FIND_MAX = 10
+# The 0.15 workaround for a part: "Part 2 of <parent>." in its tldr.
+PART_OF = re.compile(r"\bPart (?:\d+ )?of ([a-z0-9]+(?:-[a-z0-9]+)*)")
 # The start read's idea lines stay within this many bytes.
 START_BUDGET = 8000
 TLDR_CUTS = (None, 200, 140, 100)
@@ -343,3 +345,15 @@ def check(store: Store, values: dict[str, Any], out: Output) -> int:
     if not found:
         out.line("No problems.")
     return out.finish("Tell the user only the problems that matter to what they asked; fix none unasked.")
+
+
+def parts_named(store: Store) -> list[tuple[str, str]]:
+    """[(slug, parent)] of open ideas whose tldr names a parent they are not
+    filed under."""
+    out: list[tuple[str, str]] = []
+    for slug, idea in sorted(store.ideas.items()):
+        match = PART_OF.search(idea.tldr)
+        if idea.is_open and match and match.group(1) in store.ideas and match.group(1) != slug \
+                and idea.parent != match.group(1):
+            out.append((slug, match.group(1)))
+    return out

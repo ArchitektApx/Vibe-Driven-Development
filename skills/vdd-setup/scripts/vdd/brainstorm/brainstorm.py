@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Tuple
 
 from .. import args, gitcmd, places, textfile
 from ..out import Failure, Output
-from . import cleanup, journal, moves, reads, restructure
+from . import cleanup, journal, migrate, moves, reads, restructure
 from .lock import Lock
 from .store import LAYOUT, LAYOUT_FILE, Store, layout, require_layout, store_dir
 
@@ -41,6 +41,7 @@ SPECS: dict[str, dict[str, str]] = {
     "merge": {"idea": V, "into": V, "reason": V, "reopen-when": V, "write": W},
     "rename": {"idea": V, "to": V, "write": W},
     "cleanup": {"status": L, "idea": L, "older": V, "write": W},
+    "migrate": {"event": L, "write": W},
 }
 REQUIRED = {
     "show": ["idea"],
@@ -96,6 +97,10 @@ HELP = [
     "  Removes closed ideas from the store, each kept as one line in removed.md; --older counts from the day",
     "  the idea closed. Never removes an open idea, a closed idea with an open part, a closed idea an open",
     "  idea waits on, or a part whose family stays. Research folders stay.",
+    "brainstorm migrate [--event '<date> <slug> split into|merged into|folded into|renamed from <slug>' ...]",
+    "  Converts a 0.15 store (index.md) to one file per idea with History, keeping the old store as",
+    "  .scratch/_brainstorming.pre-0.16/; finishes an interrupted migration; writes back a lost .layout marker.",
+    "  Without --write it prints the plan and the Log sentences each --event may carry.",
     "",
     "Run every command from the repository root. Every write needs --write; without it the command is a dry run.",
 ]
@@ -121,6 +126,13 @@ def dispatch(command: str, values: dict[str, Any]) -> int:
     root = gitcmd.project_root(os.getcwd())
     if command == "start":
         return start(root, values)
+    if command == "migrate":
+        return migrate_cmd(root, values)
+    if migrate.state(root) == "half":
+        # Between the migration's two renames there is no store: a new one
+        # here would leave two half stores (F2).
+        raise Failure("A migration was interrupted after the backup; the idea store is not in place yet. Nothing was "
+                      "written.", "Run brainstorm migrate --write, then brainstorm start.")
     found = layout(root)
     if command == "new" and found is None:
         if values["write"]:
@@ -206,15 +218,18 @@ def page_number(value: str | None) -> int:
 def start(root: str, values: dict[str, Any]) -> int:
     found = layout(root)
     out = Output()
+    if migrate.state(root) == "half":
+        out.line("A migration was interrupted after the backup: %s/ is complete and %s/ waits beside it; brainstorm "
+                 "migrate --write finishes it." % (migrate.BACKUP, migrate.STAGING))
+        return out.finish("Run brainstorm migrate --write, then brainstorm start again.")
     if found is None:
         out.line("This project has no idea store yet (.scratch/_brainstorming/).")
         return out.finish("Answer the user's message; when they bring an idea, capture it with brainstorm new, "
                           "which creates the store.")
     if found == "1":
-        out.line("The idea store is in the 0.15 layout (index.md and one file per idea); brainstorm migrate "
-                 "converts it.")
-        return out.finish("Run brainstorm migrate to see the migration plan, and ask the user before migrate "
-                          "--write. No other brainstorm command reads the 0.15 layout.")
+        for line in migrate.plan_lines(root):
+            out.line(line)
+        return out.finish(migrate.plan_next(root))
     if found in ("lost", "damaged"):
         out.line("The idea store's .layout marker is %s." % ("missing" if found == "lost" else "empty"))
         return out.finish("Run brainstorm migrate --write: it checks the store and writes the marker back. Then "
@@ -223,7 +238,45 @@ def start(root: str, values: dict[str, Any]) -> int:
     for line in recover_quietly(root):
         out.line(line)
     store = Store(root)
-    for line in reads.overview(store, page_number(values["page"])):
+    lines, offer = overview(root, store, page_number(values["page"]))
+    for line in lines:
         out.line(line)
-    return out.finish("Answer the user's message from this overview; read or run nothing else unless it needs more.")
+    return out.finish(ANSWER + offer)
 
+
+def overview(root: str, store: Store, page: int = 1) -> tuple[list[str], str]:
+    """The overview's lines with the backup line and the parts named only in
+    a tldr, and the text its Next: step adds after its first sentence."""
+    lines = reads.overview(store, page)
+    named = reads.parts_named(store)
+    if named:
+        lines.append("Named as a part in their tldr but not filed under that parent: %s."
+                     % ", ".join("%s (%s)" % pair for pair in named))
+    if os.path.isdir(os.path.join(root, migrate.BACKUP)):
+        lines.append("Backup of the 0.15 store: %s/ (the tool never deletes it)." % migrate.BACKUP)
+    offer = " Offer once to file the parts named above under their parents (brainstorm move)." if named else ""
+    return lines, offer
+
+
+def migrate_cmd(root: str, values: dict[str, Any]) -> int:
+    lines, what, would = migrate.migrate(root, values["event"], values["write"])
+    out = Output()
+    if what in ("dry", "dry-half", "dry-repair"):
+        out.line("Dry run, nothing was written. With --write, brainstorm migrate would write %s:" % ", ".join(would))
+    for line in lines:
+        out.line(line)
+    if what == "dry":
+        return out.finish(migrate.plan_next(root))
+    if what in ("dry-half", "dry-repair"):
+        return out.finish("If the user agrees, run brainstorm migrate --write.")
+    if what == "noop":
+        return out.finish("Run brainstorm start.")
+    if what in ("migrated", "finished"):
+        out.tell(migrate.UNDO)
+    more, offer = overview(root, Store(root))
+    for line in more:
+        out.line(line)
+    if what in ("migrated", "finished"):
+        return out.finish("Tell the user the migration is done, relaying the Tell line above, then answer their first "
+                          "message from the overview." + offer)
+    return out.finish(ANSWER + offer)
