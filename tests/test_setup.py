@@ -326,6 +326,16 @@ class SetupTest(ToolTest):
         self.assertNext(result, "git init")
         self.assertFalse(os.path.exists(os.path.join(plain, ".git")))
 
+    def test_outside_a_repository_the_shared_copy_is_still_installed(self):
+        """Prevents a Brainstormer left without its tool by a failed git
+        check (ticket 97's decision: Setup installs the tool before its git
+        gate): --write outside a repository installs the Shared copy."""
+        plain = os.path.join(self.box.root, "plain")
+        os.makedirs(plain)
+        result = self.setup("claude-code", "none", "absent", "--write", cwd=plain)
+        self.assertContract(result)
+        self.assertEqual(vddtest_tree(SCRIPTS), vddtest_tree(self.box.shared))
+
     def test_a_run_below_the_repository_root_changes_nothing_and_names_the_root(self):
         """Every check and write is relative to the working directory, so a run
         from a subdirectory planned a .gitignore there."""
@@ -764,6 +774,20 @@ class GitVersionTest(ToolTest):
         self.assertIn("VDD needs git 2.40 or newer", tells[0])
         self.assertIn("rerun Setup", tells[0])
         self.assertNext(result, "Tell the user verbatim", "stop")
+
+    def test_git_older_than_2_40_still_installs_the_shared_copy(self):
+        """Prevents a Brainstormer left without its tool by a git too old for
+        the loop (ticket 97's decision: Setup installs the tool before its
+        git gate): --write with git 2.39 fails Setup and installs the Shared
+        copy."""
+        real = shutil.which("git")
+        self.box.stub("git", "if [ \"$1\" = --version ]; then echo 'git version 2.39.5'; exit 0; fi\nexec '%s' \"$@\"\n"
+                      % real)
+        result = self.box.run("setup", "--harness", "claude-code", "--listed", "none", "--glossary-named", "absent",
+                              "--write", env=self.box.stub_env())
+        self.assertNotEqual(result.code, 0, result)
+        self.assertIn("git version: 2.39.5, older than the 2.40 VDD needs. Failed.", result.lines)
+        self.assertEqual(vddtest_tree(SCRIPTS), vddtest_tree(self.box.shared))
 
     def test_2_40_and_vendor_suffixed_versions_pass(self):
         """Prevents a vendor suffix (Apple's, Git for Windows') read as part

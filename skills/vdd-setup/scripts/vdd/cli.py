@@ -10,6 +10,7 @@ from .out import Failure, Output, refused
 
 # Command group -> one-line summary.
 GROUPS = {
+    "brainstorm": "The Brainstormer's idea store: the overview, one idea, a search, and every write to it.",
     "codex-stop": "The Codex Stop hook. Codex runs it at a turn end; a Role never does.",
     "coder": "The Coder's round: start it on the feature branch, then check FIXES.md and record its end.",
     "doorbell": "Ring, wait for and take Doorbells between the Planner and the Orchestrator.",
@@ -44,7 +45,9 @@ def top_help() -> int:
 def load(name: str) -> ModuleType:
     """The module of a command group, which has run(argv). A plain relative
     import: the static check refuses an import by a computed name."""
-    if name == "codex-stop":
+    if name == "brainstorm":
+        from .brainstorm import brainstorm as module
+    elif name == "codex-stop":
         from . import codex_hook as module
     elif name == "coder":
         from . import coder as module

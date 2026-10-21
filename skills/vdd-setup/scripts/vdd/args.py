@@ -11,6 +11,9 @@ from .out import Failure, Output
 
 VALUE = "value"
 FLAG = "flag"
+# An option that may be given more than once; its value is the list of its
+# values in order, empty when not given.
+LIST = "list"
 # A quote and an option name inside a value: what Windows PowerShell 5.1
 # makes of a value ending in a backslash followed by more options.
 JOINED = re.compile(r'" --([A-Za-z][A-Za-z0-9-]*)')
@@ -18,9 +21,12 @@ JOINED = re.compile(r'" --([A-Za-z][A-Za-z0-9-]*)')
 
 def parse(argv: Sequence[str], spec: dict[str, str], usage: str) -> dict[str, Any]:
     """The options in argv as a dict, every option in spec present (None or
-    False when not given). spec maps an option name to VALUE or FLAG. usage is
-    the --help command to name when argv is wrong. --help and -h set "help"."""
-    values: dict[str, Any] = {name: (False if kind == FLAG else None) for name, kind in spec.items()}
+    False when not given, [] for a LIST). spec maps an option name to VALUE,
+    FLAG or LIST. A VALUE given twice is refused. usage is the --help command
+    to name when argv is wrong. --help and -h set "help"."""
+    values: dict[str, Any] = {
+        name: (False if kind == FLAG else [] if kind == LIST else None) for name, kind in spec.items()
+    }
     values["help"] = False
     i = 0
     while i < len(argv):
@@ -68,7 +74,16 @@ def parse(argv: Sequence[str], spec: dict[str, str], usage: str) -> dict[str, An
                     "Run the command again with no value ending in a backslash: drop it or add a space after "
                     "it. If the value really holds that text, reword it.",
                 )
-            values[name] = value
+            if kind == LIST:
+                values[name].append(value)
+            elif values[name] is not None:
+                raise Failure(
+                    "--%s is given twice (%s, then %s); this command takes it once. Nothing was done."
+                    % (name, values[name], value),
+                    "Run the command again with --%s once." % name,
+                )
+            else:
+                values[name] = value
         i += 1
     return values
 
@@ -114,7 +129,9 @@ def unknown_option(name: str, spec: Iterable[str], usage: str) -> Failure:
     takes, and the closest one when one is close."""
     takes = sorted(spec)
     close = difflib.get_close_matches(name, takes, n=1, cutoff=0.6)
-    lines = ["Unknown option: --%s" % name, "This command takes: %s." % ", ".join("--" + n for n in takes)]
+    lines = ["Unknown option: --%s" % name,
+             "This command takes: %s." % ", ".join("--" + n for n in takes) if takes
+             else "This command takes no options."]
     if close:
         lines.append("Closest: --%s." % close[0])
         return Failure(
@@ -123,9 +140,9 @@ def unknown_option(name: str, spec: Iterable[str], usage: str) -> Failure:
         )
     return Failure(
         lines,
-        "Run the command again with the options above, as your skill writes them (%s shows the usage). If your "
-        "skill writes --%s exactly, this copy of the VDD tool is older than the skill: tell the user to rerun "
-        "Setup." % (usage, name),
+        "Run the command again %s, as your skill writes it (%s shows the usage). If your skill writes --%s exactly, "
+        "this copy of the VDD tool is older than the skill: tell the user to rerun Setup."
+        % ("with the options above" if takes else "without --%s" % name, usage, name),
     )
 
 
@@ -171,7 +188,9 @@ def check_slug(slug: str | None, pattern: str, named: str, short: str, joiners: 
 
 
 def require(values: dict[str, Any], names: Iterable[str], usage: str) -> None:
-    missing = [name for name in names if values.get(name) is None]
+    """Refuse the options in names that were not given: a VALUE that is None,
+    a LIST that is empty."""
+    missing = [name for name in names if values.get(name) is None or values.get(name) == []]
     if missing:
         refuse_missing(missing, usage)
 

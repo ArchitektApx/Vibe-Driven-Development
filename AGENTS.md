@@ -84,10 +84,12 @@ exception edits the step in the same PR so the reviewer sees both.
   to, and in its repository the feature branch `coder start` switches to or
   creates from the base, the fold's rewrite of the loop's commits, as new
   objects and the feature branch's ref, the push of the feature branch, and
-  the PR `pr open` opens with `gh pr create`),
-  in the Shared directory (`vdd.py` and `vdd/`), and on Codex in
-  `~/.codex/hooks.json` (removing an older VDD's entry), and writes no
-  bytecode.
+  the PR `pr open` opens with `gh pr create`; the idea store
+  `.scratch/_brainstorming/` with its `.state/`, and beside it
+  `.scratch/_brainstorming.lock`, `.scratch/_brainstorming.pre-0.16/` and
+  `.scratch/_brainstorming.migrating/`), in the Shared directory (`vdd.py`
+  and `vdd/`), and on Codex in `~/.codex/hooks.json` (removing an older
+  VDD's entry), and writes no bytecode.
 - A Codex policy file, `agents/openai.yaml`, has the top-level keys
   `interface` and `policy` and no other.
 - `verify.yml` triggers on `pull_request`, never `pull_request_target`, and
