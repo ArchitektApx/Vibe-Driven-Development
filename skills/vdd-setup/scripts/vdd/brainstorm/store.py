@@ -20,7 +20,9 @@ from .. import textfile
 from ..out import Failure
 from .ideafile import DEPTH_MAX, SLUG, Idea, frontmatter_reads_whole, is_idea_name, seam_set, stamp_text, today
 
-STORE = os.path.join(".scratch", "_brainstorming")
+# Written with "/" because it is printed, and so are the backup, staging and
+# lock paths built from it; Windows takes "/" in a path as well.
+STORE = ".scratch/_brainstorming"
 LAYOUT = "2"
 LAYOUT_FILE = ".layout"
 STATE = ".state"
