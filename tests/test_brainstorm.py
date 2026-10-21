@@ -1114,12 +1114,14 @@ class Paging(BrainstormTest):
         match = re.search(r"Page 1 of (\d+): (\d+) of (\d+) open ideas.*? (\d+) open ideas are left out of this page; "
                           r"brainstorm start --page 2 lists the next ones\. (\d+) parts of families too big for a page "
                           r"are on no page; brainstorm show --idea <family> lists them", first.text)
-        self.assertTrue(match, first.text)
+        assert match is not None, first.text
         pages, shown, total, elsewhere, withheld = (int(g) for g in match.groups())
         listed = 0
         for page in range(2, pages + 1):
             text = self.ok("start", "--page", str(page)).text
-            listed += int(re.search(r"Page %d of %d: (\d+) of" % (page, pages), text).group(1))
+            line = re.search(r"Page %d of %d: (\d+) of" % (page, pages), text)
+            assert line is not None, text
+            listed += int(line.group(1))
         self.assertEqual(listed, elsewhere)
         self.assertEqual(shown + elsewhere + withheld, total)
 
