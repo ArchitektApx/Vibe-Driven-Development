@@ -14,7 +14,9 @@ how the Coder restarts for the least cost on your agent, and code reviews on
 Claude Code and Codex are fixed. Each loop keeps its settings in its own
 directory, every loop starts with Start-Loop, and a finished loop leaves a
 `RECAP.md` that says how it went. VDD also needs git 2.40 or newer: it folds
-each loop's fixes into the commits they fix, at every Sign-off.
+each loop's fixes into the commits they fix, at every Sign-off. The
+Brainstormer keeps one file per idea with no index, so it needs Setup too,
+and it offers to hand a decided idea to the next Role.
 
 ### Migrating from 0.15
 
@@ -44,9 +46,36 @@ each loop's fixes into the commits they fix, at every Sign-off.
 7. **A loop started on an earlier 0.16 beta finishes with its branch
    unfolded.** Its commits stay as its Coder made them, and the Orchestrator
    tells you so before the PR.
+8. **Your first Brainstormer session converts a 0.15 idea store on your
+   yes.** It says what the migration does before anything is written, and
+   first keeps your whole store as a backup in
+   `.scratch/_brainstorming.pre-0.16/`. To undo it, delete the migrated
+   `.scratch/_brainstorming/`, rename the backup back to
+   `.scratch/_brainstorming/`, and use a 0.15 plugin. On 0.16 a restored
+   store is offered the migration again. Until you say yes, the Brainstormer
+   cannot work on the old store.
 
 ### Changed
 
+- **The Brainstormer keeps one file per idea, with no index or Log.** Every
+  idea, open or closed, stays in one folder, and each file ends with a
+  History of what happened to it. The Brainstormer's first look shows every
+  open idea, so it answers your first message at once. Each move you ask for
+  is one command of the VDD tool, so the files stay consistent and a session
+  costs far fewer calls. The Brainstormer now needs `/vdd:vdd-setup` once
+  per machine.
+- **Ideas have parts.** Split an idea into parts, file one idea under
+  another, merge two ideas into one, or rename one; a family goes three
+  levels deep. Before a new idea is written, the Brainstormer shows you the
+  ideas it looks like, closed ones included.
+- **Clean up closed ideas.** Ask the Brainstormer to remove done or dropped
+  ideas, by status, age or name. It lists them first and removes them on your
+  yes, keeping a one-line record of each, so "didn't we talk about this"
+  still finds it. Research folders stay.
+- **The Brainstormer offers the next Role.** When a grilling ends in
+  agreement, it asks whether to keep brainstorming or take the idea on, with
+  `/vdd:vdd-start-loop` for one loop or `/vdd:vdd-wayfinder` for more, and
+  gives you the line to start it.
 - **Setup runs in the VDD tool.** It is faster and more precise: it shows
   the exact changes before it makes them, and its repair advice is the exact
   commands for your agent.
