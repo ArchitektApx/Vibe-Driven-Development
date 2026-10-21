@@ -82,7 +82,7 @@ Put it where your Harness reads its instructions; the path above is Claude Code'
 - a kebab-case slug for the work
 - the base branch and the feature branch
 - whether an open minor holds up Sign-off (`fix`, or `leave` it listed)
-- whether VDD opens the PR at the end (yes, ask at Sign-off, or manual)
+- whether VDD opens the PR at the end (yes, ask at Sign-off, manual, or no)
 
 The VDD tool writes the answers to the loop's Loop file, `.scratch/<slug>/loop.md`, which every Role reads first, so none asks again. If an earlier loop used the slug, you choose to continue it, start fresh (its directory is moved aside to `.scratch/<slug>-2/`, nothing deleted) or pick another slug. To check a repository before its first loop, run `/vdd:vdd-setup` on its own. It looks at the borrowed skills, the issue tracker and the gitignore entries, and tells you how to fix anything missing. It then prints a summary of the Loop file, which says you can ask the Orchestrator to start any Role fresh at its next round, and hands over to the Planner.
 
@@ -151,9 +151,11 @@ Two optional Roles run in your own session before a loop. Neither starts the nex
 
 ### 💡 The Brainstormer
 
-`/vdd:vdd-brainstormer` keeps ideas in `.scratch/_brainstorming/`: one file per idea, an `index.md` listing each with its status, and `research/` for test results worth keeping. Each idea is rated for importance, size and fog, the unknowns between you and knowing whether it works. Ask for an overview and it suggests what to work on next.
+`/vdd:vdd-brainstormer` keeps ideas in `.scratch/_brainstorming/`: one file per idea, open or closed, in one folder, and `research/` for test results worth keeping. Each idea is rated for importance, size and fog, the unknowns between you and knowing whether it works, and an idea can have parts, up to three levels deep. Each file ends with a History of what happened to the idea: created, split, merged, renamed, closed. There is no index; the Brainstormer's first look at the folder shows every open idea, so it answers your first message straight away.
 
-It talks an idea through, clears fog with the cheapest test that answers the question, and grills you with Matt Pocock's `grilling` once you can decide. An idea ends `decided` or `dropped`, with the date and the reason. A dropped idea records when it is worth reopening, so it is not argued twice. Give a decided idea to `/vdd:vdd-start-loop` as the problem statement, or to the Wayfinder if it is too big for one loop.
+The VDD tool writes the files' structure, so the Brainstormer needs `/vdd:vdd-setup` once per machine, as a loop does. A store from VDD 0.15 is converted on your first Brainstormer session once you say yes; the old store is kept beside it as a backup.
+
+It talks an idea through, clears fog with the cheapest test that answers the question, and grills you with Matt Pocock's `grilling` once you can decide. An idea ends `decided` or `dropped`, with the date and the reason. A dropped idea records when it is worth reopening, so it is not argued twice. When a grilling ends in agreement, the Brainstormer asks whether to keep brainstorming or take the idea on, with `/vdd:vdd-start-loop` for one loop or the Wayfinder for an idea too big for one, and gives you the line to start it in a fresh session.
 
 ### 🗺 The Wayfinder
 

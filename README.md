@@ -207,7 +207,7 @@ You type five commands yourself. Every other Role is started by the loop.
 | 💡 Brainstormer | `/vdd:vdd-brainstormer` | `$vdd:vdd-brainstormer` | `/vdd-brainstormer` | `/vdd:vdd-brainstormer` |
 | 🗺 Wayfinder | `/vdd:vdd-wayfinder` | `$vdd:vdd-wayfinder` | `/vdd-wayfinder` | `/vdd:vdd-wayfinder` |
 
-Start a loop opens the Planner in your session. Open the Orchestrator in a second session when the Planner asks you to; it runs the rest of the loop. Starting a loop runs the environment check for you, so run it by hand only to check a repository before its first loop. The Brainstormer and the Wayfinder are optional and come before the loop; see [Before the loop](#-before-the-loop).
+Start a loop opens the Planner in your session. Open the Orchestrator in a second session when the Planner asks you to; it runs the rest of the loop. Starting a loop runs the environment check for you, so run it by hand only to check a repository before its first loop, or once per machine before you first use the Brainstormer. The Brainstormer and the Wayfinder are optional and come before the loop; see [Before the loop](#-before-the-loop).
 
 ## 🧪 Beta channel
 
@@ -299,7 +299,7 @@ Two optional Roles come before the loop. Both run in your own session, outside a
 
 | Role | Use it when | It leaves you with |
 |------|-------------|--------------------|
-| 💡 Brainstormer | you have more ideas than you can judge, or one you are unsure of | `.scratch/_brainstorming/`: one file per idea and an index, each idea talked through, tested or grilled until it is `decided` or `dropped` |
+| 💡 Brainstormer | you have more ideas than you can judge, or one you are unsure of | `.scratch/_brainstorming/`: one file per idea, each idea talked through, tested or grilled until it is `decided` or `dropped` |
 | 🗺 Wayfinder | a change is too big or too foggy for one loop | `.scratch/<effort>/handoffs/`: an overview and one handoff per loop, which that loop's Planner plans from |
 
 [**docs/VDD-WORKFLOW.md**](docs/VDD-WORKFLOW.md#-before-the-loop) explains each one and how to take its result into a loop.

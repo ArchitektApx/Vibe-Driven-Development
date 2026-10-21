@@ -21,11 +21,11 @@ Runs in the Orchestrator's session on Sign-off and is the only Role that pushes.
 _Avoid_: extra session, autopilot, bot
 
 **Brainstormer**:
-The Role that keeps a project's ideas in `.scratch/_brainstorming/`, one Idea file each plus an index, and talks or grills each idea to `decided` or `dropped`. Runs in the user's session, outside any Workflow, and names no next stage; the user carries a decided Idea file to a Planner or a Wayfinder by hand.
+The Role that keeps a project's ideas in `.scratch/_brainstorming/`, one Idea file per idea in one folder with no index, through the VDD tool, and talks or grills each idea to `decided` or `dropped`. Runs in the user's session, outside any Workflow, and needs Setup once per machine. A grilling that ends in agreement closes with the offer of the next Role: `vdd-start-loop` for one loop, `vdd-wayfinder` for more.
 _Avoid_: ideation, backlog, discovery
 
 **Idea file**:
-`.scratch/_brainstorming/<slug>.md`, written from the Brainstormer's template: frontmatter with status, importance, size, fog and typed relations, then Key Metrics, Summary, Proposal, Pro, Con, Open Questions, Evidence, Prior Art, Related Ideas, Decision and Next Steps. With the index, the Brainstormer's deliverables.
+`.scratch/_brainstorming/<slug>.md`, one idea, open or closed, written by the VDD tool: frontmatter with status, parent, importance, size, fog and last-updated, then Key Metrics, Summary, Proposal, Pro, Con, Open Questions, Evidence, Prior Art, Related Ideas, Decision, Next Steps and History last, one line per structural event.
 _Avoid_: proposal, RFC, note
 
 **Wayfinder**:
@@ -101,7 +101,7 @@ _Avoid_: notification, handoff message, ping
 _Avoid_: doorbell log, mailbox, inbox
 
 **Shared directory**:
-`${XDG_DATA_HOME:-$HOME/.local/share}/vdd/` on macOS and Linux and `%LOCALAPPDATA%\vdd\` on native Windows, outside the project, where Setup copies the VDD tool and from which the Planner and the Orchestrator run it. One per machine, shared by every Workflow on every Harness.
+`${XDG_DATA_HOME:-$HOME/.local/share}/vdd/` on macOS and Linux and `%LOCALAPPDATA%\vdd\` on native Windows, outside the project, where Setup copies the VDD tool and from which every Role runs it, the Brainstormer outside any Workflow included. One per machine, shared by every Role on every Harness.
 _Avoid_: install directory, scripts folder, hooks directory
 
 **VDD tool**:
