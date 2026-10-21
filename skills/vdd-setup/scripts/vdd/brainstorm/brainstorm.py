@@ -39,6 +39,7 @@ SPECS: dict[str, dict[str, str]] = {
     "move": {"set": L, "write": W},
     "split": {"idea": V, "part": L, "write": W},
     "merge": {"idea": V, "into": V, "reason": V, "reopen-when": V, "write": W},
+    "rename": {"idea": V, "to": V, "write": W},
 }
 REQUIRED = {
     "show": ["idea"],
@@ -49,6 +50,7 @@ REQUIRED = {
     "move": ["set"],
     "split": ["idea", "part"],
     "merge": ["idea", "into", "reason", "reopen-when"],
+    "rename": ["idea", "to"],
 }
 
 HELP = [
@@ -84,13 +86,17 @@ HELP = [
     "brainstorm merge --idea <slug> --into <slug> --reason <text> --reopen-when <text>",
     "  Drops the first idea into the second, which takes its open Next Steps. An idea with an open part, at any",
     "  level, cannot merge; its closed parts stay under it.",
+    "brainstorm rename --idea <slug> --to <slug>",
+    "  New slug for an idea and its research folder; relation lines, parent fields, links, research paths and",
+    "  slug code spans follow. Prose and History are never rewritten; prose that still names the old slug is",
+    "  listed.",
     "",
     "Run every command from the repository root. Every write needs --write; without it the command is a dry run.",
 ]
 
 Move = Callable[[Store, Dict[str, Any]], Tuple[List[str], str, str]]
 WRITES: dict[str, Move] = {"new": moves.new, "note": moves.note, "set": moves.set_cmd, "move": restructure.move,
-                           "split": restructure.split, "merge": restructure.merge}
+                           "split": restructure.split, "merge": restructure.merge, "rename": restructure.rename}
 Read = Callable[[Store, Dict[str, Any], Output], int]
 READS: dict[str, Read] = {"show": reads.show, "find": reads.find, "check": reads.check}
 

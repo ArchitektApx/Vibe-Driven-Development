@@ -9,13 +9,18 @@ everything below them.
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any
 
 from ..out import Failure
-from .ideafile import DEPTH_MAX, Idea, lead_tokens, relation_lead, squash, today
-from .moves import FIRST_STEP, Result, refuse_slug, tldr_warning, write_decision
+from .ideafile import (DEPTH_MAX, HISTORY, KIND_RE, Idea, is_open_step, lead_end, reflow,
+                       section_spans, squash, today)
+from .moves import FIRST_STEP, QUOTE, Result, refuse_slug, tldr_warning, write_decision
 from .store import Store
+
+# How many prose lines that still name an old slug rename lists.
+PROSE_MAX = 5
 
 
 def split(store: Store, values: dict[str, Any]) -> Result:
@@ -150,3 +155,111 @@ def merge(store: Store, values: dict[str, Any]) -> Result:
     if closed:
         lines.append("Its closed parts stay under %s: %s." % (a, ", ".join(closed)))
     return lines, "Tell the user in one line.", "merge %s into %s" % (a, b)
+
+
+def drop_open_steps(idea: Idea) -> None:
+    """Remove the open Next Steps, continuation lines included, so a merged
+    idea's steps live in the survivor only."""
+    out: list[str] = []
+    skipping = False
+    for line in idea.section("Next Steps").split("\n"):
+        if line.startswith("- "):
+            skipping = is_open_step(line)
+        elif not (skipping and line.strip() and line[:1] in (" ", "\t")):
+            skipping = False
+        if not skipping:
+            out.append(line)
+    idea.replace_section("Next Steps", "\n".join(out).strip("\n") or "None.")
+
+
+def rewrite_span(text: str, a: str, b: str) -> str:
+    """A code span that is exactly slug a, as slug b."""
+    return text.replace("`%s`" % a, "`%s`" % b)
+
+
+def rewrite_refs(text: str, a: str, b: str) -> str:
+    """Rewrite the references to slug a that rename owns, never prose: link
+    targets to a's file (with ./ and an #anchor), paths into research/a/, and
+    code spans that are exactly the slug."""
+    text = re.sub(r"\]\((\./)?%s\.md(#[^)\s]*)?\)" % re.escape(a),
+                  lambda m: "](%s%s.md%s)" % (m.group(1) or "", b, m.group(2) or ""), text)
+    text = re.sub(r"(?<![A-Za-z0-9_-])research/%s(?=/|\)|`|\s|$)" % re.escape(a), "research/" + b, text)
+    return rewrite_span(text, a, b)
+
+
+def rewrite_relations(idea: Idea, a: str, b: str) -> None:
+    """Rewrite slug a in the lead of every ## Related Ideas line, before its
+    first colon outside brackets, never in its reason."""
+    section = idea.section("Related Ideas")
+    if not section:
+        return
+    word = re.compile(r"(?<![a-z0-9-])%s(?![a-z0-9-])" % re.escape(a))
+    out: list[str] = []
+    for line in section.split("\n"):
+        match = KIND_RE.match(line[2:]) if line.startswith("- ") else None
+        if match:
+            rest = line[2:]
+            end = lead_end(rest, match.start(2))
+            line = "- " + word.sub(b, rest[:end]) + rest[end:]
+        out.append(line)
+    if out != section.split("\n"):
+        idea.replace_section("Related Ideas", "\n".join(out))
+
+
+def rewrite_idea(idea: Idea, a: str, b: str) -> None:
+    """Every structural reference to a in one idea, History left as written."""
+    spans = [s for s in section_spans(idea.body) if s[0] == HISTORY]
+    head, history = (idea.body[:spans[0][1]], idea.body[spans[0][1]:]) if spans else (idea.body, "")
+    idea.body = rewrite_refs(head, a, b) + history
+    rewrite_relations(idea, a, b)
+    tldr = idea.get("tldr")
+    if rewrite_span(tldr, a, b) != tldr:
+        idea.set("tldr", rewrite_span(tldr, a, b))
+    if idea.parent == a:
+        idea.set("parent", b)
+
+
+def rename(store: Store, values: dict[str, Any]) -> Result:
+    a, b = values["idea"], values["to"]
+    idea = store.get(a)
+    refuse_slug(store, b, "--to")
+    research_old = os.path.join(store.dir, "research", a)
+    if os.path.exists(os.path.join(store.dir, "research", b)):
+        raise Failure("research/%s/ exists already. Nothing was written." % b, "Ask the user for another name.")
+    rewritten: list[str] = []
+    for slug, other in sorted(store.ideas.items()):
+        before = (other.body, [list(p) for p in other.fm])
+        rewrite_idea(other, a, b)
+        if (other.body, other.fm) != before:
+            store.dirty.add(slug)
+            if slug != a:
+                rewritten.append(slug)
+    idea.add_history("renamed from %s" % a)
+    store.touch(a)
+    store.ideas[b] = store.ideas.pop(a)
+    idea.slug, idea.path = b, store.path(b)
+    store.dirty.discard(a)
+    store.dirty.add(b)
+    store.deleted.add(a)
+    if a in store.stamped:
+        store.stamped.remove(a)
+    has_research = os.path.isdir(research_old)
+    if has_research:
+        store.dir_moves.append(("research/" + a, "research/" + b))
+    word = re.compile(r"(?<![a-z0-9-])%s(?![a-z0-9-])" % re.escape(a))
+    prose = list(dict.fromkeys(
+        (slug, squash(line)) for slug, other in sorted(store.ideas.items())
+        for line in [other.tldr] + reflow(other.text()) if word.search(line)))
+    lines = ["Renamed %s to %s%s; relation lines, parent fields and links in %d other idea%s now name %s." % (
+        a, b, ", with research/%s/" % b if has_research else "", len(rewritten),
+        "" if len(rewritten) == 1 else "s", b)]
+    nxt = "Tell the user in one line."
+    if prose:
+        count = len(prose)
+        lines.append("Prose that still names %s, left as written (%d line%s):" % (a, count, "" if count == 1 else "s"))
+        for slug, line in prose[:PROSE_MAX]:
+            lines.append("%s: %s" % (slug, QUOTE + (line if len(line) <= 200 else line[:200] + " ...")))
+        nxt = ("Tell the user in one line, quote the %d line%s of prose that still name%s %s, and ask whether to "
+               "change them; on a yes, Read each idea file and Edit those lines." % (
+                   count, "" if count == 1 else "s", "s" if count == 1 else "", a))
+    return lines, nxt, "rename %s to %s" % (a, b)

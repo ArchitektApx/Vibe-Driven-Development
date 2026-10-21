@@ -2,9 +2,14 @@
 Brainstormer runs them: a staged store, each command run through vdd.py with
 VDD_TODAY set, and its output and the store's files asserted."""
 
+import base64
+import json
 import os
+import re
+import stat
+import unittest
 
-from vddtest import ToolTest
+from vddtest import WINDOWS, ToolTest
 
 S = ".scratch/_brainstorming/"
 TODAY = "2026-10-20"
@@ -780,3 +785,96 @@ class Families(BrainstormTest):
         self.assertEqual(survivor.count("Talk it through with the user."), 1, survivor)
         self.assertIn("- %s: merged from t3code-support" % TODAY, survivor)
         self.assertIn("No problems.", self.ok("check").text)
+
+
+class Rename(BrainstormTest):
+    def setUp(self):
+        BrainstormTest.setUp(self)
+        self.new("t3code-support", "T3 Code support", "VDD in T3 Code.")
+        self.new("t3-threads", "Threads", "Launch threads.", "--parent", "t3code-support")
+        self.box.write(S + "research/t3code-support/notes.md", "notes\n")
+        self.new("user", "User", "Uses it.", "--relate", "depends on t3code-support: t3code-support is wide")
+        self.ok("note", "--idea", "user", "--section", "Summary", "--text",
+                "Built on t3code-support; see `t3code-support`, [its file](t3code-support.md#top) and "
+                "[notes](research/t3code-support/notes.md).", "--write")
+
+    def test_rename_rewrites_references_and_never_prose_or_history(self):
+        """Prevents prose rewritten by a word-like slug (red team F6, D8, U5,
+        spec story 33): the relation lead, the parent field, the link target,
+        the research path and the code span follow; the prose word, the
+        relation's reason and every History line stay; the prose line is
+        listed (story 34). A code span in another idea's tldr follows too."""
+        self.new("extension", "Extension", "Extends `t3code-support` a little.")
+        self.new("echo", "Echo", "Wraps t3code-support plainly.", "--summary", "Wraps t3code-support plainly.")
+        history = self.read("t3code-support.md").split("## History")[1]
+        result = self.ok("rename", "--idea", "t3code-support", "--to", "t3code", "--write")
+        self.assertFalse(self.exists("t3code-support.md"))
+        self.assertTrue(self.exists("research/t3code/notes.md"))
+        self.assertFalse(self.exists("research/t3code-support"))
+        self.assertIn("parent: t3code\n", self.read("t3-threads.md"))
+        user = self.read("user.md")
+        self.assertIn("- depends on t3code: t3code-support is wide", user)
+        self.assertIn("tldr: Extends `t3code` a little.\n", self.read("extension.md"))
+        self.assertIn("Built on t3code-support; see `t3code`, [its file](t3code.md#top) and "
+                      "[notes](research/t3code/notes.md).", user)
+        self.assertIn("- %s: part added t3-threads" % TODAY, self.read("t3code.md"))
+        renamed = self.read("t3code.md").split("## History")[1]
+        self.assertTrue(renamed.startswith(history.rstrip("\n")), renamed)
+        self.assertIn("- %s: renamed from t3code-support" % TODAY, renamed)
+        self.assertIn("Prose that still names t3code-support, left as written (3 lines):", result.text)
+        self.assertIn("user:   > Built on t3code-support;", result.text)
+        self.assertEqual(result.text.count("echo:   > Wraps t3code-support plainly."), 1, result.text)
+        self.assertNext(result, "ask whether to change them")
+        self.assertIn("No problems.", self.ok("check").text)
+
+    def test_renaming_onto_an_existing_or_bad_slug_is_refused(self):
+        """Prevents a rename that overwrites an idea or names a bad file."""
+        before = self.tree()
+        for to in ("user", "Bad Slug", "index"):
+            result = self.bs("rename", "--idea", "t3code-support", "--to", to, "--write")
+            self.assertEqual(result.code, 1, result)
+        self.assertEqual(self.tree(), before)
+
+    def test_a_rename_killed_after_its_research_moved_is_finished(self):
+        """Prevents research stranded by a half rename (red team F5): a
+        journal left after the folder move is rolled forward by the next
+        command, so the research folder and the idea file agree."""
+        before = self.tree()
+        self.ok("rename", "--idea", "t3code-support", "--to", "t3code", "--write")
+        after = self.tree()
+        ops = [{"path": n, "before": b64(before.get(n)), "after": b64(after.get(n))}
+               for n in sorted(set(before) | set(after))
+               if "/" not in n and not n.startswith(".") and before.get(n) != after.get(n)]
+        for name in ops:
+            path = self.box.path(S + name["path"])
+            if name["before"] is None:
+                os.remove(path)
+            else:
+                with open(path, "wb") as handle:
+                    handle.write(before[name["path"]])
+        self.box.write(S + ".state/journal/20261020T000000-1-000001.json", json.dumps(
+            {"label": "rename t3code-support to t3code", "pid": 1, "ops": ops,
+             "dirs": [["research/t3code-support", "research/t3code"]]}))
+        result = self.ok("start")
+        self.assertIn("An interrupted write (rename t3code-support to t3code) was finished.", result.text)
+        self.assertEqual({k: v for k, v in self.tree().items() if k != ".state/ledger.json"},
+                         {k: v for k, v in after.items() if k != ".state/ledger.json"})
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "POSIX permissions")
+    def test_a_refused_research_move_writes_nothing(self):
+        """Prevents research stranded by a half rename (red team F5): the
+        folder moves first, and when it cannot, nothing is written."""
+        before = self.ideas_tree()
+        research = self.box.path(S + "research")
+        os.chmod(research, stat.S_IRUSR | stat.S_IXUSR)
+        try:
+            result = self.bs("rename", "--idea", "t3code-support", "--to", "t3code", "--write")
+        finally:
+            os.chmod(research, stat.S_IRWXU)
+        self.assertNotEqual(result.code, 0, result)
+        self.assertEqual(self.ideas_tree(), before)
+        self.assertEqual(os.listdir(self.box.path(S + ".state/journal")), [])
+
+
+def b64(data):
+    return None if data is None else base64.b64encode(data).decode("ascii")
