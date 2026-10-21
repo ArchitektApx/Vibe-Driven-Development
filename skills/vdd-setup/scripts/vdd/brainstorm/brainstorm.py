@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Tuple
 
 from .. import args, gitcmd, places, textfile
 from ..out import Output
-from . import journal, moves, reads, restructure
+from . import cleanup, journal, moves, reads, restructure
 from .lock import Lock
 from .store import LAYOUT, LAYOUT_FILE, Store, layout, require_layout, store_dir
 
@@ -40,6 +40,7 @@ SPECS: dict[str, dict[str, str]] = {
     "split": {"idea": V, "part": L, "write": W},
     "merge": {"idea": V, "into": V, "reason": V, "reopen-when": V, "write": W},
     "rename": {"idea": V, "to": V, "write": W},
+    "cleanup": {"status": L, "idea": L, "older": V, "write": W},
 }
 REQUIRED = {
     "show": ["idea"],
@@ -90,13 +91,18 @@ HELP = [
     "  New slug for an idea and its research folder; relation lines, parent fields, links, research paths and",
     "  slug code spans follow. Prose and History are never rewritten; prose that still names the old slug is",
     "  listed.",
+    "brainstorm cleanup (--status done|dropped [--status ...] | --idea <slug> [--idea ...]) [--older <N>d|<N>w]",
+    "  Removes closed ideas from the store, each kept as one line in removed.md; --older counts from the day",
+    "  the idea closed. Never removes an open idea, a closed idea with an open part, a closed idea an open",
+    "  idea waits on, or a part whose family stays. Research folders stay.",
     "",
     "Run every command from the repository root. Every write needs --write; without it the command is a dry run.",
 ]
 
 Move = Callable[[Store, Dict[str, Any]], Tuple[List[str], str, str]]
 WRITES: dict[str, Move] = {"new": moves.new, "note": moves.note, "set": moves.set_cmd, "move": restructure.move,
-                           "split": restructure.split, "merge": restructure.merge, "rename": restructure.rename}
+                           "split": restructure.split, "merge": restructure.merge, "rename": restructure.rename,
+                           "cleanup": cleanup.cleanup}
 Read = Callable[[Store, Dict[str, Any], Output], int]
 READS: dict[str, Read] = {"show": reads.show, "find": reads.find, "check": reads.check}
 

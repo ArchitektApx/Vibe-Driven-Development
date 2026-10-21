@@ -878,3 +878,144 @@ class Rename(BrainstormTest):
 
 def b64(data):
     return None if data is None else base64.b64encode(data).decode("ascii")
+
+
+class Cleanup(BrainstormTest):
+    def setUp(self):
+        BrainstormTest.setUp(self)
+        self.new("main-idea", "Main idea", "The whole thing.")
+        self.new("part-one", "Part one", "The first half.", "--parent", "main-idea")
+        self.new("gone-early", "Gone early", "A thing we tried in summer.", today="2026-08-01")
+        self.ok("set", "--idea", "gone-early", "--status", "dropped", "--decision", "tried it, no gain", "--reopen-when",
+                "the summer trial is run again", "--write", today="2026-08-02")
+        self.new("gone-late", "Gone late", "A thing we tried this month.", today="2026-10-05")
+        self.ok("set", "--idea", "gone-late", "--status", "dropped", "--decision", "no", "--reopen-when", "asked",
+                "--write", today="2026-10-06")
+        self.new("done-early", "Done early", "Shipped in the spring release.", today="2026-07-01")
+        self.ok("set", "--idea", "done-early", "--status", "done", "--decision", "shipped in 0.12", "--write",
+                today="2026-07-03")
+        self.box.write(S + "research/gone-early/notes.md", "measured\n")
+
+    def test_a_dry_run_lists_and_write_removes_with_a_record(self):
+        """Prevents a cleanup the user did not see (spec stories 35, 36, 38,
+        40): without --write it lists only the old enough idea and writes
+        nothing; with it the file goes, removed.md keeps its line, and its
+        research folder stays and is named."""
+        before = self.tree()
+        result = self.ok("cleanup", "--status", "dropped", "--older", "6w")
+        self.assertIn("Would remove 1 idea from the store", result.text)
+        self.assertIn("- gone-early [dropped, closed 2026-08-02]: Gone early", result.text)
+        self.assertNotIn("gone-late [", result.text)
+        self.assertIn("Their research folders stay: research/gone-early/.", result.text)
+        self.assertEqual(self.tree(), before)
+        result = self.ok("cleanup", "--status", "dropped", "--older", "6w", "--write")
+        self.assertIn("Their research folders stay: research/gone-early/.", result.text)
+        self.assertFalse(self.exists("gone-early.md"))
+        self.assertTrue(self.exists("gone-late.md"))
+        self.assertTrue(self.exists("research/gone-early/notes.md"))
+        self.assertIn("\n- gone-early | Gone early | dropped | closed 2026-08-02 | removed %s | Dropped 2026-08-02: "
+                      "tried it, no gain Reopen when: the summer trial is run again\n" % TODAY, self.read("removed.md"))
+        self.assertIn("No problems.", self.ok("check").text)
+
+    def test_never_everything_and_an_empty_or_vague_age_is_refused(self):
+        """Prevents a vague request wiping the store (spec story 39, red team
+        M3): no --status or --idea is refused, and an empty --older is never
+        read as any age."""
+        before = self.tree()
+        result = self.bs("cleanup", "--older", "6w", "--write")
+        self.assertEqual(result.code, 1, result)
+        self.assertIn("never removes every closed idea at once", result.text)
+        for argv in (["--older", ""], ["--older=   "], ["--older="]):
+            result = self.bs("cleanup", "--status", "done", *(argv + ["--write"]))
+            self.assertEqual(result.code, 1, result)
+            self.assertIn("--older is empty", result.text)
+        result = self.bs("cleanup", "--status", "done", "--older", "long ago", "--write")
+        self.assertEqual(result.code, 1, result)
+        self.assertIn("ask them for one", result.last)
+        self.assertEqual(self.tree(), before)
+
+    def test_refusals_name_their_reason_and_write_nothing(self):
+        """Prevents a removal that breaks the store (spec story 37): with
+        --idea an open idea, a closed idea with an open part and a closed
+        idea an open idea waits on refuse the whole command; with --status
+        they are kept and the rest go."""
+        self.ok("set", "--idea", "main-idea", "--status", "done", "--decision", "x", "--write")
+        self.ok("note", "--idea", "part-one", "--section", "Related Ideas", "--text", "depends on done-early: needs it",
+                "--write")
+        before = self.tree()
+        for slug, says in (("part-one", "part-one: it is open (idea)."),
+                           ("main-idea", "main-idea: its part part-one is open."),
+                           ("done-early", "done-early: the open idea part-one waits on it.")):
+            result = self.bs("cleanup", "--idea", slug, "--idea", "gone-late", "--write")
+            self.assertEqual(result.code, 1, result)
+            self.assertIn(says, result.text)
+        self.assertEqual(self.tree(), before)
+        result = self.ok("cleanup", "--status", "done", "--write")
+        self.assertIn("Kept main-idea: its part part-one is open.", result.text)
+        self.assertIn("Kept done-early: the open idea part-one waits on it.", result.text)
+        self.assertIn("Nothing to remove", result.text)
+
+    def test_a_part_whose_family_stays_is_kept(self):
+        """Prevents a part removed from under a parent that stays."""
+        self.ok("set", "--idea", "part-one", "--status", "done", "--decision", "x", "--write")
+        result = self.bs("cleanup", "--idea", "main-idea", "--write")
+        self.assertEqual(result.code, 1, result)
+        self.assertIn("main-idea: it is open (idea).", result.text)
+        self.ok("set", "--idea", "main-idea", "--status", "done", "--decision", "x", "--write")
+        result = self.bs("cleanup", "--idea", "main-idea", "--write")
+        self.assertEqual(result.code, 1, result)
+        self.assertIn("its part part-one stays in the store; remove them together", result.text)
+        self.ok("cleanup", "--idea", "main-idea", "--idea", "part-one", "--write")
+        self.assertFalse(self.exists("part-one.md"))
+
+    def test_age_counts_from_the_close_not_last_updated(self):
+        """Prevents a recent touch hiding an old close: the History line of
+        the close decides the age."""
+        self.ok("set", "--idea", "done-early", "--importance", "large", "--write")
+        result = self.ok("cleanup", "--status", "done", "--older", "8w")
+        self.assertIn("- done-early [done, closed 2026-07-03]", result.text)
+
+    def test_an_impossible_close_date_and_a_missing_one_keep_the_idea(self):
+        """Prevents a traceback with no Next: line from a hand-typed History
+        date (red team M12), and an idea of unknown age removed by age."""
+        text = self.read("done-early.md").replace("2026-07-03: status done", "2026-02-30: status done")
+        self.box.write(S + "done-early.md", text)
+        text = self.read("gone-early.md").replace("2026-08-02: status dropped", "2026-08-02: closed by hand")
+        self.box.write(S + "gone-early.md", text)
+        result = self.ok("cleanup", "--status", "done", "--status", "dropped", "--older", "8w")
+        self.assertIn("Kept done-early: its History line for when it closed has no real date (2026-02-30).",
+                      result.text)
+        self.assertIn("Kept gone-early: its History has no line for when it closed.", result.text)
+
+    def test_a_named_idea_of_another_status_is_named(self):
+        """Prevents a quiet success for an --idea the --status filter skipped
+        (red team M18)."""
+        result = self.bs("cleanup", "--status", "done", "--idea", "gone-early", "--write")
+        self.assertEqual(result.code, 1, result)
+        self.assertIn("gone-early: it is dropped, not done.", result.text)
+        self.assertTrue(self.exists("gone-early.md"))
+
+    def test_a_removed_idea_is_still_found_and_its_slug_never_reused(self):
+        """Prevents a removed idea coming back unnoticed or its identity
+        reused (spec stories 9, 10, 12, 16, red team M5): show prints its
+        removed.md line, find finds it, the duplicate check lists it, check
+        counts it as known, and new, split and rename refuse its slug."""
+        self.ok("note", "--idea", "main-idea", "--section", "Related Ideas", "--text", "related gone-early", "--write")
+        self.ok("cleanup", "--idea", "gone-early", "--write")
+        result = self.ok("show", "--idea", "gone-early")
+        self.assertIn("removed.md keeps this line", result.text)
+        self.assertIn("tried it, no gain", result.text)
+        result = self.ok("find", "--text", "summer")
+        self.assertIn("gone-early [removed %s; was dropped, closed 2026-08-02]: Gone early" % TODAY, result.text)
+        result = self.ok("new", "--slug", "summer-trial", "--title", "Summer trial again", "--tldr",
+                         "Run the summer trial again.")
+        self.assertIn("gone-early [removed %s, was dropped]" % TODAY, result.text)
+        self.assertIn("No problems.", self.ok("check").text)
+        before = self.tree()
+        for argv in (["new", "--slug", "gone-early", "--title", "Other", "--tldr", "Something else."],
+                     ["rename", "--idea", "gone-late", "--to", "gone-early"],
+                     ["split", "--idea", "main-idea", "--part", "gone-early | G | g."]):
+            result = self.bs(*(argv + ["--write"]))
+            self.assertEqual(result.code, 1, result)
+            self.assertIn("cleanup removed", result.text)
+        self.assertEqual(self.tree(), before)
