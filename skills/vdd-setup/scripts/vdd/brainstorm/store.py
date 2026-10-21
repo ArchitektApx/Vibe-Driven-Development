@@ -239,6 +239,9 @@ class Store:
             self.disk[slug] = data
             self.ideas[slug] = Idea(slug, path, textfile.decode(data))
         self.ledger = read_ledger(root)
+        # Each idea's parent as loaded, so a loop the command did not make is
+        # told apart from one it makes.
+        self.loaded_parents = {slug: idea.parent for slug, idea in self.ideas.items()}
         self.stamp_hand_edits()
 
     def stamp_hand_edits(self) -> None:
@@ -372,22 +375,50 @@ class Store:
         self.ideas[slug].set("last-updated", date or today())
         self.dirty.add(slug)
 
+    def loaded_loop(self, slug: str) -> bool:
+        """Whether slug sat in or under a parent loop as the store was
+        loaded, and the command left its parent and every parent above it
+        as they were."""
+        seen = {slug}
+        cur = slug
+        while True:
+            parent = self.loaded_parents.get(cur)
+            if cur not in self.ideas or self.ideas[cur].parent != parent:
+                return False
+            if not parent or parent not in self.ideas:
+                return False
+            if parent in seen:
+                return True
+            seen.add(parent)
+            cur = parent
+
     def structure_problems(self, slugs: set[str] | list[str]) -> list[str]:
         """Parent loops and families deeper than DEPTH_MAX among slugs and
-        everything below them."""
+        everything below them; a loop the command found as it is, and did
+        not change, is no problem of this command (existing_loops names
+        it)."""
+        probs: list[str] = []
+        for s in sorted(self.looked_at(slugs)):
+            if self.under_loop(s):
+                if not self.loaded_loop(s):
+                    probs.append("%s sits in or under a parent loop: %s" % (s, " -> ".join([s] + self.ancestors(s))))
+            elif self.depth(s) > DEPTH_MAX:
+                probs.append("%s would sit %d levels deep; a family keeps at most %d"
+                             % (s, self.depth(s), DEPTH_MAX))
+        return probs
+
+    def looked_at(self, slugs: set[str] | list[str]) -> set[str]:
         look: set[str] = set()
         for s in slugs:
             if s in self.ideas:
                 look.add(s)
                 look.update(self.descendants(s))
-        probs: list[str] = []
-        for s in sorted(look):
-            if self.under_loop(s):
-                probs.append("%s sits in or under a parent loop: %s" % (s, " -> ".join([s] + self.ancestors(s))))
-            elif self.depth(s) > DEPTH_MAX:
-                probs.append("%s would sit %d levels deep; a family keeps at most %d"
-                             % (s, self.depth(s), DEPTH_MAX))
-        return probs
+        return look
+
+    def existing_loops(self) -> list[str]:
+        """The ideas of a parent loop the store was loaded with that this
+        command writes, sorted: in the loop itself, not only under it."""
+        return sorted(s for s in self.looked_at(self.dirty) if self.in_cycle(s) and self.loaded_loop(s))
 
     def ops(self) -> list[tuple[str, bytes | None, bytes | None]]:
         """[(name, bytes before, bytes after)] of the command's file writes,

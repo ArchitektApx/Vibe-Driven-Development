@@ -34,6 +34,7 @@ DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 HISTORY = "History"
 ORDER = ("Key Metrics", "Summary", "Proposal", "Pro", "Con", "Open Questions", "Evidence", "Prior Art",
          "Related Ideas", "Decision", "Next Steps", HISTORY)
+KNOWN = {name.lower(): name for name in ORDER}
 TLDR_MAX = 200
 # A frontmatter line split_frontmatter reads: a key with its value, and a
 # list item under the key before it.
@@ -153,14 +154,17 @@ def fenced(lines: Iterable[str]) -> list[bool]:
 
 def section_spans(body: str) -> list[Span]:
     """[(name, heading start, content start, end)] of the H2 sections, as
-    character offsets, outside fenced code."""
+    character offsets, outside fenced code. A heading that names a section
+    of ORDER in other case gets ORDER's name."""
     lines = body.split("\n")
     inside = fenced(lines)
     starts: list[tuple[str, int, int]] = []
     offset = 0
     for i, line in enumerate(lines):
         if not inside[i] and line.startswith("## "):
-            starts.append((line[3:].strip(), offset, offset + len(line) + 1))
+            name = line[3:].strip()
+            name = KNOWN.get(" ".join(name.split()).lower(), name)
+            starts.append((name, offset, offset + len(line) + 1))
         offset += len(line) + 1
     spans: list[Span] = []
     for n, (name, head, content) in enumerate(starts):

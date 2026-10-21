@@ -242,6 +242,19 @@ class Note(BrainstormTest):
             self.assertEqual(result.code, 1, result)
             self.assertIn("The tool writes %s itself" % section, result.text)
 
+    def test_a_heading_in_other_case_is_the_known_section(self):
+        """Prevents a hand-written '## Next steps' hidden from show and tick
+        and doubled by note (finding 22): headings match case-insensitively."""
+        text = self.read("autosave.md").replace("## Next Steps\n\n- [ ] Talk it through with the user.",
+                                                "## Next steps\n\n- [ ] hand step")
+        self.box.write(S + "autosave.md", text)
+        self.assertIn("  > [ ] hand step", self.ok("show", "--idea", "autosave").text)
+        self.ok("note", "--idea", "autosave", "--section", "next steps", "--text", "Second step.", "--write")
+        self.ok("note", "--idea", "autosave", "--tick", "hand", "--write")
+        text = self.read("autosave.md")
+        self.assertEqual(text.lower().count("## next steps"), 1, text)
+        self.assertIn("## Next steps\n\n- [x] hand step\n- [ ] Second step.\n", text)
+
 
 class SetStatus(BrainstormTest):
     def setUp(self):
@@ -518,8 +531,10 @@ class Ledger(BrainstormTest):
 class Nesting(BrainstormTest):
     def test_a_fourth_level_and_a_parent_loop_are_refused(self):
         """Prevents a family the overview cannot show (spec 'Nesting'): new
-        refuses a fourth level, and a write over a hand-made parent loop is
-        refused naming it, while reads still finish."""
+        refuses a fourth level; a hand-made parent loop leaves reads
+        finishing, start listing each idea once, and a write to its members
+        going through with the move that breaks it named (finding 23), while
+        a write that deepens it is refused."""
         self.new("a")
         self.new("b", "B", "x.", "--parent", "a")
         self.new("c", "C", "x.", "--parent", "b")
@@ -530,9 +545,19 @@ class Nesting(BrainstormTest):
         self.box.write(S + "a.md", text)
         for argv in (["start"], ["show", "--idea", "b"]):
             self.assertEqual(self.box.run("brainstorm", *argv, env=self.box.env(VDD_TODAY=TODAY), timeout=20).code, 0)
-        result = self.bs("set", "--idea", "b", "--size", "large", "--write")
+        start = self.ok("start").text
+        self.assertEqual([line.split()[1] for line in start.split("\n") if line.lstrip().startswith("- ")],
+                         ["a", "b", "c"])
+        result = self.ok("set", "--idea", "b", "--size", "large", "--write")
+        self.assertIn("a -> c -> b -> a", result.text)
+        self.assertIn("brainstorm move --set a=top --write", result.text)
+        self.assertIn("size: large", self.read("b.md"))
+        before = self.ideas_tree()
+        result = self.bs("new", "--slug", "e", "--title", "E", "--tldr", "x.", "--parent", "b", "--write")
         self.assertEqual(result.code, 1, result)
-        self.assertIn("parent loop", result.text)
+        self.assertEqual(self.ideas_tree(), before)
+        self.ok("move", "--set", "a=top", "--write")
+        self.assertNotIn("parent loop", self.ok("set", "--idea", "b", "--size", "small", "--write").text)
 
 
 class Duplicates(BrainstormTest):

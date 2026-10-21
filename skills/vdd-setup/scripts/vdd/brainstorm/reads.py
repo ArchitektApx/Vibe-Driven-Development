@@ -55,13 +55,15 @@ def family_tops(store: Store) -> list[tuple[str, str]]:
 
 
 def family_members(store: Store, top: str) -> list[tuple[str, int]]:
-    """[(slug, depth below top)] of top and its open parts, depth first."""
+    """[(slug, depth below top)] of top and its open parts, depth first. A
+    part in or under a parent loop heads its own line (family_tops), so it
+    is never listed twice."""
     out: list[tuple[str, int]] = []
 
     def walk(slug: str, depth: int, seen: set[str]) -> None:
         out.append((slug, depth))
         for kid in store.children(slug):
-            if store.ideas[kid].is_open and kid not in seen:
+            if store.ideas[kid].is_open and kid not in seen and not store.under_loop(kid):
                 walk(kid, depth + 1, seen | {kid})
 
     walk(top, 0, {top})

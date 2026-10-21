@@ -76,7 +76,7 @@ HELP = [
     "  capturing; --despite <slug> leaves one out of that list.",
     "brainstorm note --idea <slug> (--section <name> --text <text> [--text ...] | --tick <step>)",
     "  Adds prose to a section (Evidence items are dated, Next Steps become open steps), or ticks the open",
-    "  Next Step that starts with --tick. To rewrite a section, Read the file and Edit it.",
+    "  Next Step that starts with --tick. To rewrite a section, Read the file and Edit only that section in place.",
     "brainstorm set --idea <slug> [--idea ...] [--status <s>] [--decision <text>] [--reopen-when <text>]",
     "    [--importance|--size|--fog <m>] [--tldr <text>] [--title <text>]",
     "  Status idea, discussed, shaped, decided, in-progress, done or dropped. done, dropped and decided need",
@@ -170,7 +170,7 @@ def write(root: str, command: str, values: dict[str, Any]) -> int:
         would = store.planned()
         out.line("Dry run, nothing was written. With --write, brainstorm %s would write %s:"
                  % (command, ", ".join(would) or "nothing"))
-        for line in lines:
+        for line in lines + loop_lines(store):
             out.line(line)
         return out.finish(store.dry_next or "If this is what the user asked for, run the same command again with "
                           "--write.")
