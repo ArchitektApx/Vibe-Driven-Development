@@ -23,6 +23,33 @@ SCRIPTS = os.path.join(REPO, "skills", "vdd-setup", "scripts")
 ENTRY = os.path.join(SCRIPTS, "vdd.py")
 WINDOWS = os.name == "nt"
 
+# The origin URL a PR scene's remote keeps, and the gh stub that records its
+# argv and standard input and plays the outcome a test's plan sets.
+URL = "https://github.com/example/repo.git"
+GH = """#!%(python)s
+import json, os, sys
+argv = sys.argv[1:]
+data = sys.stdin.read() if "--body-file" in argv else ""
+with open(%(log)r, "a") as handle:
+    handle.write(json.dumps({"argv": argv, "stdin": data}) + "\\n")
+with open(%(plan)r) as handle:
+    plan = json.load(handle)
+if argv[:2] == ["auth", "status"]:
+    key = "auth"
+elif argv[:2] == ["pr", "list"] and "--head" in argv:
+    key = "head"
+elif argv[:2] == ["pr", "list"]:
+    key = "merged"
+elif argv[:2] == ["pr", "create"]:
+    key = "create"
+else:
+    key = "other"
+code, out, err = plan.get(key, [0, "", ""])
+sys.stdout.write(out)
+sys.stderr.write(err)
+sys.exit(code)
+"""
+
 # Variables that move a store, the Shared directory or the home, or that
 # name a Codex thread. Each test sets the ones it needs.
 CLEARED = (
@@ -42,8 +69,42 @@ CLEARED = (
     "VDD_TODAY",
     "VDD_SAVE_PAUSE_SECONDS",
     "PYTHONDONTWRITEBYTECODE",
+    "PYTHONPYCACHEPREFIX",
 )
 
+
+# The bytecode prefix. Every tool run reads its compiled stdlib and vdd
+# package from one temporary PYTHONPYCACHEPREFIX outside the repository,
+# filled once per process, so no run compiles them again. The tool's own
+# dont_write_bytecode stays: it stops writes, not reads. A prefix named by
+# VDD_TEST_PYCACHE (the runner fills one for its workers) belongs to whoever
+# set it; one this module makes is removed at exit.
+SKIPPED_STDLIB = re.compile(r"[/\\](site-packages|test|tests|idlelib|tkinter|turtledemo|lib2to3|ensurepip)[/\\]")
+
+
+def fill_pycache(prefix):
+    """Compile the stdlib, at the path the interpreter imports it from, and
+    the vdd package into prefix, serially (compileall -j0 fails in a
+    sandbox)."""
+    code = ("import compileall, os, re, sys\n"
+            "compileall.compile_dir(os.path.dirname(os.__file__), quiet=2, rx=re.compile(sys.argv[1]))\n"
+            "compileall.compile_dir(sys.argv[2], quiet=2)\n")
+    env = dict(os.environ, PYTHONPYCACHEPREFIX=prefix)
+    subprocess.run([sys.executable, "-B", "-c", code, SKIPPED_STDLIB.pattern, os.path.join(SCRIPTS, "vdd")],
+                   env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+
+def pycache_prefix():
+    named = os.environ.get("VDD_TEST_PYCACHE")
+    if named and os.path.isdir(named):
+        return named
+    prefix = os.path.realpath(tempfile.mkdtemp(prefix="vdd-pycache-"))
+    atexit.register(shutil.rmtree, prefix, True)
+    fill_pycache(prefix)
+    return prefix
+
+
+PYCACHE = pycache_prefix()
 
 # The plan Sign-off line a loop's state file carries before its code Loop.
 PLAN_SIGNED = "plan 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 checks writing-for-agents ran"
@@ -237,6 +298,7 @@ class Sandbox:
         env = {k: v for k, v in os.environ.items() if k not in CLEARED}
         env["HOME"] = self.home
         env["USERPROFILE"] = self.home
+        env["PYTHONPYCACHEPREFIX"] = PYCACHE
         if WINDOWS:
             env["LOCALAPPDATA"] = self.data
         else:
@@ -259,6 +321,14 @@ class Sandbox:
             timeout=timeout,
         )
         result = Result(proc.returncode, proc.stdout)
+        check_next(self, result, self.test)
+        return result
+
+    def finish(self, proc, timeout=120):
+        """The Result of a tool run started with subprocess.Popen, once it
+        ends, its Next: steps checked as a run's are."""
+        data, _ = proc.communicate(timeout=timeout)
+        result = Result(proc.returncode, data)
         check_next(self, result, self.test)
         return result
 

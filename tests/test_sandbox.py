@@ -8,7 +8,7 @@ import sys
 import unittest
 import warnings
 
-from vddtest import ENTRY, PLAN_SIGNED, Result, Sandbox, SceneTest, ToolTest, check_next
+from vddtest import ENTRY, PLAN_SIGNED, REPO, Result, Sandbox, SceneTest, ToolTest, check_next
 
 
 class CleanupTest(unittest.TestCase):
@@ -82,6 +82,16 @@ class OtherSceneTest(CopiedSceneTest):
 
     def test_the_template_is_its_own(self):
         self.assertEqual(self.staged_by, "OtherSceneTest")
+
+
+class PycacheTest(ToolTest):
+    def test_a_sandbox_run_reads_bytecode_from_outside_the_repository(self):
+        """Prevents a tool run that compiles its modules again on every call,
+        or one that writes bytecode into the repository."""
+        prefix = self.box.env()["PYTHONPYCACHEPREFIX"]
+        self.assertTrue(os.path.isdir(prefix))
+        self.assertFalse(os.path.realpath(prefix).startswith(os.path.realpath(REPO) + os.sep))
+        self.assertTrue(any(name.endswith(".pyc") for _, _, names in os.walk(prefix) for name in names))
 
 
 class NextCheckTest(ToolTest):
