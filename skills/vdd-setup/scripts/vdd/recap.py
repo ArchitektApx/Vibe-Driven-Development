@@ -137,5 +137,5 @@ def write(loop: Loop, state: State, additions: dict[str, list[str]]) -> None:
         if sections[name]:
             sections[name].append("")
         sections[name].extend(lines)
-    textfile.write_or_refuse(path(loop), render(loop, state, sections), path(loop),
+    textfile.write_or_refuse(path(loop), render(loop, state, sections), textfile.shown(path(loop)),
                              "Otherwise tell the user the Recap cannot be written, and stop.")

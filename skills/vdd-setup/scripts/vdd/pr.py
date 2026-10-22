@@ -358,7 +358,7 @@ def close(loop: loopfile.Loop, out: Output) -> None:
             out.line("Deleted the Codex armed file %s." % name)
     except OSError as error:
         raise refused(
-            "Could not close the loop %s: %s" % (loop.slug, error),
+            "Could not close the loop %s: %s" % (loop.slug, textfile.reason(error)),
             "Otherwise tell the user the loop could not be closed, and stop.",
         )
     out.line("Closed: the loop %s. Its files stay in %s/ as the record." % (loop.slug, loop.tracker))

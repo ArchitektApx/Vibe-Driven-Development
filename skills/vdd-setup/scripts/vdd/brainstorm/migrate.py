@@ -428,14 +428,16 @@ def run(root: str, events_raw: list[str], write: bool) -> Result:
     except OSError as error:
         shutil.rmtree(staging, ignore_errors=True)
         raise Failure("The old store could not be renamed to the backup (%s); it is untouched and nothing was written."
-                      % error, "If a sandbox refused it, rerun the same command once outside the sandbox. Otherwise "
-                               "tell the user a file in .scratch/_brainstorming/ is held open (an editor?), ask them "
-                               "to close it, and run the command again.")
+                      % textfile.reason(error),
+                      "If a sandbox refused it, rerun the same command once outside the sandbox. Otherwise "
+                      "tell the user a file in .scratch/_brainstorming/ is held open (an editor?), ask them "
+                      "to close it, and run the command again.")
     try:
         os.rename(staging, store)
     except OSError as error:
         raise Failure("The new store could not be renamed into place (%s). The backup is complete; the staging waits "
-                      "in %s/." % (error, STAGING), "Run brainstorm migrate --write again: it finishes the swap.")
+                      "in %s/." % (textfile.reason(error), STAGING),
+                      "Run brainstorm migrate --write again: it finishes the swap.")
     open_n = sum(1 for i in ideas.values() if i.is_open)
     return ["Migrated %d ideas to layout %s: %d open, %d closed, each in its own file as before; %d events from the "
             "Log carried." % (len(ideas), LAYOUT, open_n, len(ideas) - open_n, len(events))], "migrated", []
