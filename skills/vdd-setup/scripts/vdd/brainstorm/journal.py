@@ -24,7 +24,7 @@ from .. import textfile
 from ..out import TELL
 from .ideafile import SLUG_PATTERN, is_idea_name
 from .lock import Lock, LockLost
-from .store import REMOVED, RETRY_SECONDS, Store, ledger_sha, read_once, rel, state_dir, store_dir, update_ledger
+from .store import REMOVED, Store, ledger_sha, read_once, rel, state_dir, store_dir, update_ledger
 
 KEYS = ("label", "pid", "ops", "dirs")
 RESEARCH_DIR = re.compile("^research/" + SLUG_PATTERN + "$")
@@ -70,7 +70,7 @@ def write_journal(root: str, label: str, ops: Ops, dirs: Dirs) -> str:
 
 
 def current(path: str) -> bytes | None:
-    return textfile.read_bytes(path, RETRY_SECONDS) if os.path.isfile(path) else None
+    return textfile.read_bytes(path) if os.path.isfile(path) else None
 
 
 def apply(root: str, ops: Ops, dirs: Dirs, side: str, lock: Lock | None = None) -> None:

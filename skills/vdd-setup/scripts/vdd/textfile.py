@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Container, Iterable
+from typing import Callable, Container, Iterable, TypeVar
 
 from .out import Failure, refused
 
@@ -19,36 +19,53 @@ def decode(data: bytes) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
-def read_bytes(path: str, retry_seconds: float = 0.0) -> bytes:
-    """The file's bytes. Raises OSError, FileNotFoundError included.
+# A PermissionError is retried this long on Windows, where a file another
+# process holds open for a moment (a sharing violation) and a denial look
+# alike. On POSIX a PermissionError is a denial and is raised at once.
+RETRY_SECONDS = 2.0
+WINDOWS = os.name == "nt"
 
-    With retry_seconds, a PermissionError is retried until that much time has
-    passed: on Windows a sharing violation and a denial look alike."""
-    deadline = time.monotonic() + retry_seconds
+T = TypeVar("T")
+
+
+def retried(action: Callable[[], T]) -> T:
+    """action(), with a PermissionError retried for RETRY_SECONDS on Windows
+    only. Raises the last error when the time runs out, and at once on
+    POSIX."""
+    deadline = time.monotonic() + RETRY_SECONDS
     while True:
         try:
-            with open(path, "rb") as handle:
-                return handle.read()
+            return action()
         except PermissionError:
-            if time.monotonic() >= deadline:
+            if not WINDOWS or time.monotonic() >= deadline:
                 raise
             time.sleep(0.1)
 
 
-def read(path: str, retry_seconds: float = 0.0) -> str | None:
-    """The file's text, or None when it does not exist. retry_seconds as in
-    read_bytes."""
+def read_bytes(path: str) -> bytes:
+    """The file's bytes, retried as retried says. Raises OSError,
+    FileNotFoundError included."""
+
+    def read_once() -> bytes:
+        with open(path, "rb") as handle:
+            return handle.read()
+
+    return retried(read_once)
+
+
+def read(path: str) -> str | None:
+    """The file's text, or None when it does not exist."""
     try:
-        return decode(read_bytes(path, retry_seconds))
+        return decode(read_bytes(path))
     except FileNotFoundError:
         return None
     except NotADirectoryError:
         return None
 
 
-def lines(path: str, retry_seconds: float = 0.0) -> list[str] | None:
+def lines(path: str) -> list[str] | None:
     """The file's lines without line ends, or None when it does not exist."""
-    text = read(path, retry_seconds)
+    text = read(path)
     if text is None:
         return None
     if text.endswith("\n"):
@@ -59,21 +76,14 @@ def lines(path: str, retry_seconds: float = 0.0) -> list[str] | None:
 def write(path: str, data: bytes) -> None:
     """Write bytes to path whole: a reader sees the old file or the new one.
 
-    The rename is retried on PermissionError for two seconds: on Windows a
-    reader holding the file open makes os.replace fail for a moment. Raises
-    OSError when the write fails, leaving the old file in place."""
+    The rename is retried as retried says: on Windows a reader holding the
+    file open makes os.replace fail for a moment. Raises OSError when the
+    write fails, leaving the old file in place."""
     temp = "%s.vdd-new-%d" % (path, os.getpid())
     try:
         with open(temp, "wb") as handle:
             handle.write(data)
-        for attempt in range(20):
-            try:
-                os.replace(temp, path)
-                return
-            except PermissionError:
-                if attempt == 19:
-                    raise
-                time.sleep(0.1)
+        retried(lambda: os.replace(temp, path))
     finally:
         if os.path.lexists(temp):
             try:

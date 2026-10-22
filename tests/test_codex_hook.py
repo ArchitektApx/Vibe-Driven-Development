@@ -14,7 +14,7 @@ import sys
 import threading
 import unittest
 
-from vddtest import REPO, WINDOWS, ToolTest
+from vddtest import REPO, SCRIPTS, WINDOWS, ToolTest
 
 ID = "019a0001-aaaa-7bbb-8ccc-0123456789ab"
 OTHER = "019a0002-dddd-7eee-8fff-0123456789ab"
@@ -37,6 +37,9 @@ class CodexHookTest(ToolTest):
     def setUp(self):
         ToolTest.setUp(self)
         os.makedirs(self.box.path(TRACKER))
+        # The reason names the Shared copy; with one there, the Next: sweep
+        # runs the step the Role would run.
+        shutil.copytree(SCRIPTS, self.box.shared, ignore=shutil.ignore_patterns("__pycache__"))
 
     def loop(self, harness="Codex"):
         self.box.write_loop("feat", harness=harness)
@@ -344,10 +347,11 @@ class CodexHookTest(ToolTest):
         finally:
             release()
 
-    @unittest.skipUnless(WINDOWS or hasattr(os, "chflags"), "a file that refuses its delete needs Windows or chflags")
+    @unittest.skipUnless(WINDOWS, "only Windows retries a refused delete")
     def test_an_armed_file_held_for_a_moment_is_still_deleted(self):
         """A delete refused for a moment, as a scanner briefly holding the file
-        on Windows refuses it, is retried, so the claim ends as usual."""
+        on Windows refuses it, is retried, so the claim ends as usual. POSIX
+        reports a refused delete at once."""
         self.loop()
         self.armed(ID)
         self.ring("Orchestrator", P1)

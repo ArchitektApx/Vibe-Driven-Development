@@ -2,9 +2,13 @@
 finding the loop."""
 
 import os
+import stat
+import subprocess
+import sys
+import time
 import unittest
 
-from vddtest import ToolTest
+from vddtest import WINDOWS, ToolTest
 
 ANSWERS = ["--minors", "fix", "--pr", "ask at sign-off"]
 SUMMARY = [
@@ -292,6 +296,77 @@ class ShowTest(LoopTest):
                 self.assertNotEqual(result.code, 0, result)
                 self.assertContract(result)
                 self.assertIn("rerun Setup", result.text)
+
+
+# Holds a lock on a file's bytes for a time, then releases it: the sharing
+# violation another process (an editor, an indexer) gives a reader on Windows.
+LOCKER = """
+import msvcrt, os, sys, time
+path, hold = sys.argv[1], float(sys.argv[2])
+size = os.path.getsize(path)
+with open(path, "r+b") as handle:
+    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, size)
+    sys.stdout.write("locked\\n")
+    sys.stdout.flush()
+    time.sleep(hold)
+    handle.seek(0)
+    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, size)
+"""
+
+
+class ReadRetryTest(LoopTest):
+    """A read retried through a sharing violation on Windows, and a denial
+    reported at once on POSIX."""
+
+    def setUp(self):
+        LoopTest.setUp(self)
+        self.new("demo", *ANSWERS, write=True)
+        self.path = self.box.path(".scratch", "demo", "loop.md")
+
+    def locked(self, hold):
+        """loop show while another process holds loop.md's bytes locked for
+        hold seconds."""
+        locker = subprocess.Popen([sys.executable, "-c", LOCKER, self.path, str(hold)], stdout=subprocess.PIPE)
+        self.addCleanup(locker.wait)
+        out = locker.stdout
+        if out is None:
+            self.fail("the locker has no standard output")
+        self.assertEqual(out.readline().strip(), b"locked")
+        out.close()
+        return self.loop("show", "--slug", "demo")
+
+    @unittest.skipUnless(WINDOWS, "a byte-range lock that makes a read fail is Windows only")
+    def test_a_read_held_for_a_moment_is_retried(self):
+        """Prevents an untested Windows retry: loop.md locked by another
+        process for 1.2 s is read once the lock goes. The hold outlasts the
+        tool's start on a loaded runner, so the first read meets the lock,
+        and ends well inside the 2 s retry window."""
+        result = self.locked(1.2)
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("State: open", result.lines)
+
+    @unittest.skipUnless(WINDOWS, "a byte-range lock that makes a read fail is Windows only")
+    def test_a_read_held_past_the_retry_time_is_refused(self):
+        """Prevents an untested Windows retry: loop.md locked past the
+        retry time is refused, not waited on for ever."""
+        result = self.locked(4.0)
+        self.assertNotEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("loop.md", result.text)
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
+    def test_a_denied_read_is_refused_at_once_on_posix(self):
+        """Prevents the 2 s wait on a real denial: on POSIX a PermissionError
+        is no sharing violation, so loop show refuses without retrying."""
+        os.chmod(self.path, 0)
+        self.addCleanup(os.chmod, self.path, stat.S_IRUSR | stat.S_IWUSR)
+        started = time.monotonic()
+        result = self.loop("show", "--slug", "demo")
+        elapsed = time.monotonic() - started
+        self.assertNotEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("Permission denied", result.text)
+        self.assertLess(elapsed, 1.0)
 
 
 class PRAuthorTest(LoopTest):

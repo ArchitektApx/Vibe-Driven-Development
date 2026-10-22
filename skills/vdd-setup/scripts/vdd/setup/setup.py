@@ -449,7 +449,7 @@ def plan_gitignore(path: str) -> tuple[bytes, bytes, list[str], list[str]]:
     removed only when the whole line, trimmed of surrounding whitespace,
     equals a retired entry: docs/PLAN.md and !PLAN.md are the user's own."""
     try:
-        before = textfile.read_bytes(path, 2.0)
+        before = textfile.read_bytes(path)
     except FileNotFoundError:
         before = b""
     text = before.decode("utf-8", "surrogateescape")

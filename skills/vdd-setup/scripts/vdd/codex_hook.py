@@ -20,7 +20,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-import time
 
 from . import doorbells, loopfile, places, textfile
 from .harness import codex as codex_harness
@@ -113,7 +112,7 @@ def claim(path: str, marker: str) -> tuple[str, int] | None:
     keep = False
     try:
         try:
-            lines = textfile.lines(path, doorbells.LOCK_RETRY_SECONDS)
+            lines = textfile.lines(path)
         except OSError:
             return None
         claimed = well_formed(lines)
@@ -129,22 +128,16 @@ def claim(path: str, marker: str) -> tuple[str, int] | None:
 
 
 def removed(path: str) -> bool:
-    """Delete path, retrying a PermissionError for LOCK_RETRY_SECONDS: on
-    Windows a program holding the file open refuses the delete. True once the
+    """Delete path, retried as textfile.retried says: on Windows a program
+    holding the file open refuses the delete for a moment. True once the
     file is gone."""
-    deadline = time.monotonic() + doorbells.LOCK_RETRY_SECONDS
-    while True:
-        try:
-            os.remove(path)
-            return True
-        except FileNotFoundError:
-            return True
-        except PermissionError:
-            if time.monotonic() >= deadline:
-                return False
-            time.sleep(0.1)
-        except OSError:
-            return False
+    try:
+        textfile.retried(lambda: os.remove(path))
+        return True
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
 
 
 def well_formed(lines: list[str] | None) -> tuple[str, int] | None:

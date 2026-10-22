@@ -126,7 +126,7 @@ def read_state(directory: str) -> str | None:
     """OPEN or CLOSED from the state file in directory, or None when there is
     none. A file with no loop line reads as CLOSED."""
     path = os.path.join(directory, STATE_NAME)
-    lines = textfile.lines(path, 2.0)
+    lines = textfile.lines(path)
     if lines is None:
         return None
     header(path, lines)
@@ -140,7 +140,7 @@ def read_state(directory: str) -> str | None:
 
 def state_version(directory: str) -> str | None:
     """The state file's version, "1" or "2", or None when there is none."""
-    lines = textfile.lines(os.path.join(directory, STATE_NAME), 2.0)
+    lines = textfile.lines(os.path.join(directory, STATE_NAME))
     if not lines or not lines[0].startswith(STATE_PREFIX):
         return None
     return lines[0][len(STATE_PREFIX):].strip()
@@ -194,7 +194,7 @@ class State:
     def __init__(self, directory: str) -> None:
         self.dir = directory
         self.path = os.path.join(directory, STATE_NAME)
-        lines: list[str] = textfile.lines(self.path, 2.0) or []
+        lines: list[str] = textfile.lines(self.path) or []
         if lines:
             header(self.path, lines)
         self.lines = lines[1:]

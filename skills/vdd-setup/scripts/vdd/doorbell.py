@@ -116,7 +116,7 @@ def ring(place: doorbells.Place, role: str, harness: Harness, write: bool) -> in
             place.append(to, line)
         except OSError as error:
             raise textfile.write_refusal(
-                "the Doorbell file %s" % place.file, error,
+                "the Doorbell file %s" % textfile.shown(place.file), error,
                 "Otherwise print the Doorbell line for the user to paste into the %s's Session, and stop." % to,
             )
         out.line("Rung: the Doorbell file now holds it, addressed to the %s." % to)
@@ -151,7 +151,7 @@ def take(place: doorbells.Place, role: str, harness: Harness, pasted: str | None
             )
         # A wait an earlier Session started wakes that Session, not this one.
         doorbells.clear_marker(place, role)
-    entries = place.entries(role, doorbells.LOCK_RETRY_SECONDS)
+    entries = place.entries(role)
     state = place.load_state(role)
     out = Output()
     if pasted is not None:
@@ -231,7 +231,7 @@ def wait(place: doorbells.Place, role: str, harness: Harness) -> int:
         found = doorbells.watch(place, role, beat=marker.beat)
     except OSError as error:
         raise Failure(
-            "The wait could not read its files: %s" % error,
+            "The wait could not read its files: %s" % textfile.described(error),
             doorbells.hand_relay(role, harness, place.slug),
         )
     finally:

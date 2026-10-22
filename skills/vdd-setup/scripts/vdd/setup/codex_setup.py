@@ -75,11 +75,11 @@ class Migration:
 
     def plan(self) -> None:
         try:
-            raw = textfile.read_bytes(self.path, 2.0)
+            raw = textfile.read_bytes(self.path)
         except FileNotFoundError:
             return
         except OSError as error:
-            self.error = str(error)
+            self.error = "it could not be read (%s)" % textfile.reason(error)
             return
         self.raw = raw
         self.before = textfile.decode(raw)
@@ -154,7 +154,7 @@ def trust_state(path: str) -> str:
     standard-library read of TOML table headers and dotted keys; anything it
     cannot follow is unknown."""
     try:
-        text = textfile.decode(textfile.read_bytes(path, 2.0))
+        text = textfile.decode(textfile.read_bytes(path))
     except FileNotFoundError:
         return "absent"
     except OSError:
@@ -311,7 +311,7 @@ def run(setup: Setup) -> None:
     if migration.error:
         out.line("%s: left untouched, %s." % (label, migration.error))
         out.tell(
-            "Setup left %s untouched because %s. If it holds VDD's old Stop hook entry, remove that "
+            "Setup left %s untouched: %s. If it holds VDD's old Stop hook entry, remove that "
             "entry by hand." % (label, migration.error)
         )
     elif not migration.removed:
@@ -338,7 +338,7 @@ def run(setup: Setup) -> None:
                 out.line("%s: checked, it parses." % label)
             except (OSError, ValueError) as error:
                 setup.failed.append("hooks.json")
-                out.line("Not changed: %s (%s)." % (label, error))
+                out.line("Not changed: %s (%s)." % (label, textfile.reason(error)))
     for event, command in migration.others:
         out.line("%s: a %s hook naming vdd-codex-stop that Setup did not write stays: %s" % (label, event, command))
     config = os.path.join(home, "config.toml")

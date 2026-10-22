@@ -183,7 +183,7 @@ class Loop:
         self.tracker = ".scratch/" + slug
         self.file = os.path.join(self.dir, NAME)
         self.relative = ".scratch/%s/%s" % (slug, NAME)
-        self.lines: list[str] = textfile.lines(self.file, 2.0) or []
+        self.lines: list[str] = textfile.lines(self.file) or []
         self.fields = fields_of(self.lines)
 
     def check(self) -> Loop:

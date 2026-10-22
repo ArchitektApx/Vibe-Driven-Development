@@ -203,7 +203,7 @@ class Flow:
         return self.state.lines.count("return %s %d miss" % (role, number))
 
     def rung(self) -> int:
-        rounds = [e.doorbell.round for e in self.place.entries("Orchestrator", doorbells.LOCK_RETRY_SECONDS)
+        rounds = [e.doorbell.round for e in self.place.entries("Orchestrator")
                   if e.doorbell]
         return max(rounds) if rounds else 0
 
