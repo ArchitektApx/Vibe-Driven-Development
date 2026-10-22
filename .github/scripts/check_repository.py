@@ -621,6 +621,70 @@ def check_write_access(repo: Repo) -> List[str]:
     return problems
 
 
+def check_test_matrix(repo: Repo) -> List[str]:
+    """The VDD tool runs on the user's Python on macOS, Linux and native
+    Windows, from 3.9 (Apple's Command Line Tools) to the newest, so a new
+    Python or a Windows path quirk fails a PR here, not a user. verify.yml's
+    test matrix holds every one of ubuntu, windows and macos against both
+    '3.9' and '3.x', and the test job takes its runs-on and its setup-python
+    version from the leg, or every leg runs on one runner and one Python."""
+    if VERIFY not in repo.tracked:
+        return []
+    lines = code_lines(repo, VERIFY)
+    jobs = job_of(lines)
+    legs = set()
+    runs_on: List[str] = []
+    versions: List[str] = []
+    for number, line in lines:
+        if jobs.get(number) != "test":
+            continue
+        line = TRAILING_COMMENT.sub("", line)
+        match = MATRIX_LEG.search(line)
+        if match:
+            legs.add((match.group(1), match.group(3)))
+        match = RUNS_ON.match(line)
+        if match:
+            runs_on.append(match.group(1))
+        match = PYTHON_VERSION.match(line)
+        if match:
+            versions.append(match.group(1))
+    problems = []
+    if len(runs_on) != 1 or not MATRIX_OS.match(runs_on[0]):
+        problems.append("%s: the test job runs on %s, expected ${{ matrix.os }} alone" % (VERIFY, runs_on or "nothing"))
+    if len(versions) != 1 or not MATRIX_PYTHON.match(versions[0]):
+        problems.append("%s: the test job sets up Python %s, expected ${{ matrix.python }} alone" % (VERIFY, versions or "nothing"))
+    for system in TEST_OSES:
+        for python in TEST_PYTHONS:
+            if not any(os_name.startswith(system) and version == python for os_name, version in legs):
+                problems.append("%s: the test matrix lacks %s against Python %s" % (VERIFY, system, python))
+    return problems
+
+
+def check_release_hardening(repo: Repo) -> List[str]:
+    """A version holding a newline would add a line to GITHUB_ENV, so
+    release.yml checks the manifests' version before it gets there: X.Y.Z on
+    a tag push, X.Y.Z or X.Y.Z-beta.N on a workflow_dispatch dry run. A fixed
+    heredoc delimiter lets a CHANGELOG line equal to it end the notes early,
+    so the delimiter is VDD_NOTES_ and random hex from /dev/urandom."""
+    if RELEASE not in repo.tracked:
+        return []
+    lines = [line.strip() for _, line in code_lines(repo, RELEASE)]
+    problems = []
+    env = next((i for i, line in enumerate(lines) if ">>" in line and "$GITHUB_ENV" in line), len(lines))
+    for needed in (
+        "push) pattern=%s ;;" % TAG_VERSION,
+        "workflow_dispatch) pattern=%s ;;" % DISPATCH_VERSION,
+        "if [[ ! $version =~ $pattern ]]; then",
+    ):
+        if needed not in lines[:env]:
+            problems.append("%s: the version check before GITHUB_ENV lacks: %s" % (RELEASE, needed))
+    random = any(line.startswith('delimiter="VDD_NOTES_$(') and "/dev/urandom" in line for line in lines)
+    used = any('echo "notes<<$delimiter"' in line and 'echo "$delimiter"; } >> "$GITHUB_OUTPUT"' in line for line in lines)
+    if not (random and used):
+        problems.append("%s: the release notes' delimiter is not VDD_NOTES_ and random hex from /dev/urandom" % RELEASE)
+    return problems
+
+
 def trigger_filters(on: List[str], trigger: str) -> List[str]:
     """The lines under one trigger in an `on:` block."""
     found: List[str] = []
@@ -655,6 +719,8 @@ CHECKS = (
     check_policy_keys,
     check_file_kinds,
     check_write_access,
+    check_test_matrix,
+    check_release_hardening,
 )
 
 

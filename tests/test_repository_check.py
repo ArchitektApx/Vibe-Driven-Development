@@ -542,5 +542,68 @@ class WriteAccessTest(RepositoryCheck):
         self.assertPasses()
 
 
+class ReleaseHardeningTest(RepositoryCheck):
+    RELEASE = ".github/workflows/release.yml"
+
+    def test_the_version_check_removed_fails(self):
+        """Prevents a version holding a newline adding a line to GITHUB_ENV."""
+        self.edit(self.RELEASE, "          if [[ ! $version =~ $pattern ]]; then\n", "          if false; then\n")
+        self.assertFails("release.yml: the version check before GITHUB_ENV lacks: if [[ ! $version =~ $pattern ]]")
+
+    def test_a_beta_allowed_on_a_tag_push_fails(self):
+        """Prevents a beta version being published from a tag push."""
+        self.edit(self.RELEASE, r"push) pattern='^[0-9]+\.[0-9]+\.[0-9]+$'", r"push) pattern='^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$'")
+        self.assertFails("the version check before GITHUB_ENV lacks: push) pattern=")
+
+    def test_the_version_check_after_github_env_fails(self):
+        """Prevents a check that runs once the version is already written."""
+        text = self.read(self.RELEASE)
+        line = '          echo "VERSION=$version" >> "$GITHUB_ENV"\n'
+        self.assertIn(line, text)
+        text = text.replace(line, "").replace("          case \"$GITHUB_EVENT_NAME\" in\n", line + "          case \"$GITHUB_EVENT_NAME\" in\n", 1)
+        self.add(self.RELEASE, text)
+        self.assertFails("the version check before GITHUB_ENV lacks")
+
+    def test_a_fixed_delimiter_fails(self):
+        """Prevents a CHANGELOG line equal to the delimiter ending the notes
+        early."""
+        self.edit(
+            self.RELEASE,
+            '{ echo "notes<<$delimiter"; cat notes.md; echo "$delimiter"; }',
+            "{ echo 'notes<<VDD_RELEASE_NOTES_EOF'; cat notes.md; echo 'VDD_RELEASE_NOTES_EOF'; }",
+        )
+        self.assertFails("the release notes' delimiter is not VDD_NOTES_ and random hex from /dev/urandom")
+
+    def test_a_delimiter_without_randomness_fails(self):
+        self.edit(self.RELEASE, "/dev/urandom", "/dev/null")
+        self.assertFails("the release notes' delimiter is not VDD_NOTES_")
+
+
+class TestMatrixTest(RepositoryCheck):
+    VERIFY = ".github/workflows/verify.yml"
+
+    def test_a_dropped_leg_fails(self):
+        """Prevents a matrix that stops testing native Windows on 3.9, where
+        users run the tool."""
+        self.edit(self.VERIFY, "          - { os: windows-latest, python: '3.9' }\n", "")
+        self.assertFails("verify.yml: the test matrix lacks windows against Python 3.9")
+
+    def test_a_dropped_newest_python_fails(self):
+        self.edit(self.VERIFY, "          - { os: macos-latest, python: '3.x' }\n", "")
+        self.assertFails("verify.yml: the test matrix lacks macos against Python 3.x")
+
+    def test_a_fixed_runner_fails(self):
+        """Prevents every leg running on Ubuntu while the matrix still names
+        all three systems."""
+        self.edit(self.VERIFY, "    runs-on: ${{ matrix.os }}\n", "    runs-on: ubuntu-latest\n")
+        self.assertFails("verify.yml: the test job runs on ['ubuntu-latest'], expected ${{ matrix.os }} alone")
+
+    def test_a_fixed_python_fails(self):
+        """Prevents every leg running on one Python while the matrix still
+        names 3.9 and 3.x."""
+        self.edit(self.VERIFY, "          python-version: ${{ matrix.python }}\n", "          python-version: '3.x'\n")
+        self.assertFails("verify.yml: the test job sets up Python [\"'3.x'\"], expected ${{ matrix.python }} alone")
+
+
 if __name__ == "__main__":
     unittest.main()
