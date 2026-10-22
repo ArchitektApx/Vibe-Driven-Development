@@ -12,6 +12,11 @@ from vddtest import REPO
 
 SCRIPT = os.path.join(REPO, ".github", "scripts", "check_shipped_code.py")
 
+# The one file the allowlist lets import subprocess, and the one it lets
+# import ctypes.
+GIT = "skills/vdd-setup/scripts/vdd/gitcmd.py"
+LOCK = "skills/vdd-setup/scripts/vdd/brainstorm/lock.py"
+
 GOOD = {
     "README.md": "# x\n",
     "LICENSE": "MIT\n",
@@ -22,14 +27,18 @@ GOOD = {
     "skills/x/scripts/vdd.py": "import sys\nfrom vdd.cli import main\nsys.exit(main(sys.argv[1:]))\n",
     "skills/x/scripts/vdd/__init__.py": "",
     "skills/x/scripts/vdd/cli.py": (
-        "import os\nimport subprocess\nfrom . import out\nfrom .harness import codex\n"
-        "def main(argv):\n    subprocess.run(['git', 'status'], shell=False)\n    return 0\n"
+        "import os\nimport os.path\nfrom . import out\nfrom .harness import codex\n"
+        "def main(argv):\n    return 0\n"
     ),
+    GIT: (
+        "import subprocess\n"
+        "def run(args):\n    return subprocess.run(['git'] + args, shell=False)\n"
+    ),
+    LOCK: "import ctypes\nfrom ctypes import wintypes\n",
     "tests/test_x.py": "import socket\nimport json\n",
 }
 
 
-@unittest.skipIf(sys.version_info < (3, 10), "the static check needs Python 3.10 or newer (sys.stdlib_module_names)")
 class StaticCheckTest(unittest.TestCase):
     def setUp(self):
         self.repo = tempfile.mkdtemp(prefix="vdd-static-")
@@ -75,12 +84,42 @@ class StaticCheckTest(unittest.TestCase):
         self.add("skills/x/scripts/vdd/m.py", "match x:\n    case 1:\n        pass\n")
         self.assertFails("does not parse as Python 3.9")
 
-    def test_a_non_stdlib_import_fails(self):
-        self.add("skills/x/scripts/vdd/m.py", "import requests\n")
-        self.assertFails("outside the standard library: requests")
+    def test_an_import_outside_the_allowlist_fails(self):
+        """Prevents a new import landing without a visible edit to the
+        allowlist."""
+        for module in ("requests", "sqlite3", "xml.dom"):
+            with self.subTest(module=module):
+                self.add("skills/x/scripts/vdd/m.py", "import %s\n" % module)
+                self.assertFails(
+                    "import of %s in skills/x/scripts/vdd/m.py, a module outside the allowlist: add %s"
+                    " to ALLOWED_MODULES in .github/scripts/check_shipped_code.py in the same PR"
+                    % (module, module.split(".")[0])
+                )
+
+    def test_subprocess_outside_the_git_module_fails(self):
+        """Prevents a program run from anywhere but the git module."""
+        for text in ("import subprocess\n", "from subprocess import run\n"):
+            with self.subTest(text=text):
+                self.add("skills/x/scripts/vdd/m.py", text)
+                self.assertFails(
+                    "import of subprocess in skills/x/scripts/vdd/m.py: subprocess is allowed only in " + GIT
+                )
+
+    def test_ctypes_outside_the_store_lock_fails(self):
+        """Prevents a foreign call from anywhere but the store lock."""
+        self.add("skills/x/scripts/vdd/m.py", "import ctypes.wintypes\n")
+        self.assertFails(
+            "import of ctypes.wintypes in skills/x/scripts/vdd/m.py: ctypes is allowed only in " + LOCK
+        )
+
+    def test_an_allowed_submodule_passes(self):
+        self.add("skills/x/scripts/vdd/m.py", "import os.path\nfrom os.path import join\n")
+        self.add(LOCK, "import ctypes.wintypes\n")
+        code, text = self.check()
+        self.assertEqual(code, 0, text)
 
     def test_shell_true_fails(self):
-        self.add("skills/x/scripts/vdd/m.py", "import subprocess\nsubprocess.run('ls', shell=True)\n")
+        self.add(GIT, "import subprocess\nsubprocess.run('ls', shell=True)\n")
         self.assertFails("shell=True")
 
     def test_os_system_fails(self):
@@ -117,16 +156,108 @@ class StaticCheckTest(unittest.TestCase):
         self.add("skills/x/scripts/vdd/m.py", "import os\nrun = os.system\nrun('x')\n")
         self.assertFails("os.system")
 
+    def test_a_module_aliased_by_assignment_fails(self):
+        """Prevents `o = os` hiding o.system from the check, where only an
+        import bound a guarded name."""
+        self.add("skills/x/scripts/vdd/m.py", "import os\no = os\no.system(\"x\")\n")
+        self.assertFails("skills/x/scripts/vdd/m.py:3: os.system runs a shell")
+
+    def test_a_chained_assignment_alias_fails(self):
+        self.add("skills/x/scripts/vdd/m.py", "import os\no = os\np = o\np.popen('x')\n")
+        self.assertFails("skills/x/scripts/vdd/m.py:4: os.popen runs a shell")
+
+    def test_a_banned_attribute_aliased_by_assignment_fails(self):
+        """Prevents the call through `x = os.system` going unseen."""
+        self.add("skills/x/scripts/vdd/m.py", "import os\nx = os.system\nx(\"y\")\n")
+        self.assertFails("skills/x/scripts/vdd/m.py:3: os.system runs a shell")
+
+    def test_getattr_on_an_assigned_module_fails(self):
+        self.add("skills/x/scripts/vdd/m.py", "import os\no = os\ngetattr(o, 'system')('x')\n")
+        self.assertFails("getattr on os")
+
+    # A guarded module reached through another module, or bound by a form
+    # other than a plain assignment, each passed the check once.
+
+    def test_os_through_an_allowed_module_fails(self):
+        """Prevents posixpath.os.system, shutil.os.system and glob.os.popen
+        reaching the shell through a module the allowlist admits."""
+        for text, needle in (
+            ("import posixpath\nposixpath.os.system('x')\n", "os.system runs a shell"),
+            ("import shutil\nshutil.os.system('x')\n", "os.system runs a shell"),
+            ("import glob\nglob.os.popen('x')\n", "os.popen runs a shell"),
+        ):
+            with self.subTest(text=text):
+                self.add("skills/x/scripts/vdd/m.py", text)
+                self.assertFails("skills/x/scripts/vdd/m.py:2: " + needle)
+
+    def test_os_through_getattr_with_a_constant_name_fails(self):
+        """Prevents getattr(shutil, "os") reaching os.system where
+        shutil.os.system is refused."""
+        for text, needle in (
+            ("import shutil\ngetattr(shutil, 'os').system('x')\n", "os.system runs a shell"),
+            ("import shutil\ngetattr(getattr(shutil, 'os'), 'system')('x')\n", "getattr on os"),
+            ("import shutil\n[getattr(shutil, 'os')][0].system('x')\n", "os used as a value"),
+        ):
+            with self.subTest(text=text):
+                self.add("skills/x/scripts/vdd/m.py", text)
+                self.assertFails("skills/x/scripts/vdd/m.py:2: " + needle)
+
+    def test_getattr_with_a_constant_harmless_name_passes(self):
+        self.add("skills/x/scripts/vdd/m.py", "import shutil\ngetattr(shutil, 'which')('git')\n")
+        code, text = self.check()
+        self.assertEqual(code, 0, text)
+
+    def test_os_through_an_aliased_submodule_fails(self):
+        self.add("skills/x/scripts/vdd/m.py", "import os.path as p\np.os.system('x')\n")
+        self.assertFails("skills/x/scripts/vdd/m.py:2: os.system runs a shell")
+
+    def test_os_through_an_assigned_module_attribute_fails(self):
+        self.add("skills/x/scripts/vdd/m.py", "import shutil\ns = shutil.os\ns.system('x')\n")
+        self.assertFails("skills/x/scripts/vdd/m.py:2: os used as a value")
+
+    def test_os_through_subprocess_in_the_git_module_fails(self):
+        self.add(GIT, "import subprocess\nsubprocess.os.system('x')\n")
+        self.assertFails("os.system runs a shell")
+
+    def test_os_bound_by_tuple_unpacking_fails(self):
+        self.add("skills/x/scripts/vdd/m.py", "import os\no, q = os, 1\no.system('x')\n")
+        self.assertFails("skills/x/scripts/vdd/m.py:2: os used as a value")
+
+    def test_os_bound_by_a_walrus_fails(self):
+        self.add("skills/x/scripts/vdd/m.py", "import os\nif (o := os):\n    o.system('x')\n")
+        self.assertFails("skills/x/scripts/vdd/m.py:2: os used as a value")
+
+    def test_os_bound_by_a_for_loop_fails(self):
+        self.add("skills/x/scripts/vdd/m.py", "import os\nfor o in (os,):\n    o.system('x')\n")
+        self.assertFails("skills/x/scripts/vdd/m.py:2: os used as a value")
+
+    def test_os_bound_by_a_default_argument_fails(self):
+        self.add("skills/x/scripts/vdd/m.py", "import os\ndef f(o=os):\n    o.system('x')\n")
+        self.assertFails("skills/x/scripts/vdd/m.py:2: os used as a value")
+
+    def test_os_bound_as_a_class_attribute_fails(self):
+        self.add("skills/x/scripts/vdd/m.py", "import os\nclass C:\n    o = os\nC.o.system('x')\n")
+        self.assertFails("skills/x/scripts/vdd/m.py:3: os used as a value")
+
+    def test_os_held_in_a_container_fails(self):
+        self.add("skills/x/scripts/vdd/m.py", "import os\n[os][0].system('x')\n")
+        self.assertFails("skills/x/scripts/vdd/m.py:2: os used as a value")
+
+    def test_os_as_the_base_of_an_attribute_passes(self):
+        self.add("skills/x/scripts/vdd/m.py", "import os\nimport shutil\nos.path.join('a')\nshutil.os.getcwd()\n")
+        code, text = self.check()
+        self.assertEqual(code, 0, text)
+
     def test_double_star_arguments_to_subprocess_fail(self):
-        self.add("skills/x/scripts/vdd/m.py", "import subprocess\nsubprocess.run(['x'], **{'shell': True})\n")
+        self.add(GIT, "import subprocess\nsubprocess.run(['x'], **{'shell': True})\n")
         self.assertFails("** arguments to subprocess.run")
 
     def test_double_star_arguments_to_an_imported_subprocess_call_fail(self):
-        self.add("skills/x/scripts/vdd/m.py", "from subprocess import Popen as P\nP(['x'], **{'shell': True})\n")
+        self.add(GIT, "from subprocess import Popen as P\nP(['x'], **{'shell': True})\n")
         self.assertFails("** arguments to subprocess.Popen")
 
     def test_shell_as_a_positional_argument_fails(self):
-        self.add("skills/x/scripts/vdd/m.py", "import subprocess\nsubprocess.Popen('x', -1, None, None, None, None, None, True, True)\n")
+        self.add(GIT, "import subprocess\nsubprocess.Popen('x', -1, None, None, None, None, None, True, True)\n")
         self.assertFails("positional arguments after the first to subprocess.Popen")
 
     def test_dunder_import_fails(self):
