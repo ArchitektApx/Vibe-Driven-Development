@@ -76,4 +76,4 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Run the tool's tests
-        run: python -B -m unittest discover -s tests
+        run: python -B tests/run.py
