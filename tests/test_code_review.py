@@ -4,7 +4,7 @@ code review on the tool."""
 import os
 import unittest
 
-from vddtest import SIGNED, LoopRepoTest
+from vddtest import SIGNED, LoopRepoTest, SceneTest
 
 CODE_REVIEW_1 = "<ran | did not resolve, the Spec reviewed by hand>"
 CODE_REVIEW_LATER = "<ran | did not resolve, the Spec reviewed by hand | not needed, <reason>>"
@@ -49,11 +49,10 @@ as it is.
 """
 
 
-class CodeReviewTest(LoopRepoTest):
+class CodeReviewTest(SceneTest):
     minors = "fix"
 
-    def setUp(self):
-        LoopRepoTest.setUp(self)
+    def stage_scene(self):
         self.box.init_git("main")
         self.commit("a.txt", "a\n", "base")
         self.box.git("checkout", "-q", "-b", "demo")

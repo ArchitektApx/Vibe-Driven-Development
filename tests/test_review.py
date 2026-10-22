@@ -3,7 +3,7 @@
 import os
 import unittest
 
-from vddtest import LoopRepoTest
+from vddtest import LoopRepoTest, SceneTest
 
 WFA = "<ran | did not resolve | not needed, <reason>>"
 P1 = "VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/."
@@ -28,9 +28,8 @@ Ticket 02 leaves `summary` out.
 """
 
 
-class ReviewTest(LoopRepoTest):
-    def setUp(self):
-        LoopRepoTest.setUp(self)
+class ReviewTest(SceneTest):
+    def stage_scene(self):
         self.box.init_git("main")
         self.box.write_loop("demo", text=(
             "# VDD Loop\n\nFormat: 2\nFeature: demo\nBase branch: main\nFeature branch: demo\nMinors: %s\n"

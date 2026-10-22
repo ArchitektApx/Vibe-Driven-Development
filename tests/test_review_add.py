@@ -4,7 +4,7 @@ and the rounds that run on them."""
 import os
 import unittest
 
-from vddtest import SIGNED, LoopRepoTest
+from vddtest import SIGNED, LoopRepoTest, SceneTest
 NEXT_LINE = "Next: Tell the Orchestrator the loop has your findings; it carries on with orchestrator start."
 
 FINDINGS = """### major: docs/a.md:3
@@ -59,11 +59,10 @@ Why: the Spec says so.
 """
 
 
-class AddTest(LoopRepoTest):
+class AddTest(SceneTest):
     minors = "fix"
 
-    def setUp(self):
-        LoopRepoTest.setUp(self)
+    def stage_scene(self):
         self.box.init_git("main")
         self.commit("a.txt", "a\n", "base")
         self.box.write(".gitignore", ".scratch/\n")

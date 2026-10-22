@@ -3,7 +3,7 @@
 import os
 import unittest
 
-from vddtest import SIGNED, LoopRepoTest
+from vddtest import SIGNED, LoopRepoTest, SceneTest
 
 CODEREVIEW = """# Code review, round 1
 
@@ -36,9 +36,8 @@ def filled_round_one(text):
     return text.replace("Files:\nChange:\nVerified:", "Files: `a.txt`\nChange: wrote a.\nVerified: the test passed.")
 
 
-class CoderTest(LoopRepoTest):
-    def setUp(self):
-        LoopRepoTest.setUp(self)
+class CoderTest(SceneTest):
+    def stage_scene(self):
         self.box.init_git("main")
         self.box.write("a.txt", "a\n")
         self.box.write(".gitignore", ".scratch/\n")

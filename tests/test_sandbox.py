@@ -2,10 +2,13 @@
 
 import os
 import stat
+import json
+import subprocess
+import sys
 import unittest
 import warnings
 
-from vddtest import Sandbox
+from vddtest import PLAN_SIGNED, Sandbox, SceneTest
 
 
 class CleanupTest(unittest.TestCase):
@@ -35,6 +38,50 @@ class CleanupTest(unittest.TestCase):
                     for name in dirs:
                         os.chmod(os.path.join(root, name), stat.S_IRWXU)
                 box.cleanup()
+
+
+class CopiedSceneTest(SceneTest):
+    """A scene staged once and copied per test, as the git-backed classes
+    stage theirs."""
+
+    def stage_scene(self):
+        self.box.init_git("main")
+        self.box.write(".gitignore", ".scratch/\n")
+        self.box.git("add", ".gitignore")
+        self.box.git("commit", "-q", "-m", "ignore")
+        self.git("checkout", "-q", "-b", "demo")
+        self.box.write_loop("demo", extra=(PLAN_SIGNED,))
+        self.start = self.commit("a.txt", "a\n", "feat: a")
+        self.where = self.box.root
+        self.staged_by = type(self).__name__
+
+    def test_the_copy_is_clean(self):
+        """Prevents a copied scene whose index still holds the template's file
+        stats: git would list every file as modified."""
+        self.assertEqual(self.out("status", "--porcelain"), "")
+        self.assertEqual(self.sha(), self.start)
+
+    def test_nothing_in_the_copy_points_into_the_template(self):
+        """Prevents a test that reads or writes another test's files through a
+        path the template left behind."""
+        template = SceneTest._scenes[type(self)][0].root
+        self.assertNotEqual(template, self.box.root)
+        self.assertEqual(self.where, self.box.root)
+        for directory, _, names in os.walk(self.box.root):
+            for name in names:
+                with open(os.path.join(directory, name), "rb") as handle:
+                    self.assertNotIn(template.encode("utf-8"), handle.read(), os.path.join(directory, name))
+
+    def test_each_test_gets_its_own_copy(self):
+        self.commit("b.txt", "b\n", "feat: b")
+        self.assertNotEqual(self.sha(), self.start)
+
+
+class OtherSceneTest(CopiedSceneTest):
+    """A subclass stages a template of its own, keyed by its class."""
+
+    def test_the_template_is_its_own(self):
+        self.assertEqual(self.staged_by, "OtherSceneTest")
 
 
 if __name__ == "__main__":

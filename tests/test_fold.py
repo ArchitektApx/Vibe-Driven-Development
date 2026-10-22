@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import unittest
 
-from vddtest import PLAN_SIGNED, WINDOWS, LoopRepoTest
+from vddtest import PLAN_SIGNED, WINDOWS, LoopRepoTest, SceneTest
 
 README = (
     "# Ledger\n"
@@ -69,9 +69,8 @@ def fixed_return(text):
     return text.replace("    return str(amount)\n", "    return f\"{amount:.2f}\"\n")
 
 
-class FoldTest(LoopRepoTest):
-    def setUp(self):
-        LoopRepoTest.setUp(self)
+class FoldTest(SceneTest):
+    def stage_scene(self):
         self.box.init_git("main")
         for key, value in (("user.name", "VDD Test"), ("user.email", "test@example.com"),
                            ("commit.gpgsign", "false"), ("core.autocrlf", "false")):

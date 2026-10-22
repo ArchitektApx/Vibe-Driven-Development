@@ -13,9 +13,7 @@ import subprocess
 import sys
 import unittest
 
-from vddtest import PLAN_SIGNED, WINDOWS, LoopRepoTest
-URL = "https://github.com/example/repo.git"
-HOSTS_REFUSED = "failed to read configuration: open ~/.config/gh/hosts.yml: operation not permitted"
+from vddtest import GH, PLAN_SIGNED, URL, WINDOWS, LoopRepoTest, SceneTest
 
 GH = """#!%(python)s
 import json, os, sys
@@ -43,11 +41,10 @@ sys.exit(code)
 
 
 @unittest.skipIf(WINDOWS, "stubbed gh and git are POSIX scripts, as in PreflightTest")
-class PRTest(LoopRepoTest):
+class PRTest(SceneTest):
     pr = "yes"
 
-    def setUp(self):
-        LoopRepoTest.setUp(self)
+    def stage_scene(self):
         self.box.init_git("main")
         for key, value in (("user.name", "VDD Test"), ("user.email", "test@example.com"),
                            ("commit.gpgsign", "false")):
@@ -64,6 +61,10 @@ class PRTest(LoopRepoTest):
                                            "code 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 "
                                            "checks code-review ran"))
         self.set_pr(self.pr)
+
+    def after_copy(self):
+        """The stubs and the gh plan hold the sandbox root, so each test
+        writes its own after the copy."""
         self.log = os.path.join(self.box.root, "gh.log")
         self.plan_file = os.path.join(self.box.root, "gh-plan.json")
         self.plan()

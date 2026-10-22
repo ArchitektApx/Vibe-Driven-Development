@@ -6,7 +6,7 @@ import re
 import subprocess
 import unittest
 
-from vddtest import PLAN_SIGNED, REPO, LoopRepoTest
+from vddtest import PLAN_SIGNED, PLAN_SIGNED_2, CODE_SIGNED_2, REPO, LoopRepoTest, SceneTest
 
 P1 = "VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/."
 P2 = "VDD Planner: .scratch/demo/ ready, round 2. Read spec.md and issues/."
@@ -16,11 +16,10 @@ CODE_OPEN_1 = "code 1 reviewed open 1 counts 0 1 0 next 2 new 1 closed 0 checks 
 CODE_SIGNED_2 = "code 2 reviewed signed-off - counts 0 0 0 next 2 new 0 closed 1 checks code-review ran"
 
 
-class OrchestratorTest(LoopRepoTest):
+class OrchestratorTest(SceneTest):
     pr = "ask at sign-off"
 
-    def setUp(self):
-        LoopRepoTest.setUp(self)
+    def stage_scene(self):
         self.box.init_git("main")
         self.box.write_loop("demo", text=(
             "# VDD Loop\n\nFormat: 2\nFeature: demo\nBase branch: main\nFeature branch: demo\nMinors: fix\n"

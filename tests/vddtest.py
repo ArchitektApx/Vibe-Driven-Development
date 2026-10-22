@@ -319,3 +319,62 @@ class LoopRepoTest(ToolTest):
             self.assertIn(fragment, result.text, result)
         self.assertEqual(LoopRepoTest.snapshot(self, names), before)
         return result
+
+
+class SceneTest(LoopRepoTest):
+    """A git-backed test class that stages its scene once, in setUpClass,
+    into a template sandbox, and copies the template into each test's
+    sandbox. stage_scene builds the scene with self.box the template; every
+    attribute it sets is carried to each test, with the template's root
+    replaced by the test's. after_copy writes whatever holds the sandbox
+    root, a stub or a remote's path, after the copy. Each test class gets a
+    template of its own, keyed by its class, so a subclass that changes a
+    scene attribute stages its own scene."""
+
+    _scenes = {}
+
+    def stage_scene(self):
+        raise NotImplementedError
+
+    def after_copy(self):
+        pass
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        stager = cls()
+        stager.box = Sandbox()
+        try:
+            stager.stage_scene()
+        except BaseException:
+            stager.box.cleanup()
+            raise
+        attrs = dict((k, v) for k, v in vars(stager).items() if k != "box" and not k.startswith("_"))
+        SceneTest._scenes[cls] = (stager.box, attrs)
+
+    @classmethod
+    def tearDownClass(cls):
+        scene = SceneTest._scenes.pop(cls, None)
+        if scene is not None:
+            scene[0].cleanup()
+        super().tearDownClass()
+
+    def setUp(self):
+        LoopRepoTest.setUp(self)
+        template, attrs = SceneTest._scenes[type(self)]
+        for name in os.listdir(template.root):
+            source = os.path.join(template.root, name)
+            target = os.path.join(self.box.root, name)
+            remove_tree(target)
+            if os.path.isdir(source) and not os.path.islink(source):
+                shutil.copytree(source, target, symlinks=True)
+            else:
+                shutil.copy2(source, target)
+        for key, value in attrs.items():
+            if isinstance(value, str):
+                value = value.replace(template.root, self.box.root)
+            setattr(self, key, value)
+        if os.path.isdir(os.path.join(self.box.proj, ".git")):
+            subprocess.run(["git", "update-index", "--refresh", "-q"], cwd=self.box.proj,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.after_copy()
