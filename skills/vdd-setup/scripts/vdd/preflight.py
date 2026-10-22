@@ -100,9 +100,3 @@ def checks(root: str, base: str) -> tuple[str, list[Check]]:
     codes alone decide."""
     remote = remote_of(root, base)
     return remote, [can_push(root, remote), can_open(root, remote)]
-
-
-def run(root: str, base: str) -> tuple[str, list[tuple[str, bool, str]]]:
-    """(remote, [(check name, passed, why)]) for both checks."""
-    remote, found = checks(root, base)
-    return remote, [(check.name, check.passed, check.why) for check in found]

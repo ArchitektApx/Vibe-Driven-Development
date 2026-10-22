@@ -99,9 +99,39 @@ def write_text(path: str, text: str) -> None:
 
 def write_refusal(what: str, error: OSError, otherwise: str, extra: Iterable[str] = ()) -> Failure:
     """The Failure for a write that failed: "Could not write <what>: <error>",
-    then the extra lines. otherwise is its Next: step after the one escalated
-    retry (out.refused)."""
-    return refused(["Could not write %s: %s" % (what, error)] + list(extra), otherwise)
+    then the extra lines. <error> is reason(error). otherwise is its Next:
+    step after the one escalated retry (out.refused)."""
+    return refused(["Could not write %s: %s" % (what, reason(error))] + list(extra), otherwise)
+
+
+def reason(error: Exception) -> str:
+    """An error's strerror, or the whole error when it has none (an OSError
+    raised with a message, or another exception): the whole OSError repeats
+    the absolute path, escaped on Windows."""
+    return getattr(error, "strerror", None) or str(error)
+
+
+def described(error: Exception) -> str:
+    """reason(error), after the file it names as shown() prints it, for a
+    line that does not name the file itself. A failed rename or replace
+    names its target too."""
+    filename = getattr(error, "filename", None)
+    if isinstance(filename, str) and getattr(error, "strerror", None):
+        target = getattr(error, "filename2", None)
+        if isinstance(target, str):
+            return "%s, moving it to %s: %s" % (shown(filename), shown(target), reason(error))
+        return "%s: %s" % (shown(filename), reason(error))
+    return reason(error)
+
+
+def shown(path: str) -> str:
+    """A path in a loop's tracker directory as the tool prints it, from
+    .scratch/ on with / between its parts; any other path as it is."""
+    parts = os.path.normpath(path).split(os.sep)
+    if ".scratch" not in parts:
+        return path
+    start = len(parts) - 1 - parts[::-1].index(".scratch")
+    return "/".join(parts[start:])
 
 
 def write_or_refuse(path: str, text: str, what: str, otherwise: str, extra: Iterable[str] = ()) -> None:
@@ -131,7 +161,7 @@ def check_header(path: str, lines: list[str], prefix: str, versions: Container[s
     version = lines[0][len(prefix):].strip()
     if version not in versions:
         raise Failure(
-            "%s has format version %s, which this copy of the VDD tool does not know." % (path, version),
+            "%s has format version %s, which this copy of the VDD tool does not know." % (shown(path), version),
             "Tell the user this copy of the VDD tool is out of date and to rerun Setup.",
         )
     return version

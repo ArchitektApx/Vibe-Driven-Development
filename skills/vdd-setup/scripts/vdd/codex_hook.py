@@ -11,8 +11,10 @@ Codex continues the Session with the reason as its prompt. It reads no Loop
 file: only a Codex wait writes an armed file.
 
 It exits 0 on every path, exceptions included: Codex reads exit 2 as a block
-and repeats it without limit. Everything it needs is imported here, at start,
-so a Setup swapping the Shared copy mid-wait cannot mix versions.
+and repeats it without limit. Everything it needs is imported here, at start:
+the hook runs the plugin's own copy, never the Shared one, and Codex deletes
+an old version's directory under a running Session (ADR 0008), so a module
+imported mid-wait could be gone.
 """
 
 from __future__ import annotations

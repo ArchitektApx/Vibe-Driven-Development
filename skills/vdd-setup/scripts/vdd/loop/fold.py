@@ -473,7 +473,7 @@ def run(loop: Loop, harness: Harness, write: bool) -> int:
             "Rerun %s outside the sandbox, the way your Harness grants that; when that is refused too, tell the "
             "user %s was refused, and stop." % (fold_command(loop, harness, write), command_text(error.call)),
         )
-    before, chain, sources, tip, lines = result
+    before, chain, tip, lines = result
     if not write:
         out.line("Would fold %s: %d commits into %d." % (branch, before, len(chain)))
         for line in lines:
@@ -495,8 +495,8 @@ def run(loop: Loop, harness: Harness, write: bool) -> int:
 
 def fold(
     loop: Loop, state: loopstate.State, repo: Repo, signed: str, index_path: str, write: bool,
-) -> tuple[int, list[str], list[list[tuple[str, list[str] | None, str | None]]], str, list[str]]:
-    """(commits before, final chain, sources, new tip, report lines), or a
+) -> tuple[int, list[str], str, list[str]]:
+    """(commits before, final chain, new tip, report lines), or a
     Skip. Moves the branch only with write."""
     found, text = gitcmd.version(loop.root)
     if found is None or gitcmd.too_old(found):
@@ -510,7 +510,7 @@ def fold(
 
 def checked_fold(
     loop: Loop, state: loopstate.State, repo: Repo, signed: str, index_path: str, write: bool,
-) -> tuple[int, list[str], list[list[tuple[str, list[str] | None, str | None]]], str, list[str]]:
+) -> tuple[int, list[str], str, list[str]]:
     base_branch, _ = loop.setting("Base branch")
     branch, _ = loop.setting("Feature branch")
     ref = "refs/heads/" + branch
@@ -551,7 +551,7 @@ def checked_fold(
     lines = report(repo, chain, sources, earlier)
     if write and tip != signed:
         repo.call("update-ref", "-m", "vdd loop fold", ref, tip, signed)
-    return before, chain, sources, tip, lines
+    return before, chain, tip, lines
 
 
 def pushed_to(repo: Repo, branch: str, base: str, signed: str) -> None:

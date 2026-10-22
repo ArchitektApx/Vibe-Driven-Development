@@ -123,6 +123,7 @@ class Round:
         self.carried_numbers: list[int] = list(self.last.open) if self.last else []
         self.first_new = state.next_number(self.kind)
         self.carried_file = os.path.join(loop.dir, CARRIED % self.kind)
+        self._documents: list[str] | None = None
 
     def command(self, sub: str, write: bool = True) -> str:
         return "%s review %s --role %s --slug %s%s" % (
@@ -182,7 +183,7 @@ class Round:
 
     def agent_documents(self) -> list[str]:
         """The Agent documents in the review range, computed once."""
-        if not hasattr(self, "_documents"):
+        if self._documents is None:
             found = agentdocs.listed(self.loop.root, self.fixed_point(), self.branch())
             if found is None:
                 raise Failure(
@@ -364,9 +365,10 @@ def start(round_: Round, write: bool) -> int:
         blocks = carried_blocks(round_)
         carried_text = "\n\n".join("\n".join(block) for block in blocks)
         cannot = "Otherwise tell the user the review file cannot be written, and stop."
+        frame = "\n".join(skeleton(round_, blocks)) + "\n"
         textfile.write_or_refuse(round_.carried_file, carried_text + "\n" if carried_text else "",
                                  round_.relative, cannot)
-        textfile.write_or_refuse(round_.file, "\n".join(skeleton(round_, blocks)) + "\n", round_.relative, cannot)
+        textfile.write_or_refuse(round_.file, frame, round_.relative, cannot)
         round_.state.append("%s %d review-started" % (round_.kind, round_.number))
         out.line("Wrote the frame of %s." % round_.relative)
     if round_.carried_numbers:

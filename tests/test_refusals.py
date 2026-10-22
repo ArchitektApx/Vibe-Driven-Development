@@ -305,5 +305,141 @@ for _group, _rows in TABLES.items():
 del R
 
 
+class RefusalPathTest(Staged):
+    """The refusals in loopstate.header, textfile.check_header and
+    State.persist print the state file's path as the rest of the tool does."""
+
+    def refusal(self, scene, *argv):
+        scene(self)
+        result = self.box.run(*argv, env=self.env())
+        self.assertNotEqual(result.code, 0, result)
+        self.assertNotIn(self.box.root, result.text)
+        self.assertNotIn(self.box.root.replace("\\", "\\\\"), result.text)
+        return result.lines[0]
+
+    def test_a_newer_header_names_the_scratch_path(self):
+        """Prevents a refusal that prints the absolute path of the user's
+        project where every other line prints .scratch/<slug>/."""
+        first = self.refusal(Staged.newer_state, "loop", "show", *SLUG)
+        self.assertTrue(first.startswith(".scratch/demo/loop-state has format version 9"), first)
+
+    @unittest.skipIf(hasattr(os, "geteuid") and os.geteuid() == 0, "root writes a read-only file")
+    def test_a_refused_state_write_names_the_scratch_path_and_the_reason(self):
+        """Prevents a write refusal that repeats the absolute path in the
+        error, repr-escaped on Windows."""
+        first = self.refusal(Staged.read_only_state, "orchestrator", "start", *SLUG, *CC)
+        self.assertTrue(first.startswith("Could not write the loop state file .scratch/demo/loop-state: "), first)
+
+    def test_a_damaged_header_names_the_scratch_path(self):
+        """loopstate.header's own line is caught by every caller, which takes
+        a damaged state file for no loop; the refusal a Role sees names the
+        tracker directory the same way."""
+        first = self.refusal(Staged.damaged_state, "loop", "show", *SLUG)
+        self.assertTrue(first.startswith(".scratch/demo/ "), first)
+
+    def read_only(self, *parts):
+        """The project path parts made read-only for the rest of the test."""
+        path = self.box.path(*parts)
+        mode = stat.S_IMODE(os.stat(path).st_mode)
+        os.chmod(path, stat.S_IRUSR | stat.S_IXUSR if os.path.isdir(path) else stat.S_IRUSR)
+        self.addCleanup(os.chmod, path, mode)
+
+    def immutable(self, *parts):
+        """The project path parts flagged immutable, so replacing it fails
+        while reading it works."""
+        path = self.box.path(*parts)
+        os.chflags(path, stat.UF_IMMUTABLE)
+        self.addCleanup(os.chflags, path, 0)
+
+    def assertNoError(self, first):
+        """No whole OSError: its [Errno n] and repr-quoted path."""
+        self.assertNotIn("[Errno", first)
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
+    def test_a_refused_loop_new_names_the_scratch_path(self):
+        """Prevents loop new's write refusal printing the tracker directory's
+        absolute path and the whole OSError."""
+        self.repo()
+        os.makedirs(self.box.path(".scratch"))
+        self.read_only(".scratch")
+        first = self.refusal(lambda t: None, "loop", "new", *SLUG, *CC, "--minors", "fix", "--pr", "ask at sign-off",
+                             "--write")
+        self.assertTrue(first.startswith("Could not write the Loop file in .scratch/demo/: "), first)
+        self.assertNoError(first)
+
+    @unittest.skipUnless(hasattr(os, "chflags") and not WINDOWS, "replacing a readable file fails only with chflags")
+    def test_a_refused_recap_write_names_the_scratch_path(self):
+        """Prevents the Recap's write refusal printing RECAP.md's absolute
+        path."""
+        self.coder_started()
+        self.put("RECAP.md", "")
+        self.immutable(".scratch", "demo", "RECAP.md")
+        first = self.refusal(lambda t: None, "coder", "check", *SLUG, "--write")
+        self.assertTrue(first.startswith("Could not write .scratch/demo/RECAP.md: "), first)
+        self.assertNoError(first)
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
+    def test_a_refused_ring_names_the_scratch_path(self):
+        """Prevents doorbell ring's refusal printing the Doorbell file's
+        absolute path."""
+        self.plan()
+        self.rings("VDD Planner: .scratch/demo/ ready, round 9. Read spec.md and issues/.")
+        self.read_only(".scratch", "demo", "doorbells")
+        first = self.refusal(lambda t: None, "doorbell", "ring", "--role", "Planner", *CC, *SLUG, "--write")
+        self.assertTrue(first.startswith("Could not write the Doorbell file .scratch/demo/doorbells: "), first)
+        self.assertNoError(first)
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
+    def test_a_refused_doorbell_state_write_names_the_scratch_path(self):
+        """Prevents doorbell take's refusal printing the Doorbell state
+        file's absolute path."""
+        self.planner_returned()
+        self.read_only(".scratch", "demo")
+        first = self.refusal(lambda t: None, "doorbell", "take", "--role", "Orchestrator", *CC, *SLUG)
+        self.assertTrue(first.startswith("Could not write the Doorbell state file "
+                                         ".scratch/demo/doorbell-state-orchestrator: "), first)
+        self.assertNoError(first)
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
+    def test_a_wait_that_cannot_read_names_the_scratch_path(self):
+        """Prevents the wait's read refusal printing the whole OSError, on
+        the Codex arm and on the watch every other Harness runs."""
+        self.planner_returned()
+        self.read_only(".scratch", "demo", "doorbells")
+        os.chmod(self.box.path(".scratch", "demo", "doorbells"), 0)
+        env = self.box.env(VDD_WAIT_POLL_SECONDS="0.05", VDD_WAIT_TIMEOUT_SECONDS="0.2", CODEX_THREAD_ID=CODEX_ID)
+        for harness in ("claude-code", "codex"):
+            with self.subTest(harness=harness):
+                result = self.box.run("doorbell", "wait", "--role", "Orchestrator", "--harness", harness, *SLUG,
+                                      env=env)
+                self.assertNotEqual(result.code, 0, result)
+                self.assertNotIn(self.box.root, result.text)
+                self.assertIn("The wait could not read its files: .scratch/demo/doorbells: ", result.text)
+                self.assertNoError(result.text)
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
+    def test_a_refused_armed_write_names_the_scratch_path(self):
+        """Prevents the Codex arm's write refusal printing the whole
+        OSError."""
+        self.planner_returned()
+        self.read_only(".scratch", "demo")
+        env = self.box.env(CODEX_THREAD_ID=CODEX_ID)
+        result = self.box.run("doorbell", "wait", "--role", "Planner", "--harness", "codex", *SLUG, env=env)
+        self.assertNotEqual(result.code, 0, result)
+        self.assertNotIn(self.box.root, result.text)
+        self.assertIn("Cannot write the armed file: .scratch/demo/", result.text)
+        self.assertNoError(result.text)
+
+    @unittest.skipIf(WINDOWS, "a directory read as a file fails differently on Windows")
+    def test_an_unexpected_file_error_names_the_scratch_path(self):
+        """Prevents the catch-all refusal printing the whole OSError with
+        its absolute path: it names the file by its .scratch path."""
+        self.coder_started()
+        os.makedirs(self.box.path(".scratch", "demo", "RECAP.md"))
+        first = self.refusal(lambda t: None, "coder", "check", *SLUG, "--write")
+        self.assertTrue(first.startswith("A file could not be read or written: .scratch/demo/RECAP.md: "), first)
+        self.assertNoError(first)
+
+
 if __name__ == "__main__":
     unittest.main()

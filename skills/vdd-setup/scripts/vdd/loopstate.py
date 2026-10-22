@@ -57,8 +57,6 @@ V1_RELEASE = "0.16.0-beta.3"
 OPEN = "open"
 CLOSED = "closed"
 
-KINDS = ("plan", "code")
-ROLES = ("Plan-Reviewer", "Coder", "Code-Reviewer")
 SEVERITIES = ("blocker", "major", "minor")
 
 REVIEWED = re.compile(
@@ -116,7 +114,7 @@ def header(path: str, lines: list[str]) -> str:
     version = textfile.check_header(path, lines, STATE_PREFIX, STATE_VERSIONS)
     if version is None:
         raise Damaged(
-            "%s is not a loop state file this tool wrote." % path,
+            "%s is not a loop state file this tool wrote." % textfile.shown(path),
             "Tell the user the loop state file is damaged, and stop.",
         )
     return version
@@ -183,9 +181,9 @@ def start_state(directory: str) -> None:
 
 
 def append_state(directory: str, state: str) -> None:
-    """Append "loop <state>" to the state file, writing its header first when
-    the file is new."""
-    textfile.append(os.path.join(directory, STATE_NAME), "loop %s\n" % state, STATE_PREFIX + STATE_VERSION + "\n")
+    """Append "loop <state>" to the loop's state file, which every caller
+    has read first."""
+    textfile.append(os.path.join(directory, STATE_NAME), "loop %s\n" % state)
 
 
 class State:
@@ -318,7 +316,7 @@ class State:
         try:
             textfile.append(self.path, "".join(line + "\n" for line in lines))
         except OSError as error:
-            raise textfile.write_refusal("the loop state file %s" % self.path, error,
+            raise textfile.write_refusal("the loop state file %s" % textfile.shown(self.path), error,
                                          "Otherwise tell the user the loop state file cannot be written, and stop.")
 
 
