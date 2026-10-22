@@ -1,0 +1,4 @@
+$ vdd orchestrator start --slug demo --harness claude-code
+exit 1
+Could not write the loop state file <project>/.scratch/demo/loop-state: [Errno 13] Permission denied: '<project>/.scratch/demo/loop-state'
+Next: If a sandbox refused it and your tools offer a way to rerun the command outside the sandbox, rerun it once that way. Otherwise tell the user the loop state file cannot be written, and stop.

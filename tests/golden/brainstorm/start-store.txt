@@ -1,0 +1,8 @@
+$ vdd brainstorm start
+exit 0
+Ideas: 3 open, 1 closed. Open ideas, parts under their parent; metrics are importance/size/fog:
+- main-idea [idea] unknown/unknown/unknown, updated 2026-10-20: The whole thing.
+  - part-one [idea] unknown/unknown/unknown, updated 2026-10-20: The first half.
+- other [idea] unknown/unknown/unknown, updated 2026-10-20, waits on part-one: Needs part one.
+Closed ideas are not listed: find --text <words> searches them, show --idea <slug> opens one.
+Next: Answer the user's message from this overview; read or run nothing else unless it needs more.

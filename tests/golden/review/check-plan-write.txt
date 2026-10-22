@@ -1,0 +1,6 @@
+$ vdd review check --role Plan-Reviewer --slug demo --write
+exit 0
+PLAN-REVIEW.md: round 1 checked and written.
+Open: 0 blocker, 1 major, 1 minor.
+VDD Plan-Reviewer: PLAN-REVIEW.md written, round 1: 0 blocker, 1 major, 1 minor. Read it.
+Next: End your turn with the Doorbell line above as your whole reply.

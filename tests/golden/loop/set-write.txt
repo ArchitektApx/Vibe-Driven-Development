@@ -1,0 +1,4 @@
+$ vdd loop set --slug demo --minors leave --write
+exit 0
+Set: Minors: leave
+Next: Go on as your skill says, passing --slug demo.

@@ -1,0 +1,9 @@
+$ vdd orchestrator start --slug demo --harness claude-code
+exit 0
+Loop: demo, open. Harness: Claude Code. Read harness-claude-code.md, the Harness file this skill's Harnesses index links, now, once.
+Plan Loop: signed off in round 1. Code Loop: signed off in round 1.
+Respawn policies: Coder never, Plan-Reviewer never, Code-Reviewer never.
+First: Run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" doorbell ring --role Orchestrator --harness claude-code --slug demo --write in the foreground; the plan Loop is over, so it names no wait.
+Code Loop: signed off.
+Fold: folded.
+Next: Invoke the vdd-create-pr skill in your own Session, never as a subagent.

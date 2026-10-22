@@ -1,0 +1,4 @@
+$ vdd loop show --slug demo
+exit 1
+.scratch/demo/ holds no loop the VDD tool started: it lacks loop.md or loop-state.
+Next: Tell the user to run vdd-start-loop with the slug demo and answer continue, and stop.

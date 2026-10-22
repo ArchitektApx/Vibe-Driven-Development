@@ -1,0 +1,4 @@
+$ vdd brainstorm move --set part-one=top --write
+exit 0
+part-one is now at the top level.
+Next: Tell the user in one line what moved.

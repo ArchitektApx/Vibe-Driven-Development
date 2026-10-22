@@ -1,0 +1,7 @@
+$ vdd review start --role Plan-Reviewer --slug demo --write
+exit 0
+Wrote the frame of .scratch/demo/PLAN-REVIEW.md.
+Round 2: findings 1 and 2 carried open, new findings start at 3.
+Read: .scratch/demo/PLAN-REVIEW.md, .scratch/demo/spec.md, .scratch/demo/issues/
+Minors: fix
+Next: Review, write your findings into .scratch/demo/PLAN-REVIEW.md under the headings it has, then run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" review check --role Plan-Reviewer --slug demo --write. Pass --slug demo on every VDD tool call from here on.

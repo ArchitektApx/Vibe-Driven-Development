@@ -1,0 +1,4 @@
+$ vdd brainstorm note --idea main-idea --section Next Steps --text Count the cost. --write
+exit 0
+Added to Next Steps of main-idea.
+Next: Tell the user in one line where it is recorded, then carry on.

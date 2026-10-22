@@ -1,0 +1,3 @@
+$ vdd codex-stop
+exit 0
+{"decision": "block", "reason": "A Doorbell for the Orchestrator is waiting. Next: run <python> \"<shared>/vdd.py\" doorbell take --role Orchestrator --harness codex --slug feat"}

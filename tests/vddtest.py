@@ -224,6 +224,28 @@ class Sandbox:
         os.makedirs(self.bin, exist_ok=True)
         return self.env(PATH=self.bin + os.pathsep + os.environ.get("PATH", ""), **extra)
 
+    def git_only_path(self):
+        """A PATH with git on it and gh off it, or None when this machine
+        keeps gh beside git. On POSIX it is the sandbox's bin directory
+        holding a git launcher that runs the real git by its absolute path;
+        on Windows the tool starts git through CreateProcess, which runs only
+        an .exe, so it is the real git.exe's own directory."""
+        real = shutil.which("git")
+        if real is None:
+            return None
+        if WINDOWS:
+            path = os.path.dirname(real)
+        else:
+            os.makedirs(self.bin, exist_ok=True)
+            launcher = os.path.join(self.bin, "git")
+            with open(launcher, "w") as handle:
+                handle.write("#!/bin/sh\nexec '%s' \"$@\"\n" % real)
+            os.chmod(launcher, 0o755)
+            path = self.bin
+        if shutil.which("gh", path=path):
+            return None
+        return path
+
     def cleanup(self):
         remove_tree(self.root)
 

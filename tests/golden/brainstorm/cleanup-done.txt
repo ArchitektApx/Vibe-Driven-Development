@@ -1,0 +1,5 @@
+$ vdd brainstorm cleanup --status done --write
+exit 0
+Removed 1 idea from the store, each with one line in .scratch/_brainstorming/removed.md:
+- old [done, closed 2026-10-20]: Old
+Next: Tell the user in one line how many ideas were removed and that removed.md keeps a line for each.

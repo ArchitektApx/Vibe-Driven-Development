@@ -1,0 +1,9 @@
+$ vdd orchestrator start --slug demo --harness claude-code
+exit 0
+Loop: demo, open. Harness: Claude Code. Read harness-claude-code.md, the Harness file this skill's Harnesses index links, now, once.
+Plan Loop: the Planner rang round 1, not reviewed yet. Code Loop: not started.
+Respawn policies: Coder never, Plan-Reviewer never, Code-Reviewer never.
+Spawning Plan-Reviewer, <model>, round 1.
+Read: .scratch/demo/spec.md, .scratch/demo/issues/
+Write: .scratch/demo/PLAN-REVIEW.md
+Next: Print the Spawning line above in your reply, <model> filled in from Model approval, then spawn a fresh Plan-Reviewer with the Spawn prompt, the slug demo, round 1 and the Read and Write lists above. When it returns, act on its last line as your skill says; for anything but QUESTION or BLOCKED, run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" orchestrator return --role Plan-Reviewer --slug demo --harness claude-code

@@ -1,0 +1,4 @@
+$ vdd orchestrator respawn --role Coder --policy every round --slug demo --write
+exit 0
+Respawn policies: Coder every round, Plan-Reviewer never, Code-Reviewer never.
+Next: Run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" orchestrator start --slug demo --harness claude-code

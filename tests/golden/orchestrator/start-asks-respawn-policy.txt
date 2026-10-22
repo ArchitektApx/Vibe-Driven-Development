@@ -1,0 +1,7 @@
+$ vdd orchestrator start --slug demo --harness claude-code
+exit 0
+Loop: demo, open. Harness: Claude Code. Read harness-claude-code.md, the Harness file this skill's Harnesses index links, now, once.
+Plan Loop: the Planner has rung no round yet. Code Loop: not started.
+Respawn policies: Coder not set, Plan-Reviewer never, Code-Reviewer never.
+Respawn question: When should the Orchestrator respawn the Coder, spawning it anew for a round in place of resuming the one before? Answers, in this order: "Every round" (recommended) (--policy "every round"). "Never" (--policy never). "Over a limit of the Coder's token count, for example over 200k; the user may name another number" (--policy "over 200k").
+Next: Ask Model approval and the Respawn question above in one message, and wait for the user. Then run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" orchestrator respawn --role Coder --policy "<answer>" --slug demo --write

@@ -1,0 +1,7 @@
+$ vdd orchestrator return --role Code-Reviewer --slug demo --harness claude-code
+exit 0
+Code Loop: round 1 reviewed, 0 blocker, 1 major, 0 minor open.
+Spawning Coder, <model>, round 2.
+Read: .scratch/demo/CODEREVIEW.md, .scratch/demo/spec.md, .scratch/demo/issues/
+Write: .scratch/demo/FIXES.md, .scratch/demo/issues/ (the ticked checkboxes)
+Next: Print the Spawning line above in your reply, <model> filled in from Model approval, then spawn a fresh Coder with the Spawn prompt, the slug demo, round 2 and the Read and Write lists above. When it returns, act on its last line as your skill says; for anything but QUESTION or BLOCKED, run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" orchestrator return --role Coder --slug demo --harness claude-code

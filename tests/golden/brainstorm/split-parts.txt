@@ -1,0 +1,4 @@
+$ vdd brainstorm split --idea other --part other-a | Other A | The first piece. --write
+exit 0
+Split other into other-a; it stays their parent [idea].
+Next: Tell the user in one line, and ask whether the parent's own text should now say only what the parts share; on a yes, Read its file and Edit that section.

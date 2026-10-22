@@ -1,0 +1,4 @@
+$ vdd doorbell wait --role Orchestrator --harness codex --slug demo
+exit 0
+Armed: the Codex Stop hook waits for the Orchestrator's next Doorbell when this turn ends.
+Next: End your turn now.
