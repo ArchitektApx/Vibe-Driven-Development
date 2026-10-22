@@ -11,7 +11,7 @@ import threading
 import time
 import unittest
 
-from vddtest import ENTRY, WINDOWS, ToolTest
+from vddtest import ENTRY, WINDOWS, LoopRepoTest
 
 P1 = "VDD Planner: .scratch/x/ ready, round 1. Read spec.md and issues/."
 P2 = "VDD Planner: .scratch/x/ ready, round 2. Read spec.md and issues/."
@@ -23,9 +23,11 @@ ROOT_FIX = (
 )
 
 
-class DoorbellTest(ToolTest):
+class DoorbellTest(LoopRepoTest):
+    slug = "x"
+
     def setUp(self):
-        ToolTest.setUp(self)
+        LoopRepoTest.setUp(self)
         self.box.write_loop("x")
 
     def db(self, *args, env=None, harness="claude-code", slug: str | None = "x"):
@@ -34,10 +36,6 @@ class DoorbellTest(ToolTest):
 
     def state_lines(self):
         return self.box.read(os.path.join(".scratch", "x", "loop-state")).split("\n")
-
-    def stage(self, *lines):
-        with open(self.box.path(".scratch", "x", "loop-state"), "ab") as handle:
-            handle.write("".join(line + "\n" for line in lines).encode("utf-8"))
 
     def last_review(self):
         rounds = [int(m.group(1)) for m in (re.match(r"^plan ([0-9]+) reviewed ", l) for l in self.state_lines()) if m]

@@ -2,7 +2,6 @@
 journal with its recovery and validation, the ledger, and killed runs staged
 as a leftover journal and lock."""
 
-import base64
 import json
 import os
 import stat
@@ -12,7 +11,7 @@ import time
 import unittest
 
 from test_brainstorm import S, TODAY, BrainstormTest
-from vddtest import ENTRY, WINDOWS
+from vddtest import ENTRY, WINDOWS, b64
 
 
 class LockTest(BrainstormTest):
@@ -103,7 +102,7 @@ class LockTest(BrainstormTest):
         token = "%d other-token %s" % (os.getpid(), "elsewhere-host")
         with open(lock, "w") as handle:
             handle.write(token)
-        out = proc.communicate(timeout=60)[0].decode("utf-8")
+        out = self.box.finish(proc, timeout=60).text
         self.assertNotEqual(proc.returncode, 0, out)
         self.assertIn("another Session took over", out)
         self.assertTrue(out.rstrip("\n").split("\n")[-1].startswith("Next: "), out)
@@ -144,7 +143,7 @@ class JournalTest(BrainstormTest):
             with open(path, "wb") as handle:
                 handle.write(data)
 
-    def stage(self, done=0, ledger=False):
+    def stage_close(self, done=0, ledger=False):
         """A part's close (two files: the part and its parent's History)
         killed after done files, and after the ledger when ledger is set.
         Returns the clean run's store and the ops."""
@@ -181,7 +180,7 @@ class JournalTest(BrainstormTest):
             with self.subTest(done=done, ledger=ledger):
                 self.box.cleanup()
                 self.setUp()
-                after, _ = self.stage(done, ledger)
+                after, _ = self.stage_close(done, ledger)
                 result = self.ok("start")
                 self.assertIn("An interrupted write (set part-one) was finished.", result.text)
                 self.assertEqual(self.store_tree(), after)
@@ -194,7 +193,7 @@ class JournalTest(BrainstormTest):
         its before bytes, and the file is named. The ledger keeps the file's
         old hash, so the hand edit is stamped, never taken for the tool's
         own (spec 'last-updated and the ledger')."""
-        self.stage(done=2)
+        self.stage_close(done=2)
         edited = self.read("part-one.md").replace("last-updated: %s" % TODAY, "last-updated: 2026-01-01")
         edited += "\nA hand note.\n"
         self.box.write(S + "part-one.md", edited)
@@ -277,10 +276,25 @@ class JournalTest(BrainstormTest):
                 for name in self.journal_left():
                     os.remove(self.box.path(S + ".state/journal", name))
 
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0),
+                     "a read-only directory refuses a rename only for a non-root user on macOS and Linux")
+    def test_a_refused_set_aside_names_both_files(self):
+        """A refused rename named only its source, so the user could not tell
+        where the file was going."""
+        self.journal([{"path": "../outside.md", "before": None, "after": b64(b"x\n")}])
+        folder = self.box.path(S + ".state/journal")
+        os.chmod(folder, 0o555)
+        self.addCleanup(os.chmod, folder, 0o755)
+        result = self.bs("show", "--idea", "part-one")
+        self.assertEqual(result.code, 1, result)
+        journal = ".scratch/_brainstorming/.state/journal/20261020T000000-1-000001.json"
+        self.assertIn("A file could not be read or written: %s, moving it to %s.unreadable: Permission denied"
+                      % (journal, journal), result.lines)
+
     def test_a_journal_in_another_form_is_set_aside_without_a_crash(self):
         """Prevents a newer tool's journal crashing every command and leaking
         the lock (red team M8): it is set aside, naming the files it touches."""
-        self.stage(done=1)
+        self.stage_close(done=1)
         with open(self.box.path(self.JOURNAL)) as handle:
             data = json.load(handle)
         data["dirs"] = [["research/a", "research/b", "move"]]
@@ -294,7 +308,7 @@ class JournalTest(BrainstormTest):
     def test_a_live_writers_journal_is_left_to_it(self):
         """Prevents a read settling a move another Session is writing right
         now: with the lock held by a live process, start leaves the journal."""
-        self.stage(done=1)
+        self.stage_close(done=1)
         self.box.write(S + ".state/lock", "%d" % os.getpid())
         result = self.ok("start")
         self.assertNotIn("interrupted write", result.text)
@@ -326,6 +340,3 @@ class JournalTest(BrainstormTest):
         self.assertFalse(self.exists("part-one.md.vdd-new-999"))
         self.assertFalse(self.exists(".state/ledger.json.vdd-new-999"))
 
-
-def b64(data):
-    return None if data is None else base64.b64encode(data).decode("ascii")

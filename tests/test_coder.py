@@ -1,12 +1,9 @@
 """The coder command group, driven from outside: the Coder on the tool."""
 
 import os
-import subprocess
 import unittest
 
-from vddtest import ToolTest
-
-SIGNED = "plan 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 checks writing-for-agents ran"
+from vddtest import SIGNED, LoopRepoTest
 
 CODEREVIEW = """# Code review, round 1
 
@@ -39,9 +36,9 @@ def filled_round_one(text):
     return text.replace("Files:\nChange:\nVerified:", "Files: `a.txt`\nChange: wrote a.\nVerified: the test passed.")
 
 
-class CoderTest(ToolTest):
+class CoderTest(LoopRepoTest):
     def setUp(self):
-        ToolTest.setUp(self)
+        LoopRepoTest.setUp(self)
         self.box.init_git("main")
         self.box.write("a.txt", "a\n")
         self.box.write(".gitignore", ".scratch/\n")
@@ -55,35 +52,8 @@ class CoderTest(ToolTest):
     def coder(self, sub, write=True):
         return self.box.run("coder", sub, "--slug", "demo", *(["--write"] if write else []))
 
-    def rel(self, name):
-        return os.path.join(".scratch", "demo", name)
-
-    def read(self, name):
-        return self.box.read(self.rel(name))
-
-    def exists(self, name):
-        return os.path.exists(self.box.path(".scratch", "demo", name))
-
-    def put(self, name, text):
-        self.box.write(self.rel(name), text)
-
-    def out(self, *argv):
-        proc = subprocess.run(["git"] + list(argv), cwd=self.box.proj, stdout=subprocess.PIPE, check=True)
-        return proc.stdout.decode().strip()
-
-    def sha(self, ref="HEAD"):
-        return self.out("rev-parse", ref)
-
     def branch(self):
         return self.out("branch", "--show-current")
-
-    def commit(self, name, text, message):
-        self.box.write(name, text)
-        self.box.git("add", name)
-        self.box.git("commit", "-q", "-m", message)
-
-    def state(self):
-        return self.read("loop-state")
 
     def stage_round_two(self):
         """Round 1 started, ended and reviewed with findings 1 to 3 open."""
@@ -91,9 +61,8 @@ class CoderTest(ToolTest):
         start = self.sha()
         self.commit("a.txt", "a1\n", "feat: one")
         end = self.sha()
-        with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
-            handle.write("code 1 start %s\ncode 1 end %s\n" % (start, end))
-            handle.write("code 1 reviewed open 1,2,3 counts 0 1 2 next 4 new 3 closed 0 checks code-review ran\n")
+        self.stage("code 1 start %s" % start, "code 1 end %s" % end,
+                   "code 1 reviewed open 1,2,3 counts 0 1 2 next 4 new 3 closed 0 checks code-review ran")
         self.put("CODEREVIEW.md", CODEREVIEW)
         self.put("FIXES.md", "# Fixes, round 1\n\n## Ticket 01: 01-one.md\n\nFiles: x\nChange: y\nVerified: z\n")
 
@@ -279,13 +248,8 @@ class CheckTest(CoderTest):
         return result
 
     def refused(self, *fragments):
-        before = (self.read("FIXES.md"), self.state(), self.exists("RECAP.md"))
-        result = self.coder("check")
-        self.assertNotEqual(result.code, 0, result)
-        self.assertContract(result)
-        for fragment in fragments:
-            self.assertIn(fragment, result.text)
-        self.assertEqual((self.read("FIXES.md"), self.state(), self.exists("RECAP.md")), before)
+        result = LoopRepoTest.refused(self, ("coder", "check", "--slug", "demo", "--write"),
+                                  ("FIXES.md", "loop-state", "RECAP.md"), *fragments)
         self.assertNext(result, "coder check --slug demo --write", "again")
         return result
 

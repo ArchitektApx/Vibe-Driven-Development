@@ -2,13 +2,12 @@
 temporary git repository."""
 
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 
-from vddtest import REPO
+from vddtest import REPO, remove_tree
 
 SCRIPT = os.path.join(REPO, ".github", "scripts", "check_shipped_code.py")
 
@@ -42,12 +41,12 @@ GOOD = {
 class StaticCheckTest(unittest.TestCase):
     def setUp(self):
         self.repo = tempfile.mkdtemp(prefix="vdd-static-")
-        self.addCleanup(shutil.rmtree, self.repo, True)
-        self.git("init", "-q")
+        self.addCleanup(remove_tree, self.repo)
+        self.repo_git("init", "-q")
         for path, text in GOOD.items():
             self.add(path, text)
 
-    def git(self, *args):
+    def repo_git(self, *args):
         subprocess.run(
             ["git", "-c", "core.autocrlf=false"] + list(args),
             cwd=self.repo,
@@ -61,7 +60,7 @@ class StaticCheckTest(unittest.TestCase):
         os.makedirs(os.path.dirname(full), exist_ok=True)
         with open(full, "wb") as handle:
             handle.write(data.encode("utf-8") if isinstance(data, str) else data)
-        self.git("add", "--", path)
+        self.repo_git("add", "--", path)
 
     def check(self):
         proc = subprocess.run(

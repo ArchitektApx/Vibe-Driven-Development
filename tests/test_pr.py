@@ -8,15 +8,12 @@ here runs POSIX sh and Python stubs, so they skip on native Windows."""
 
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
 import unittest
 
-from vddtest import WINDOWS, ToolTest
-
-PLAN_SIGNED = "plan 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 checks writing-for-agents ran"
+from vddtest import PLAN_SIGNED, WINDOWS, LoopRepoTest
 URL = "https://github.com/example/repo.git"
 HOSTS_REFUSED = "failed to read configuration: open ~/.config/gh/hosts.yml: operation not permitted"
 
@@ -46,11 +43,11 @@ sys.exit(code)
 
 
 @unittest.skipIf(WINDOWS, "stubbed gh and git are POSIX scripts, as in PreflightTest")
-class PRTest(ToolTest):
+class PRTest(LoopRepoTest):
     pr = "yes"
 
     def setUp(self):
-        ToolTest.setUp(self)
+        LoopRepoTest.setUp(self)
         self.box.init_git("main")
         for key, value in (("user.name", "VDD Test"), ("user.email", "test@example.com"),
                            ("commit.gpgsign", "false")):
@@ -76,18 +73,6 @@ class PRTest(ToolTest):
 
     # --- staging ---
 
-    def git(self, *argv, cwd=None):
-        return subprocess.run(["git"] + list(argv), cwd=cwd or self.box.proj, check=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE).stdout.decode().strip()
-
-    def sha(self, ref="HEAD", cwd=None):
-        return self.git("rev-parse", ref, cwd=cwd)
-
-    def set_pr(self, value):
-        path = os.path.join(".scratch", "demo", "loop.md")
-        text = self.box.read(path)
-        self.box.write(path, re.sub(r"(?m)^PR: .*$", "PR: %s" % value, text))
-
     def plan(self, **outcomes):
         """Each gh call's (exit, stdout, stderr), by auth, merged, head and
         create."""
@@ -111,9 +96,6 @@ class PRTest(ToolTest):
     def pr_check(self, env=None):
         return self.box.run("pr", "check", "--slug", "demo", "--harness", "claude-code",
                             env=env if env is not None else self.box.stub_env())
-
-    def state(self):
-        return self.box.read(os.path.join(".scratch", "demo", "loop-state"))
 
 
 class CheckTest(PRTest):
@@ -354,8 +336,7 @@ class OpenTest(PRTest):
         self.body(self.TITLE + "\n\n" + self.BODY)
 
     def stage_fold(self):
-        with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
-            handle.write("fold folded %s signed %s\n" % (self.sha(), self.sha()))
+        self.stage("fold folded %s signed %s" % (self.sha(), self.sha()))
 
     def body(self, text):
         self.box.write(os.path.join(".scratch", "demo", "pr-body.md"), text)

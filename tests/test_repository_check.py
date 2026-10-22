@@ -3,13 +3,13 @@ repository: each Invariant's test breaks the copy one way and expects the
 check to refuse it, and the clean copy passes."""
 
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from vddtest import REPO, remove_tree
+
 SCRIPT = os.path.join(REPO, ".github", "scripts", "check_repository.py")
 
 # Copied from this repository, so the mutations below run on the real files.
@@ -64,15 +64,15 @@ class RepositoryCheck(unittest.TestCase):
 
     def setUp(self):
         self.repo = tempfile.mkdtemp(prefix="vdd-repo-check-")
-        self.addCleanup(shutil.rmtree, self.repo, True)
-        self.git("init", "-q")
+        self.addCleanup(remove_tree, self.repo)
+        self.repo_git("init", "-q")
         for path in COPIED:
             with open(os.path.join(REPO, path), "rb") as handle:
                 self.add(path, handle.read())
         for path, text in CLEAN.items():
             self.add(path, text)
 
-    def git(self, *args, data=None):
+    def repo_git(self, *args, data=None):
         return subprocess.run(
             ["git", "-c", "core.autocrlf=false"] + list(args),
             cwd=self.repo,
@@ -87,7 +87,7 @@ class RepositoryCheck(unittest.TestCase):
         os.makedirs(os.path.dirname(full), exist_ok=True)
         with open(full, "wb") as handle:
             handle.write(data.encode("utf-8") if isinstance(data, str) else data)
-        self.git("add", "--", path)
+        self.repo_git("add", "--", path)
 
     def read(self, path):
         with open(os.path.join(self.repo, path), "rb") as handle:
@@ -287,7 +287,7 @@ class UserInvokedPairsTest(RepositoryCheck):
         self.assertFails("but the frontmatter lacks disable-model-invocation: true")
 
     def test_no_policy_file_fails(self):
-        self.git("rm", "-q", "--cached", "skills/vdd-orchestrator/agents/openai.yaml")
+        self.repo_git("rm", "-q", "--cached", "skills/vdd-orchestrator/agents/openai.yaml")
         self.assertFails("skills/vdd-orchestrator: disable-model-invocation: true and no agents/openai.yaml")
 
     def test_a_mixed_ending_skill_with_a_broken_pair_fails(self):
@@ -340,12 +340,12 @@ class ExecutableSurfaceTest(RepositoryCheck):
     def test_an_executable_file_fails(self):
         """Prevents an executable on every installer's machine. Mode from the
         git index, so the fixture works on Windows too."""
-        self.git("update-index", "--chmod=+x", "tests/test_x.py")
+        self.repo_git("update-index", "--chmod=+x", "tests/test_x.py")
         self.assertFails("executable in distributed content: tests/test_x.py")
 
     def test_a_symlink_fails(self):
-        blob = self.git("hash-object", "-w", "--stdin", data=b"README.md").decode().strip()
-        self.git("update-index", "--add", "--cacheinfo", "120000,%s,docs/link.md" % blob)
+        blob = self.repo_git("hash-object", "-w", "--stdin", data=b"README.md").decode().strip()
+        self.repo_git("update-index", "--add", "--cacheinfo", "120000,%s,docs/link.md" % blob)
         self.assertFails("symlink in distributed content: docs/link.md")
 
     def test_a_hook_in_the_claude_manifest_fails(self):
@@ -358,7 +358,7 @@ class ExecutableSurfaceTest(RepositoryCheck):
 
     def test_a_file_under_skills_not_at_644_fails(self):
         """Prevents a shipped file that runs as a program of its own."""
-        self.git("update-index", "--chmod=+x", "skills/vdd-setup/scripts/vdd.py")
+        self.repo_git("update-index", "--chmod=+x", "skills/vdd-setup/scripts/vdd.py")
         self.assertFails("mode 100755, not 100644, under skills/: skills/vdd-setup/scripts/vdd.py")
 
 

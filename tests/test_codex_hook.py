@@ -56,7 +56,7 @@ class CodexHookTest(ToolTest):
         return self.box.run("codex-stop", stdin=stdin, env=env or self.box.env(
             VDD_WAIT_POLL_SECONDS="0.05", VDD_WAIT_TIMEOUT_SECONDS="0.5"))
 
-    def snapshot(self):
+    def project_files(self):
         out = {}
         for directory, _, files in os.walk(self.box.proj):
             for name in files:
@@ -69,7 +69,7 @@ class CodexHookTest(ToolTest):
         self.assertEqual(result.code, 0, result)
         self.assertEqual(result.data, b"", result)
         if before is not None:
-            self.assertEqual(self.snapshot(), before)
+            self.assertEqual(self.project_files(), before)
 
     def assertBlock(self, result):
         self.assertEqual(result.code, 0, result)
@@ -88,7 +88,7 @@ class CodexHookTest(ToolTest):
         answers before the hook reads standard input."""
         self.loop()
         self.armed("s1")
-        before = self.snapshot()
+        before = self.project_files()
         for flag in ("--help", "-h"):
             with self.subTest(flag=flag):
                 result = self.box.run("codex-stop", flag, stdin=stop_input("s1"))
@@ -96,7 +96,7 @@ class CodexHookTest(ToolTest):
                 self.assertContract(result)
                 self.assertIn("Codex runs it at a turn end", result.text)
                 self.assertNext(result, "a Role never runs codex-stop")
-                self.assertEqual(self.snapshot(), before)
+                self.assertEqual(self.project_files(), before)
 
     # --- the 0.15 cases ---
 
@@ -119,14 +119,14 @@ class CodexHookTest(ToolTest):
     def test_03_nothing_armed_silent(self):
         self.loop()
         self.ring("Orchestrator", P1)
-        before = self.snapshot()
+        before = self.project_files()
         self.assertSilent(self.hook(stop_input(ID)), before)
 
     def test_04_another_sessions_armed_file_untouched(self):
         self.loop()
         self.armed(OTHER)
         self.ring("Orchestrator", P1)
-        before = self.snapshot()
+        before = self.project_files()
         self.assertSilent(self.hook(stop_input(ID)), before)
 
     def test_05_armed_with_a_doorbell_waiting_blocks_and_claims_its_own_file(self):
@@ -217,7 +217,7 @@ class CodexHookTest(ToolTest):
         self.armed(ID)
         self.arm("", "vdd codex-armed 1\nOrchestrator 0\n")
         self.ring("Orchestrator", P1)
-        before = self.snapshot()
+        before = self.project_files()
         self.assertSilent(self.hook(b'{"turn_id":"t1","hook_event_name":"Stop"}'), before)
         self.assertSilent(self.hook(stop_input("")), before)
 
@@ -236,7 +236,7 @@ class CodexHookTest(ToolTest):
         self.loop()
         self.box.write(os.path.join(".scratch", "codex-armed-x"), "vdd codex-armed 1\nOrchestrator 0\n")
         self.ring("Orchestrator", P1)
-        before = self.snapshot()
+        before = self.project_files()
         for session in ("../codex-armed-x", "a b", "a/b", "é"):
             with self.subTest(session=session):
                 self.assertSilent(self.hook(stop_input(session)), before)
@@ -257,7 +257,7 @@ class CodexHookTest(ToolTest):
         self.loop()
         self.box.write(os.path.join(TRACKER, "armed-" + ID), "Orchestrator 0\n")
         self.ring("Orchestrator", P1)
-        before = self.snapshot()
+        before = self.project_files()
         self.assertSilent(self.hook(stop_input(ID)), before)
 
     def test_an_error_inside_exits_zero(self):
@@ -314,7 +314,7 @@ class CodexHookTest(ToolTest):
         self.armed(ID)
         self.box.write(os.path.join(TRACKER, "codex-claim-" + ID), "")
         self.ring("Orchestrator", P1)
-        before = self.snapshot()
+        before = self.project_files()
         self.assertSilent(self.hook(stop_input(ID)), before)
 
     def pin(self, path):
@@ -389,7 +389,7 @@ class HookStringTest(ToolTest):
         with open(self.box.path(TRACKER, "doorbells"), "wb") as handle:
             handle.write(("10:00:00 to: Orchestrator %s\n" % P1).encode())
 
-    def stage(self, case):
+    def stage_case(self, case):
         """One of the guard's three cases: no .scratch/, .scratch/ with a loop
         and nothing armed, one armed file."""
         shutil.rmtree(self.box.path(".scratch"), ignore_errors=True)
@@ -425,7 +425,7 @@ class HookStringTest(ToolTest):
         for shell in shells:
             for case in ("none", "unarmed", "armed"):
                 with self.subTest(shell=shell, case=case):
-                    self.stage(case)
+                    self.stage_case(case)
                     if os.path.exists(started):
                         os.remove(started)
                     proc = self.posix(REPO, "marker", shell)
@@ -439,7 +439,7 @@ class HookStringTest(ToolTest):
         bare = 'set -- .scratch/*/codex-armed-*; [ ! -e "$1" ] || python3 x.py || true'
         for case in ("none", "unarmed"):
             with self.subTest(case=case):
-                self.stage(case)
+                self.stage_case(case)
                 proc = self.posix(REPO, "marker", "zsh", bare)
                 self.assertNotEqual(proc.returncode, 0)
 
@@ -473,7 +473,7 @@ class HookStringTest(ToolTest):
     def test_command_windows_nothing_armed_exits_zero_silently(self):
         for case in ("none", "unarmed"):
             with self.subTest(case=case):
-                self.stage(case)
+                self.stage_case(case)
                 code, out = self.powershell(REPO)
                 self.assertEqual((code, out), (0, b""))
 

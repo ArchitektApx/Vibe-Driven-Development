@@ -6,8 +6,12 @@ Shared directory, every relocation variable cleared, so no test reads the
 real machine.
 """
 
+import base64
+import json
 import os
+import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -38,6 +42,44 @@ CLEARED = (
     "VDD_SAVE_PAUSE_SECONDS",
     "PYTHONDONTWRITEBYTECODE",
 )
+
+
+# The plan Sign-off line a loop's state file carries before its code Loop.
+PLAN_SIGNED = "plan 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 checks writing-for-agents ran"
+PLAN_SIGNED_2 = "plan 2 reviewed signed-off - counts 0 0 0 next 3 new 0 closed 2 checks writing-for-agents ran"
+CODE_SIGNED_2 = "code 2 reviewed signed-off - counts 0 0 0 next 2 new 0 closed 1 checks code-review ran"
+SIGNED = PLAN_SIGNED
+
+GIT_IDENTITY = ("-c", "commit.gpgsign=false", "-c", "user.name=VDD Test", "-c", "user.email=test@example.com")
+
+
+def b64(data):
+    return None if data is None else base64.b64encode(data).decode("ascii")
+
+
+def _writable_retry(function, path, _):
+    """Clear the read-only bit on the path and its directory, then retry:
+    Windows refuses to delete a read-only file, POSIX a file in a read-only
+    directory."""
+    parent = os.path.dirname(path)
+    os.chmod(parent, stat.S_IRWXU)
+    if not os.path.isdir(path) or os.path.islink(path):
+        os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+    else:
+        os.chmod(path, stat.S_IRWXU)
+    function(path)
+
+
+def remove_tree(path):
+    """Remove a test's temporary tree, read-only files included. Windows
+    refuses to delete git's read-only objects, which left every git-backed
+    sandbox behind in %TEMP%."""
+    if not os.path.lexists(path):
+        return
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=_writable_retry)  # pyright: ignore[reportCallIssue]
+    else:
+        shutil.rmtree(path, onerror=lambda function, failed, info: _writable_retry(function, failed, info))
 
 
 LOOP_TEXT = (
@@ -121,16 +163,28 @@ class Sandbox:
         with open(os.path.join(base or self.proj, relative), "rb") as handle:
             return handle.read().decode("utf-8")
 
-    def git(self, *args, cwd=None):
-        """Run git in the project, signing off and with a fixed identity."""
-        subprocess.run(
-            ["git", "-c", "commit.gpgsign=false", "-c", "user.name=VDD Test", "-c", "user.email=test@example.com"]
-            + list(args),
+    def git(self, *args, cwd=None, env=None):
+        """Run git in the project, unsigned and with a fixed identity, and
+        return its stripped standard output."""
+        proc = subprocess.run(
+            ["git"] + list(GIT_IDENTITY) + list(args),
             cwd=cwd or self.proj,
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=env,
         )
+        return proc.stdout.decode("utf-8").strip()
+
+    def sha(self, ref="HEAD", cwd=None):
+        return self.git("rev-parse", ref, cwd=cwd)
+
+    def commit(self, name, text, message):
+        """Write one file, commit it, and return the new HEAD."""
+        self.write(name, text)
+        self.git("add", name)
+        self.git("commit", "-q", "-m", message)
+        return self.sha()
 
     def init_git(self, branch="main"):
         """A repository on branch with one commit."""
@@ -171,7 +225,7 @@ class Sandbox:
         return self.env(PATH=self.bin + os.pathsep + os.environ.get("PATH", ""), **extra)
 
     def cleanup(self):
-        shutil.rmtree(self.root, ignore_errors=True)
+        remove_tree(self.root)
 
 
 class ToolTest(unittest.TestCase):
@@ -191,3 +245,77 @@ class ToolTest(unittest.TestCase):
         self.assertNotIn(b"\r", result.data)
         self.assertTrue(result.data.endswith(b"\n"), result)
         self.assertTrue(result.last.startswith("Next: "), result)
+
+
+class LoopRepoTest(ToolTest):
+    """A test on one loop, .scratch/<slug>/, in a git repository the
+    subclass stages."""
+
+    slug = "demo"
+
+    # --- files under .scratch/<slug>/ ---
+
+    def rel(self, name):
+        return os.path.join(".scratch", self.slug, name)
+
+    def read(self, name):
+        return self.box.read(self.rel(name))
+
+    def exists(self, name):
+        return os.path.exists(self.box.path(self.rel(name)))
+
+    def put(self, name, text):
+        self.box.write(self.rel(name), text)
+
+    def state(self):
+        return self.read("loop-state")
+
+    def stage(self, *lines):
+        """Append lines to the loop's state file."""
+        with open(self.box.path(self.rel("loop-state")), "ab") as handle:
+            handle.write("".join(line + "\n" for line in lines).encode("utf-8"))
+
+    def snapshot(self, names):
+        """Each named file's text, None when it is missing."""
+        return dict((name, self.read(name) if self.exists(name) else None) for name in names)
+
+    def set_pr(self, value):
+        text = self.read("loop.md")
+        self.put("loop.md", re.sub(r"(?m)^PR: .*$", "PR: %s" % value, text))
+
+    # --- git ---
+
+    def git(self, *argv, cwd=None, env=None):
+        return self.box.git(*argv, cwd=cwd, env=env)
+
+    def out(self, *argv):
+        return self.box.git(*argv)
+
+    def sha(self, ref="HEAD", cwd=None):
+        return self.box.sha(ref, cwd=cwd)
+
+    def head(self):
+        return self.box.sha()
+
+    def commit(self, name, text, message):
+        return self.box.commit(name, text, message)
+
+    def coder_round(self, number, name=None, text="x\n"):
+        """A code round's commit and its recorded start and end."""
+        start = self.sha()
+        self.commit(name or "src/r%d.txt" % number, text, "feat: round %d" % number)
+        self.stage("code %d start %s" % (number, start), "code %d end %s" % (number, self.sha()))
+
+    # --- refusals ---
+
+    def refused(self, argv, names, *fragments):
+        """Run argv, assert the tool refused it under its contract with every
+        fragment printed, and that none of the named files changed."""
+        before = LoopRepoTest.snapshot(self, names)
+        result = self.box.run(*argv)
+        self.assertNotEqual(result.code, 0, result)
+        self.assertContract(result)
+        for fragment in fragments:
+            self.assertIn(fragment, result.text, result)
+        self.assertEqual(LoopRepoTest.snapshot(self, names), before)
+        return result
