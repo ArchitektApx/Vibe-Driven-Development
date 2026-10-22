@@ -173,11 +173,17 @@ and it offers to hand a decided idea to the next Role.
   that value. VDD now refuses such a value and says why, and the Role runs
   the command again without the backslash.
 
+- **A file VDD may not read or write is reported at once on macOS and
+  Linux**, instead of after two seconds of retrying; Windows still retries a
+  file another program holds for a moment. A refusal names a loop's state
+  file by its `.scratch/<slug>/` path, as every other line does.
+
 #### Internal
 
 - CI runs the VDD tool's tests on macOS, Linux and Windows against Python
-  3.9 and the newest 3.x, and checks the shipped code for shell calls,
-  network modules and computed imports.
+  3.9 and the newest 3.x, in parallel, and checks the shipped code for shell
+  calls, network modules, computed imports and imports outside an allowlist.
+  The tests pin every command's whole output.
 
 ### Fixed
 
