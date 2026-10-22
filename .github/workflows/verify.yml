@@ -24,72 +24,17 @@ jobs:
         with:
           persist-credentials: false
 
-      # A broken manifest breaks install for every user. Codex ignores
-      # .claude-plugin/plugin.json once its own exists, so a field changed in one
-      # drifts silently, and version drift is always a mistake.
-      - name: Manifests parse and agree
-        run: node .github/scripts/manifests.js
-
-      # A Harness finds a skill by the name and description in its frontmatter.
-      - name: Check every skill has frontmatter
-        run: bash .github/scripts/frontmatter.sh
-
-      # `npx skills add` installs by frontmatter name, so a duplicate silently
-      # clobbers the other skill.
-      - name: Skill names are unique
-        run: bash .github/scripts/unique-names.sh
-
-      # A link to a file that does not ship strands its reader, in a Reference
-      # file as in a skill file.
-      - name: Relative links under skills resolve
-        run: node .github/scripts/relative-links.js
-
-      # A Reference file its skill file does not link is one no reader is sent to.
-      # A direct link is enough: each is linked from the step that reads it, a
-      # Harness file from ## Harnesses.
-      - name: Every file under a skill is linked from its skill file
-        run: node .github/scripts/reference-links.js
-
-      # Some Harnesses truncate a long file, so a Role can miss the end of a
-      # Reference file it reads in one call.
-      - name: Reference files are at most 8 KB
-        run: bash .github/scripts/reference-size.sh
-
-      # A skill that ships a Harness file and leaves a Harness out of ## Harnesses
-      # sends that reader nowhere.
-      - name: Every skill with a Harness file indexes every Harness
-        run: node .github/scripts/harness-index.js
-
-      # Each half of the pair is ignored by the Harnesses the other covers, so one
-      # half alone leaves the skill model-invocable on those Harnesses.
-      - name: User-invoked skills carry both halves of the pair
-        run: node .github/scripts/user-invoked-pairs.js
-
-      # The hosted skills refuse to run unless their prompt says the start
-      # sentence, and the Spawn prompt is the one that says it (ticket 76): an edit
-      # to either side makes every spawn refuse.
-      - name: The Spawn prompt and the hosted skills share the start sentence
-        run: bash .github/scripts/start-sentence.sh
-
-      # Claude Code reads CLAUDE.md first, so a house rule added only to AGENTS.md
-      # never reaches it, and one added to both is read twice.
-      - name: CLAUDE.md is a stub for AGENTS.md
-        run: bash .github/scripts/claude-md.sh
-
-      # No symlinks, executable files, MCP servers or hook but one: each would end
-      # up on every installer's machine. That one is the Codex Stop hook inline in
-      # .codex-plugin/plugin.json, in its fixed form, because Codex's trust covers
-      # its command string and a changed string is a hook every user trusts again.
-      # The guard uses find, not a bare glob: zsh aborts on an unmatched glob, which
-      # Codex shows as "Hook failed" at every turn end. A deliberate change edits
-      # executable-surface.sh or codex-hook-form.js in the same PR.
-      - name: Reject executable surface
-        run: bash .github/scripts/executable-surface.sh
+      # Every repository Invariant in AGENTS.md that is not about a shipped .py,
+      # one function each, whose docstring gives its reason. It reads
+      # git ls-files -s for paths and modes, so a mode reads the same on every
+      # OS, and the shipped-code check reads git ls-files; in both, gitignored
+      # scratch files never count.
+      - name: The repository holds its Invariants
+        run: python3 .github/scripts/check_repository.py
 
       # Shipped code runs on every installer's machine through a named interpreter,
       # so check_shipped_code.py holds it to that promise (the rules are in
-      # AGENTS.md). It reads git ls-files -s, so gitignored scratch files never
-      # count and a mode reads the same on every OS.
+      # AGENTS.md).
       - name: Shipped code passes the static checks
         run: python3 .github/scripts/check_shipped_code.py
 
@@ -102,13 +47,6 @@ jobs:
         with:
           version: 1.1.414
           warnings: true
-
-      # release.yml alone may write to the repository, and only from a version tag
-      # push or a workflow_dispatch; a pull_request trigger there would run PR-head
-      # content with write access. The runner has no YAML parser, so these are text
-      # checks on the lines that are not comments.
-      - name: Only release.yml grants write access
-        run: bash .github/scripts/release-write.sh
 
   # The VDD tool runs on the user's Python on macOS, Linux and native Windows,
   # from 3.9 (Apple's Command Line Tools) to the newest, so a new Python or a

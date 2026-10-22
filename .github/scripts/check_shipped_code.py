@@ -1,8 +1,8 @@
-"""Static checks on the code this plugin ships.
+"""Static checks on the `.py` files this plugin ships.
 
 Run from the repository root, or with the repository as the one argument. It
-reads the tracked files and their modes from `git ls-files -s`, so gitignored
-scratch files never count and a mode reads the same on every OS. Needs Python
+reads the tracked files from `git ls-files`, so gitignored scratch files never
+count. The repository's other Invariants are check_repository.py's. Needs Python
 3.10 or newer for sys.stdlib_module_names; the shipped code itself is checked
 against Python 3.9.
 
@@ -11,18 +11,12 @@ Prints one line per problem and exits 1 when there is any, 0 otherwise.
 
 import ast
 import os
-import re
 import subprocess
 import sys
 
 if sys.version_info < (3, 10):
     print("check_shipped_code.py needs Python 3.10 or newer (sys.stdlib_module_names).")
     sys.exit(2)
-
-# Outside these directories every tracked file is one of the kinds below.
-UNSHIPPED_DIRS = ("skills/", ".github/", "tests/", "docs/")
-ROOT_FILES = (".gitignore", ".gitattributes", "LICENSE", "pyrightconfig.json")
-MANIFEST_DIRS = (".claude-plugin/", ".codex-plugin/")
 
 # Modules that open a network connection, or serve or fetch over one, and
 # the C modules under socket and ssl.
@@ -67,41 +61,16 @@ BANNED_NAMES = {
 # name through.
 GUARDED_MODULES = {"os", "subprocess", "builtins"}
 
-# A hooks key at any indentation, quoted or not.
-HOOKS_KEY = re.compile(r"""^\s*["']?hooks["']?\s*:""")
-
 ALLOWED_BYTES = set(range(0x20, 0x7F)) | {0x09, 0x0A, 0x0D}
 
 
 def tracked(repo):
     out = subprocess.run(
-        ["git", "ls-files", "-s", "-z"], cwd=repo, check=True, capture_output=True
+        ["git", "ls-files", "-z"], cwd=repo, check=True, capture_output=True
     ).stdout
     for entry in out.split(b"\0"):
-        if not entry:
-            continue
-        meta, _, path = entry.partition(b"\t")
-        mode = meta.split(b" ")[0].decode("ascii")
-        yield mode, path.decode("utf-8", "surrogateescape")
-
-
-def kind_problem(path):
-    if path.startswith("skills/"):
-        parts = path.split("/")
-        if path.endswith(".md") or path.endswith(".py"):
-            return None
-        if len(parts) == 4 and parts[2:] == ["agents", "openai.yaml"]:
-            return None
-        return "file kind not allowed under skills/ (only .md, agents/openai.yaml and .py): " + path
-    if path.startswith(UNSHIPPED_DIRS):
-        return None
-    if path.endswith(".md"):
-        return None
-    if path.endswith(".json") and path.startswith(MANIFEST_DIRS) and path.count("/") == 1:
-        return None
-    if path in ROOT_FILES:
-        return None
-    return "file kind not allowed: " + path
+        if entry:
+            yield entry.decode("utf-8", "surrogateescape")
 
 
 def bound_names(tree):
@@ -202,21 +171,6 @@ class Calls(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def check_skill_frontmatter(path, data, problems):
-    """A hooks key in a SKILL.md frontmatter is a hook: Claude Code registers
-    it when the skill runs, plugin skills included. The one hook is the Codex
-    Stop hook in .codex-plugin/plugin.json."""
-    text = data.decode("utf-8", "replace").lstrip("\ufeff")
-    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    if not lines or lines[0].strip() != "---":
-        return
-    for number, line in enumerate(lines[1:], 2):
-        if line.strip() == "---":
-            return
-        if HOOKS_KEY.match(line):
-            problems.append("%s:%d: hooks key in the frontmatter: a second hook" % (path, number))
-
-
 def check_python(path, data, problems):
     for number, line in enumerate(data.split(b"\n"), 1):
         bad = [b for b in line if b not in ALLOWED_BYTES]
@@ -237,20 +191,12 @@ def main(argv):
     repo = argv[0] if argv else "."
     problems = []
     count = 0
-    for mode, path in tracked(repo):
+    for path in tracked(repo):
         count += 1
-        problem = kind_problem(path)
-        if problem:
-            problems.append(problem)
-        if path.startswith("skills/") and mode != "100644":
-            problems.append("mode %s, not 100644, under skills/: %s" % (mode, path))
         full = os.path.join(repo, path)
         if path.startswith("skills/") and path.endswith(".py") and os.path.isfile(full):
             with open(full, "rb") as handle:
                 check_python(path, handle.read(), problems)
-        if path.startswith("skills/") and path.endswith("/SKILL.md") and os.path.isfile(full):
-            with open(full, "rb") as handle:
-                check_skill_frontmatter(path, handle.read(), problems)
     for problem in problems:
         print(problem)
     if problems:

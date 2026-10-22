@@ -71,8 +71,8 @@ file is prose.
 ## Invariants
 
 `verify.yml` enforces these on every PR; preserve them through any refactor
-of `.github/`. The comment at each step gives its reason, and a deliberate
-exception edits the step in the same PR so the reviewer sees both.
+of `.github/`. The docstring of each check gives its reason, and a deliberate
+exception edits the check in the same PR so the reviewer sees both.
 
 - One hook: the Codex `Stop` hook inline in `.codex-plugin/plugin.json`, in
   its fixed form. No other hook, a `hooks` key in a `SKILL.md` frontmatter

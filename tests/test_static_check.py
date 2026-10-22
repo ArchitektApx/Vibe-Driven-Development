@@ -191,24 +191,6 @@ class StaticCheckTest(unittest.TestCase):
         self.add("skills/x/scripts/vdd/m.py", "from os import *\nsystem('x')\n")
         self.assertFails("from os import *")
 
-    def test_a_hooks_key_in_a_skill_frontmatter_fails(self):
-        """Claude Code registers a skill's frontmatter hooks when the skill
-        runs, plugin skills included: a second hook against "One hook"."""
-        for text in (
-            "---\nname: x\ndescription: x\nhooks:\n  Stop:\n    - hooks: []\n---\n",
-            "---\r\nname: x\r\n'hooks': {}\r\n---\r\n",
-            "﻿---\nname: x\nmetadata:\n  hooks: x\n---\n",
-        ):
-            with self.subTest(text=text):
-                self.add("skills/x/SKILL.md", text)
-                self.assertFails("skills/x/SKILL.md")
-                self.assertFails("hooks key in the frontmatter")
-
-    def test_hooks_below_the_frontmatter_pass(self):
-        self.add("skills/x/SKILL.md", "---\nname: x\ndescription: x\n---\n\nhooks: the word in the body\n")
-        code, text = self.check()
-        self.assertEqual(code, 0, text)
-
     def test_a_non_ascii_byte_fails(self):
         """A non-ASCII character in a printed message reaches a Windows console
         in the ANSI code page as a different character, or raises before
@@ -216,30 +198,9 @@ class StaticCheckTest(unittest.TestCase):
         self.add("skills/x/scripts/vdd/m.py", "x = '\u201d'\n")
         self.assertFails("byte outside printable ASCII")
 
-    def test_an_executable_file_fails(self):
-        """Mode from the git index, so the fixture works on Windows too."""
-        self.git("update-index", "--chmod=+x", "skills/x/scripts/vdd/cli.py")
-        self.assertFails("mode 100755")
-
     def test_a_shebang_fails(self):
         self.add("skills/x/scripts/vdd/m.py", "#!/usr/bin/env python3\nx = 1\n")
         self.assertFails("shebang")
-
-    def test_a_js_file_under_skills_fails(self):
-        self.add("skills/x/scripts/helper.js", "console.log(1)\n")
-        self.assertFails("file kind not allowed under skills/")
-
-    def test_a_shell_script_under_skills_fails(self):
-        """The 0.15 .sh and .ps1 scripts went with the Codex hook's move; new
-        shipped code is .py."""
-        self.add("skills/x/references/wait.sh", "echo x\n")
-        self.assertFails("file kind not allowed under skills/")
-        self.add("skills/x/references/wait.ps1", "exit 0\n")
-        self.assertFails("wait.ps1")
-
-    def test_a_txt_file_at_the_root_fails(self):
-        self.add("notes.txt", "x\n")
-        self.assertFails("file kind not allowed: notes.txt")
 
     def test_gitignored_files_never_count(self):
         """The script reads git ls-files, so an untracked .py breaking every
