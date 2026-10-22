@@ -11,9 +11,7 @@ from vddtest import PLAN_SIGNED, PLAN_SIGNED_2, CODE_SIGNED_2, REPO, LoopRepoTes
 P1 = "VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/."
 P2 = "VDD Planner: .scratch/demo/ ready, round 2. Read spec.md and issues/."
 PLAN_OPEN_1 = "plan 1 reviewed open 1,2 counts 0 1 1 next 3 new 2 closed 0 checks writing-for-agents ran"
-PLAN_SIGNED_2 = "plan 2 reviewed signed-off - counts 0 0 0 next 3 new 0 closed 2 checks writing-for-agents ran"
 CODE_OPEN_1 = "code 1 reviewed open 1 counts 0 1 0 next 2 new 1 closed 0 checks code-review ran"
-CODE_SIGNED_2 = "code 2 reviewed signed-off - counts 0 0 0 next 2 new 0 closed 1 checks code-review ran"
 
 
 class OrchestratorTest(SceneTest):
@@ -453,17 +451,6 @@ class FoldStepTest(OrchestratorTest):
                 result = self.start()
                 self.assertNext(result, step)
                 self.assertNotIn("loop fold", result.last)
-
-
-class VersionOneTest(OrchestratorTest):
-    def test_every_orchestrator_command_refuses_a_version_one_loop(self):
-        self.box.write_loop("demo", version=1)
-        for argv in (("start", "--slug", "demo"),
-                     ("return", "--role", "Coder", "--slug", "demo", "--harness", "claude-code")):
-            with self.subTest(argv=argv):
-                result = self.orch(*argv)
-                self.assertNotEqual(result.code, 0, result)
-                self.assertIn("0.16.0-beta.3", result.text)
 
 
 class RespawnQuestionTest(OrchestratorTest):

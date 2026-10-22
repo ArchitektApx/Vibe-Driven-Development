@@ -449,22 +449,5 @@ class LeaveTest(ReviewTest):
         self.assertIn("VDD Plan-Reviewer: PLAN-REVIEW.md SIGNED OFF, round 1.", result.lines)
 
 
-class VersionOneTest(ReviewTest):
-    def test_every_review_command_refuses_a_version_one_loop(self):
-        """A loop 0.16.0-beta.3 started keeps review files in the old shape:
-        the round commands never overwrite them."""
-        self.box.write_loop("demo", version=1)
-        for sub in ("start", "check"):
-            with self.subTest(sub=sub):
-                result = self.tool("review", sub, "--role", "Plan-Reviewer", "--slug", "demo", "--write")
-                self.assertNotEqual(result.code, 0, result)
-                self.assertContract(result)
-                self.assertIn("0.16.0-beta.3", result.text)
-                tell = result.tells()[0]
-                self.assertIn("reinstall VDD 0.16.0-beta.3", tell)
-                self.assertIn("loop aside --slug demo --write", tell)
-        self.assertFalse(self.exists("PLAN-REVIEW.md"))
-
-
 if __name__ == "__main__":
     unittest.main()

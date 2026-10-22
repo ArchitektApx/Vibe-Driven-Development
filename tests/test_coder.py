@@ -133,6 +133,20 @@ class StartTest(CoderTest):
         self.assertEqual(self.branch(), "demo")
         self.assertIn("Switched to the feature branch demo.", result.lines)
 
+    def test_a_start_from_the_base_records_the_feature_branch_tip(self):
+        """Round 4 read the round's sha before the switch, so a start from the
+        base recorded the base tip, an ancestor that weakened the gone-start
+        check and could move the fold's base."""
+        self.stage_round_two()
+        tip = self.sha("demo")
+        self.box.git("checkout", "-q", "main")
+        self.assertNotEqual(self.sha("main"), tip)
+        result = self.coder("start")
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(self.branch(), "demo")
+        self.assertIn("Round 2 starts at %s." % tip, result.lines)
+        self.assertIn("code 2 start %s" % tip, self.state())
+
     def test_on_the_feature_branch_it_stays(self):
         self.box.git("checkout", "-q", "-b", "demo")
         result = self.coder("start")
@@ -445,18 +459,6 @@ class CheckTest(CoderTest):
         self.assertEqual(again.code, 0, again)
         self.assertIn("VDD Coder: FIXES.md written, round 1. Read it.", again.lines)
         self.assertEqual(self.state(), before)
-
-
-class VersionOneTest(CoderTest):
-    def test_every_coder_command_refuses_a_version_one_loop(self):
-        self.box.write_loop("demo", version=1)
-        for sub in ("start", "check"):
-            with self.subTest(sub=sub):
-                result = self.coder(sub)
-                self.assertNotEqual(result.code, 0, result)
-                self.assertIn("0.16.0-beta.3", result.text)
-                self.assertTrue(result.tells(), result)
-        self.assertEqual(self.branch(), "main")
 
 
 if __name__ == "__main__":

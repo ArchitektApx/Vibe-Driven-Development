@@ -15,67 +15,14 @@ becomes <version>. VDD_TODAY fixes the dates.
 import json
 import os
 import re
-import stat
 import subprocess
 import unittest
 
-from vddtest import PLAN_SIGNED, REPO, WINDOWS, LoopRepoTest
+from scenes import CC, CODEX_ID, FINDINGS, P1, P2, PLAN_OPEN_1, SLUG, Staged
+from vddtest import PLAN_SIGNED_2, REPO, WINDOWS
 
 GOLDEN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "golden")
 UPDATE = os.environ.get("VDD_UPDATE_GOLDENS") == "1"
-TODAY = "2026-10-20"
-CC = ("--harness", "claude-code")
-SLUG = ("--slug", "demo")
-
-P1 = "VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/."
-P2 = "VDD Planner: .scratch/demo/ ready, round 2. Read spec.md and issues/."
-PLAN_OPEN_1 = "plan 1 reviewed open 1,2 counts 0 1 1 next 3 new 2 closed 0 checks writing-for-agents ran"
-PLAN_SIGNED_2 = "plan 2 reviewed signed-off - counts 0 0 0 next 3 new 0 closed 2 checks writing-for-agents ran"
-CODE_OPEN_1 = "code 1 reviewed open 1 counts 0 1 0 next 2 new 1 closed 0 checks code-review ran"
-CODE_SIGNED_1 = "code 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 checks code-review ran"
-CODE_SIGNED_2 = "code 2 reviewed signed-off - counts 0 0 0 next 2 new 0 closed 1 checks code-review ran"
-CODEX_ID = "019a0001-aaaa-7bbb-8ccc-0123456789ab"
-
-PLAN_REVIEW_1 = """# Plan review, round 1
-
-## Checks
-
-writing-for-agents: ran
-
-## New findings
-
-### 1. major (open): Implementation Decisions
-
-The Spec does not say how amounts are written.
-
-### 2. minor (open): Ticket 02
-
-Ticket 02 leaves `summary` out.
-"""
-
-FINDINGS = """### major: docs/a.md:3
-
-The heading names the wrong command.
-
-### minor: src/b.py:9
-
-The helper's name says less than it does.
-"""
-
-LEGACY_INDEX = """# Brainstorming Index
-
-## Ideas
-
-| Idea | Importance | Size | Fog | Status | TL;DR |
-|---|---|---|---|---|---|
-| [old-idea.md](old-idea.md) | large | small | small | shaped | An old idea. |
-
-## Log
-
-- 2026-10-01: old-idea captured.
-"""
-
-LEGACY_IDEA = "# Old idea\n\n## Summary\n\nAn old idea.\n\n## Next Steps\n\n- [ ] Look again.\n"
 
 
 def git_objects(box):
@@ -111,153 +58,8 @@ def normalise(text, box):
     return text
 
 
-class Golden(LoopRepoTest):
+class Golden(Staged):
     maxDiff = None
-
-    # --- scenes ---
-
-    def repo(self):
-        """main with a .gitignore for .scratch/."""
-        self.box.init_git("main")
-        self.box.write(".gitignore", ".scratch/\n")
-        self.git("add", ".gitignore")
-        self.git("commit", "-q", "-m", "chore: ignore the tracker")
-
-    def plan(self, *extra, pr="ask at sign-off", policies=()):
-        """An open loop in planning, its Spec and two Tickets."""
-        self.repo()
-        self.box.write_loop("demo", extra=tuple(policies) + extra)
-        if pr != "ask at sign-off":
-            self.set_pr(pr)
-        self.put("spec.md", "# Spec\n")
-        self.put("issues/01-one.md", "# 01\n")
-        self.put("issues/02-two.md", "# 02\n")
-
-    def rings(self, *lines, to="Orchestrator"):
-        path = self.box.path(self.rel("doorbells"))
-        new = not os.path.exists(path)
-        with open(path, "a") as handle:
-            if new:
-                handle.write("# vdd doorbells 1\n")
-            for line in lines:
-                handle.write("10:00:00 to: %s %s\n" % (to, line))
-
-    def signed(self, **kw):
-        self.plan(PLAN_SIGNED, **kw)
-
-    def coding(self, **kw):
-        """The plan signed off, round 1 of the code on the feature branch."""
-        self.signed(**kw)
-        self.git("checkout", "-q", "-b", "demo")
-        self.coder_round(1)
-
-    def coder_started(self):
-        self.signed()
-        self.run_ok("coder", "start", *SLUG, "--write")
-        self.put("FIXES.md", self.read("FIXES.md").replace(
-            "Files:\nChange:\nVerified:", "Files: `a.txt`\nChange: wrote a.\nVerified: the test passed."))
-        self.commit("a.txt", "a\n", "feat: a")
-
-    def round_two(self):
-        """Code round 1 reviewed with finding 1 open."""
-        self.coding()
-        self.stage(CODE_OPEN_1)
-        self.put("CODEREVIEW.md", "# Code review, round 1\n\nOPEN: 0 blocker, 1 major, 0 minor.\n\n## Checks\n\n"
-                 "code-review: ran\n\n## Open findings\n\n## New findings\n\n### 1. major (open): a.txt:1\n\n"
-                 "The value is wrong.\n\n## Not carried\n")
-
-    def code_signed(self, **kw):
-        """Code round 1 signed off."""
-        self.coding(**kw)
-        self.stage(CODE_SIGNED_1)
-        self.put("CODEREVIEW.md", "# Code review, round 1\n\nSIGNED OFF. Nothing open.\n\n## New findings\n")
-
-    def folded(self, **kw):
-        self.code_signed(**kw)
-        self.stage("fold folded %s signed %s" % (self.sha(), self.sha()))
-
-    def plan_review_written(self):
-        self.plan()
-        self.run_ok("doorbell", "ring", "--role", "Planner", *CC, *SLUG, "--write")
-        self.run_ok("review", "start", "--role", "Plan-Reviewer", *SLUG, "--write")
-        self.put("PLAN-REVIEW.md", PLAN_REVIEW_1)
-
-    def code_review_written(self):
-        self.coding()
-        self.run_ok("review", "start", "--role", "Code-Reviewer", *SLUG, "--write")
-        text = self.read("CODEREVIEW.md")
-        text = text.replace("code-review: <ran | did not resolve, the Spec reviewed by hand>", "code-review: ran")
-        self.put("CODEREVIEW.md", text)
-
-    def origin(self):
-        """A local bare origin with main pushed."""
-        bare = os.path.join(self.box.root, "origin.git")
-        self.git("init", "-q", "--bare", bare)
-        self.git("remote", "add", "origin", bare)
-        self.git("push", "-q", "origin", "main")
-
-    def store(self):
-        """An idea store with a family and a closed idea."""
-        self.repo()
-        for argv in (("--slug", "main-idea", "--title", "Main idea", "--tldr", "The whole thing."),
-                     ("--slug", "part-one", "--title", "Part one", "--tldr", "The first half.", "--parent",
-                      "main-idea"),
-                     ("--slug", "other", "--title", "Other", "--tldr", "Needs part one.", "--relate",
-                      "depends on part-one: builds on it"),
-                     ("--slug", "old", "--title", "Old", "--tldr", "Done long ago.")):
-            self.run_ok("brainstorm", "new", *argv, "--write")
-        self.run_ok("brainstorm", "set", "--idea", "old", "--status", "done", "--decision", "Shipped.", "--write")
-
-    def legacy_store(self):
-        self.repo()
-        self.box.write(".scratch/_brainstorming/index.md", LEGACY_INDEX)
-        self.box.write(".scratch/_brainstorming/old-idea.md", LEGACY_IDEA)
-
-    def codex_armed(self):
-        self.box.write_loop("feat", harness="Codex")
-        self.box.write(os.path.join(".scratch", "feat", "codex-armed-" + CODEX_ID),
-                       "vdd codex-armed 1\nOrchestrator 0\n")
-        with open(self.box.path(".scratch", "feat", "doorbells"), "wb") as handle:
-            handle.write(("10:00:00 to: Orchestrator VDD Planner: .scratch/feat/ ready, round 1. "
-                          "Read spec.md and issues/.\n").encode())
-
-    def wayfinder_installed(self):
-        self.repo()
-        self.box.write(os.path.join(self.box.home, ".claude", "plugins", "cache", "x", "wayfinder", "SKILL.md"),
-                       "---\nname: wayfinder\n---\n", base=self.box.root)
-
-    def read_only_state(self):
-        self.plan("respawn Coder never")
-        path = self.box.path(self.rel("loop-state"))
-        os.chmod(path, stat.S_IREAD)
-        self.addCleanup(os.chmod, path, stat.S_IWRITE | stat.S_IREAD)
-
-    def damaged_state(self):
-        self.plan()
-        self.put("loop-state", "not a state file\nloop open\n")
-
-    def newer_state(self):
-        self.plan()
-        self.put("loop-state", "vdd loop-state 9\nloop open\n")
-
-    # --- running ---
-
-    def env(self, extra=None):
-        values = {"VDD_TODAY": TODAY}
-        values.update(extra or {})
-        return self.box.env(**values)
-
-    def no_gh(self):
-        """The environment with git on PATH and gh off it."""
-        path = self.box.git_only_path()
-        if path is None:
-            self.skipTest("gh sits beside git on this machine")
-        return {"PATH": path}
-
-    def run_ok(self, *argv):
-        result = self.box.run(*argv, env=self.env())
-        self.assertEqual(result.code, 0, result)
-        return result
 
     def check_row(self, group, command, case, scene, argv, env=None, stdin=None, code=0):
         scene(self)
@@ -281,7 +83,7 @@ class Golden(LoopRepoTest):
         self.assertEqual(expected, actual, "golden %s differs" % os.path.relpath(path, REPO))
 
 
-S = Golden
+S = Staged
 
 ROWS = [
     # group, command, case, scene, argv, env, stdin, exit (0 success, 1 refusal)

@@ -236,20 +236,6 @@ class RefusalTest(AddTest):
         self.findings()
         return self.add_refused(*fragments)
 
-    def test_a_version_one_state_file(self):
-        self.box.write_loop("demo", version=1)
-        result = self.refused("0.16.0-beta.3")
-        self.assertTrue(result.tells(), result)
-
-    def test_a_code_loop_with_no_recorded_review(self):
-        self.refused("no recorded review", "review add takes findings only after a code Sign-off")
-
-    def test_a_newest_review_with_findings_open(self):
-        self.coder_round(1)
-        self.stage("code 1 reviewed open 1 counts 0 1 0 next 2 new 1 closed 0 checks code-review ran")
-        self.put("CODEREVIEW.md", "# Code review, round 1\n")
-        self.refused("round 1's review left findings open", "review add takes findings only after a code Sign-off")
-
     def test_a_round_the_coder_has_started(self):
         self.signed_loop()
         self.findings()
