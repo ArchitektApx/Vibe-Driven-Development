@@ -6,6 +6,7 @@ Shared directory, every relocation variable cleared, so no test reads the
 real machine.
 """
 
+import atexit
 import base64
 import json
 import os
@@ -88,6 +89,115 @@ LOOP_TEXT = (
 )
 
 
+# The Next: check. Every Next: line a test's tool run prints is read for VDD
+# tool commands: an interpreter (python3, or py -3), the quoted path of a
+# vdd.py, then the group, the command and its options. Each command is run
+# again with --help and must exit 0: the parser refuses an unknown option
+# before it honours --help, so --help is the oracle for "a Role can run this
+# line verbatim". Skipped, by rule: a Next: line with no tool command, and a
+# command holding a <...> placeholder, which the Role fills in. A command
+# whose vdd.py does not exist fails. A command that passed is checked once per
+# process. The Codex Stop hook's JSON reason and a run started with Popen
+# (Sandbox.finish) are swept the same way.
+FLAGS = ("--write", "--once", "--resumed", "--help")
+# setup is a group with no command under it.
+TOOL_COMMAND = re.compile(r'(?:python3|py -3|"[^"]*python[^"]*") "([^"]*vdd\.py)" ([^\n]*)')
+NEXT_CHECKED = {}
+
+
+def _report_next():
+    if os.environ.get("VDD_NEXT_REPORT"):
+        sys.stderr.write("Next: check ran %d distinct commands, %d failed.\n"
+                         % (len(NEXT_CHECKED), len([ok for ok in NEXT_CHECKED.values() if not ok])))
+
+
+atexit.register(_report_next)
+
+
+def tokens(text):
+    """The words of text, a double-quoted run one word with its quotes
+    removed, each with whether a punctuation mark ended it."""
+    out = []
+    for match in re.finditer(r'"([^"]*)"([.,;:]?)|(\S+)', text):
+        if match.group(3) is not None:
+            word = match.group(3)
+            stripped = word.rstrip(".,;:")
+            out.append((stripped, stripped != word))
+        else:
+            out.append((match.group(1), bool(match.group(2))))
+    return out
+
+
+def next_commands(line):
+    """The tool commands in a Next: line, each (entry, argv), and the
+    placeholder-holding ones as None."""
+    found = []
+    for match in TOOL_COMMAND.finditer(line):
+        words = tokens(match.group(2))
+        argv = []
+        expects = 0
+        words_before_options = 1 if words[:1] and words[0][0] == "setup" else 2
+        for index, (word, ended) in enumerate(words):
+            if index < words_before_options and not word.startswith("--"):
+                argv.append(word)
+            elif word.startswith("--"):
+                argv.append(word)
+                expects = 0 if word in FLAGS else 1
+            elif expects:
+                argv.append(word)
+                expects = 0
+            else:
+                break
+            if ended:
+                break
+        if any("<" in word and ">" in word for word in argv):
+            found.append(None)
+        else:
+            found.append((match.group(1), tuple(argv)))
+    return found
+
+
+def next_lines(result):
+    """The Next: steps a result hands a Role: its last line when that is a
+    Next: line, or, for the Codex Stop hook's one JSON line, each Next: step
+    in its decoded reason."""
+    if result.last.startswith("Next:"):
+        return [result.last]
+    if len(result.lines) == 1 and result.last.startswith("{"):
+        try:
+            reason = json.loads(result.last).get("reason")
+        except (ValueError, AttributeError):
+            return []
+        if isinstance(reason, str) and "Next:" in reason:
+            return ["Next:" + part for part in reason.split("Next:")[1:]]
+    return []
+
+
+def check_next(box, result, test="a test"):
+    """Run each tool command result's Next: steps name with --help; raise
+    AssertionError naming the command and the test when one fails. Returns
+    the commands checked. Only a command that passed is cached, so every test
+    that prints a broken one fails."""
+    checked = []
+    for command in [c for line in next_lines(result) for c in next_commands(line)]:
+        if command is None:
+            continue
+        if not os.path.isfile(command[0]):
+            raise AssertionError("The Next: line %s printed names a vdd.py that does not exist: %s"
+                                 % (test, command[0]))
+        checked.append(command)
+        if NEXT_CHECKED.get(command):
+            continue
+        proc = subprocess.run([sys.executable, command[0]] + list(command[1]) + ["--help"], cwd=box.proj,
+                              stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              env=box.env(), timeout=120)
+        NEXT_CHECKED[command] = proc.returncode == 0
+        if proc.returncode != 0:
+            raise AssertionError("The Next: line %s printed does not parse: %s --help exited %d\n%s"
+                                 % (test, " ".join(command[1]), proc.returncode, proc.stdout.decode("utf-8", "replace")))
+    return checked
+
+
 class Result:
     def __init__(self, code, data):
         self.code = code
@@ -112,6 +222,7 @@ class Sandbox:
 
     def __init__(self):
         self.root = os.path.realpath(tempfile.mkdtemp(prefix="vdd-test-"))
+        self.test = "a test"
         self.home = os.path.join(self.root, "home")
         self.data = os.path.join(self.root, "data")
         self.proj = os.path.join(self.root, "proj")
@@ -147,7 +258,9 @@ class Sandbox:
             env=env if env is not None else self.env(),
             timeout=timeout,
         )
-        return Result(proc.returncode, proc.stdout)
+        result = Result(proc.returncode, proc.stdout)
+        check_next(self, result, self.test)
+        return result
 
     def path(self, *parts):
         return os.path.join(self.proj, *parts)
@@ -255,6 +368,7 @@ class ToolTest(unittest.TestCase):
 
     def setUp(self):
         self.box = Sandbox()
+        self.box.test = self.id()
         self.addCleanup(self.box.cleanup)
 
     def assertNext(self, result, *fragments):

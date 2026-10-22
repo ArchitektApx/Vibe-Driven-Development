@@ -8,7 +8,7 @@ import sys
 import unittest
 import warnings
 
-from vddtest import PLAN_SIGNED, Sandbox, SceneTest
+from vddtest import ENTRY, PLAN_SIGNED, Result, Sandbox, SceneTest, ToolTest, check_next
 
 
 class CleanupTest(unittest.TestCase):
@@ -82,6 +82,68 @@ class OtherSceneTest(CopiedSceneTest):
 
     def test_the_template_is_its_own(self):
         self.assertEqual(self.staged_by, "OtherSceneTest")
+
+
+class NextCheckTest(ToolTest):
+    def result(self, next_line):
+        return Result(1, ("A line.\nNext: %s\n" % next_line).encode("utf-8"))
+
+    def test_a_next_line_with_an_unknown_option_fails_naming_the_command(self):
+        """Prevents a Next: line a Role cannot run: a printed command with an
+        option its command does not take."""
+        line = 'Run python3 "%s" loop show --slug demo --bogus x, then go on.' % ENTRY
+        with self.assertRaises(AssertionError) as caught:
+            check_next(self.box, self.result(line), "test_x")
+        self.assertIn("loop show --slug demo --bogus x", str(caught.exception))
+        self.assertIn("test_x", str(caught.exception))
+
+    def test_a_command_that_parses_passes(self):
+        line = 'Run python3 "%s" loop show --slug demo --role Coder in the foreground.' % ENTRY
+        self.assertEqual(check_next(self.box, self.result(line)), [(ENTRY, ("loop", "show", "--slug", "demo",
+                                                                             "--role", "Coder"))])
+
+    def test_a_command_naming_a_missing_vdd_py_fails_naming_it(self):
+        """Prevents a Next: line a Role cannot run: a command whose vdd.py
+        path does not exist."""
+        missing = os.path.join(self.box.root, "nowhere", "vdd.py")
+        line = 'Run python3 "%s" loop show --slug demo, then go on.' % missing
+        with self.assertRaises(AssertionError) as caught:
+            check_next(self.box, self.result(line), "test_x")
+        self.assertIn(missing, str(caught.exception))
+        self.assertIn("test_x", str(caught.exception))
+
+    def test_a_hook_reason_with_an_unknown_option_fails(self):
+        """Prevents an unchecked Next: step in the Codex Stop hook's JSON
+        reason, which the Role runs verbatim."""
+        line = 'Run python3 "%s" doorbell take --role Orchestrator --bogus x' % ENTRY
+        hook = Result(0, (json.dumps({"decision": "block", "reason": "A Doorbell is waiting. Next: " + line})
+                          + "\n").encode("utf-8"))
+        with self.assertRaises(AssertionError) as caught:
+            check_next(self.box, hook, "test_x")
+        self.assertIn("doorbell take --role Orchestrator --bogus x", str(caught.exception))
+
+    def test_a_failed_command_fails_every_test_that_prints_it(self):
+        """Prevents a broken command cached after its first failure, so only
+        the first test that prints it fails."""
+        line = 'Run python3 "%s" loop show --slug demo --bogus y, then go on.' % ENTRY
+        for test in ("test_one", "test_two"):
+            with self.assertRaises(AssertionError) as caught:
+                check_next(self.box, self.result(line), test)
+            self.assertIn(test, str(caught.exception))
+
+    def test_a_popen_run_is_checked(self):
+        """Prevents an unchecked Next: line from a run a test starts with
+        Popen, as a background doorbell wait is."""
+        line = 'Next: Run python3 "%s" loop show --slug demo --bogus z.' % ENTRY
+        proc = subprocess.Popen([sys.executable, "-c", "print(%r)" % line], stdout=subprocess.PIPE)
+        with self.assertRaises(AssertionError):
+            self.box.finish(proc)
+
+    def test_a_placeholder_and_a_line_with_no_command_are_skipped(self):
+        placeholder = ('Ask the user, then run py -3 "%s" orchestrator respawn --role Coder --policy "<answer>" '
+                       '--slug demo --write' % ENTRY)
+        self.assertEqual(check_next(self.box, self.result(placeholder)), [])
+        self.assertEqual(check_next(self.box, self.result("Tell the user in one line.")), [])
 
 
 if __name__ == "__main__":
