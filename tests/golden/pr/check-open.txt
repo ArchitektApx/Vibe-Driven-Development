@@ -1,0 +1,12 @@
+$ vdd pr check --slug demo --harness claude-code
+exit 0
+Base branch: main
+Feature branch: demo
+PR: yes
+Template: none.
+History: none (no merged PR).
+Preflight, can push, remote origin: passed.
+Preflight, can open a PR, remote origin: passed.
+Existing PR: none.
+Path: open
+Next: Assemble the title and body as your skill's step 3 says and write them to .scratch/demo/pr-body.md, then go on from its step 4 (the PR: line).
