@@ -264,8 +264,9 @@ class Interrupted(MigrateTest):
         argv = [sys.executable, ENTRY, "brainstorm", "migrate"] + list(self.EVENTS) + ["--write"]
         procs = [subprocess.Popen(argv, cwd=self.box.proj, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                  for _ in range(2)]
-        outs = [p.communicate(timeout=120)[0].decode("utf-8") for p in procs]
-        self.assertEqual([p.returncode for p in procs], [0, 0], outs)
+        results = [self.box.finish(p) for p in procs]
+        outs = [r.text for r in results]
+        self.assertEqual([r.code for r in results], [0, 0], outs)
         self.assertEqual(sum(1 for o in outs if "Migrated 5 ideas" in o), 1, outs)
         self.assertEqual(sum(1 for o in outs if "already in layout 2" in o), 1, outs)
         self.assertEqual(self.read("research/main-idea/notes.md"), "notes\r\n")
