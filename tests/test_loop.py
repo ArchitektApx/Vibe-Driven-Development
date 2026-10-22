@@ -2,6 +2,7 @@
 finding the loop."""
 
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -815,13 +816,57 @@ class CloseTest(LoopTest):
         self.assertEqual(sorted(os.listdir(self.box.path(".scratch", "demo"))), ["loop-state", "loop.md"])
 
 
-@unittest.skipIf(os.name == "nt", "a POSIX shell script stands in for git")
 class PreflightTest(LoopTest):
+    """The preflight against real git: remotes are local bare repositories
+    in the sandbox, so ls-remote runs for real on every OS. PATH holds git
+    and no gh."""
+
+    def setUp(self):
+        LoopTest.setUp(self)
+        path = self.box.git_only_path()
+        if path is None:
+            self.skipTest("gh sits beside git on this machine")
+        self.assertIsNone(shutil.which("gh", path=path))
+        self.env = self.box.env(PATH=path)
+
+    def write_yes(self, slug="demo"):
+        return self.box.run("loop", "new", "--slug", slug, "--harness", "claude-code", "--minors", "fix",
+                            "--pr", "yes", "--write", env=self.env)
+
+    def test_a_failed_check_warns_and_still_writes(self):
+        self.box.git("remote", "add", "origin", os.path.join(self.box.root, "missing.git"))
+        result = self.write_yes()
+        self.assertEqual(result.code, 0, result)
+        tells = result.tells()
+        self.assertEqual(len(tells), 5, result)
+        self.assertIn("can push", tells[0])
+        self.assertIn("can open a PR", tells[1])
+        self.assertEqual(tells[2:], SUMMARY)
+        self.assertEqual(result.last, NEXT_AFTER_NEW)
+        self.assertIn("PR: yes\n", self.file())
+
+    def test_no_preflight_unless_pr_yes(self):
+        result = self.new("demo", *ANSWERS, write=True)
+        self.assertNotIn("Preflight", result.text)
+
+    def test_the_remote_the_base_branch_tracks_else_the_single_else_origin(self):
+        self.box.bare_origin("upstream")
+        result = self.write_yes("one")
+        self.assertIn("Preflight, can push, remote upstream: passed.", result.lines)
+        self.box.bare_origin("fork")
+        result = self.write_yes("two")
+        self.assertIn("Preflight, can push, remote origin: failed (no remote origin is configured).", result.lines)
+        self.box.git("config", "branch.main.remote", "fork")
+        result = self.write_yes("three")
+        self.assertIn("Preflight, can push, remote fork: passed.", result.lines)
+
+
+@unittest.skipIf(os.name == "nt", "a POSIX shell script stands in for git")
+class StubbedPreflightTest(LoopTest):
     def stub(self, ls_remote_code=0):
         """A git on PATH that runs the real one, except for ls-remote, which
         prints fatal: failed to store and exits with ls_remote_code; and a gh
         that passes auth status."""
-        import shutil
         real = shutil.which("git")
         bin_dir = os.path.join(self.box.root, "bin")
         os.makedirs(bin_dir, exist_ok=True)
@@ -839,48 +884,17 @@ class PreflightTest(LoopTest):
         os.chmod(gh, 0o755)
         return self.box.env(PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""))
 
-    def write_yes(self, env, slug="demo"):
-        return self.box.run("loop", "new", "--slug", slug, "--harness", "claude-code", "--minors", "fix",
-                            "--pr", "yes", "--write", env=env)
-
     def test_the_push_check_judges_the_exit_code_only(self):
         """9e820de: git ls-remote printed fatal: failed to store on a call
         that exited 0, and a check that read stderr reported a working remote
-        as broken."""
+        as broken. The stub stays: a remote cannot make that fault."""
         self.box.git("remote", "add", "origin", "https://github.com/example/repo.git")
-        result = self.write_yes(self.stub(0))
+        result = self.box.run("loop", "new", "--slug", "demo", "--harness", "claude-code", "--minors", "fix",
+                              "--pr", "yes", "--write", env=self.stub(0))
         self.assertEqual(result.code, 0, result)
         self.assertIn("Preflight, can push, remote origin: passed.", result.lines)
         self.assertIn("Preflight, can open a PR, remote origin: passed.", result.lines)
         self.assertEqual(result.tells(), SUMMARY)
-
-    def test_a_failed_check_warns_and_still_writes(self):
-        self.box.git("remote", "add", "origin", "https://example.com/repo.git")
-        result = self.write_yes(self.stub(2))
-        self.assertEqual(result.code, 0, result)
-        tells = result.tells()
-        self.assertEqual(len(tells), 5, result)
-        self.assertIn("can push", tells[0])
-        self.assertIn("can open a PR", tells[1])
-        self.assertEqual(tells[2:], SUMMARY)
-        self.assertEqual(result.last, NEXT_AFTER_NEW)
-        self.assertIn("PR: yes\n", self.file())
-
-    def test_no_preflight_unless_pr_yes(self):
-        result = self.new("demo", *ANSWERS, write=True)
-        self.assertNotIn("Preflight", result.text)
-
-    def test_the_remote_the_base_branch_tracks_else_the_single_else_origin(self):
-        env = self.stub(0)
-        self.box.git("remote", "add", "upstream", "https://github.com/example/up.git")
-        result = self.write_yes(env, "one")
-        self.assertIn("Preflight, can push, remote upstream: passed.", result.lines)
-        self.box.git("remote", "add", "fork", "https://github.com/example/fork.git")
-        result = self.write_yes(env, "two")
-        self.assertIn("Preflight, can push, remote origin: failed (no remote origin is configured).", result.lines)
-        self.box.git("config", "branch.main.remote", "fork")
-        result = self.write_yes(env, "three")
-        self.assertIn("Preflight, can push, remote fork: passed.", result.lines)
 
 
 if __name__ == "__main__":

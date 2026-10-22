@@ -337,6 +337,22 @@ class Sandbox:
         os.makedirs(self.bin, exist_ok=True)
         return self.env(PATH=self.bin + os.pathsep + os.environ.get("PATH", ""), **extra)
 
+    def bare_origin(self, name="origin", push=("main",)):
+        """A local bare repository inside the sandbox as the remote name,
+        each branch in push pushed to it. Returns its path."""
+        bare = os.path.join(self.root, name + ".git")
+        self.git("init", "-q", "--bare", bare)
+        self.git("remote", "add", name, bare)
+        for branch in push:
+            self.git("push", "-q", name, branch)
+        return bare
+
+    def remote_ref(self, bare, ref):
+        """The sha ref names in the bare repository, or "" when it has none."""
+        proc = subprocess.run(["git", "rev-parse", "--verify", "--quiet", ref], cwd=bare, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+        return proc.stdout.decode("utf-8").strip()
+
     def git_only_path(self):
         """A PATH with git on it and gh off it, or None when this machine
         keeps gh beside git. On POSIX it is the sandbox's bin directory
@@ -462,7 +478,8 @@ class SceneTest(LoopRepoTest):
     into a template sandbox, and copies the template into each test's
     sandbox. stage_scene builds the scene with self.box the template; every
     attribute it sets is carried to each test, with the template's root
-    replaced by the test's. after_copy writes whatever holds the sandbox
+    replaced by the test's, and a remote inside the template is re-pointed at
+    the copy's own. after_copy writes whatever holds the sandbox
     root, a stub or a remote's path, after the copy. Each test class gets a
     template of its own, keyed by its class, so a subclass that changes a
     scene attribute stages its own scene."""
@@ -513,4 +530,13 @@ class SceneTest(LoopRepoTest):
         if os.path.isdir(os.path.join(self.box.proj, ".git")):
             subprocess.run(["git", "update-index", "--refresh", "-q"], cwd=self.box.proj,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # Each copy pushes to its own copy of a remote the scene keeps
+            # in the sandbox.
+            urls = subprocess.run(["git", "config", "--get-regexp", r"^remote\..*\.url$"], cwd=self.box.proj,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode("utf-8")
+            for line in urls.splitlines():
+                key, _, url = line.partition(" ")
+                if url.startswith(template.root):
+                    remote = key[len("remote."):-len(".url")]
+                    self.box.git("remote", "set-url", remote, self.box.root + url[len(template.root):])
         self.after_copy()

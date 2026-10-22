@@ -631,8 +631,8 @@ class SkipTest(FoldTest):
         """A branch pushed by hand without -u has no upstream, yet someone may
         have fetched it, and a rewrite would reject the next push."""
         signed = self.signed_loop()
-        self.git("remote", "add", "origin", "https://example.invalid/demo.git")
-        self.git("update-ref", "refs/remotes/origin/demo", signed)
+        self.box.bare_origin(push=("main", "demo"))
+        self.assertEqual(self.out("branch", "--format=%(upstream)", "--list", "demo"), "")
         self.skipped(signed, self.fold(), "demo was pushed to origin")
 
     def test_a_remote_branch_of_the_same_name_outside_the_loop_folds(self):
