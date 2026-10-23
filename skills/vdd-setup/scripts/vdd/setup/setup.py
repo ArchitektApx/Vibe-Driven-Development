@@ -322,6 +322,10 @@ class Setup:
     def git_repository(self) -> None:
         call = gitcmd.git(self.cwd, "rev-parse", "--is-inside-work-tree")
         inside = call.ok and call.data.strip() == b"true"
+        if call.timed_out is not None:
+            self.out.line("Git repository: %s." % call.first_error())
+            self.out.tell("git did not answer in time: find what holds it, then rerun Setup.")
+            return
         if call.code is None:
             self.out.line("Git repository: git is not installed or cannot run.")
             self.out.tell("VDD needs git: install it, then rerun Setup.")
@@ -339,7 +343,11 @@ class Setup:
     def git_version(self) -> None:
         """git 2.40 or newer: the fold at a loop's end needs git merge-tree
         --write-tree --merge-base."""
-        found, text = gitcmd.version(self.cwd)
+        found, text, timed_out = gitcmd.version(self.cwd)
+        if timed_out:
+            self.out.line("git version: %s. Failed." % timed_out)
+            self.out.tell("git did not answer in time: find what holds it, then rerun Setup.")
+            return
         if found is None:
             return
         shown = gitcmd.number(text)
