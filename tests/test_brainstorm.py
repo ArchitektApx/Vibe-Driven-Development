@@ -531,6 +531,93 @@ class Ledger(BrainstormTest):
             self.assertEqual(handle.read(), data)
 
 
+class ReadWhole(BrainstormTest):
+    """An idea file a write would rewrite must read whole: every byte UTF-8
+    and every frontmatter line one the reader reads."""
+
+    def setUp(self):
+        BrainstormTest.setUp(self)
+        self.new("alpha", "Alpha", "One.")
+        self.new("beta", "Beta", "Two.", "--relate", "related alpha: shares it")
+
+    def raw(self, rel):
+        with open(self.box.path(S + rel), "rb") as handle:
+            return handle.read()
+
+    def put(self, rel, data):
+        with open(self.box.path(S + rel), "wb") as handle:
+            handle.write(data)
+
+    def cases(self):
+        """(name, bytes in place of the file, the line the refusal names)."""
+        data = self.raw("alpha.md")
+        return [
+            ("folded", data.replace(b"tldr: One.\n", b"tldr: >\n  One.\n"),
+             "line 2: a frontmatter line this tool does not read: tldr: >"),
+            ("comment", data.replace(b"status: idea\n", b"status: idea\n# a note\n"),
+             "line 4: a frontmatter line this tool does not read: # a note"),
+            ("cp1252", data.replace(b"# Alpha", b"# M\xfcller"),
+             "line 10: bytes that are not UTF-8"),
+            ("no frontmatter", data[data.index(b"\n---\n") + 5:],
+             "line 1: a frontmatter line this tool does not read: "),
+        ]
+
+    def test_a_write_refuses_an_idea_that_does_not_read_whole(self):
+        """Prevents a write dropping a folded value, a comment or a byte it
+        cannot decode, with exit 0 (T2): a write that would rewrite such a
+        file, named or as rename's referrer, refuses before anything is
+        written, in a dry run too, naming the file and the line."""
+        referrer = b"## Related Ideas\n\n- related beta: it\n\n## Next Steps"
+        for name, data, line in self.cases():
+            for argv, staged in ((["note", "--idea", "alpha", "--section", "Evidence", "--text", "x"], data),
+                                 (["rename", "--idea", "beta", "--to", "gamma"],
+                                  data.replace(b"## Next Steps", referrer))):
+                for extra in ([], ["--write"]):
+                    with self.subTest(case=name, command=argv[0], extra=extra):
+                        self.put("alpha.md", staged)
+                        before = self.tree()
+                        result = self.bs(*(argv + extra))
+                        self.assertEqual(result.code, 1, result)
+                        self.assertContract(result)
+                        self.assertIn("alpha.md " + line, result.lines)
+                        self.assertEqual(self.tree(), before)
+
+    def test_the_folded_tldr_refusal_names_the_key_line(self):
+        """Prevents a refusal that points below the key that holds the folded
+        value: tldr: > on line 2 is line 2, quoted whole."""
+        self.put("alpha.md", self.cases()[0][1])
+        result = self.bs("note", "--idea", "alpha", "--section", "Evidence", "--text", "x", "--write")
+        self.assertIn("alpha.md line 2: a frontmatter line this tool does not read: tldr: >", result.lines)
+        self.assertEqual(result.last, "Next: Tell the user the file and line above and ask them to fix it; then run "
+                                      "the same command again.")
+
+    def test_check_names_each_file_that_does_not_read_whole(self):
+        """Prevents a damaged file found only when a write refuses: check
+        lists it with its line."""
+        for name, data, line in self.cases():
+            with self.subTest(case=name):
+                self.put("alpha.md", data)
+                result = self.ok("check")
+                found = [x for x in result.lines if x.startswith("file: alpha.md line ")]
+                self.assertEqual(len(found), 1, result)
+                self.assertTrue(found[0].startswith("file: alpha.md " + line), result)
+
+    def test_a_bom_and_crlf_come_back_after_a_write(self):
+        """Prevents a whole-file diff from an editor's BOM and CRLF: note
+        writes both back and changes only the lines it adds."""
+        data = b"\xef\xbb\xbf" + self.raw("alpha.md").replace(b"\n", b"\r\n")
+        self.put("alpha.md", data)
+        self.ok("note", "--idea", "alpha", "--section", "Evidence", "--text", "x", "--write", today="2026-10-25")
+        after = self.raw("alpha.md")
+        self.assertTrue(after.startswith(b"\xef\xbb\xbf---\r\n"), after)
+        self.assertNotIn(b"\n", after.replace(b"\r\n", b""))
+        plain = self.raw("alpha.md")[3:].replace(b"\r\n", b"\n").decode("utf-8")
+        self.assertIn("- 2026-10-25: x\n", plain)
+        self.assertEqual(plain.replace("last-updated: 2026-10-25", "last-updated: %s" % TODAY)
+                         .replace("## Evidence\n\n- 2026-10-25: x\n\n", ""),
+                         data[3:].replace(b"\r\n", b"\n").decode("utf-8"))
+
+
 class Nesting(BrainstormTest):
     def test_a_fourth_level_and_a_parent_loop_are_refused(self):
         """Prevents a family the overview cannot show (spec 'Nesting'): new

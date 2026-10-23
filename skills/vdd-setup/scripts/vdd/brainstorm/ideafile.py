@@ -15,7 +15,7 @@ import os
 import re
 from typing import Iterable, List, Optional, Tuple
 
-from .. import workfile
+from .. import textfile, workfile
 
 OPEN = ("idea", "discussed", "shaped", "decided", "in-progress")
 CLOSED = ("done", "dropped")
@@ -40,6 +40,9 @@ TLDR_MAX = 200
 # list item under the key before it.
 FM_KEY = re.compile(r"^([A-Za-z][A-Za-z0-9-]*):\s*(.*)$")
 FM_ITEM = re.compile(r"^\s+-\s+(.*)$")
+# A YAML block indicator as a key's whole value: its text sits on the lines
+# below, which split_frontmatter does not read.
+BLOCK = re.compile(r"^[>|][-+]?$")
 # Where a raw file's frontmatter ends, in any line ending, and its
 # last-updated line.
 FM_END = re.compile(r"(\r\n|\r|\n)---(\r\n|\r|\n)")
@@ -102,19 +105,37 @@ def split_frontmatter(text: str) -> tuple[list[list[str]], str]:
     return pairs, text[end + 5:]
 
 
-def frontmatter_reads_whole(text: str) -> bool:
-    """Whether split_frontmatter reads every line of the frontmatter: a
-    folded value, a comment or a key it does not match make it False, as
-    does no frontmatter at all. A blank line it skips loses nothing."""
-    if not text.startswith("---\n"):
-        return False
+def unread_line(data: bytes) -> str | None:
+    """Where a file's bytes hold what a rewrite would lose: "line <n>: bytes
+    that are not UTF-8" at the line of the first such byte, or "line <n>: a
+    frontmatter line this tool does not read: <line>"; None when the file
+    reads whole. Lines count from 1, the opening --- being line 1. A key
+    whose value is a block indicator (tldr: >) is the unread line, else the
+    first line that is neither a key nor a list item. A file without a
+    closed frontmatter is unread at line 1. A blank line loses nothing."""
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        head = data[:error.start].decode("utf-8")
+        return "line %d: bytes that are not UTF-8" % (head.replace("\r\n", "\n").replace("\r", "\n").count("\n") + 1)
+    text = textfile.decode(data)
+    unread = "line %d: a frontmatter line this tool does not read: %s"
     end = text.find("\n---\n", 3)
-    if end < 0:
-        return False
-    for line in text[4:end].split("\n"):
-        if line.strip() and not (FM_KEY.match(line) or FM_ITEM.match(line)):
-            return False
-    return True
+    if not text.startswith("---\n") or end < 0:
+        return unread % (1, text.split("\n", 1)[0])
+    for n, line in enumerate(text[4:end].split("\n"), 2):
+        key = FM_KEY.match(line)
+        if key and BLOCK.match(key.group(2).strip()):
+            return unread % (n, line)
+        if line.strip() and not (key or FM_ITEM.match(line)):
+            return unread % (n, line)
+    return None
+
+
+def frontmatter_reads_whole(text: str) -> bool:
+    """Whether split_frontmatter reads every line of the frontmatter of
+    text as decoded."""
+    return unread_line(text.encode("utf-8")) is None
 
 
 def stamp_text(text: str, day: str) -> str:
@@ -261,6 +282,24 @@ class Idea:
         self.slug = slug
         self.path = path
         self.fm, self.body = split_frontmatter(text)
+        # The file as loaded: its name and bytes, whether it began with a
+        # byte order mark, and its first line break, which render writes back.
+        self.loaded_name = ""
+        self.loaded: bytes | None = None
+        self.bom = False
+        self.eol = "\n"
+
+    @classmethod
+    def read(cls, slug: str, path: str, data: bytes) -> Idea:
+        """An idea from its file's bytes."""
+        idea = cls(slug, path, textfile.decode(data))
+        idea.loaded_name = os.path.basename(path)
+        idea.loaded = data
+        idea.bom = data.startswith(b"\xef\xbb\xbf")
+        found = re.search(b"\r\n|\r|\n", data)
+        if found:
+            idea.eol = found.group(0).decode("ascii")
+        return idea
 
     @classmethod
     def frame(cls, slug: str, path: str, fields: Iterable[tuple[str, str]], body: Iterable[str]) -> Idea:
@@ -460,4 +499,5 @@ class Idea:
         lines.append("---")
         body = self.body if self.body.startswith("\n") else "\n" + self.body
         text = "\n".join(lines) + "\n" + body
-        return text if text.endswith("\n") else text + "\n"
+        text = text if text.endswith("\n") else text + "\n"
+        return ("\ufeff" if self.bom else "") + text.replace("\n", self.eol)

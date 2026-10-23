@@ -19,7 +19,8 @@ from typing import Callable
 
 from .. import textfile
 from ..out import Failure
-from .ideafile import DEPTH_MAX, SLUG, Idea, frontmatter_reads_whole, is_idea_name, seam_set, stamp_text, today
+from .ideafile import (DEPTH_MAX, SLUG, Idea, frontmatter_reads_whole, is_idea_name, seam_set, stamp_text, today,
+                       unread_line)
 
 # Written with "/" because it is printed, and so are the backup, staging and
 # lock paths built from it; Windows takes "/" in a path as well.
@@ -232,7 +233,7 @@ class Store:
             data = textfile.read_bytes(path)
             slug = name[:-3]
             self.disk[slug] = data
-            self.ideas[slug] = Idea(slug, path, textfile.decode(data))
+            self.ideas[slug] = Idea.read(slug, path, data)
         self.ledger = read_ledger(root)
         # Each idea's parent as loaded, so a loop the command did not make is
         # told apart from one it makes.
@@ -404,9 +405,27 @@ class Store:
         command writes, sorted: in the loop itself, not only under it."""
         return sorted(s for s in self.looked_at(self.dirty) if self.in_cycle(s) and self.loaded_loop(s))
 
+    def unread(self, slugs: set[str] | list[str]) -> list[str]:
+        """"<slug>.md line <n>: ..." for each idea among slugs whose file, as
+        loaded, holds what a rewrite would lose."""
+        out: list[str] = []
+        for slug in sorted(slugs):
+            idea = self.ideas.get(slug)
+            if idea is not None and idea.loaded is not None:
+                found = unread_line(idea.loaded)
+                if found:
+                    out.append("%s %s" % (idea.loaded_name, found))
+        return out
+
     def ops(self) -> list[tuple[str, bytes | None, bytes | None]]:
         """[(name, bytes before, bytes after)] of the command's file writes,
         after the family-tree guard."""
+        unread = self.unread(self.dirty)
+        if unread:
+            raise Failure(["Refused, nothing was written: this command would rewrite idea files that hold what this "
+                           "tool does not read."] + unread,
+                          "Tell the user the file and line above and ask them to fix it; then run the same command "
+                          "again.")
         probs = self.structure_problems(self.dirty)
         if probs:
             raise Failure(["Refused, nothing was written: the change would break the family tree."] + probs,

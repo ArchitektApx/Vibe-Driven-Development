@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 from ..out import Failure, Output
-from .ideafile import DEPTH_MAX, STATUSES, Idea, is_idea_name, reflow, squash
+from .ideafile import DEPTH_MAX, STATUSES, Idea, is_idea_name, reflow, squash, unread_line
 from .printed import QUOTE, quoted, step_line
 from .store import REMOVED, Store, rel, removed_entries, removed_entry
 
@@ -305,6 +305,8 @@ def problems(store: Store) -> list[str]:
     for slug, idea in sorted(store.ideas.items()):
         if idea.status not in STATUSES:
             out.append("status: %s has status %r" % (slug, idea.status))
+        if idea.loaded is not None and unread_line(idea.loaded):
+            out.append("file: %s %s" % (idea.loaded_name, unread_line(idea.loaded)))
         if not idea.created():
             out.append("file: %s.md has no History line 'created'; this tool did not write it" % slug)
         parent = idea.parent
