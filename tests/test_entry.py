@@ -101,6 +101,29 @@ class EntryTest(ToolTest):
         self.assertIn("Unknown command: café x".encode("utf-8"), result.data)
         self.assertContract(result)
 
+    def test_a_closed_output_pipe_ends_quietly(self):
+        """`vdd.py loop --help | true` printed a traceback: the BrokenPipeError
+        was caught as a file error, whose refusal wrote to the closed pipe
+        again, and the interpreter's flush at exit printed "Exception
+        ignored". On Windows the write fails as EINVAL instead, with the same
+        tracebacks. The pipe here is closed before the tool's first line."""
+        read_end, write_end = os.pipe()
+        os.close(read_end)
+        try:
+            proc = subprocess.run(
+                [sys.executable, ENTRY, "loop", "--help"],
+                cwd=self.box.proj,
+                stdin=subprocess.DEVNULL,
+                stdout=write_end,
+                stderr=subprocess.PIPE,
+                env=self.box.env(),
+                timeout=120,
+            )
+        finally:
+            os.close(write_end)
+        self.assertEqual(proc.stderr, b"")
+        self.assertNotEqual(proc.returncode, 0)
+
     def test_below_python_39_prints_one_line_and_exits_non_zero(self):
         """The entry parses on any Python 3 and checks the version before any
         other import. The matrix has no Python below 3.9, so the entry runs

@@ -857,7 +857,7 @@ class GitVersionTest(ToolTest):
         result = self.hanging_on("--is-inside-work-tree")
         self.assertEqual(result.code, 0, result)
         self.assertContract(result)
-        self.assertIn("Git repository: git rev-parse --is-inside-work-tree timed out after 1 seconds.", result.lines)
+        self.assertIn("Git repository: git rev-parse timed out after 1 seconds.", result.lines)
         self.assertIn("git did not answer in time: find what holds it, then rerun Setup.", result.tells())
         self.assertNext(result, "Show the user the planned changes above", "setup --harness claude-code", "--write")
 

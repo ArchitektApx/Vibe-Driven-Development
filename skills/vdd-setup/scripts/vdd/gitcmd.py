@@ -47,6 +47,9 @@ NO_PROMPT = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
 # a signing call waiting on a pinentry dialog a hidden Session never sees
 # would otherwise wait for ever, and a user typing a passphrase gets minutes.
 TIMEOUT_SECONDS = 300.0
+# The words of a program's subcommand, as a line names a call: gh's is a
+# group and a command, git's one word.
+SUBCOMMAND_WORDS = {"gh": 2}
 WINDOWS = os.name == "nt"
 
 
@@ -153,7 +156,7 @@ def run(
         out, err = proc.communicate(data if data is not None else b"", timeout=seconds)
     except subprocess.TimeoutExpired:
         end(proc)
-        line = "%s timed out after %g seconds" % (" ".join(argv[:3]), seconds)
+        line = "%s timed out after %g seconds" % (name_of(argv), seconds)
         return Call(argv, None, b"", line.encode("utf-8"), timed_out=seconds)
     except BaseException:
         end(proc)
@@ -176,9 +179,14 @@ def end(proc: subprocess.Popen[bytes]) -> None:
         pass
 
 
+def name_of(argv: list[str]) -> str:
+    """A call as a line names it: the program and its subcommand."""
+    return " ".join(argv[:1 + SUBCOMMAND_WORDS.get(argv[0], 1)] if argv else [])
+
+
 def call_text(call: Call) -> str:
-    """The call as a line names it: the program and its first two arguments."""
-    return " ".join(call.argv[:3])
+    """The call as a line names it: the program and its subcommand."""
+    return name_of(call.argv)
 
 
 def sandbox_refusal(

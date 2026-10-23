@@ -194,7 +194,7 @@ class CheckTest(PRTest):
                 result = self.pr_check()
                 self.assertNotEqual(result.code, 0, result)
                 self.assertNotIn("Path: neither", result.text)
-                self.assertNext(result, "Rerun", "outside the sandbox", "git ls-remote origin was refused")
+                self.assertNext(result, "Rerun", "outside the sandbox", "git ls-remote was refused")
 
     def test_git_speaks_english_whatever_the_system_language(self):
         """git translates its messages, and the refusal markers are English:

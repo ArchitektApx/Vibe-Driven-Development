@@ -728,7 +728,10 @@ class SandboxAndSigningTest(FoldTest):
     def test_a_refused_signature_gets_the_rerun_line(self):
         signed = self.signed_loop()
         self.gpg("cat >/dev/null\necho 'gpg: signing failed: Operation not permitted' >&2\nexit 2\n")
-        self.assertRerun(self.fold(), signed)
+        result = self.fold()
+        self.assertRerun(result, signed)
+        self.assertIn("A sandbox refused git commit-tree inside the tool: ", result.text)
+        self.assertNext(result, "tell the user git commit-tree was refused, and stop.")
 
     def test_another_signing_failure_is_a_skip(self):
         signed = self.signed_loop()
@@ -745,7 +748,10 @@ class SandboxAndSigningTest(FoldTest):
         self.box.stub("git", "if [ \"$1\" = update-ref ]; then\n"
                              "  echo 'fatal: cannot lock ref: operation not permitted' >&2; exit 1\nfi\n"
                              "exec '%s' \"$@\"\n" % real)
-        self.assertRerun(self.fold(env=self.box.stub_env()), signed)
+        result = self.fold(env=self.box.stub_env())
+        self.assertRerun(result, signed)
+        self.assertIn("A sandbox refused git update-ref inside the tool: ", result.text)
+        self.assertNext(result, "tell the user git update-ref was refused, and stop.")
 
     def test_an_upper_case_refusal_marker_too(self):
         signed = self.signed_loop()

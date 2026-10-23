@@ -3,6 +3,8 @@ module, imported only when that group runs."""
 
 from __future__ import annotations
 
+import os
+import sys
 from types import ModuleType
 
 from . import args, places, textfile
@@ -70,6 +72,26 @@ def load(name: str) -> ModuleType:
 
 def main(argv: list[str]) -> int:
     try:
+        return dispatch(argv)
+    except BrokenPipeError:
+        return closed_pipe()
+
+
+def closed_pipe() -> int:
+    """The end of a run whose reader closed the output pipe: nothing more is
+    written, and standard output points at the null device, so the
+    interpreter's flush at exit writes nowhere and prints no error."""
+    try:
+        null = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(null, sys.stdout.fileno())
+        os.close(null)
+    except (OSError, ValueError):
+        pass
+    return 1
+
+
+def dispatch(argv: list[str]) -> int:
+    try:
         if not argv or argv[0] in ("-h", "--help", "help"):
             return top_help()
         if argv[0] not in GROUPS:
@@ -77,6 +99,8 @@ def main(argv: list[str]) -> int:
         return load(argv[0]).run(argv[1:])
     except Failure as failure:
         return failure.emit()
+    except BrokenPipeError:
+        raise
     except OSError as error:
         return refused(
             "A file could not be read or written: %s" % textfile.described(error),

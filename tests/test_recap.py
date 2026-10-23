@@ -427,7 +427,7 @@ class GitTimeout(RecapTest):
         self.assertEqual(result.code, 0, result)
         skip = [line for line in result.lines if line.startswith("Not folded: ")]
         self.assertEqual(len(skip), 1, result)
-        self.assertEqual(skip[0], "Not folded: signing a folded commit failed: git commit-tree -S timed out after 2 "
+        self.assertEqual(skip[0], "Not folded: signing a folded commit failed: git commit-tree timed out after 2 "
                                   "seconds.")
         self.assertEqual(self.sha("demo"), signed)
 
@@ -444,7 +444,22 @@ class GitTimeout(RecapTest):
         self.assertEqual(result.code, 0, result)
         skip = [line for line in result.lines if line.startswith("Not folded: ")]
         self.assertEqual(len(skip), 1, result)
-        self.assertRegex(skip[0], r"^Not folded: a git error: git commit-tree [0-9a-f]+ timed out after 1 seconds\.$")
+        self.assertEqual(skip[0], "Not folded: a git error: git commit-tree timed out after 1 seconds.")
+        self.assertEqual(self.sha("demo"), signed)
+
+    @unittest.skipIf(os.name == "nt", "a git wrapper on PATH is a POSIX script")
+    def test_a_ref_move_that_hangs_is_named_by_its_subcommand(self):
+        """Prevents a timed-out ref move named by its option, as
+        "git update-ref -m", where the Role and the user look for the call."""
+        argv = self.fold()
+        signed = self.sha()
+        real = shutil.which("git")
+        self.box.stub("git", 'if [ "$1" = update-ref ]; then exec sleep 30; fi\nexec \'%s\' "$@"\n' % real)
+        result = self.box.run(*argv, env=self.env({"PATH": self.box.bin + os.pathsep + os.environ.get("PATH", ""),
+                                                   "VDD_GIT_TIMEOUT_SECONDS": "1"}))
+        self.assertEqual(result.code, 0, result)
+        skip = [line for line in result.lines if line.startswith("Not folded: ")]
+        self.assertEqual(skip, ["Not folded: a git error: git update-ref timed out after 1 seconds."], result)
         self.assertEqual(self.sha("demo"), signed)
 
 
