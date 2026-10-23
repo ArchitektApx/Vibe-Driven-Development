@@ -6,9 +6,9 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .. import args, gitcmd, loopfile, loopstate, places, textfile
+from .. import args, gitcmd, harness as harnesses, loopfile, loopstate, places, textfile
 from ..harness import Harness
-from ..out import Failure, Output, refused
+from ..out import Failure, Output, or_list, refused
 
 SUBCOMMANDS = ("new", "aside", "show", "set", "fold", "close", "reopen")
 
@@ -48,11 +48,12 @@ HELP = [
     "  Reopen a closed loop, on the user's request.",
     "",
     "Accepted values: --minors fix or leave; --pr yes, \"ask at sign-off\", manual or no; --harness-line",
-    "Claude Code, Codex, Cursor, Copilot CLI or Generic.",
+    "%s." % or_list(found.label for found in harnesses.every()),
     "",
     "--slug names the loop. Without it the tool takes the loop whose feature branch is checked out, else the",
     "only open loop, else it refuses. A Role passes --slug on every call. --harness names the Harness this",
-    "Session runs in (claude-code, codex, cursor, copilot-cli or generic) and never changes the Loop file.",
+    "Session runs in (%s) and never changes the Loop file."
+    % or_list(found.name for found in harnesses.every()),
     "Run every command from the repository root.",
 ]
 
@@ -90,10 +91,10 @@ def run(argv: list[str]) -> int:
 def dispatch(sub: str, values: dict[str, Any]) -> int:
     if sub == "new":
         from .new import new
-        harness = args.harness_of(values, usage())
+        harness = harnesses.from_option(values, usage())
         return new(gitcmd.project_root(os.getcwd()), values, harness)
     if values["harness"] is not None:
-        args.harness_of(values, usage())
+        harnesses.from_option(values, usage())
     root = gitcmd.project_root(os.getcwd())
     if sub == "aside":
         return aside(root, values)
@@ -104,7 +105,7 @@ def dispatch(sub: str, values: dict[str, Any]) -> int:
     if sub == "fold":
         args.require(values, ["slug", "harness"], usage())
         from .fold import fold
-        return fold.run(loopfile.find(root, values["slug"]), args.harness_of(values, usage()), values["write"])
+        return fold.run(loopfile.find(root, values["slug"]), harnesses.from_option(values, usage()), values["write"])
     return set_lines(root, values)
 
 

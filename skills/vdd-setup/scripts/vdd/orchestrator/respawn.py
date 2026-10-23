@@ -41,7 +41,7 @@ def step(flow: Flow, out: Output, role: str, number: int, first: str | None = No
     if live[1] != number and policy == "every round":
         return spawn(flow, out, role, number, "respawn every round", first)
     limit = limit_of(policy)
-    if live[1] != number and limit is not None and flow.harness.name == "claude-code":
+    if live[1] != number and limit is not None and flow.harness.reports_subagent_tokens():
         count = flow.tokens(role, live[1])
         if count is None:
             if first:
@@ -111,7 +111,7 @@ def respawn(flow: Flow, values: dict[str, Any]) -> int:
             "number from 1." % values["policy"],
             "Ask the user again with those answers, then run the command with one of them.",
         )
-    if match.group(2) and flow.harness.name != "claude-code":
+    if match.group(2) and not flow.harness.reports_subagent_tokens():
         raise Failure(
             "over <n> works only on Claude Code: %s reports no subagent token count." % flow.harness_label,
             "Ask the user for \"every round\" or never instead.",
@@ -132,7 +132,7 @@ def tokens(flow: Flow, values: dict[str, Any]) -> int:
     args.require(values, ["role", "tokens"], usage())
     role = values["role"]
     args.choice(role, HOSTED, "--role takes Plan-Reviewer, Coder or Code-Reviewer.", "Run %s for the usage." % usage())
-    if flow.harness.name != "claude-code":
+    if not flow.harness.reports_subagent_tokens():
         raise Failure(
             "%s reports no subagent token count, so there is none to record." % flow.harness_label,
             "Go on with the step the tool printed before it.",

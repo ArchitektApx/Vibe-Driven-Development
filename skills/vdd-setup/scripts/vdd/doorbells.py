@@ -249,7 +249,7 @@ def paste_command(role: str, harness: Harness, slug: str, entry: str | None = No
 
 
 def wait_next(role: str, harness: Harness, slug: str, entry: str | None = None) -> str:
-    return harness.wait_next(role, wait_command(role, harness, slug, entry), paste_command(role, harness, slug, entry))
+    return harness.wait_next(wait_command(role, harness, slug, entry), paste_command(role, harness, slug, entry))
 
 
 def mark_handled(place: Place, role: str, out: Output) -> None:
@@ -352,7 +352,7 @@ def wait_or_hold(place: Place, role: str, harness: Harness) -> str:
     Role still runs, ending the turn; after the plan Sign-off, none."""
     if plan_signed_off(place):
         return SIGNED_OFF_NEXT
-    if harness.name != "codex" and wait_runs(place, role):
+    if not harness.waits_through_stop_hook() and wait_runs(place, role):
         return (
             "Your wait for the %s's Doorbell still runs and wakes you when one arrives: end your turn, "
             "and start no other wait." % OTHER[role]

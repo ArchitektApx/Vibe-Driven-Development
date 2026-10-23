@@ -7,7 +7,7 @@ import os
 import re
 from typing import Any, NoReturn
 
-from .. import args, gitcmd, loopfile, places, stores, textfile
+from .. import args, gitcmd, harness as harnesses, loopfile, places, stores, textfile
 from ..harness import Harness
 from ..out import Failure, Output, escalate, refused
 from . import borrowed, codex_setup, install
@@ -22,8 +22,9 @@ HELP = [
     "Show the user the planned changes, then run the same command with --write, which makes them and checks each.",
     "A run with nothing left to change changes nothing.",
     "",
-    "--harness <h>            The Harness this Session runs in: claude-code, codex, cursor, copilot-cli,",
-    "                         or generic for any other.",
+    "--harness <h>            The Harness this Session runs in: %s,"
+    % ", ".join(found.name for found in harnesses.every()[:-1]),
+    "                         or %s for any other." % harnesses.every()[-1].name,
     "--listed <names>         The skills from Matt Pocock's collection your own skill list shows, named as",
     "                         it shows them (bare, or with a plugin prefix such as",
     "                         mattpocock-skills:writing-for-agents), separated by commas; none for none.",
@@ -62,7 +63,7 @@ def run(argv: list[str]) -> int:
         for line in HELP:
             out.line(line)
         return out.finish("Run %s setup with the options above, without --write first." % places.command())
-    harness = args.harness_of(values, usage())
+    harness = harnesses.from_option(values, usage())
     args.require(values, ["listed", "glossary-named"], usage())
     args.choice(values["glossary-named"], ("yes", "no", "absent"), "--glossary-named takes yes, no or absent.",
                 "Run %s for this command's usage." % usage())
@@ -130,7 +131,7 @@ class Setup:
         self.require_root()
         out = self.out
         mode = "writing" if self.write else "dry run, nothing is changed yet"
-        out.line("Setup, Harness %s (%s)." % (self.harness.label or "generic", mode))
+        out.line("Setup, Harness %s (%s)." % (header_name(self.harness), mode))
         verdict = self.borrowed_skills()
         self.tracker()
         self.glossary_rename_repository()
@@ -218,7 +219,7 @@ class Setup:
                     what = ", ".join(skills) + " sit"
                 out.tell(
                     "Matt Pocock's %s in %s, which %s reads, and this Session has not loaded %s."
-                    % (what, store.label, harness.label or "your agent", "it" if len(skills) == 1 else "them")
+                    % (what, store.label, harness.display_name, "it" if len(skills) == 1 else "them")
                 )
                 for line in harness.route_present_not_resolvable(store):
                     out.tell(line)
@@ -436,8 +437,15 @@ class Setup:
     # --- the Harness's own steps ---
 
     def harness_steps(self) -> None:
-        if self.harness.codex_hook_steps():
+        if self.harness.waits_through_stop_hook():
             codex_setup.run(self)
+
+
+def header_name(harness: Harness) -> str:
+    """The Harness as Setup's first line names it: by its label, or by its
+    --harness value when the user-facing name is no name of its own
+    (Generic's "your agent")."""
+    return harness.label if harness.display_name == harness.label else harness.name
 
 
 def quote(value: str) -> str:

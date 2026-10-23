@@ -15,7 +15,7 @@ import re
 import shutil
 from typing import TYPE_CHECKING, Any, Iterable
 
-from . import args, doorbells, gitcmd, loopfile, loopstate, places, preflight, textfile, workfile
+from . import args, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, places, preflight, textfile, workfile
 from .gitcmd import Refused
 from .out import Failure, Output, refused
 
@@ -75,7 +75,7 @@ def run(argv: list[str]) -> int:
 
 def dispatch(sub: str, values: dict[str, Any]) -> int:
     args.require(values, ["slug", "harness"], usage())
-    harness = args.harness_of(values, usage())
+    harness = harnesses.from_option(values, usage())
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     state = loopstate.open_loop(loop, "pr %s" % sub)
     loopstate.require_code_sign_off(state)

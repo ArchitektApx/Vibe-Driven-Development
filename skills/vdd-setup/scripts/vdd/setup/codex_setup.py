@@ -15,7 +15,8 @@ import os
 import re
 from typing import TYPE_CHECKING, Any
 
-from .. import places, stores, textfile
+from .. import stores, textfile
+from ..harness import codex as codex_harness
 
 if TYPE_CHECKING:
     from .setup import Setup
@@ -28,10 +29,6 @@ OLD_PS = re.compile(
 )
 TRUST_KEY = re.compile(r"^vdd@[^:]+:plugin\.json#hooks\[0\]:stop:0:0$")
 DISABLED = re.compile(r"\benabled\s*=\s*false\b")
-
-
-def codex_home() -> str:
-    return os.environ.get("CODEX_HOME") or os.path.join(places.home(), ".codex")
 
 
 def is_old_vdd(handler: Any) -> bool:
@@ -304,7 +301,7 @@ def bracket_depth(text: str) -> int:
 def run(setup: Setup) -> None:
     """Setup's Codex steps, reporting into setup.out and setup.changes."""
     out = setup.out
-    home = codex_home()
+    home = codex_harness.home()
     hooks_path = os.path.join(home, "hooks.json")
     label = stores.display(hooks_path, setup.cwd)
     migration = Migration(hooks_path)

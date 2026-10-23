@@ -9,6 +9,7 @@ is always in the text.
 
 from __future__ import annotations
 
+import errno
 import sys
 from typing import Iterable
 
@@ -32,6 +33,14 @@ def and_list(items: Iterable[str]) -> str:
     if len(items) <= 1:
         return "".join(items)
     return "%s and %s" % (", ".join(items[:-1]), items[-1])
+
+
+def or_list(items: Iterable[str]) -> str:
+    """"1", "1 or 2", "1, 2 or 3" for the strings in items."""
+    items = list(items)
+    if len(items) <= 1:
+        return "".join(items)
+    return "%s or %s" % (", ".join(items[:-1]), items[-1])
 
 
 # Lines a command prints first, whatever it prints after: what the loop
@@ -108,12 +117,21 @@ def refused(lines: str | Iterable[str], otherwise: str) -> Failure:
 
 
 def write(lines: Iterable[str]) -> None:
+    """Print lines to standard output. A reader that closed the pipe raises
+    BrokenPipeError, on every platform: Windows reports the write as EINVAL."""
     text = "".join(one_line(line) + "\n" for line in lines)
     data = text.encode("utf-8", "replace")
     stream = getattr(sys.stdout, "buffer", None)
-    if stream is None:
-        sys.stdout.write(data.decode("utf-8"))
-        sys.stdout.flush()
-        return
-    stream.write(data)
-    stream.flush()
+    try:
+        if stream is None:
+            sys.stdout.write(data.decode("utf-8"))
+            sys.stdout.flush()
+            return
+        stream.write(data)
+        stream.flush()
+    except BrokenPipeError:
+        raise
+    except OSError as error:
+        if error.errno in (errno.EPIPE, errno.EINVAL):
+            raise BrokenPipeError(errno.EPIPE, "the output pipe is closed") from error
+        raise

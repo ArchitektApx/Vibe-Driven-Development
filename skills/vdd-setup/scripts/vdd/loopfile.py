@@ -38,13 +38,6 @@ ORDER = ("Format",) + IDENTITY + SETTINGS
 DEFAULTS = {"Minors": "leave", "PR": "ask at sign-off", "Harness": "Generic"}
 MINORS = ("fix", "leave")
 PR = ("yes", "ask at sign-off", "manual", "no")
-LABELS = {
-    "claude-code": "Claude Code",
-    "codex": "Codex",
-    "cursor": "Cursor",
-    "copilot-cli": "Copilot CLI",
-    "generic": "Generic",
-}
 
 # The lines each Role acts on, as loop show --role prints them.
 ROLES: dict[str, tuple[str, ...]] = {
@@ -66,7 +59,7 @@ def accepted(name: str, value: str) -> bool:
     if name == "PR":
         return value in PR
     if name == "Harness":
-        return value in LABELS.values()
+        return value in [found.label for found in harnesses.every()]
     return bool(value)
 
 
@@ -76,15 +69,8 @@ def accepted_text(name: str) -> str:
     if name == "PR":
         return "yes, ask at sign-off, manual or no"
     if name == "Harness":
-        return ", ".join(LABELS.values())
+        return ", ".join(found.label for found in harnesses.every())
     return "a value"
-
-
-def harness_slug(label: str) -> str:
-    for slug, text in LABELS.items():
-        if text == label:
-            return slug
-    return "generic"
 
 
 def fields_of(lines: Iterable[str]) -> dict[str, str]:
@@ -258,16 +244,16 @@ class Loop:
 
     @property
     def harness_label(self) -> str:
-        """The Harness: line's own value: Generic's Harness module has no
-        label."""
+        """The Harness: line's own value, as the lines that quote the Loop
+        file print it."""
         return self.setting("Harness")[0]
 
     @property
     def harness(self) -> Harness:
-        return harnesses.known(harness_slug(self.harness_label))
+        return harnesses.of_label(self.harness_label)
 
     def harness_file(self) -> str:
-        return "harness-%s.md" % harness_slug(self.harness_label)
+        return "harness-%s.md" % self.harness.name
 
     def path(self, name: str) -> str:
         """A path under the tracker directory, as the tool prints it."""

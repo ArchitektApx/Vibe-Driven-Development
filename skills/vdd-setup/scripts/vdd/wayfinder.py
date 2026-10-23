@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from . import args, gitcmd, places, stores
+from . import args, gitcmd, harness as harnesses, places, stores
 from .out import Failure, Output
 
 SUBCOMMANDS = ("start",)
@@ -32,17 +32,6 @@ HELP = [
 ]
 
 SPEC = {"effort": args.VALUE, "skill-dir": args.VALUE}
-
-# The roots Matt Pocock's wayfinder is searched under, on every Harness: (base,
-# relative path), base "~" for the user's home and "." for the project.
-ROOTS = (
-    ("~", ".agents/skills"),
-    (".", ".agents/skills"),
-    ("~", ".claude/skills"),
-    (".", ".claude/skills"),
-    ("~", ".claude/plugins/cache"),
-    ("~", ".codex/plugins/cache"),
-)
 
 BRIEFING = [
     "Briefing for the wayfinding of <effort>:",
@@ -96,15 +85,28 @@ def templates(skill_dir: str) -> list[str]:
     return found
 
 
-def find_wayfinder(root: str) -> str | None:
+def wayfinder_roots(root: str) -> list[stores.Root]:
+    """The roots Matt Pocock's wayfinder is searched under: every Harness's
+    skill stores, the ones Setup searches under Generic, whichever Harness
+    this Session runs in."""
+    return stores.union(found.present_roots(root) for found in harnesses.every())
+
+
+def find_wayfinder(roots: list[stores.Root]) -> str | None:
     """The path of wayfinder/SKILL.md under the first root that holds one,
     or None."""
-    for base, relative in ROOTS:
-        directory = os.path.join(places.home() if base == "~" else root, *relative.split("/"))
-        hits = stores.search([stores.Root(directory, stores.SKILL_STORE, stores.USER, "any")], ["wayfinder"])
+    for store in roots:
+        hits = stores.search([store], ["wayfinder"])
         if hits.get("wayfinder"):
             return sorted(hit.path for hit in hits["wayfinder"])[0]
     return None
+
+
+def shown(store: stores.Root, root: str) -> str:
+    """A root as the refusal names it, with the pattern a plugin cache is
+    searched below."""
+    label = store.label(root)
+    return "%s/%s" % (label, store.pattern) if store.pattern else label
 
 
 def briefing(effort: str, overview: str, handoff: str) -> list[str]:
@@ -125,10 +127,11 @@ def start(effort: str, skill_dir: str) -> int:
     map_path = ".scratch/%s/map.md" % effort
     has_map = os.path.isfile(os.path.join(root, ".scratch", effort, "map.md"))
     out.line("Map: %s %s." % (map_path, "exists" if has_map else "does not exist"))
-    found = find_wayfinder(root)
+    roots = wayfinder_roots(root)
+    found = find_wayfinder(roots)
     if found is None:
         out.line("wayfinder: not installed: no wayfinder/SKILL.md under %s." % ", ".join(
-            "%s/%s" % (base, relative) for base, relative in ROOTS))
+            shown(store, root) for store in roots))
         out.tell("Matt Pocock's wayfinder skill is not installed. Invoke vdd-setup, which installs it, then start "
                  "the Wayfinder again.")
     else:

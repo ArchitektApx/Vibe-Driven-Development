@@ -763,6 +763,20 @@ class CodexSetupTest(ToolTest):
                               "--glossary-named", "yes", env=self.box.env(CODEX_HOME=home))
         self.assertIn("removes VDD's old Stop hook entry", result.text)
 
+    def test_an_empty_codex_home_reads_as_unset(self):
+        """CODEX_HOME is read in one place now; empty there must still mean
+        ~/.codex, for the hook steps and for the skill search alike."""
+        self.hooks({"hooks": {"Stop": [self.vdd_group()]}})
+        self.box.write(os.path.join(self.codex, "plugins", "cache", "mk", "mattpocock-skills", "1.0", "skills",
+                                    "grilling", "SKILL.md"), "x\n", base=self.box.root)
+        for value in ("", None):
+            with self.subTest(CODEX_HOME=value):
+                result = self.box.run("setup", "--harness", "codex", "--listed", "writing-for-agents",
+                                      "--glossary-named", "yes", env=self.box.env(CODEX_HOME=value))
+                self.assertIn("~/.codex/hooks.json", result.text)
+                self.assertIn("removes VDD's old Stop hook entry", result.text)
+                self.assertIn("Borrowed skills Present and Resolvable, passed: grilling.", result.lines, result)
+
     def test_other_harnesses_skip_the_codex_steps(self):
         self.hooks({"hooks": {"Stop": [self.vdd_group()]}})
         result = self.setup(harness="claude-code")
@@ -867,3 +881,133 @@ class GitVersionTest(ToolTest):
             self.assertIn("git version: %s. Passed." % shown, result.lines, result)
             self.assertNotIn("older than the 2.40", result.text)
             self.assertNotIn("stop: no loop can start", result.last)
+
+
+# Setup's routes, per Harness: the store each case installs the collection
+# in (0 its user skill store, 1 its plugin cache, None nowhere), and the
+# lines for the user the route prints after the Borrowed-skills line. Generic
+# selects "your agent" and hands a plugin cache to the Harness that owns it.
+CASES = {
+    "present": (0, ("writing-for-agents", "yes")),
+    "not present": (None, ("", "absent")),
+    "reinstall": (0, ("", "absent", "--user-answer", "does-not-resolve")),
+    "plugin": (1, ("", "absent", "--user-answer", "does-not-resolve")),
+    "update": (0, ("writing-for-agents", "no")),
+    "update plugin": (1, ("writing-for-agents", "no")),
+}
+CODEX_CACHE = (".codex", "plugins", "cache", "mk", "mattpocock-skills", "1.0", "skills")
+CODEX_PLUGIN = ("Run codex plugin add mattpocock-skills@mk, then start a new Codex Session and rerun $vdd:vdd-setup "
+                "there.")
+CODEX_UPDATE = ("Update it: codex plugin marketplace upgrade mk, then codex plugin add mattpocock-skills@mk, then "
+                "start a new Codex Session.")
+ROUTES = {
+    "claude-code": {
+        "header": "Claude Code",
+        "stores": ((".claude", "skills"), (".claude", "plugins", "cache", "mk", "mattpocock-skills", "1.0", "skills")),
+        "not present": "Install Matt Pocock's collection: /plugin marketplace add mattpocock/skills, then /plugin "
+                       "install mattpocock-skills@mattpocock, then turn on auto-update for the mattpocock marketplace "
+                       "under /plugin > Marketplaces (auto-update is off by default for every marketplace but "
+                       "Anthropic's own).",
+        "reinstall": "Re-run the install and select Claude Code: npx skills@latest add -g mattpocock/skills, then "
+                     "start a new Claude Code Session.",
+        "plugin": "Run claude plugin enable mattpocock-skills@mk from the repository root, then start a new Claude "
+                  "Code Session. If the plugin is enabled and still not loaded, reinstall it.",
+        "update": "Update it: npx skills update -g",
+        "update plugin": "Update it: claude plugin marketplace update mk, then claude plugin update mattpocock-skills "
+                         "(inside a Claude Code Session the first half is /plugin marketplace update mk).",
+    },
+    "codex": {
+        "header": "Codex",
+        "stores": ((".agents", "skills"), CODEX_CACHE),
+        "not present": "Install Matt Pocock's collection: npx skills@latest add -g mattpocock/skills, selecting Codex "
+                       "when the installer asks which agents to install for, then start a new Codex Session: a skill "
+                       "added while a Session runs appears only in a new one. Rerun $vdd:vdd-setup there.",
+        "reinstall": "First start a new Codex Session: a skill added while a Session runs appears only in a new one. "
+                     "If the new Session still cannot run it, re-run the install and select Codex: npx skills@latest "
+                     "add -g mattpocock/skills, then start a new Codex Session and rerun $vdd:vdd-setup there.",
+        "plugin": CODEX_PLUGIN,
+        "update": "Update it: npx skills update -g, then start a new Codex Session.",
+        "update plugin": CODEX_UPDATE,
+    },
+    "cursor": {
+        "header": "Cursor",
+        "stores": ((".cursor", "skills"), (".cursor", "plugins", "cache", "mk", "mattpocock-skills", "1.0", "skills")),
+        "not present": "Install Matt Pocock's collection: npx skills@latest add -g mattpocock/skills, selecting Cursor "
+                       "when the installer asks which agents to install for, then open a new chat or a new agent "
+                       "Session before you rerun /vdd-setup.",
+        "reinstall": "First open a new chat or a new agent Session. If that still cannot run it, re-run the install "
+                     "and select Cursor: npx skills@latest add -g mattpocock/skills, then open a new chat or a new "
+                     "agent Session.",
+        "plugin": "Reinstall the plugin in the Cursor IDE's plugin UI, then open a new chat or a new agent Session. "
+                  "Cursor has no command-line route for this.",
+        "update": "Update it: npx skills update -g",
+        "update plugin": "Update it: refresh the plugin in the Cursor IDE's plugin UI.",
+    },
+    "copilot-cli": {
+        "header": "Copilot CLI",
+        "stores": ((".copilot", "skills"), (".copilot", "installed-plugins", "mk", "mattpocock-skills", "skills")),
+        "not present": "Install Matt Pocock's collection: npx skills@latest add -g mattpocock/skills, selecting GitHub "
+                       "Copilot when the installer asks which agents to install for. Then run /skills reload or a new "
+                       "copilot Session before you rerun /vdd:vdd-setup.",
+        "reinstall": "First run /skills reload or a new copilot Session. If that still cannot run it, re-run the "
+                     "install and select GitHub Copilot: npx skills@latest add -g mattpocock/skills. Then run "
+                     "/skills reload or a new copilot Session.",
+        "plugin": "Run copilot plugin enable mattpocock-skills@mk, then start a new copilot Session.",
+        "update": "Update it: npx skills update -g",
+        "update plugin": "Update it: copilot plugin update mattpocock-skills@mk",
+    },
+    "generic": {
+        "header": "generic",
+        "stores": ((".agents", "skills"), CODEX_CACHE),
+        "not present": "Install Matt Pocock's collection: npx skills@latest add -g mattpocock/skills, selecting your "
+                       "agent when the installer asks.",
+        "reinstall": "Re-run the install and select your agent: npx skills@latest add -g mattpocock/skills",
+        "plugin": CODEX_PLUGIN,
+        "update": "Update it: npx skills update -g",
+        "update plugin": CODEX_UPDATE,
+    },
+}
+
+
+class SetupRoutesTest(ToolTest):
+    """Every route each Harness's module prints, walked through Setup in one
+    table. Before it only Codex's and Generic's reinstall routes were run:
+    Cursor's not-present and reinstall routes, Copilot's not-present route
+    and Generic's "selecting your agent" could break with no test noticing."""
+
+    def test_every_route_of_every_harness(self):
+        self.assertEqual(sorted(ROUTES), sorted(["claude-code", "codex", "cursor", "copilot-cli", "generic"]))
+        for name, routes in ROUTES.items():
+            for case, (store, answers) in CASES.items():
+                with self.subTest(harness=name, route=case):
+                    self.walk(name, routes, case, store, answers)
+
+    def walk(self, name, routes, case, store, answers):
+        box = vddtest.Sandbox()
+        self.addCleanup(box.cleanup)
+        subprocess.run(["git", "init", "-q"], cwd=box.proj, check=True)
+        if store is not None:
+            for skill in SKILLS:
+                box.write(os.path.join(box.home, *(routes["stores"][store] + (skill, "SKILL.md"))),
+                          "---\nname: %s\n---\n" % skill, base=box.root)
+        result = box.run("setup", "--harness", name, "--listed", answers[0], "--glossary-named", answers[1],
+                         *answers[2:])
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("Setup, Harness %s (dry run, nothing is changed yet)." % routes["header"], result.lines)
+        tells = result.tells()
+        if case == "present":
+            self.assertIn("Borrowed skills: all 11 Present and Resolvable. Passed.", result.lines, result)
+            self.assertFalse([t for t in tells if "Matt Pocock's collection" in t], result)
+            return
+        if case == "not present":
+            self.assertIn("Borrowed skills Not Present: %s." % ", ".join(SKILLS), result.lines, result)
+            previous = None
+        elif case.startswith("update"):
+            previous = next(t for t in tells if t.startswith("Warning: your copy of Matt Pocock's collection"))
+        else:
+            reads = "your agent" if name == "generic" else routes["header"]
+            previous = next(t for t in tells if t.startswith("Matt Pocock's collection sits in "))
+            self.assertIn("which %s reads, and this Session has not loaded them." % reads, previous)
+        route = tells[tells.index(previous) + 1] if previous else next(t for t in tells if t.startswith("Install "))
+        self.assertEqual(route, routes[case], result)

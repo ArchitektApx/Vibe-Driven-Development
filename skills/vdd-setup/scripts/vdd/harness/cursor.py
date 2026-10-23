@@ -14,6 +14,7 @@ NEW_CHAT = "open a new chat or a new agent Session"
 class Cursor(Harness):
     name = "cursor"
     label = "Cursor"
+    display_name = "Cursor"
 
     def borrowed_skill(self, skill: str) -> str:
         return "/" + skill
@@ -70,7 +71,13 @@ class Cursor(Harness):
     def respawn_recommendation(self) -> tuple[str | None, str | None]:
         return ("every round", None)
 
-    def codex_hook_steps(self) -> bool:
+    def reports_subagent_tokens(self) -> bool:
+        return False
+
+    def picks_up_doorbell(self) -> bool:
+        return True
+
+    def waits_through_stop_hook(self) -> bool:
         return False
 
     def orchestrator_launch(self, slug: str) -> str:
@@ -79,7 +86,7 @@ class Cursor(Harness):
             "agent in a terminal in this repository, then /vdd-orchestrator %s in that Session" % (slug, slug)
         )
 
-    def wait_next(self, role: str, wait_command: str, paste_command: str) -> str:
+    def wait_next(self, wait_command: str, paste_command: str) -> str:
         return "Run this as a background shell, then end your turn: %s" % wait_command
 
 

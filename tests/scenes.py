@@ -328,7 +328,8 @@ class Staged(LoopRepoTest):
 
     def wayfinder_installed(self):
         self.repo()
-        self.box.write(os.path.join(self.box.home, ".claude", "plugins", "cache", "x", "wayfinder", "SKILL.md"),
+        self.box.write(os.path.join(self.box.home, ".claude", "plugins", "cache", "mattpocock", "mattpocock-skills",
+                                    "1.0.0", "skills", "wayfinder", "SKILL.md"),
                        "---\nname: wayfinder\n---\n", base=self.box.root)
 
     def read_only_state(self):

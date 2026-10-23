@@ -10,9 +10,9 @@ import signal
 from types import FrameType
 from typing import Any, NoReturn
 
-from . import args, doorbells, loopstate, places, textfile
+from . import args, doorbells, harness as harnesses, loopstate, places, textfile
 from .harness import Harness
-from .out import Failure, Output
+from .out import Failure, Output, or_list
 
 
 # --- the commands ---
@@ -43,7 +43,8 @@ HELP = [
     "",
     "  ring and wait refuse on a closed loop.",
     "",
-    "--harness takes claude-code, codex, cursor, copilot-cli or generic: the Harness the Loop file's Harness:",
+    "--harness takes %s: the Harness the Loop file's Harness:"
+    % or_list(found.name for found in harnesses.every()),
     "line names. --slug names the loop; pass it on every call. Without it the tool takes the loop whose feature",
     "branch is checked out, else the only open loop. Run every command from the repository root.",
 ]
@@ -68,7 +69,7 @@ def run(argv: list[str]) -> int:
 
 
 def dispatch(sub: str, values: dict[str, Any]) -> int:
-    harness = args.harness_of(values, usage())
+    harness = harnesses.from_option(values, usage())
     role = values["role"]
     args.choice(role, doorbells.ROLES, "--role takes Planner or Orchestrator.", "Run %s for the usage." % usage())
     place = doorbells.Place.find(values["slug"])
@@ -123,13 +124,13 @@ def ring(place: doorbells.Place, role: str, harness: Harness, write: bool) -> in
     if role == "Planner" and doorbell.round == 1:
         launch = harness.orchestrator_launch(place.slug)
         out.tell("Start the Orchestrator now: %s." % launch)
-        if harness.name == "generic":
-            out.tell("Paste the Doorbell below into it once it is up.")
-        else:
+        if harness.picks_up_doorbell():
             out.tell(
                 "It picks up the Doorbell below from the Doorbell file; paste it in only if it does not "
                 "start the review."
             )
+        else:
+            out.tell("Paste the Doorbell below into it once it is up.")
         out.tell(line)
     else:
         out.tell("If the %s's Session does not wake, paste this into it: %s" % (to, line))
@@ -220,7 +221,7 @@ def end_on_signal() -> None:
 
 def wait(place: doorbells.Place, role: str, harness: Harness) -> int:
     place.require_open("a wait")
-    if harness.name == "codex":
+    if harness.waits_through_stop_hook():
         doorbells.arm(place, role, harness)
         out = Output()
         out.line("Armed: the Codex Stop hook waits for the %s's next Doorbell when this turn ends." % role)

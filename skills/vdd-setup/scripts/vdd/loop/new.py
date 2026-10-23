@@ -67,7 +67,7 @@ def new(root: str, values: dict[str, Any], harness: Harness) -> int:
         "Feature": slug,
         "Base branch": base,
         "Feature branch": branch,
-        "Harness": loopfile.LABELS[harness.name],
+        "Harness": harness.label,
     }
     if values["write"]:
         args.require(values, [option for option, _ in ANSWERS], usage())

@@ -6,7 +6,7 @@ import difflib
 import re
 from typing import Any, Callable, Container, Iterable, NoReturn, Sequence
 
-from . import harness, places
+from . import places
 from .out import Failure, Output
 
 VALUE = "value"
@@ -201,18 +201,3 @@ def refuse_missing(missing: Sequence[str], usage: str) -> NoReturn:
         "Missing: %s" % ", ".join("--" + name for name in missing),
         "Run %s for this command's usage." % usage,
     )
-
-
-def harness_of(values: dict[str, Any], usage: str) -> harness.Harness:
-    """The Harness the --harness option names, as the slug or as the Loop
-    file's Harness: line spells it ("Claude Code", "Copilot CLI")."""
-    name = values.get("harness")
-    if name is None:
-        refuse_missing(["harness"], usage)
-    found = harness.get("-".join(name.lower().split()))
-    if found is None:
-        raise Failure(
-            "Unknown Harness: %s. --harness takes one of: %s." % (name, ", ".join(harness.NAMES)),
-            "Run again with --harness set to one of: %s." % ", ".join(harness.NAMES),
-        )
-    return found

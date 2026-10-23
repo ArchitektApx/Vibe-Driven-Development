@@ -137,11 +137,18 @@ class NewTest(LoopTest):
         self.assertEqual(names, ["Question 1, PR"])
 
     def test_the_harness_line_is_the_display_name(self):
-        for harness, label in (("codex", "Codex"), ("copilot-cli", "Copilot CLI"), ("generic", "Generic")):
-            with self.subTest(harness=harness):
-                slug = "h-" + harness
-                self.new(slug, *ANSWERS, harness=harness, write=True)
-                self.assertIn("Harness: %s\n" % label, self.file(slug))
+        """The labels moved from the Loop file's table into the Harness
+        modules; every Harness, named by its slug or by its label, still
+        writes the same Harness: line."""
+        labels = (("claude-code", "Claude Code"), ("codex", "Codex"), ("cursor", "Cursor"),
+                  ("copilot-cli", "Copilot CLI"), ("generic", "Generic"))
+        for harness, label in labels:
+            for given in (harness, label):
+                with self.subTest(harness=given):
+                    slug = "h-%s-%d" % (harness, given == label)
+                    result = self.new(slug, *ANSWERS, harness=given, write=True)
+                    self.assertEqual(result.code, 0, result)
+                    self.assertIn("Harness: %s\n" % label, self.file(slug))
 
     def test_a_slug_outside_the_pattern_is_refused_with_the_pattern(self):
         """The slug check moved from Start-Loop's prose into the tool: the

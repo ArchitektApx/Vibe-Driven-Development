@@ -8,7 +8,7 @@ import os
 import re
 from typing import Any
 
-from .. import args, doorbells, gitcmd, loopfile, loopstate, places
+from .. import args, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, places
 from ..out import Failure
 
 HOSTED = ("Plan-Reviewer", "Coder", "Code-Reviewer")
@@ -48,8 +48,8 @@ class Flow:
         state = loopstate.open_loop(loop, command)
         flow = cls(loop, state)
         if values["harness"] is not None:
-            given = args.harness_of(values, usage())
-            if given.name != flow.harness.name:
+            given = harnesses.from_option(values, usage())
+            if given is not flow.harness:
                 raise Failure(
                     "--harness %s does not match the Loop file's Harness: %s." % (given.name, flow.harness_label),
                     "Run the command again with --harness %s." % flow.harness.name,
