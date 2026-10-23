@@ -15,7 +15,7 @@ import re
 import shutil
 from typing import TYPE_CHECKING, Any, Iterable
 
-from . import args, gitcmd, loopfile, loopstate, places, preflight, signoff, textfile, workfile
+from . import args, doorbells, gitcmd, loopfile, loopstate, places, preflight, signoff, textfile, workfile
 from .gitcmd import Refused
 from .out import Failure, Output, refused
 
@@ -371,7 +371,7 @@ def open_pr(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wante
             "Run %s pr check --slug %s --harness %s, and copy the path from its Path: line." % (
                 places.command(), loop.slug, harness.name),
         )
-    if signoff.fold_owed(state):
+    if doorbells.Place(loop.root, loop.slug, loop, state).position().fold_owed:
         raise Failure(
             "The fold's outcome is not recorded for the code Sign-off: the branch is pushed only after the Sign-off "
             "and the fold. Nothing was pushed.",

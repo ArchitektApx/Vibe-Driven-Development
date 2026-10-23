@@ -14,7 +14,7 @@ import os
 import re
 from typing import TYPE_CHECKING, Any
 
-from .. import gitcmd, loopstate, places, recap, signoff
+from .. import doorbells, gitcmd, loopstate, places, recap, signoff
 from ..out import Failure, Output, and_list
 
 if TYPE_CHECKING:
@@ -450,7 +450,8 @@ def run(loop: Loop, harness: Harness, write: bool) -> int:
     out = Output()
     branch, _ = loop.setting("Feature branch")
     recorded = state.fold_record()
-    if recorded is not None and not signoff.fold_owed(state):
+    owed = doorbells.Place(loop.root, loop.slug, loop, state).position().fold_owed
+    if recorded is not None and not owed:
         wrote = write and recap.render_recap(loop, state)
         done = "Wrote %s/%s again." % (loop.tracker, recap.NAME) if wrote else "Nothing was written."
         if recorded.kind == "folded":

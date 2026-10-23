@@ -23,17 +23,6 @@ def not_signed_off(review: loopstate.Review | None) -> str:
     return "code round %d's review left findings open" % review.round
 
 
-def fold_owed(state: loopstate.State) -> bool:
-    """Whether the fold is owed: the newest code record is a reviewer's
-    signed-off review, and no fold line exists or the last one ran on another
-    commit than that round's recorded end."""
-    review = state.last_review("code")
-    if review is None or not review.signed_off:
-        return False
-    record = state.fold_record()
-    return record is None or record.signed != state.code_mark("end", review.round)
-
-
 def sign_off_blocker(state: loopstate.State) -> str | None:
     """What stands in the way of the code Sign-off the state records, or None
     once the newest code record is a reviewer's signed-off review."""

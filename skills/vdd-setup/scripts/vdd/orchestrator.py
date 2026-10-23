@@ -17,7 +17,7 @@ import re
 from typing import Any, NoReturn
 
 from . import args, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, places, signoff
-from .out import Failure, Output
+from .out import TELL, Failure, Output
 
 SUBCOMMANDS = ("start", "return", "respawn", "tokens")
 USER_REASON = "for the user's findings"
@@ -233,9 +233,10 @@ class Flow:
         return self.returns.count((role, number, False))
 
     def rung(self) -> int:
-        rounds = [e.doorbell.round for e in self.place.entries("Orchestrator")
-                  if e.doorbell]
-        return max(rounds) if rounds else 0
+        return self.place.planner_round()
+
+    def position(self) -> loopstate.Position:
+        return self.place.position()
 
     def done(self, role: str, number: int) -> bool:
         if role == "Coder":
@@ -385,7 +386,7 @@ def after_sign_off(flow: Flow, out: Output) -> int:
     """The step after the code Sign-off: the fold while no fold outcome is
     recorded, on every PR: value, else the PR step."""
     out.line("Code Loop: signed off.")
-    if signoff.fold_owed(flow.state):
+    if flow.state.fold_owed():
         out.line("Fold: not run yet.")
         return out.finish(
             "Run %s, relay its Tell the user verbatim line, then do what its Next: line says." % flow.command(
@@ -402,7 +403,10 @@ def after_sign_off(flow: Flow, out: Output) -> int:
 def describe(flow: Flow) -> str:
     plan = flow.state.last_review("plan")
     rung = flow.rung()
-    if plan and plan.signed_off:
+    if plan and plan.signed_off and flow.position().owed_by("Plan-Reviewer"):
+        plan_text = "signed off in round %d; the Planner rang round %d after it, not reviewed yet" % (
+            plan.round, rung)
+    elif plan and plan.signed_off:
         plan_text = "signed off in round %d" % plan.round
     elif rung > (plan.round if plan else 0):
         plan_text = "the Planner rang round %d, not reviewed yet" % rung
@@ -427,19 +431,6 @@ def describe(flow: Flow) -> str:
     else:
         code_text = "not started"
     return "Plan Loop: %s. Code Loop: %s." % (plan_text, code_text)
-
-
-def code_place(flow: Flow) -> tuple[str, int] | None:
-    """(role, round) the code Loop owes next, or None at its Sign-off."""
-    review = flow.state.last_review("code")
-    if review and review.signed_off:
-        return None
-    newest = flow.state.code_round()
-    if newest and flow.state.code_mark("end", newest) is None:
-        return ("Coder", newest)
-    if newest and (review is None or review.round < newest):
-        return ("Code-Reviewer", newest)
-    return ("Coder", review.round + 1 if review else 1)
 
 
 def policies_line(flow: Flow) -> str:
@@ -488,19 +479,16 @@ def start(flow: Flow) -> int:
     if code and code.user and flow.state.code_mark("start", code.round + 1) is None:
         # The plan Loop is long over: no ring, and nothing restarted.
         return spawn(flow, out, "Coder", code.round + 1, USER_REASON)
-    plan = flow.state.last_review("plan")
-    reviewed = plan.round if plan else 0
-    if plan and plan.signed_off and flow.rung() <= plan.round:
-        where = code_place(flow)
+    where = flow.position()
+    if where.phase == "code":
         first = "Run %s in the foreground; the plan Loop is over, so it names no wait." % flow.ring_command()
-        if where is None:
+        if where.signed_off:
             out.line("First: %s" % first)
             return after_sign_off(flow, out)
-        role, number = where
-        return spawn(flow, out, role, number, reason, first)
-    if flow.rung() > reviewed:
-        return spawn(flow, out, "Plan-Reviewer", reviewed + 1, reason)
-    if plan:
+        return spawn(flow, out, where.owes, where.round, reason, first)
+    if where.owed_by("Plan-Reviewer"):
+        return spawn(flow, out, "Plan-Reviewer", where.round, reason)
+    if flow.state.last_review("plan"):
         return ring_then_wait(flow, out)
     return out.finish(planner_wait(flow))
 
@@ -577,6 +565,17 @@ def planner_returned(flow: Flow) -> int:
     spawn for the rung round, or its resume when one is live."""
     plan = flow.state.last_review("plan")
     number = (plan.round if plan else 0) + 1
+    if plan is not None and plan.signed_off and flow.position().ring_ignored:
+        raise Failure(
+            [
+                "The Planner rang plan round %d after the plan Sign-off in round %d, and the code Loop has started: "
+                "no Plan-Reviewer reviews it." % (flow.rung(), plan.round),
+                TELL % ("The plan Loop is signed off and the code Loop is running, so the Planner's plan round %d "
+                        "is not reviewed. The code Loop goes on with the Spec as it was signed off." % flow.rung()),
+            ],
+            "Relay the Tell the user verbatim line above unchanged, then go on with the step you were on before "
+            "the Planner's Doorbell. Spawn no Plan-Reviewer.",
+        )
     if flow.rung() < number:
         raise Failure(
             "The Planner has rung no round after the last plan review: there is nothing to act on.",
@@ -670,11 +669,5 @@ def tokens(flow: Flow, values: dict[str, Any]) -> int:
 
 def waiting_step(flow: Flow, role: str) -> int | None:
     """The round of role the Workflow waits to spawn or resume, or None."""
-    if role == "Plan-Reviewer":
-        plan = flow.state.last_review("plan")
-        number = (plan.round if plan else 0) + 1
-        return number if flow.rung() >= number else None
-    where = code_place(flow)
-    if where is None or where[0] != role:
-        return None
-    return where[1]
+    where = flow.position()
+    return where.round if where.owed_by(role) else None

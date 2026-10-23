@@ -141,6 +141,14 @@ class Place:
         if not self.state.is_open:
             raise loopstate.closed_loop(self.slug, ", so %s would never be answered" % what)
 
+    def planner_round(self) -> int:
+        """The newest round the Planner rang, from the Doorbell file, or 0."""
+        rounds = [e.doorbell.round for e in self.entries("Orchestrator") if e.doorbell]
+        return max(rounds) if rounds else 0
+
+    def position(self) -> loopstate.Position:
+        return loopstate.position(self.state, self.planner_round())
+
     def state_path(self, role: str) -> str:
         return os.path.join(self.dir, "doorbell-state-" + role.lower())
 
@@ -263,19 +271,10 @@ def mark_handled(place: Place, role: str, out: Output) -> None:
     place.save_state(role, state)
 
 
-def last_plan_review(place: Place) -> loopstate.Review | None:
-    """The last plan review the state file records, or None."""
-    return place.state.last_review("plan")
-
-
 def plan_signed_off(place: Place) -> bool:
-    """The last plan review signed off and the Planner has rung no round
-    after it: the plan Loop is over and neither Role waits."""
-    review = last_plan_review(place)
-    if review is None or not review.signed_off:
-        return False
-    rung = [e.doorbell.round for e in place.entries("Orchestrator") if e.doorbell]
-    return not rung or max(rung) <= review.round
+    """The plan Loop is over and neither Role waits: the position is in the
+    code Loop."""
+    return place.position().phase == "code"
 
 
 # --- the wait ---

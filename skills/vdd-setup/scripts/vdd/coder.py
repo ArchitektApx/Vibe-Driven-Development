@@ -14,7 +14,7 @@ import re
 import textwrap
 from typing import Any, Callable
 
-from . import args, fixes, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
+from . import args, doorbells, fixes, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
 from .out import Failure, Output
 
 SUBCOMMANDS = ("start", "check")
@@ -164,10 +164,18 @@ def tickets(loop: loopfile.Loop) -> list[tuple[str, str]]:
 # --- start ---
 
 def precondition(round_: Round) -> None:
-    """Refuse a round its loop is not ready for."""
+    """Refuse a round the position does not owe the Coder."""
     state = round_.state
-    if round_.started:
+    where = doorbells.Place(round_.loop.root, round_.loop.slug, round_.loop, state).position()
+    if where.owed_by("Coder", round_.number):
         return
+    plan = state.last_review("plan")
+    if where.owed_by("Plan-Reviewer") and plan is not None and plan.signed_off:
+        raise Failure(
+            "The Planner rang plan round %d after the plan Sign-off: the changed Spec is reviewed before the "
+            "code Loop starts. Nothing was written." % where.round,
+            "End your turn with BLOCKED: plan round %d is not reviewed yet." % where.round,
+        )
     if round_.newest:
         review = state.review("code", round_.newest)
         if review is None:
@@ -182,14 +190,16 @@ def precondition(round_: Round) -> None:
                 % (round_.newest, round_.number),
                 "End your turn with BLOCKED: the code Loop is already signed off.",
             )
-        return
-    plan = state.last_review("plan")
-    if plan is None or not plan.signed_off:
         raise Failure(
-            "The plan Loop is not finished: the plan review has not signed off, so the Spec is no contract yet. "
-            "Nothing was written.",
-            "End your turn with BLOCKED: the plan Loop is not signed off.",
+            "There is no code round %d for the Coder now: the %s owes the next move. Nothing was written."
+            % (round_.number, where.owes),
+            "End your turn with BLOCKED: the %s owes the next move." % where.owes,
         )
+    raise Failure(
+        "The plan Loop is not finished: the plan review has not signed off, so the Spec is no contract yet. "
+        "Nothing was written.",
+        "End your turn with BLOCKED: the plan Loop is not signed off.",
+    )
 
 
 def to_branch(round_: Round, out: Output, write: bool = True) -> bool:

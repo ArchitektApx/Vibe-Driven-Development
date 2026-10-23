@@ -231,14 +231,11 @@ class Round:
 
 # --- start ---
 
-def planner_rung(loop: loopfile.Loop) -> int:
-    """The newest round the Planner rang, or 0."""
-    place = doorbells.Place(loop.root, loop.slug)
-    rounds = [e.doorbell.round for e in place.entries("Orchestrator") if e.doorbell]
-    return max(rounds) if rounds else 0
-
-
 def require_round(round_: Round) -> None:
+    """Refuse a round the position does not owe this reviewer."""
+    place = doorbells.Place(round_.loop.root, round_.loop.slug, round_.loop, round_.state)
+    if place.position().owed_by(round_.role, round_.number):
+        return
     if round_.last and round_.last.signed_off:
         raise Failure(
             "The %s Loop signed off in round %d: there is no round %d to review. Nothing was written."
@@ -252,7 +249,7 @@ def require_round(round_: Round) -> None:
             "End your turn with BLOCKED: code round %d has no recorded Coder end." % round_.number,
         )
     if round_.kind == "plan":
-        rung = planner_rung(round_.loop)
+        rung = place.planner_round()
         if rung < round_.number:
             last = "round %d" % round_.last.round if round_.last else "none yet"
             raise Failure(
@@ -260,6 +257,12 @@ def require_round(round_: Round) -> None:
                 "review. Nothing was written." % (last, round_.number),
                 "End your turn with BLOCKED: the Planner has not rung plan round %d." % round_.number,
             )
+    owner = place.position().owes
+    raise Failure(
+        "There is no %s round %d to review now: the %s owes the next move. Nothing was written."
+        % (round_.kind, round_.number, owner),
+        "End your turn with BLOCKED: the %s owes the next move, not the %s." % (owner, round_.role),
+    )
 
 
 def round_available(round_: Round) -> bool:

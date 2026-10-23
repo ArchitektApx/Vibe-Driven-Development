@@ -275,6 +275,25 @@ class State:
                 found = Fold("skipped", match.group(1), reason=match.group(2))
         return found
 
+    def fold_record(self, kind: str | None = None) -> Fold | None:
+        """The fold's last recorded outcome, of kind when given, or None."""
+        wanted = [fold for fold in self.folds() if kind in (None, fold.kind)]
+        return wanted[-1] if wanted else None
+
+    def fold_signed(self) -> set[str]:
+        """The signed commits a fold line, folded or skipped, names."""
+        return {fold.signed for fold in self.folds()}
+
+    def fold_owed(self) -> bool:
+        """Whether the fold is owed: the newest code record is a reviewer's
+        signed-off review, and no fold line exists or the last one ran on
+        another commit than that round's recorded end."""
+        review = self.last_review("code")
+        if review is None or not review.signed_off:
+            return False
+        record = self.fold_record()
+        return record is None or record.signed != self.code_mark("end", review.round)
+
     def next_number(self, kind: str) -> int:
         """The number a round's new findings start at: the last review's
         next, or 1."""
@@ -296,6 +315,68 @@ class State:
         except OSError as error:
             raise textfile.write_refusal("the loop state file %s" % textfile.shown(self.path), error,
                                          "Otherwise tell the user the loop state file cannot be written, and stop.")
+
+
+# --- where the Workflow stands ---
+
+OWNERS = ("Planner", "Plan-Reviewer", "Coder", "Code-Reviewer", "Fold", "PR-Author", "user")
+
+
+class Position:
+    """Where one Loop stands: its phase and round, who owes the next move,
+    whether the code Loop is signed off and whether the fold is owed. The
+    fold is run by the Orchestrator; the user owes the move on a closed
+    loop."""
+
+    def __init__(
+        self, phase: Literal["plan", "code"], round_number: int, owes: str, signed_off: bool = False,
+        fold_owed: bool = False, ring_ignored: bool = False,
+    ) -> None:
+        self.phase = phase
+        self.round = round_number
+        self.owes = owes
+        self.signed_off = signed_off
+        self.fold_owed = fold_owed
+        # The Planner rang a plan round after the plan Sign-off once the code
+        # Loop had started: no Role reviews it.
+        self.ring_ignored = ring_ignored
+
+    def owed_by(self, role: str, round_number: int | None = None) -> bool:
+        return self.owes == role and (round_number is None or self.round == round_number)
+
+
+def position(state: State, planner_round: int) -> Position:
+    """The one answer to where the Workflow stands. planner_round is the
+    newest round the Planner rang, from the Doorbell file. A Planner ring
+    after the plan Sign-off opens the next plan round while the code Loop has
+    not started; once it has, the ring is ignored."""
+    plan = state.last_review("plan")
+    reviewed = plan.round if plan else 0
+    code_started = state.code_mark("start", 1) is not None
+    plan_signed = plan is not None and plan.signed_off
+    rung = planner_round > reviewed
+    # Once the code Loop has started, the plan Loop is over: coder start ran
+    # only after its Sign-off.
+    if not code_started and (not plan_signed or rung):
+        owner = "Plan-Reviewer" if rung else "Planner"
+        return Position("plan", reviewed + 1, owner if state.is_open else "user")
+    found = code_position(state, ring_ignored=rung)
+    if not state.is_open:
+        found.owes = "user"
+    return found
+
+
+def code_position(state: State, ring_ignored: bool = False) -> Position:
+    review = state.last_review("code")
+    if review is not None and review.signed_off:
+        owed = state.fold_owed()
+        return Position("code", review.round, "Fold" if owed else "PR-Author", True, owed, ring_ignored)
+    newest = state.code_round()
+    if newest and state.code_mark("end", newest) is None:
+        return Position("code", newest, "Coder", ring_ignored=ring_ignored)
+    if newest and (review is None or review.round < newest):
+        return Position("code", newest, "Code-Reviewer", ring_ignored=ring_ignored)
+    return Position("code", review.round + 1 if review else 1, "Coder", ring_ignored=ring_ignored)
 
 
 # --- the state lines: one builder per kind, and no line formatted elsewhere ---
