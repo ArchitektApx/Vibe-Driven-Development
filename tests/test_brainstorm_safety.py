@@ -4,6 +4,7 @@ as a leftover journal and lock."""
 
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -194,13 +195,16 @@ class LockTest(BrainstormTest):
         """Prevents two migrations at once, and a wait without end: the
         migration lock waits as every store lock does, then refuses naming
         the migration."""
-        os.remove(self.box.path(S + ".layout"))
+        shutil.rmtree(self.box.path(S))
+        self.box.write(S + "index.md", "# Ideas\n")
+        self.box.write(S + "old-idea.md", "---\nstatus: idea\n---\n\n# Old idea\n")
+        before = self.tree()
         child = self.hold(30, ".scratch/_brainstorming.lock")
         result = self.bs("migrate", "--write")
         self.assertEqual(result.code, 1, result)
         self.assertIn("Another Session is migrating the idea store right now (process %d). Nothing was written."
                       % child.pid, result.lines)
-        self.assertFalse(self.exists(".layout"))
+        self.assertEqual(self.tree(), before)
 
 
 class JournalTest(BrainstormTest):

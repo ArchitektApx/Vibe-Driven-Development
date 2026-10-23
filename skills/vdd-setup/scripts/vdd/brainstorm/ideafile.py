@@ -68,6 +68,14 @@ def seam_set() -> bool:
     return bool(DATE.match(os.environ.get("VDD_TODAY", "")))
 
 
+def real_date(text: str) -> bool:
+    try:
+        datetime.date.fromisoformat(text)
+    except ValueError:
+        return False
+    return True
+
+
 def is_idea_name(name: str) -> bool:
     return name.endswith(".md") and name[:-3] not in RESERVED and bool(SLUG.match(name[:-3]))
 

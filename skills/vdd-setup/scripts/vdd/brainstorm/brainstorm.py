@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Tuple
 
 from .. import args, gitcmd, places, textfile
 from ..out import Failure, Output
-from . import cleanup, journal, migrate, moves, reads, restructure
+from . import cleanup, journal, layout1, migrate, moves, reads, restructure
 from .lock import Lock
 from .store import LAYOUT, LAYOUT_FILE, Store, layout, require_layout, store_dir
 
@@ -128,7 +128,7 @@ def dispatch(command: str, values: dict[str, Any]) -> int:
         return start(root, values)
     if command == "migrate":
         return migrate_cmd(root, values)
-    if migrate.state(root) == "half":
+    if migrate.STEPS["1"].half(root):
         # Between the migration's two renames there is no store: a new one
         # here would leave two half stores (F2).
         raise Failure("A migration was interrupted after the backup; the idea store is not in place yet. Nothing was "
@@ -218,15 +218,15 @@ def page_number(value: str | None) -> int:
 def start(root: str, values: dict[str, Any]) -> int:
     found = layout(root)
     out = Output()
-    if migrate.state(root) == "half":
+    if migrate.STEPS["1"].half(root):
         out.line("A migration was interrupted after the backup: %s/ is complete and %s/ waits beside it; brainstorm "
-                 "migrate --write finishes it." % (migrate.BACKUP, migrate.STAGING))
+                 "migrate --write finishes it." % (layout1.BACKUP, layout1.STAGING))
         return out.finish("Run brainstorm migrate --write, then brainstorm start again.")
     if found is None:
         out.line("This project has no idea store yet (.scratch/_brainstorming/).")
         return out.finish("Answer the user's message; when they bring an idea, capture it with brainstorm new, "
                           "which creates the store.")
-    if found == "1":
+    if found in migrate.STEPS:
         for line in migrate.plan_lines(root):
             out.line(line)
         return out.finish(migrate.plan_next(root))
@@ -252,8 +252,8 @@ def overview(root: str, store: Store, page: int = 1) -> tuple[list[str], str]:
     if named:
         lines.append("Named as a part in their tldr but not filed under that parent: %s."
                      % ", ".join("%s (%s)" % pair for pair in named))
-    if os.path.isdir(os.path.join(root, migrate.BACKUP)):
-        lines.append("Backup of the 0.15 store: %s/ (the tool never deletes it)." % migrate.BACKUP)
+    if os.path.isdir(os.path.join(root, layout1.BACKUP)):
+        lines.append("Backup of the 0.15 store: %s/ (the tool never deletes it)." % layout1.BACKUP)
     offer = " Offer once to file the parts named above under their parents (brainstorm move)." if named else ""
     return lines, offer
 
@@ -272,7 +272,7 @@ def migrate_cmd(root: str, values: dict[str, Any]) -> int:
     if what == "noop":
         return out.finish("Run brainstorm start.")
     if what in ("migrated", "finished"):
-        out.tell(migrate.UNDO)
+        out.tell(layout1.UNDO)
     more, offer = overview(root, Store(root))
     for line in more:
         out.line(line)
