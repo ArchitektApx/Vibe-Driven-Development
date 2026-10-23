@@ -313,7 +313,9 @@ def make_content_test(row):
             self.fail("%s is missing: run the suite with VDD_UPDATE_GOLDENS=1 to write it"
                       % os.path.relpath(path, REPO))
         with open(path, "rb") as handle:
-            self.assertEqual(actual, handle.read().decode("utf-8"))
+            # A Windows checkout with core.autocrlf writes the file with CRLF.
+            expected = handle.read().decode("utf-8").replace("\r\n", "\n")
+        self.assertEqual(expected, actual, "golden %s differs" % os.path.relpath(path, REPO))
 
     test.__doc__ = "Prevents an unseen change to the %s the tool writes, %s." % (name, case)
     return test
