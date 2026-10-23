@@ -7,8 +7,8 @@ import re
 from typing import Any
 
 from ..out import Failure, Output
-from .ideafile import DEPTH_MAX, STATUSES, Idea, is_idea_name, reflow, squash
-from .moves import QUOTE, quoted, step_line
+from .ideafile import DEPTH_MAX, STATUSES, Idea, is_idea_name, reflow, squash, unread_line
+from .printed import QUOTE, quoted, step_line
 from .store import REMOVED, Store, rel, removed_entries, removed_entry
 
 FIND_MAX = 10
@@ -27,7 +27,7 @@ def metrics(idea: Idea) -> str:
 def headline(store: Store, idea: Idea, waits: dict[str, list[str]], tldr_max: int | None = None) -> str:
     """One idea as the overview lists it: slug, status, metrics, last update,
     what it waits on, and its tldr, cut at tldr_max."""
-    head = "%s [%s] %s, updated %s" % (idea.slug, idea.status, metrics(idea), idea.get("last-updated") or "?")
+    head = "%s [%s] %s, updated %s" % (idea.slug, idea.status, metrics(idea), idea.shown_day() or "?")
     open_waits = [w for w in waits.get(idea.slug, []) if store.ideas[w].is_open]
     if open_waits:
         head += ", waits on %s" % ", ".join(open_waits)
@@ -100,12 +100,12 @@ def family_block(store: Store, top: str, note: str, waits: dict[str, list[str]],
     deepest parts are listed by slug only, and last its tail is left out
     behind a line naming how many parts it leaves out."""
     members = family_members(store, top)
-    recent = max(store.ideas[s].get("last-updated") or "" for s, _ in members)
+    recent = max(store.ideas[s].shown_day() for s, _ in members)
 
     def line(slug: str, depth: int, limit: int | None, bare: bool) -> str:
         idea = store.ideas[slug]
         if bare:
-            text = "%s [%s] %s, updated %s" % (slug, idea.status, metrics(idea), idea.get("last-updated") or "?")
+            text = "%s [%s] %s, updated %s" % (slug, idea.status, metrics(idea), idea.shown_day() or "?")
         else:
             text = headline(store, idea, waits, limit)
         return "%s- %s%s" % ("  " * depth, text, note if depth == 0 else "")
@@ -305,6 +305,8 @@ def problems(store: Store) -> list[str]:
     for slug, idea in sorted(store.ideas.items()):
         if idea.status not in STATUSES:
             out.append("status: %s has status %r" % (slug, idea.status))
+        if idea.loaded is not None and unread_line(idea.loaded):
+            out.append("file: %s %s" % (idea.loaded_name, unread_line(idea.loaded)))
         if not idea.created():
             out.append("file: %s.md has no History line 'created'; this tool did not write it" % slug)
         parent = idea.parent

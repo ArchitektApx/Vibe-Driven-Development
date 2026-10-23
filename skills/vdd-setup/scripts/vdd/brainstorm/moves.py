@@ -8,29 +8,19 @@ dry run. A refusal raises Failure before anything is saved.
 from __future__ import annotations
 
 import re
-from typing import Any, List, Tuple
+from typing import Any
 
 from ..out import Failure
 from . import dupes
 from .ideafile import (CLOSED, DEPTH_MAX, HISTORY, KIND_RE, KINDS, METRICS, ORDER, RESERVED, SLUG_PATTERN,
                        STATUSES, TLDR_MAX, Idea, is_open_step, squash, today, usable_slug)
+from .printed import Result, quoted, step_line
 from .store import Store, rel, removed_entry, unknown_lines
 
-QUOTE = "  > "
 LIST_SECTIONS = ("Pro", "Con", "Open Questions", "Evidence", "Related Ideas", "Next Steps", "Prior Art")
 FIRST_STEP = "Talk it through with the user."
 WORD = {"done": "Done", "dropped": "Dropped", "decided": "Decided", "shaped": "Shaped", "discussed": "Discussed",
         "in-progress": "In progress", "idea": "Reopened"}
-
-Result = Tuple[List[str], str, str]
-
-
-def quoted(text: str) -> str:
-    return QUOTE + squash(text)
-
-
-def step_line(text: str) -> str:
-    return QUOTE + "[ ] " + squash(text)
 
 
 def norm_value(value: str | None, allowed: tuple[str, ...], name: str) -> str:
@@ -177,7 +167,7 @@ def match_lines(store: Store, hits: list[dupes.Match]) -> list[str]:
             lines.append(quoted(entry.get("gist", "")))
             continue
         idea = store.ideas[hit.slug]
-        lines.append("%s [%s, %s]: %s (shared: %s)" % (hit.slug, idea.status, idea.get("last-updated"), idea.tldr,
+        lines.append("%s [%s, %s]: %s (shared: %s)" % (hit.slug, idea.status, idea.shown_day(), idea.tldr,
                                                        shared))
         if not idea.is_open:
             lines.append(quoted("Reopen when: " + (idea.reopen_when() or "not recorded")))
@@ -283,7 +273,7 @@ def stale_naming(store: Store, slug: str) -> list[str]:
     near.update(store.children(slug))
     day = today()
     return sorted(s for s in near if s in store.ideas and store.ideas[s].is_open
-                  and (store.ideas[s].get("last-updated") or "") < day)
+                  and store.ideas[s].shown_day() < day)
 
 
 def set_cmd(store: Store, values: dict[str, Any]) -> Result:
@@ -332,7 +322,9 @@ def set_cmd(store: Store, values: dict[str, Any]) -> Result:
             changed.append((slug, was, idea.status))
     lines += change_lines(store, slugs, changed, fields, status)
     nxt = "Tell the user in a line or two what changed."
-    if status == "decided":
+    if not changed:
+        nxt = "Tell the user nothing changed."
+    elif status == "decided":
         nxt = ("Tell the user it is decided, and give them the line to start the Role they chose in a fresh Session: "
                "vdd-start-loop for one loop or vdd-wayfinder for more, as their Harness types it, with the path "
                "above as what to plan.")
@@ -410,7 +402,7 @@ def change_lines(store: Store, slugs: list[str], changed: list[tuple[str, str, s
                 if stale:
                     lines.append("Open ideas that name %s and were last updated before today (check whether this "
                                  "landing changes them): %s." % (slug, ", ".join(
-                                     "%s (%s)" % (s, store.ideas[s].get("last-updated")) for s in stale)))
-        if idea.status == "decided" and status == "decided":
+                                     "%s (%s)" % (s, store.ideas[s].shown_day()) for s in stale)))
+        if idea.status == "decided" and status == "decided" and slug in changed_slugs:
             lines.append("Decided idea for the next Role: %s" % rel(store.root, idea.path))
     return lines

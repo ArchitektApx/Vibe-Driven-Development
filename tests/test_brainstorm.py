@@ -2,10 +2,12 @@
 Brainstormer runs them: a staged store, each command run through vdd.py with
 VDD_TODAY set, and its output and the store's files asserted."""
 
+import datetime
 import json
 import os
 import re
 import stat
+import time
 import unittest
 
 from vddtest import WINDOWS, ToolTest, b64
@@ -22,8 +24,33 @@ class BrainstormTest(ToolTest):
         self.box.init_git()
 
     def bs(self, *argv, **kw):
-        env = self.box.env(VDD_TODAY=kw.pop("today", TODAY), **kw.pop("env", {}))
-        return self.box.run("brainstorm", *argv, env=env, **kw)
+        today = kw.pop("today", TODAY)
+        env = self.box.env(VDD_TODAY=today, **kw.pop("env", {}))
+        before = self.mtimes()
+        result = self.box.run("brainstorm", *argv, env=env, **kw)
+        self.age(today, before)
+        return result
+
+    def mtimes(self):
+        """Each idea file's modification time."""
+        base = self.box.path(S)
+        names = os.listdir(base) if os.path.isdir(base) else []
+        return {n: os.path.getmtime(os.path.join(base, n)) for n in names if n.endswith(".md")}
+
+    def age(self, today, before):
+        """Give every idea file a run wrote by the clock today's date seam
+        as its day, as if the clock read VDD_TODAY: the tool shows the later
+        of last-updated and the file's day. A day the tool set itself, as a
+        migration does, stays."""
+        recent = time.time() - 600
+        for name, mtime in self.mtimes().items():
+            if before.get(name) != mtime and mtime > recent:
+                self.set_day(name, today)
+
+    def set_day(self, name, day):
+        """Set an idea file's modification time to day at noon."""
+        stamp = datetime.datetime.combine(datetime.date.fromisoformat(day), datetime.time(12)).timestamp()
+        os.utime(self.box.path(S + name), (stamp, stamp))
 
     def ok(self, *argv, **kw):
         result = self.bs(*argv, **kw)
@@ -38,12 +65,16 @@ class BrainstormTest(ToolTest):
         return os.path.exists(self.box.path(S + rel))
 
     def tree(self, base=None):
-        """Every file under base, the store by default, with its bytes."""
+        """Every file under base, the store by default, with its bytes; the
+        lock files left out, as every command that takes one writes its pid
+        there."""
         base = base or self.box.path(S)
         out = {}
         for root, dirs, files in os.walk(base):
             for name in files:
                 path = os.path.join(root, name)
+                if name in ("lock", "_brainstorming.lock"):
+                    continue
                 with open(path, "rb") as handle:
                     out[os.path.relpath(path, base).replace(os.sep, "/")] = handle.read()
         return out
@@ -68,12 +99,12 @@ class BrainstormTest(ToolTest):
 class Capture(BrainstormTest):
     def test_new_writes_the_frame_and_creates_the_store(self):
         """Prevents an idea file without the tool's frame (spec story 17): the
-        first new --write creates the store with .layout 2 and an idea file
+        first new --write creates the store with .layout 3 and an idea file
         with frontmatter, H1, Summary and a created History line."""
         result = self.ok("new", "--slug", "autosave", "--title", "Autosave", "--tldr", "Save drafts to disk.",
                          "--summary", "Goal: no lost work.", "--write")
         self.assertIn("Captured autosave [idea], file .scratch/_brainstorming/autosave.md.", result.text)
-        self.assertEqual(self.read(".layout"), "2\n")
+        self.assertEqual(self.read(".layout"), "3\n")
         text = self.read("autosave.md")
         self.assertTrue(text.startswith("---\ntldr: Save drafts to disk.\nstatus: idea\n"), text)
         self.assertIn("last-updated: %s\n---\n\n# Autosave\n\n## Summary\n\nGoal: no lost work.\n" % TODAY, text)
@@ -331,6 +362,28 @@ class SetStatus(BrainstormTest):
         self.assertIn("part-one is done already; nothing changed.", result.text)
         self.assertEqual(self.ideas_tree(), before)
 
+    def test_a_set_that_changes_nothing_says_so(self):
+        """Prevents the Brainstormer reporting a change the tool did not
+        make (T11): Next: says nothing changed only when no named idea
+        changed."""
+        self.ok("set", "--idea", "part-one", "--status", "discussed", "--write")
+        result = self.ok("set", "--idea", "part-one", "--status", "discussed", "--write")
+        self.assertIn("part-one is discussed already; nothing changed.", result.lines)
+        self.assertEqual(result.last, "Next: Tell the user nothing changed.")
+        result = self.ok("set", "--idea", "part-one", "--idea", "part-two", "--status", "discussed", "--write")
+        self.assertIn("part-one is discussed already; nothing changed.", result.lines)
+        self.assertIn("part-two: idea -> discussed.", result.lines)
+        self.assertEqual(result.last, "Next: Tell the user in a line or two what changed.")
+
+    def test_a_repeated_decided_offers_no_second_handoff(self):
+        """Prevents the next-Role offer made twice for one decision (T11):
+        a repeated decided prints no path line and says nothing changed."""
+        self.ok("set", "--idea", "main-idea", "--status", "decided", "--decision", "one loop", "--write")
+        result = self.ok("set", "--idea", "main-idea", "--status", "decided", "--decision", "one loop", "--write")
+        self.assertIn("main-idea is decided already; nothing changed.", result.lines)
+        self.assertNotIn("Decided idea for the next Role:", result.text)
+        self.assertEqual(result.last, "Next: Tell the user nothing changed.")
+
     def test_a_repeated_close_with_another_field_adds_no_decision(self):
         """Prevents a second close paragraph when a done idea is set done
         again with another field (red team M15)."""
@@ -407,7 +460,7 @@ class Layout(BrainstormTest):
         """Prevents an old Shared copy writing into a newer store (red team
         D9): every command refuses and names updating VDD and Setup."""
         self.new("autosave")
-        self.box.write(S + ".layout", "3\n")
+        self.box.write(S + ".layout", "4\n")
         before = self.ideas_tree()
         for argv in (["start"], ["show", "--idea", "autosave"],
                      ["new", "--slug", "x", "--title", "X", "--tldr", "x.", "--write"],
@@ -415,116 +468,215 @@ class Layout(BrainstormTest):
                      ["set", "--idea", "autosave", "--size", "large", "--write"]):
             result = self.bs(*argv)
             self.assertEqual(result.code, 1, result)
-            self.assertIn("layout 3", result.text)
+            self.assertIn("layout 4", result.text)
             self.assertIn("rerun Setup", result.last)
         self.assertEqual(self.ideas_tree(), before)
 
     def test_a_015_store_is_named_by_start_and_refused_by_new(self):
         """Prevents a write into a store this tool does not understand (spec
-        story 6): new on an index.md store refuses naming migrate; start
-        names the 0.15 store."""
+        story 6, story 33): new on an index.md store refuses and leads to
+        start, whose plan asks the user; start names the 0.15 store."""
         self.box.write(S + "index.md", "# Brainstorming Index\n")
         self.box.write(S + "old.md", "---\nstatus: idea\n---\n\n# Old\n")
         result = self.bs("new", "--slug", "x", "--title", "X", "--tldr", "x.", "--write")
         self.assertEqual(result.code, 1, result)
         self.assertIn("0.15 layout", result.text)
-        self.assertIn("migrate", result.last)
+        self.assertEqual(result.last, "Next: Run brainstorm start.")
         result = self.ok("start")
         self.assertIn("0.15 layout", result.text)
         self.assertFalse(self.exists(".layout"))
 
 
-class Ledger(BrainstormTest):
+class ShownDay(BrainstormTest):
+    """An idea's shown day: the later of last-updated and its file's
+    modification day, never after the date seam."""
+
     def setUp(self):
         BrainstormTest.setUp(self)
-        self.new("one", today="2026-10-07")
-        self.new("two", today="2026-10-07")
+        self.new("one", "One", "The first idea.", today="2026-10-07")
+        self.new("two", "Two", "The second idea.", "--relate", "related one: shares it", today="2026-10-07")
 
-    def test_a_hand_edit_shows_its_day_and_is_stamped_at_the_next_write(self):
-        """Prevents a stale last-updated after the model's Read and Edit
-        (spec story 27): a read shows the edit's day, the next write stamps
-        it and says so."""
+    def raw(self, name):
+        with open(self.box.path(S + name), "rb") as handle:
+            return handle.read()
+
+    def test_a_hand_edit_shows_its_day_in_every_read(self):
+        """Prevents a stale date after the model's Read and Edit (T41): with
+        no ledger and no stamp, start, show, new's duplicate lines and done's
+        stale list all show the file's day, and no read writes."""
         text = self.read("two.md").replace("About two.", "About two, rewritten by hand.")
         self.box.write(S + "two.md", text)
-        result = self.ok("start", today="2026-10-25")
-        self.assertIn("- two [idea] unknown/unknown/unknown, updated 2026-10-25", result.text)
-        self.assertIn("last-updated: 2026-10-07", self.read("two.md"))
-        result = self.ok("set", "--idea", "one", "--size", "large", "--write", today="2026-10-25")
-        self.assertIn("last-updated set for ideas edited since the tool last wrote them: two.", result.text)
-        self.assertIn("last-updated: 2026-10-25", self.read("two.md"))
-        self.assertIn("About two, rewritten by hand.", self.read("two.md"))
-
-    def test_line_ends_and_a_bom_are_no_edit(self):
-        """Prevents an editor's CRLF and BOM save stamping last-updated (red
-        team M17): the ledger hashes the text as read."""
-        path = self.box.path(S + "two.md")
-        with open(path, "rb") as handle:
-            data = handle.read()
-        with open(path, "wb") as handle:
-            handle.write(b"\xef\xbb\xbf" + data.replace(b"\n", b"\r\n"))
-        result = self.ok("set", "--idea", "one", "--size", "large", "--write", today="2026-10-25")
-        self.assertNotIn("edited since", result.text)
+        self.set_day("two.md", "2026-10-15")
+        data = self.raw("two.md")
+        self.assertIn("- two [idea] unknown/unknown/unknown, updated 2026-10-15", self.ok("start").text)
+        self.assertIn("two [idea] unknown/unknown/unknown, updated 2026-10-15", self.ok("show", "--idea", "two").text)
+        result = self.ok("new", "--slug", "second-idea", "--title", "Two", "--tldr", "The second idea.")
+        self.assertIn("two [idea, 2026-10-15]: The second idea. (shared: two)", result.lines)
+        result = self.ok("set", "--idea", "one", "--status", "done", "--decision", "PR 1", "--write")
+        self.assertIn("Open ideas that name one and were last updated before today (check whether this landing "
+                      "changes them): two (2026-10-15).", result.lines)
+        self.assertEqual(self.raw("two.md"), data)
         self.assertIn("last-updated: 2026-10-07", self.read("two.md"))
 
-    def test_a_broken_frontmatter_is_never_stamped(self):
-        """Prevents a write stamping a second frontmatter above a hand-broken
-        one (red team M11)."""
-        text = self.read("two.md").replace("\n---\n", "\n--\n", 1)
-        self.box.write(S + "two.md", text)
-        self.ok("set", "--idea", "one", "--size", "large", "--write", today="2026-10-25")
-        self.assertEqual(self.read("two.md"), text)
+    def test_a_file_day_after_the_date_seam_shows_the_seam(self):
+        """Prevents a skewed clock showing a day that has not come."""
+        self.set_day("two.md", "2026-12-01")
+        self.assertIn("- two [idea] unknown/unknown/unknown, updated %s" % TODAY, self.ok("start").text)
 
-    def test_a_stamp_changes_only_the_last_updated_line(self):
-        """Prevents a stamp re-rendering a hand-edited frontmatter (finding
-        11): every other byte of the file stays as the hand wrote it."""
-        text = self.read("two.md").replace("status: idea\n", "status:   idea\n")
-        self.box.write(S + "two.md", text)
-        self.ok("set", "--idea", "one", "--size", "large", "--write", today="2026-10-25")
-        self.assertEqual(self.read("two.md"), text.replace("last-updated: 2026-10-07", "last-updated: 2026-10-25"))
+    def test_a_write_touches_only_the_files_it_changes(self):
+        """Prevents writes nobody asked for (T41): note on one leaves two's
+        bytes and modification time as they were, though two was edited by
+        hand."""
+        self.box.write(S + "two.md", self.read("two.md") + "\nA hand note.\n")
+        self.set_day("two.md", "2026-10-15")
+        data, mtime = self.raw("two.md"), os.path.getmtime(self.box.path(S + "two.md"))
+        result = self.ok("note", "--idea", "one", "--section", "Evidence", "--text", "x", "--write")
+        self.assertNotIn("last-updated set", result.text)
+        self.assertEqual(self.raw("two.md"), data)
+        self.assertEqual(os.path.getmtime(self.box.path(S + "two.md")), mtime)
 
-    def test_a_blank_frontmatter_line_is_read_and_stamped(self):
-        """Prevents a hand edit going unstamped when its frontmatter holds a
-        blank line the reader skips (finding 33)."""
-        text = self.read("two.md").replace("status: idea\n", "\nstatus: idea\n")
-        text = text.replace("About two.", "About two, by hand.")
-        self.box.write(S + "two.md", text)
-        result = self.ok("set", "--idea", "one", "--size", "large", "--write", today="2026-10-25")
-        self.assertIn("edited since the tool last wrote them: two.", result.text)
-        self.assertEqual(self.read("two.md"), text.replace("last-updated: 2026-10-07", "last-updated: 2026-10-25"))
+    def test_a_hand_edited_family_moves_up_the_pages(self):
+        """Prevents a recently edited family left on a late page: paging
+        orders families by the shown day."""
+        long = "A tldr long enough to fill the start read quickly with words that say little. " * 3
+        for n in range(130):
+            name = "gen-%03d.md" % n
+            day = "2026-10-%02d" % (1 + n % 19)
+            self.box.write(S + name, idea_file(long.strip(), day))
+            self.set_day(name, day)
+        self.box.write(S + "old-one.md", idea_file("An old idea.", "2026-09-01"))
+        self.set_day("old-one.md", "2026-09-01")
+        self.assertNotIn("- old-one [", self.ok("start").text)
+        self.set_day("old-one.md", "2026-10-19")
+        self.assertIn("- old-one [idea] unknown/unknown/unknown, updated 2026-10-19", self.ok("start").text)
 
-    def test_a_stamp_keeps_a_bom_and_crlf_line_ends(self):
-        """Prevents a stamp stripping an editor's BOM and CRLF line ends
-        (finding 34): only the last-updated line changes."""
-        path = self.box.path(S + "two.md")
-        with open(path, "rb") as handle:
-            data = handle.read().replace(b"About two.", b"About two, by hand.")
-        data = b"\xef\xbb\xbf" + data.replace(b"\n", b"\r\n")
-        with open(path, "wb") as handle:
+
+class ReadWhole(BrainstormTest):
+    """An idea file a write would rewrite must read whole: every byte UTF-8
+    and every frontmatter line one the reader reads."""
+
+    def setUp(self):
+        BrainstormTest.setUp(self)
+        self.new("alpha", "Alpha", "One.")
+        self.new("beta", "Beta", "Two.", "--relate", "related alpha: shares it")
+
+    def raw(self, rel):
+        with open(self.box.path(S + rel), "rb") as handle:
+            return handle.read()
+
+    def put(self, rel, data):
+        with open(self.box.path(S + rel), "wb") as handle:
             handle.write(data)
-        result = self.ok("set", "--idea", "one", "--size", "large", "--write", today="2026-10-25")
-        self.assertIn("edited since the tool last wrote them: two.", result.text)
-        with open(path, "rb") as handle:
-            self.assertEqual(handle.read(), data.replace(b"last-updated: 2026-10-07", b"last-updated: 2026-10-25"))
 
-    def test_a_frontmatter_line_the_tool_does_not_read_or_bytes_not_utf8_are_never_stamped(self):
-        """Prevents a stamp dropping a folded tldr, a comment or a key the
-        reader does not match, or turning cp1252 bytes into U+FFFD (finding
-        11): such a file counts as frontmatter that does not parse."""
-        text = self.read("two.md").replace("status: idea\n", "status: idea\ntldr2: >\n  folded\n  lines\n"
-                                           "# a comment\nowner_name: Jürgen\n")
-        self.box.write(S + "two.md", text)
-        result = self.ok("set", "--idea", "one", "--size", "large", "--write", today="2026-10-25")
-        self.assertNotIn("edited since", result.text)
-        self.assertEqual(self.read("two.md"), text)
-        path = self.box.path(S + "one.md")
-        with open(path, "rb") as handle:
-            data = handle.read().replace(b"About one.", b"About M\xfcller.")
-        with open(path, "wb") as handle:
-            handle.write(data)
-        self.new("three", today="2026-10-26")
-        self.assertEqual(self.read("two.md"), text)
-        with open(path, "rb") as handle:
-            self.assertEqual(handle.read(), data)
+    def cases(self):
+        """(name, bytes in place of the file, the line the refusal names)."""
+        data = self.raw("alpha.md")
+        return [
+            ("folded", data.replace(b"tldr: One.\n", b"tldr: >\n  One.\n"),
+             "line 2: a frontmatter line this tool does not read: tldr: >"),
+            ("comment", data.replace(b"status: idea\n", b"status: idea\n# a note\n"),
+             "line 4: a frontmatter line this tool does not read: # a note"),
+            ("cp1252", data.replace(b"# Alpha", b"# M\xfcller"),
+             "line 10: bytes that are not UTF-8"),
+            ("no frontmatter", data[data.index(b"\n---\n") + 5:],
+             "line 1: a frontmatter line this tool does not read: "),
+        ]
+
+    def test_a_write_refuses_an_idea_that_does_not_read_whole(self):
+        """Prevents a write dropping a folded value, a comment or a byte it
+        cannot decode, with exit 0 (T2): a write that would rewrite such a
+        file, named or as rename's referrer, refuses before anything is
+        written, in a dry run too, naming the file and the line."""
+        referrer = b"## Related Ideas\n\n- related beta: it\n\n## Next Steps"
+        for name, data, line in self.cases():
+            for argv, staged in ((["note", "--idea", "alpha", "--section", "Evidence", "--text", "x"], data),
+                                 (["rename", "--idea", "beta", "--to", "gamma"],
+                                  data.replace(b"## Next Steps", referrer))):
+                for extra in ([], ["--write"]):
+                    with self.subTest(case=name, command=argv[0], extra=extra):
+                        self.put("alpha.md", staged)
+                        before = self.tree()
+                        result = self.bs(*(argv + extra))
+                        self.assertEqual(result.code, 1, result)
+                        self.assertContract(result)
+                        self.assertIn("alpha.md " + line, result.lines)
+                        self.assertEqual(self.tree(), before)
+
+    def test_the_folded_tldr_refusal_names_the_key_line(self):
+        """Prevents a refusal that points below the key that holds the folded
+        value: tldr: > on line 2 is line 2, quoted whole."""
+        self.put("alpha.md", self.cases()[0][1])
+        result = self.bs("note", "--idea", "alpha", "--section", "Evidence", "--text", "x", "--write")
+        self.assertIn("alpha.md line 2: a frontmatter line this tool does not read: tldr: >", result.lines)
+        self.assertEqual(result.last, "Next: Tell the user the file and line above and ask them to fix it; then run "
+                                      "the same command again.")
+
+    def test_a_block_indicator_with_a_digit_or_comment_is_named_at_its_key(self):
+        """Prevents a refusal that points at a continuation line (finding 3):
+        tldr: |2 and tldr: > # c are YAML block indicators, named at line 2."""
+        data = self.raw("alpha.md")
+        for value in (b"|2", b"> # c", b"|+2", b">2-"):
+            with self.subTest(value=value):
+                self.put("alpha.md", data.replace(b"tldr: One.\n", b"tldr: " + value + b"\n  One.\n"))
+                result = self.bs("note", "--idea", "alpha", "--section", "Evidence", "--text", "x", "--write")
+                self.assertEqual(result.code, 1, result)
+                self.assertIn("alpha.md line 2: a frontmatter line this tool does not read: tldr: "
+                              + value.decode("ascii"), result.lines)
+
+    def test_a_tldr_that_reads_as_a_block_indicator_is_written_quoted(self):
+        """Prevents the tool writing a value it then refuses (finding 3): a
+        tldr of |, >- or |2, given to set, new or split, is written quoted,
+        reads back as given, and a later note rewrites the file."""
+        for n, value in enumerate(("|", ">-", "|2")):
+            with self.subTest(value=value):
+                self.ok("set", "--idea", "alpha", "--tldr", value, "--write")
+                self.assertIn('\ntldr: "%s"\n' % value, self.read("alpha.md"))
+                self.ok("note", "--idea", "alpha", "--section", "Evidence", "--text", "x%d" % n, "--write")
+                self.assertIn('\ntldr: "%s"\n' % value, self.read("alpha.md"))
+                self.assertIn("x%d" % n, self.read("alpha.md"))
+                self.ok("set", "--idea", "alpha", "--tldr", "fixed", "--write")
+                self.assertIn("\ntldr: fixed\n", self.read("alpha.md"))
+        self.new("gamma", "Gamma", "|")
+        self.assertIn('\ntldr: "|"\n', self.read("gamma.md"))
+        self.ok("note", "--idea", "gamma", "--section", "Evidence", "--text", "y", "--write")
+        shown = self.ok("show", "--idea", "gamma").lines[0]
+        self.assertIn(": |, file ", shown)
+
+    def test_a_quoted_block_indicator_tldr_reads_back_with_its_quotes(self):
+        """Prevents a tldr losing the quotes the user gave (finding 14): a
+        tldr of "|" or | survives a later note and shows as given."""
+        for n, value in enumerate(('"|"', "|", '""|""')):
+            with self.subTest(value=value):
+                self.ok("set", "--idea", "alpha", "--tldr", value, "--write")
+                self.ok("note", "--idea", "alpha", "--section", "Evidence", "--text", "q%d" % n, "--write")
+                shown = self.ok("show", "--idea", "alpha").lines[0]
+                self.assertIn(": %s, file " % value, shown)
+
+    def test_check_names_each_file_that_does_not_read_whole(self):
+        """Prevents a damaged file found only when a write refuses: check
+        lists it with its line."""
+        for name, data, line in self.cases():
+            with self.subTest(case=name):
+                self.put("alpha.md", data)
+                result = self.ok("check")
+                found = [x for x in result.lines if x.startswith("file: alpha.md line ")]
+                self.assertEqual(len(found), 1, result)
+                self.assertTrue(found[0].startswith("file: alpha.md " + line), result)
+
+    def test_a_bom_and_crlf_come_back_after_a_write(self):
+        """Prevents a whole-file diff from an editor's BOM and CRLF: note
+        writes both back and changes only the lines it adds."""
+        data = b"\xef\xbb\xbf" + self.raw("alpha.md").replace(b"\n", b"\r\n")
+        self.put("alpha.md", data)
+        self.ok("note", "--idea", "alpha", "--section", "Evidence", "--text", "x", "--write", today="2026-10-25")
+        after = self.raw("alpha.md")
+        self.assertTrue(after.startswith(b"\xef\xbb\xbf---\r\n"), after)
+        self.assertNotIn(b"\n", after.replace(b"\r\n", b""))
+        plain = self.raw("alpha.md")[3:].replace(b"\r\n", b"\n").decode("utf-8")
+        self.assertIn("- 2026-10-25: x\n", plain)
+        self.assertEqual(plain.replace("last-updated: 2026-10-25", "last-updated: %s" % TODAY)
+                         .replace("## Evidence\n\n- 2026-10-25: x\n\n", ""),
+                         data[3:].replace(b"\r\n", b"\n").decode("utf-8"))
 
 
 class Nesting(BrainstormTest):
@@ -745,6 +897,24 @@ class Families(BrainstormTest):
                 self.assertIn(says, result.text)
         self.assertEqual(self.ideas_tree(), before)
 
+    def test_a_move_that_breaks_the_family_tree_gets_the_saves_refusal(self):
+        """Prevents two wordings of one refusal: move relies on the guard
+        every save runs, so its family-tree refusal is the save's line and
+        Next:, in a dry run as with --write."""
+        self.split()
+        self.new("leaf", "Leaf", "Deepest.", "--parent", "t3-threads")
+        self.new("other-root", "Other root", "Elsewhere.")
+        self.new("other-kid", "Other kid", "Below.", "--parent", "other-root")
+        before = self.ideas_tree()
+        for extra in ([], ["--write"]):
+            with self.subTest(extra=extra):
+                result = self.bs("move", "--set", "other-root=t3-names", *extra)
+                self.assertEqual(result.code, 1, result)
+                self.assertIn("Refused, nothing was written: the change would break the family tree.", result.lines)
+                self.assertIn("other-kid would sit 4 levels deep; a family keeps at most 3", result.lines)
+                self.assertEqual(result.last, "Next: Ask the user where the idea belongs instead.")
+        self.assertEqual(self.ideas_tree(), before)
+
     def test_merge_is_refused_while_an_open_part_is_left(self):
         """Prevents an open part stranded under a dropped idea (spec story
         30): the refusal names each open part at any level and the move that
@@ -788,11 +958,9 @@ class Families(BrainstormTest):
         29), or listing a step the survivor holds open twice (finding 26)."""
         self.new("survivor", "Survivor", "Takes it all.")
         self.ok("note", "--idea", "t3code-support", "--section", "Next Steps", "--text", "Count the cost.", "--write")
-        path = self.box.path(S + "t3code-support.md")
-        with open(path, encoding="utf-8") as handle:
-            text = handle.read()
-        with open(path, "w", encoding="utf-8") as handle:
-            handle.write(text.replace("- [ ] Count the cost.", "- [ ] Count the cost.\n-  [ ] Odd spacing step."))
+        text = self.box.read(S + "t3code-support.md")
+        self.box.write(S + "t3code-support.md",
+                       text.replace("- [ ] Count the cost.", "- [ ] Count the cost.\n-  [ ] Odd spacing step."))
         result = self.ok("merge", "--idea", "t3code-support", "--into", "survivor", "--reason", "one idea",
                          "--reopen-when", "they differ again", "--write")
         self.assertIn("t3code-support is merged into survivor and dropped; 2 open steps moved over.", result.text)
@@ -881,8 +1049,7 @@ class Rename(BrainstormTest):
              "dirs": [["research/t3code-support", "research/t3code"]]}))
         result = self.ok("start")
         self.assertIn("An interrupted write (rename t3code-support to t3code) was finished.", result.text)
-        self.assertEqual({k: v for k, v in self.tree().items() if k != ".state/ledger.json"},
-                         {k: v for k, v in after.items() if k != ".state/ledger.json"})
+        self.assertEqual(self.tree(), after)
 
     @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "POSIX permissions")
     def test_a_refused_research_move_writes_nothing(self):

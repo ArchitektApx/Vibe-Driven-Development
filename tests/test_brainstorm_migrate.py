@@ -2,6 +2,9 @@
 the plan, the Log's events, links to slugs, the interrupted states, the
 migration lock, and the repair of a lost layout marker with M7."""
 
+import datetime
+import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -171,13 +174,14 @@ class Migrate(MigrateTest):
         """Prevents a lossy migration (spec stories 42, 43, 45): the backup is
         the old store byte for byte with index.md; every idea keeps its file,
         with History seeded and the events carried; research moves unchanged;
-        no parent is inferred; the undo Tell line and the overview follow."""
+        no parent is inferred; the undo Tell line and the parts named follow,
+        and no overview (story 35)."""
         before = self.tree()
         result = self.migrated()
         self.assertEqual(self.tree(self.box.path(BACKUP)), before)
-        self.assertEqual(self.read(".layout"), "2\n")
+        self.assertEqual(self.read(".layout"), "3\n")
         self.assertFalse(self.exists("index.md"))
-        self.assertTrue(self.exists(".state/ledger.json"))
+        self.assertFalse(self.exists(".state/ledger.json"))
         main = self.read("main-idea.md")
         self.assertTrue(main.startswith("---\ntldr: Main idea. The whole thing.\nstatus: shaped\n"), main)
         self.assertIn("- 2026-10-01: created\n- 2026-10-07: split into part-one\n- 2026-10-07: split into "
@@ -191,8 +195,8 @@ class Migrate(MigrateTest):
         self.assertTrue(self.exists("research/check-links.py"))
         tells = result.tells()
         self.assertTrue(any(BACKUP in t and "rename" in t and "0.15 VDD plugin" in t for t in tells), result)
-        self.assertIn("Ideas: 3 open, 2 closed.", result.text)
-        self.assertEqual(result.text.count("Backup of the 0.15 store: %s/" % BACKUP), 1, result.text)
+        self.assertNotIn("Ideas: ", result.text)
+        self.assertNotIn("Backup of the 0.15 store", result.text)
         self.assertIn("Backup of the 0.15 store: %s/" % BACKUP, self.ok("start").text)
         self.assertIn("Named as a part in their tldr but not filed under that parent: part-one (main-idea), part-two "
                       "(main-idea).", result.text)
@@ -237,7 +241,8 @@ class Interrupted(MigrateTest):
         before = self.all_files()
         result = self.ok("migrate")
         self.assertIn("Dry run, nothing was written. With --write, brainstorm migrate would write "
-                      "%s/ (renamed from %s/):" % (S.rstrip("/"), STAGING), result.text.replace("\\", "/"))
+                      "%s/ (renamed from %s/), .layout (3):" % (S.rstrip("/"), STAGING),
+                      result.text.replace("\\", "/"))
         self.assertEqual(self.all_files(), before)
         result = self.bs("new", "--slug", "fresh", "--title", "Fresh", "--tldr", "Fresh.", "--write")
         self.assertEqual(result.code, 1, result)
@@ -246,15 +251,15 @@ class Interrupted(MigrateTest):
         self.assertIn("The interrupted migration is finished", result.text)
         self.assertTrue(any("0.15 VDD plugin" in t for t in result.tells()), result)
         self.assertNext(result, "relaying the Tell line above")
-        self.assertEqual(result.text.count("Backup of the 0.15 store"), 1, result.text)
-        self.assertEqual(self.read(".layout"), "2\n")
+        self.assertNotIn("Backup of the 0.15 store", result.text)
+        self.assertEqual(self.read(".layout"), "3\n")
         self.assertTrue(self.exists("main-idea.md"))
 
     def test_backup_and_store_is_done(self):
         """Prevents a second migration over a migrated store."""
         self.migrated()
         result = self.ok("migrate", "--write")
-        self.assertIn("already in layout 2; nothing to migrate", result.text)
+        self.assertIn("already in layout 3; nothing to migrate", result.text)
 
     def test_two_migrations_at_once_run_one_after_the_other(self):
         """Prevents two Sessions migrating together from losing research
@@ -268,9 +273,10 @@ class Interrupted(MigrateTest):
         outs = [r.text for r in results]
         self.assertEqual([r.code for r in results], [0, 0], outs)
         self.assertEqual(sum(1 for o in outs if "Migrated 5 ideas" in o), 1, outs)
-        self.assertEqual(sum(1 for o in outs if "already in layout 2" in o), 1, outs)
+        self.assertEqual(sum(1 for o in outs if "already in layout 3" in o), 1, outs)
         self.assertEqual(self.read("research/main-idea/notes.md"), "notes\r\n")
-        self.assertEqual(sorted(os.listdir(self.box.path(".scratch"))), ["_brainstorming", "_brainstorming.pre-0.16"])
+        self.assertEqual(sorted(os.listdir(self.box.path(".scratch"))),
+                         ["_brainstorming", "_brainstorming.lock", "_brainstorming.pre-0.16"])
 
 
 class Marker(MigrateTest):
@@ -296,7 +302,7 @@ class Marker(MigrateTest):
                       result.text)
         self.assertFalse(self.exists(".layout"))
         self.ok("migrate", "--write")
-        self.assertEqual(self.read(".layout"), "2\n")
+        self.assertEqual(self.read(".layout"), "3\n")
         after = self.ideas_tree()
         after.pop(".layout")
         self.assertEqual(after, before)
@@ -330,17 +336,17 @@ class Marker(MigrateTest):
         self.assertIn("late-idea.md", result.text)
         result = self.ok("migrate", "--write")
         self.assertIn("late-idea.md", result.text)
-        self.assertEqual(self.read(".layout"), "2\n")
+        self.assertEqual(self.read(".layout"), "3\n")
         self.assertIn("## History\n\n- 2026-10-02: created\n", self.read("late-idea.md"))
 
     def test_a_newer_marker_is_never_stamped_back(self):
-        """Prevents an old Shared copy writing 2 over a newer store's marker
+        """Prevents an old Shared copy writing 3 over a newer store's marker
         (red team D9)."""
-        self.box.write(S + ".layout", "3\n")
+        self.box.write(S + ".layout", "4\n")
         result = self.bs("migrate", "--write")
         self.assertEqual(result.code, 1, result)
         self.assertIn("rerun Setup", result.last)
-        self.assertEqual(self.read(".layout"), "3\n")
+        self.assertEqual(self.read(".layout"), "4\n")
 
     def test_a_dry_run_repair_reads_only_and_the_write_prints_its_recovery(self):
         """Prevents a dry run that takes the lock, settles a journal and
@@ -362,3 +368,244 @@ class Marker(MigrateTest):
         result = self.ok("migrate", "--write")
         self.assertIn("An interrupted write (note part-one) was finished.", result.text)
         self.assertFalse(self.exists(".state/journal/20261020T000000-1-000001.json"))
+
+
+PLAN = "The dates move from the ledger into the files; no idea's text changes."
+DONE = "The idea store was updated to layout 3: each idea's date now comes from its file; no idea's text changed."
+
+
+def ledger_sha(data):
+    """The layout 2 ledger's hash: of the text as read (UTF-8, LF, no BOM)."""
+    text = data.decode("utf-8-sig")
+    return hashlib.sha256(text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")).hexdigest()
+
+
+class LayoutTwo(BrainstormTest):
+    """A layout 2 store as an earlier 0.16 beta left it: .layout 2, a ledger
+    of each idea's hash as that tool last wrote it, and file days later than
+    last-updated where the 0.15 migration wrote the files."""
+
+    def setUp(self):
+        BrainstormTest.setUp(self)
+        self.new("one", "One", "The first idea.", today="2026-10-07")
+        self.new("two", "Two", "The second idea.", today="2026-10-07")
+
+    def stage(self, ledger=True, marker=True):
+        """one as the tool wrote it, on a later file day; two edited by hand
+        since, on its own day; .layout 2, or none when marker is False."""
+        hashes = {}
+        for slug in ("one", "two"):
+            with open(self.box.path(S + slug + ".md"), "rb") as handle:
+                hashes[slug] = ledger_sha(handle.read())
+        self.box.write(S + "two.md", self.read("two.md").replace("The second idea.\n\n## Next", "Edited.\n\n## Next"))
+        self.set_day("one.md", "2026-10-15")
+        self.set_day("two.md", "2026-10-12")
+        if ledger:
+            self.box.write(S + ".state/ledger.json", json.dumps(hashes))
+        if marker:
+            self.box.write(S + ".layout", "2\n")
+        else:
+            os.remove(self.box.path(S + ".layout"))
+        return {k: v for k, v in self.ideas_tree().items() if k != ".layout"}
+
+    def shown(self, slug):
+        line = self.ok("show", "--idea", slug).lines[0]
+        return line.split(", updated ")[1].split(":")[0]
+
+    def assertLayoutThree(self, before, one="2026-10-07", two="2026-10-12"):
+        self.assertEqual(self.read(".layout"), "3\n")
+        self.assertFalse(self.exists(".state/ledger.json"))
+        self.assertEqual({k: v for k, v in self.ideas_tree().items() if k != ".layout"}, before)
+        self.assertEqual(self.shown("one"), one)
+        self.assertEqual(self.shown("two"), two)
+
+    def test_start_runs_the_migration_without_asking(self):
+        """Prevents a question whose answer changes nothing (story 26):
+        start on a layout 2 store prints the plan line and sends the Role
+        straight to migrate --write."""
+        self.stage()
+        result = self.ok("start")
+        self.assertIn(PLAN, result.lines)
+        self.assertEqual(result.last, "Next: Run brainstorm migrate --write, then answer the user's message.")
+
+    def assertDryPlan(self, ledger):
+        self.stage(ledger=ledger)
+        self.assertEqual(self.exists(".state/ledger.json"), ledger)
+        result = self.ok("migrate")
+        self.assertEqual(result.lines.count(PLAN), 1 if ledger else 0)
+        self.assertEqual(result.lines[0], "Dry run, nothing was written. With --write, brainstorm migrate would "
+                         "write .layout (3)%s:" % (", .state/ledger.json (removed)" if ledger else ""))
+        self.assertEqual(result.last, "Next: Run brainstorm migrate --write, then answer the user's message.")
+        self.assertEqual(self.read(".layout"), "2\n")
+
+    def test_a_dry_run_on_layout_two_prints_the_plan(self):
+        """Prevents a dry run that names the files but not what the step
+        does: migrate without --write prints the plan line once and leads to
+        migrate --write."""
+        self.assertDryPlan(ledger=True)
+
+    def test_a_dry_run_on_layout_two_without_a_ledger_says_no_ledger_move(self):
+        """Prevents a plan line about a ledger that is not there (finding
+        2): without one the dry run names only the marker."""
+        self.assertDryPlan(ledger=False)
+
+    def test_another_command_on_layout_two_is_refused(self):
+        """Prevents an old layout read as the current one (story 33): note
+        writes nothing and leads to migrate --write."""
+        before = self.stage()
+        result = self.bs("note", "--idea", "one", "--section", "Evidence", "--text", "x", "--write")
+        self.assertEqual(result.code, 1, result)
+        self.assertEqual(result.last, "Next: Run brainstorm migrate --write, then the same command again.")
+        self.assertEqual({k: v for k, v in self.ideas_tree().items() if k != ".layout"}, before)
+
+    def test_the_ledger_moves_into_the_file_days(self):
+        """Prevents a shown date moving when the ledger goes (story 27): the
+        idea that matches the ledger shows its last-updated, the hand-edited
+        one its edit's day; no idea's bytes change and the ledger is gone."""
+        before = self.stage()
+        result = self.ok("migrate", "--write")
+        self.assertEqual(result.tells(), [DONE])
+        self.assertEqual(result.last, ShortEnd.NEXT)
+        self.assertLayoutThree(before)
+
+    def test_a_layout_two_store_without_a_ledger_only_gets_its_marker(self):
+        """Prevents a store with nothing to carry stuck at layout 2 (story
+        28, and a step killed after the ledger's delete, story 30): file
+        days stay as they are."""
+        before = self.stage(ledger=False)
+        result = self.ok("migrate", "--write")
+        self.assertNotIn(PLAN, result.lines)
+        self.assertEqual(result.tells(), [])
+        self.assertEqual(result.last, ShortEnd.NEXT.replace(", relaying the Tell line above", ""))
+        self.assertLayoutThree(before, one="2026-10-15")
+
+    def test_an_idea_the_ledger_does_not_name_keeps_its_date(self):
+        """Prevents a shown date moving for an idea written by hand into a
+        layout 2 store (finding 4, story 27): beta showed its last-updated,
+        and so does layout 3."""
+        self.new("three", "Three", "The third idea.", today="2026-09-27")
+        before = self.stage()
+        self.set_day("three.md", "2026-10-20")
+        before["three.md"] = self.ideas_tree()["three.md"]
+        self.ok("migrate", "--write")
+        self.assertLayoutThree(before)
+        self.assertEqual(self.shown("three"), "2026-09-27")
+
+    def test_a_step_killed_before_the_ledger_went_is_finished_by_a_rerun(self):
+        """Prevents a half-carried migration (story 30): with one file day
+        already set and the ledger still there, a rerun carries the rest."""
+        before = self.stage()
+        self.set_day("one.md", "2026-10-07")
+        self.ok("migrate", "--write")
+        self.assertLayoutThree(before)
+
+    def test_a_lost_marker_with_a_ledger_is_repaired_to_two_and_carried_on(self):
+        """Prevents a repair that drops the ledger's dates (story 34): the
+        marker goes back as 2, and the same run carries on to layout 3."""
+        before = self.stage(marker=False)
+        result = self.ok("migrate")
+        self.assertEqual(result.lines[0], "Dry run, nothing was written. With --write, brainstorm migrate would "
+                         "write .layout, .layout (3), .state/ledger.json (removed):")
+        self.assertIn(PLAN, result.lines)
+        result = self.ok("migrate", "--write")
+        self.assertIn("The .layout marker was missing; it now reads 2.", result.lines)
+        self.assertEqual(result.tells(), [DONE])
+        self.assertEqual(result.last, ShortEnd.NEXT)
+        self.assertLayoutThree(before)
+
+    def test_a_lost_marker_without_a_ledger_is_repaired_to_three(self):
+        """Prevents a needless step: without a ledger the marker goes back as
+        the current layout."""
+        before = self.stage(ledger=False, marker=False)
+        result = self.ok("migrate", "--write")
+        self.assertIn("The .layout marker was missing; it now reads 3.", result.lines)
+        self.assertNotIn(PLAN, result.lines)
+        self.assertEqual(result.tells(), [])
+        self.assertEqual(result.last, ShortEnd.NEXT.replace(", relaying the Tell line above", ""))
+        self.assertLayoutThree(before, one="2026-10-15")
+
+
+class LayoutOneToThree(MigrateTest):
+    def test_one_migrate_takes_a_015_store_to_layout_three_with_its_dates(self):
+        """Prevents a migration done step by step, and dates lost on the way
+        (stories 24, 31): start asks once, with no word of a ledger the 0.15
+        store never had (finding 2) and no word of layout 2 in its plan or the
+        dry run (finding 15); one migrate --write reaches layout 3,
+        says so once, and every idea shows its 0.15 date."""
+        result = self.ok("start")
+        self.assertNotIn(PLAN, result.lines)
+        self.assertIn("Ask the user once", result.last)
+        self.assertNotIn("layout 2", result.text)
+        result = self.ok("migrate", *self.EVENTS)
+        self.assertTrue(result.lines[0].endswith(", .layout (3):"), result)
+        self.assertNotIn(PLAN, result.lines)
+        self.assertNotIn("layout 2", result.text)
+        result = self.migrated()
+        self.assertTrue(result.lines[0].startswith("Migrated 5 ideas from the 0.15 layout: "), result)
+        self.assertNotIn("layout 2", result.text)
+        self.assertEqual(len(result.tells()), 1, result)
+        self.assertEqual(result.last, ShortEnd.NEXT + ShortEnd.OFFER)
+        self.assertEqual(self.read(".layout"), "3\n")
+        self.assertFalse(self.exists(".state/ledger.json"))
+        result = self.ok("show", "--idea", "part-two")
+        self.assertIn(", updated 2026-10-07: ", result.lines[0])
+        stamp = os.path.getmtime(self.box.path(S + "part-two.md"))
+        self.assertEqual(datetime.date.fromtimestamp(stamp).isoformat(), "2026-10-07")
+
+    def test_a_stop_after_the_first_step_is_taken_on_from_layout_two(self):
+        """Prevents a stopped migration that needs special recovery (story
+        29): a store the first step left at layout 2 gets start's plan of the
+        remaining step only, and migrate --write finishes it."""
+        self.migrated()
+        self.box.write(S + ".layout", "2\n")
+        result = self.ok("start")
+        self.assertNotIn("0.15 layout", result.text)
+        self.assertEqual(result.last, "Next: Run brainstorm migrate --write, then answer the user's message.")
+        self.ok("migrate", "--write")
+        self.assertEqual(self.read(".layout"), "3\n")
+
+
+class ShortEnd(MigrateTest):
+    """migrate --write ends with what the next step uses (story 35)."""
+
+    NEXT = ("Next: Tell the user the migration is done, relaying the Tell line above, then answer their message, "
+            "running brainstorm start first if it needs the store's overview.")
+    OFFER = " Offer once to file the parts named above under their parents (brainstorm move)."
+    UNDO = "Tell the user verbatim: \"To undo the migration: delete .scratch/_brainstorming/"
+    DONE = ("Tell the user verbatim: \"The idea store was updated to layout 3: each idea's date now comes from its "
+            "file; no idea's text changed.\"")
+    NAMED = "Named as a part in their tldr but not filed under that parent: part-one (main-idea), part-two (main-idea)."
+
+    def assertShort(self, result, *lines, next_line=NEXT):
+        """result holds lines in order, the parts named and the Next:, and
+        no overview or backup line."""
+        found = [next(i for i, x in enumerate(result.lines) if x.startswith(line)) for line in lines]
+        self.assertEqual(found, sorted(found), result)
+        self.assertIn(self.NAMED, result.lines)
+        self.assertEqual(result.last, next_line + self.OFFER)
+        self.assertNotIn("Ideas: ", result.text)
+        self.assertNotIn("Backup of the 0.15 store", result.text)
+        self.assertNotIn("Main idea. The whole thing.", result.text)
+
+    def test_a_015_migration_ends_short(self):
+        """Prevents a 3.5 KB overview the Session never uses: the result
+        line, the undo line and the layout 3 line, in that order."""
+        self.assertShort(self.migrated(), "Migrated 5 ideas from the 0.15 layout", self.UNDO)
+
+    def test_a_layout_two_migration_ends_short(self):
+        """Prevents the overview after the step that asks nothing."""
+        self.migrated()
+        self.box.write(S + ".layout", "2\n")
+        self.box.write(S + ".state/ledger.json", "{}")
+        self.assertShort(self.ok("migrate", "--write"), self.DONE)
+
+    def test_a_marker_repair_ends_short(self):
+        """Prevents the overview after a repair, with or without the ledger
+        that sends it on to the layout 2 step."""
+        self.migrated()
+        os.remove(self.box.path(S + ".layout"))
+        self.assertShort(self.ok("migrate", "--write"), "The .layout marker was missing; it now reads 3.",
+                         next_line=self.NEXT.replace(", relaying the Tell line above", ""))
+        os.remove(self.box.path(S + ".layout"))
+        self.box.write(S + ".state/ledger.json", "{}")
+        self.assertShort(self.ok("migrate", "--write"), "The .layout marker was missing; it now reads 2.", self.DONE)

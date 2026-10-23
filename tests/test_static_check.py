@@ -11,8 +11,8 @@ from vddtest import REPO, remove_tree
 
 SCRIPT = os.path.join(REPO, ".github", "scripts", "check_shipped_code.py")
 
-# The one file the allowlist lets import subprocess, and the one it lets
-# import ctypes.
+# The one file the allowlist lets import subprocess, and the store lock,
+# which imports the kernel lock calls.
 GIT = "skills/vdd-setup/scripts/vdd/gitcmd.py"
 LOCK = "skills/vdd-setup/scripts/vdd/brainstorm/lock.py"
 
@@ -33,7 +33,7 @@ GOOD = {
         "import subprocess\n"
         "def run(args):\n    return subprocess.run(['git'] + args, shell=False)\n"
     ),
-    LOCK: "import ctypes\nfrom ctypes import wintypes\n",
+    LOCK: "import errno\nimport fcntl\nimport msvcrt\n",
     "tests/test_x.py": "import socket\nimport json\n",
 }
 
@@ -104,16 +104,16 @@ class StaticCheckTest(unittest.TestCase):
                     "import of subprocess in skills/x/scripts/vdd/m.py: subprocess is allowed only in " + GIT
                 )
 
-    def test_ctypes_outside_the_store_lock_fails(self):
-        """Prevents a foreign call from anywhere but the store lock."""
-        self.add("skills/x/scripts/vdd/m.py", "import ctypes.wintypes\n")
+    def test_ctypes_fails_even_in_the_store_lock(self):
+        """Prevents a foreign call coming back: the store lock holds the
+        kernel lock through fcntl and msvcrt, so ctypes is on no list."""
+        self.add(LOCK, "import ctypes.wintypes\n")
         self.assertFails(
-            "import of ctypes.wintypes in skills/x/scripts/vdd/m.py: ctypes is allowed only in " + LOCK
+            "import of ctypes.wintypes in %s, a module outside the allowlist: add ctypes" % LOCK
         )
 
     def test_an_allowed_submodule_passes(self):
         self.add("skills/x/scripts/vdd/m.py", "import os.path\nfrom os.path import join\n")
-        self.add(LOCK, "import ctypes.wintypes\n")
         code, text = self.check()
         self.assertEqual(code, 0, text)
 

@@ -187,6 +187,13 @@ and it offers to hand a decided idea to the next Role.
 
 ### Fixed
 
+- **The idea store on an earlier 0.16 beta.** Two sessions or subagents
+  writing ideas at the same moment were often refused; one now waits for the
+  other. A write could drop text it could not read from an idea you edited
+  by hand, such as a folded line or a comment. It now refuses before it
+  writes and names the file and line. Your next Brainstormer session updates
+  a store an earlier beta wrote and tells you so; every idea keeps the date
+  it shows.
 - **VDD calls refused on Codex for Windows.** On an earlier 0.16 beta,
   Codex's Windows sandbox could not read the copy of the VDD tool Setup
   installs, so every call was refused once and rerun outside the sandbox.

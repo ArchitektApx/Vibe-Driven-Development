@@ -1,9 +1,5 @@
 $ vdd brainstorm migrate --write
 exit 0
-Migrated 1 ideas to layout 2: 1 open, 0 closed, each in its own file as before; 0 events from the Log carried.
+Migrated 1 ideas from the 0.15 layout: 1 open, 0 closed, each in its own file as before; 0 events from the Log carried.
 Tell the user verbatim: "To undo the migration: delete .scratch/_brainstorming/, rename .scratch/_brainstorming.pre-0.16/ back to .scratch/_brainstorming/, and use a 0.15 VDD plugin. On 0.16 a restored store is offered the migration again."
-Ideas: 1 open, 0 closed. Open ideas, parts under their parent; metrics are importance/size/fog:
-- old-idea [] unknown/unknown/unknown, updated ?: 
-Closed ideas are not listed: find --text <words> searches them, show --idea <slug> opens one.
-Backup of the 0.15 store: .scratch/_brainstorming.pre-0.16/ (the tool never deletes it).
-Next: Tell the user the migration is done, relaying the Tell line above, then answer their first message from the overview.
+Next: Tell the user the migration is done, relaying the Tell line above, then answer their message, running brainstorm start first if it needs the store's overview.

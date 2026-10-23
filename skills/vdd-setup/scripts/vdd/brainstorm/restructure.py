@@ -16,7 +16,8 @@ from typing import Any
 from ..out import Failure
 from .ideafile import (DEPTH_MAX, HISTORY, KIND_RE, Idea, is_open_step, lead_end, reflow,
                        section_spans, squash, today)
-from .moves import FIRST_STEP, QUOTE, Result, refuse_slug, tldr_warning, write_decision
+from .moves import new_idea, refuse_slug, tldr_warning, write_decision
+from .printed import QUOTE, Result
 from .store import Store
 
 # How many prose lines that still name an old slug rename lists.
@@ -43,12 +44,8 @@ def split(store: Store, values: dict[str, Any]) -> Result:
     day = today()
     lines: list[str] = []
     for part, title, tldr in parts:
-        fields = [("tldr", squash(tldr)), ("status", "idea"), ("parent", slug), ("importance", "unknown"),
-                  ("size", "unknown"), ("fog", "unknown"), ("last-updated", day)]
-        body = ["", "# %s" % squash(title), "", "## Summary", "", "Split out of %s on %s: %s" % (slug, day, squash(tldr)),
-                "", "## Next Steps", "", "- [ ] " + FIRST_STEP, "", "## History", "",
-                "- %s: created under %s" % (day, slug), ""]
-        store.add(Idea.frame(part, store.path(part), fields, body))
+        store.add(new_idea(store, part, title, tldr, slug, "Split out of %s on %s: %s" % (slug, day, squash(tldr)),
+                           {}, [], "created under " + slug))
         idea.add_history("split into %s" % part)
         lines += tldr_warning(part, squash(tldr))
     store.touch(slug)
@@ -100,10 +97,6 @@ def move(store: Store, values: dict[str, Any]) -> Result:
             store.ideas[parent].add_history("part added %s" % child)
             store.touch(parent)
         lines.append("%s is now %s." % (child, ("a part of " + parent) if parent else "at the top level"))
-    probs = store.structure_problems({c for c, _ in pairs})
-    if probs:
-        raise Failure(["Refused, nothing was written: the move would break the family tree."] + probs,
-                      "Ask the user where else it belongs.")
     return lines, "Tell the user in one line what moved.", "move " + ", ".join(c for c, _ in pairs)
 
 
@@ -241,8 +234,6 @@ def rename(store: Store, values: dict[str, Any]) -> Result:
     store.dirty.discard(a)
     store.dirty.add(b)
     store.deleted.add(a)
-    if a in store.stamped:
-        store.stamped.remove(a)
     has_research = os.path.isdir(research_old)
     if has_research:
         store.dir_moves.append(("research/" + a, "research/" + b))
