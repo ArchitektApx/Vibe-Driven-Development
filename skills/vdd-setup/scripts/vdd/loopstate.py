@@ -123,12 +123,6 @@ def start_state(directory: str) -> None:
     textfile.write_text(os.path.join(directory, STATE_NAME), header_line() + "\n" + loop_line(OPEN) + "\n")
 
 
-def append_state(directory: str, state: str) -> None:
-    """Append "loop <state>" to the loop's state file, which every caller
-    has read first."""
-    textfile.append(os.path.join(directory, STATE_NAME), loop_line(state) + "\n")
-
-
 class State:
     """Every line of the state file, read once per command: its version,
     whether the loop is open, and the round lines."""

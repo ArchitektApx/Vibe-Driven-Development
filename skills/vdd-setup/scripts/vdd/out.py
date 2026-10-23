@@ -35,16 +35,35 @@ def and_list(items: Iterable[str]) -> str:
 
 
 class Output:
-    """Collects lines and writes them once, ending in the Next: line."""
+    """Collects lines and writes them once, ending in the Next: line. A line
+    that records something done, a push or a closed loop, also prints before
+    the lines of a Failure raised after it."""
 
     def __init__(self) -> None:
         self.lines: list[str] = []
+        self.done_lines: list[str] = []
 
     def line(self, text: str = "") -> None:
         self.lines.append(one_line(text))
 
     def tell(self, text: str) -> None:
         self.lines.append(TELL % one_line(text))
+
+    def done(self, text: str) -> None:
+        """A line that records something done."""
+        self.line(text)
+        self.done_lines.append(self.lines[-1])
+
+    def done_tell(self, text: str) -> None:
+        """A Tell line that records something done."""
+        self.tell(text)
+        self.done_lines.append(self.lines[-1])
+
+    def failing(self, failure: Failure) -> Failure:
+        """failure, with the lines already done printed before its own."""
+        failure.lines = self.done_lines + failure.lines
+        self.done_lines = []
+        return failure
 
     def finish(self, next_step: str, code: int = 0) -> int:
         self.lines.append("Next: " + one_line(next_step))

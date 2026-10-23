@@ -237,7 +237,7 @@ def write_new(root: str, slug: str, fields: dict[str, str], out: Output, continu
         if new_state:
             loopstate.start_state(directory)
         else:
-            loopstate.append_state(directory, loopstate.OPEN)
+            loopfile.reopen(loopstate.State(directory))
     except OSError as error:
         raise textfile.write_refusal("the Loop file in %s/" % textfile.shown(directory), error,
                                      "Otherwise tell the user the Loop file could not be written, and stop.")
@@ -365,9 +365,8 @@ def aside(root: str, values: dict[str, Any]) -> int:
         return out.finish("Run the same command with --write.")
     directory = loopfile.tracker_dir(root, slug)
     try:
-        if closing:
-            loopstate.append_state(directory, loopstate.CLOSED)
-            for name in loopfile.delete_armed(directory):
+        if closing and state is not None:
+            for name in loopfile.close(state):
                 out.line("Deleted the Codex armed file %s." % name)
             out.line("Closed the loop %s." % slug)
         os.rename(directory, loopfile.tracker_dir(root, target))
@@ -452,24 +451,26 @@ def close_or_reopen(root: str, values: dict[str, Any], sub: str) -> int:
     loop = loopfile.find(root, values["slug"])
     target = loopstate.CLOSED if sub == "close" else loopstate.OPEN
     out = Output()
-    if loop.load_state().status == target:
+    state = loop.load_state()
+    if state.status == target:
         out.line("The loop %s is already %s. Nothing was written." % (loop.slug, target))
         return out.finish("Go on as your skill says, passing --slug %s." % loop.slug)
     if not values["write"]:
         out.line("Would mark the loop %s %s." % (loop.slug, target))
         return out.finish("Run the same command with --write.")
     try:
-        loopstate.append_state(loop.dir, target)
         if target == loopstate.CLOSED:
-            for name in loopfile.delete_armed(loop.dir):
+            for name in loopfile.close(state):
                 out.line("Deleted the Codex armed file %s." % name)
+        else:
+            loopfile.reopen(state)
     except OSError as error:
         raise refused(
             "Could not change the loop state file in .scratch/%s/: %s" % (loop.slug, textfile.reason(error)),
             "Otherwise tell the user the loop could not be marked %s, and stop." % target,
         )
     if target == loopstate.CLOSED:
-        out.line("Closed: the loop %s. Its files stay in .scratch/%s/ as the record." % (loop.slug, loop.slug))
+        out.line(loopfile.closed_line(loop.slug))
     else:
         out.line("Reopened: the loop %s is open again." % loop.slug)
     return out.finish("Go on as your skill says, passing --slug %s." % loop.slug)

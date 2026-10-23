@@ -11,9 +11,9 @@ guards (the Harness harness_slug names, the code review a Coder return
 relays, and the code and plan reviews done reads), each behind a lookup an
 earlier step has passed; coder's "git could not run", since the branch check
 before it reads a git that cannot start as a detached HEAD and refuses
-first; and review add's "Could not reopen the loop", which needs the state
-file's append to fail right after the append before it succeeded."""
+first."""
 
+import json
 import os
 import re
 import shutil
@@ -66,6 +66,14 @@ class Refusals(Staged):
         self.box.stub("git", 'for a in "$@"; do if [ "$a" = %s ]; then echo "fatal: %s broke" >&2; exit 128; fi; '
                              "done\nexec '%s' \"$@\"\n" % (verb, verb, real))
         return {"PATH": self.box.bin + os.pathsep + os.environ.get("PATH", "")}
+
+    def git_hangs(self, verb):
+        """A git on PATH that sleeps on the verb, past a one-second timeout,
+        and runs the real git otherwise."""
+        real = shutil.which("git")
+        self.box.stub("git", 'for a in "$@"; do if [ "$a" = %s ]; then exec sleep 30; fi; '
+                             "done\nexec '%s' \"$@\"\n" % (verb, real))
+        return {"PATH": self.box.bin + os.pathsep + os.environ.get("PATH", ""), "VDD_GIT_TIMEOUT_SECONDS": "1"}
 
     def coder_out(self):
         self.signed(policies=("respawn Coder never",))
@@ -130,6 +138,18 @@ class Refusals(Staged):
         self.put("CODEREVIEW.md", "# Code review, round 1\n")
         self.box.write("findings.md", FINDINGS)
 
+    def moved_ref_closed(self):
+        """Code round 1 signed off, a fold that moved the branch and stopped
+        before its state line, then the loop closed."""
+        self.code_signed()
+        signed = self.sha()
+        tip = self.commit("b.txt", "b\n", "feat: b")
+        self.put("recap.json", json.dumps({"format": 1, "records": [{
+            "key": "fold " + signed, "section": "Commits", "lines": ["Folded demo: 2 commits into 1.", ""],
+            "data": {"tip": tip, "before": 2, "after": 1, "report": []}}]}))
+        self.stage("loop closed")
+        self.box.write("findings.md", FINDINGS)
+
     def snapshot(self):
         """The staged project as a refusal must leave it: every file and
         directory outside .git, with its bytes, and the checked-out branch
@@ -149,6 +169,34 @@ class Refusals(Staged):
             except subprocess.CalledProcessError:
                 tree[".git rev"] = None
         return tree
+
+    def newer_state_alone(self):
+        """A tracker directory holding a newer VDD's loop-state and no
+        loop.md."""
+        self.repo()
+        self.put("loop-state", "vdd loop-state 9\nloop open\n")
+
+    def test_aside_offers_the_move_for_a_newer_state_without_a_loop_file(self):
+        """Prevents loop aside, the way out for a leftover directory,
+        refusing one whose newer state file has no Loop file beside it."""
+        self.newer_state_alone()
+        result = self.box.run("loop", "aside", *SLUG, env=self.env())
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(result.lines[0], "Would move .scratch/demo/ to .scratch/demo-2/.", result)
+
+    def test_new_refuses_a_newer_state_without_a_loop_file_before_writing(self):
+        """Prevents loop new writing a Loop file into a directory whose
+        state file a newer VDD wrote, and its dry run promising a run that
+        --write then refuses."""
+        self.newer_state_alone()
+        before = self.snapshot()
+        for write in ([], ["--write"]):
+            with self.subTest(write=bool(write)):
+                result = self.box.run("loop", "new", *SLUG, *CC, "--leftover", "continue", "--minors", "fix",
+                                      "--pr", "ask at sign-off", *write, env=self.env())
+                self.assertEqual(result.code, 1, result)
+                self.assertIn("format version 9", result.lines[0], result)
+                self.assertEqual(self.snapshot(), before, result)
 
     def check(self, row):
         _, case, scene, argv, first, following, env, posix = row
@@ -210,8 +258,12 @@ TABLES = {
         ("no-commit", R.no_commit, START, "has no commit", "first commit", None, False),
         ("git-diff-fails", R.coder_started, CHECK, "git diff failed", "git diff fails",
          lambda t: t.git_fails("diff"), True),
+        ("git-diff-times-out", R.coder_started, CHECK, "git diff --name-only timed out after 1 seconds.",
+         "git diff --name-only did not finish", lambda t: t.git_hangs("diff"), True),
         ("git-ls-files-fails", R.coder_started, CHECK, "git ls-files failed", "git ls-files fails",
          lambda t: t.git_fails("ls-files"), True),
+        ("git-branch-times-out", R.signed, START, "git branch --show-current timed out after 1 seconds.",
+         "git branch --show-current did not finish", lambda t: t.git_hangs("branch"), True),
         ("start-after-code-sign-off", R.code_signed, START, "The code Loop signed off in round 1",
          "BLOCKED: the code Loop is already signed off", None, False),
         ("lost-open-finding", R.lost_open_finding, START, "CODEREVIEW.md has no heading for finding 1",
@@ -231,6 +283,9 @@ TABLES = {
          ("review", "add", *SLUG, "--from", "findings.md", "--write"), V1, NEXT_V1, None, False),
         ("bad-review-range", R.bad_review_range, ("review", "start", "--role", "Code-Reviewer", *SLUG, "--write"),
          "git cannot read the review range", "git cannot diff", None, False),
+        ("git-diff-times-out", R.coding, ("review", "start", "--role", "Code-Reviewer", *SLUG, "--write"),
+         "git diff --name-only timed out after 1 seconds.", "git diff --name-only did not finish",
+         lambda t: t.git_hangs("diff"), True),
         ("start-after-sign-off", R.code_signed, ("review", "start", "--role", "Code-Reviewer", *SLUG, "--write"),
          "The code Loop signed off in round 1", "BLOCKED: the code Loop is already signed off", None, False),
         ("lost-finding", R.plan_lost_finding, ("review", "start", "--role", "Plan-Reviewer", *SLUG, "--write"),
@@ -245,6 +300,9 @@ TABLES = {
          "review add takes findings only after a code Sign-off", None, False),
         ("add-findings-open", R.findings_open, ("review", "add", *SLUG, "--from", "findings.md", "--write"),
          "round 1's review left findings open", "review add takes findings only after a code Sign-off", None,
+         False),
+        ("add-moved-ref-closed", R.moved_ref_closed, ("review", "add", *SLUG, "--from", "findings.md", "--write"),
+         "Code round 1 was folded but its fold is not recorded", "loop reopen --slug demo --write, then ", None,
          False),
     ],
     "orchestrator": [
@@ -267,8 +325,9 @@ TABLES = {
         ("version-1-check", R.version_one, ("pr", "check", *SLUG, *CC), V1, NEXT_V1, None, False),
         ("gh-refuses-the-existing-pr-check", R.gh_refuses_head, ("pr", "check", *SLUG, *CC), "A sandbox refused",
          "outside the sandbox", None, True),
+        # The push is done, so it prints first (T7).
         ("close-fails", R.close_fails, ("pr", "open", "--path", "push-only", *SLUG, *CC, "--write"),
-         "Could not close the loop demo", "could not be closed", None, True),
+         "Pushed demo to origin.", "could not be closed", None, True),
         ("bad-path", R.folded, ("pr", "open", "--path", "pushed", *SLUG, *CC, "--write"),
          "--path takes open, push-only or existing", "Path: line", None, False),
         ("preflight-refused-at-open", R.ls_remote_refused, ("pr", "open", "--path", "push-only", *SLUG, *CC,

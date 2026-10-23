@@ -227,7 +227,7 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
     # findings the same way and writes the same file.
     textfile.write_or_refuse(os.path.join(loop.dir, NAME), "\n".join(lines) + "\n", review_path,
                              "Otherwise tell the user CODEREVIEW.md cannot be written, and stop.")
-    recap.record(loop, state, [], [user] + ([loopstate.loop_line(loopstate.OPEN)] if reopening else []))
+    recap.record(loop, state, store, [], [user], reopen=reopening)
     out.line("Wrote %s." % review_path)
     out.line("Wrote %s/%s." % (loop.tracker, recap.NAME))
     out.line("Recorded in %s/%s: %s" % (loop.tracker, loopstate.STATE_NAME, user))

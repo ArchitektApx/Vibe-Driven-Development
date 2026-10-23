@@ -23,7 +23,7 @@ import json
 import os
 import sys
 
-from . import doorbells, loopfile, places, textfile
+from . import armed, doorbells, loopfile, places, textfile
 from .harness import codex as codex_harness
 from .out import Output
 
@@ -50,7 +50,7 @@ def hook() -> None:
     session = event.get("session_id") if isinstance(event, dict) else None
     if not isinstance(session, str) or not doorbells.THREAD_ID.match(session):
         return
-    found = armed_files(cwd, session)
+    found = armed.files(loopfile.scratch(cwd), session)
     if not found:
         return
     # Two loops armed for one Session: the newer wait is the live one, and
@@ -62,7 +62,7 @@ def hook() -> None:
         except OSError:
             pass
     _, path, slug = found[-1]
-    claimed = claim(path, os.path.join(os.path.dirname(path), loopfile.CLAIM_PREFIX + session))
+    claimed = armed.claim(path, session, doorbells.ROLES)
     if claimed is None:
         return
     role, count = claimed
@@ -78,75 +78,3 @@ def hook() -> None:
     text = json.dumps({"decision": "block", "reason": reason}, ensure_ascii=True)
     sys.stdout.buffer.write((text + "\n").encode("ascii"))
     sys.stdout.buffer.flush()
-
-
-def armed_files(root: str, session: str) -> list[tuple[float, str, str]]:
-    """[(modification time, path, slug)] of .scratch/*/codex-armed-<session>."""
-    found: list[tuple[float, str, str]] = []
-    scratch = loopfile.scratch(root)
-    try:
-        names = os.listdir(scratch)
-    except OSError:
-        return found
-    for name in names:
-        path = os.path.join(scratch, name, loopfile.ARMED_PREFIX + session)
-        try:
-            if os.path.isfile(path):
-                found.append((os.path.getmtime(path), path, name))
-        except OSError:
-            pass
-    return found
-
-
-def claim(path: str, marker: str) -> tuple[str, int] | None:
-    """Take the armed wait: of turn ends racing for it exactly one creates the
-    claim marker, so the others find it there and take nothing. The winner
-    reads the armed file, then deletes it first and the marker second, so a
-    later racer finds no armed file once the marker is gone. (Role, count), or
-    None when another turn end has the wait, the file is gone, cannot be read
-    or is not well formed (a malformed one is deleted). The claimer's own
-    marker outlives the call only when the armed file cannot be deleted, so no
-    later turn end takes the wait again; the next arm clears it."""
-    try:
-        os.close(os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
-    except OSError:
-        return None
-    keep = False
-    try:
-        try:
-            lines = textfile.lines(path)
-        except OSError:
-            return None
-        claimed = well_formed(lines)
-        if lines is not None:
-            keep = not removed(path)
-        return claimed
-    finally:
-        if not keep:
-            try:
-                os.remove(marker)
-            except OSError:
-                pass
-
-
-def removed(path: str) -> bool:
-    """Delete path, retried as textfile.retried says: on Windows a program
-    holding the file open refuses the delete for a moment. True once the
-    file is gone."""
-    try:
-        textfile.retried(lambda: os.remove(path))
-        return True
-    except FileNotFoundError:
-        return True
-    except OSError:
-        return False
-
-
-def well_formed(lines: list[str] | None) -> tuple[str, int] | None:
-    """(Role, count) of an armed file's lines, or None."""
-    if lines is None or len(lines) < 2 or lines[0] != doorbells.ARMED_PREFIX + doorbells.ARMED_VERSION:
-        return None
-    parts = lines[1].split()
-    if len(parts) != 2 or parts[0] not in doorbells.ROLES or not parts[1].isdigit():
-        return None
-    return parts[0], int(parts[1])

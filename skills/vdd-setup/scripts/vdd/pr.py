@@ -351,17 +351,18 @@ def changed(path: Path, wanted: str) -> str:
     return "the path is now %s" % path.name
 
 
-def close(loop: loopfile.Loop, out: Output) -> None:
+def close(loop: loopfile.Loop, state: loopstate.State, out: Output) -> None:
+    """Close the loop, every line printed a done line: a failure after it
+    still shows what happened."""
     try:
-        loopstate.append_state(loop.dir, loopstate.CLOSED)
-        for name in loopfile.delete_armed(loop.dir):
-            out.line("Deleted the Codex armed file %s." % name)
+        for name in loopfile.close(state):
+            out.done("Deleted the Codex armed file %s." % name)
     except OSError as error:
-        raise refused(
+        raise out.failing(refused(
             "Could not close the loop %s: %s" % (loop.slug, textfile.reason(error)),
             "Otherwise tell the user the loop could not be closed, and stop.",
-        )
-    out.line("Closed: the loop %s. Its files stay in %s/ as the record." % (loop.slug, loop.tracker))
+        ))
+    out.done(loopfile.closed_line(loop.slug))
 
 
 def open_pr(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wanted: str, write: bool) -> int:
@@ -407,32 +408,32 @@ def open_pr(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wante
         out.tell("The push of %s failed: %s" % (branch, push.first_error()))
         return out.finish(
             "Relay the line above and wait for the user to fix it; when they say it is fixed, run %s" % command, 1)
-    out.line("Pushed %s to %s." % (branch, path.remote))
+    out.done("Pushed %s to %s." % (branch, path.remote))
     if wanted == EXISTING:
-        close(loop, out)
-        out.tell("Pushed %s to %s: the PR %s has the new commits." % (branch, path.remote, path.url))
+        out.done_tell("Pushed %s to %s: the PR %s has the new commits." % (branch, path.remote, path.url))
+        close(loop, state, out)
         return out.finish("Relay the line above and stop.")
     if wanted == PUSH_ONLY:
         failed = path.failed()
-        close(loop, out)
-        out.tell("Pushed %s to %s. gh cannot open the PR here (%s): open it in the web UI with the title and body "
-                 "in %s/%s." % (branch, path.remote, failed[0].why if failed else "the open-a-PR check failed",
-                                loop.tracker, BODY_NAME))
+        out.done_tell("Pushed %s to %s. gh cannot open the PR here (%s): open it in the web UI with the title and "
+                      "body in %s/%s." % (branch, path.remote, failed[0].why if failed else
+                                          "the open-a-PR check failed", loop.tracker, BODY_NAME))
+        close(loop, state, out)
         return out.finish("Relay the line above and stop.")
     created = gitcmd.run(loop.root, ["gh", "pr", "create", "--head", branch, "--base", base, "--title", title,
                                      "--body-file", "-"], data=body.encode("utf-8"),
                          timeout=TIMEOUT_SECONDS)
     if created.refused:
-        raise refusal(created, command, "tell the user gh pr create was refused, and stop.",
-                      "%s is pushed; no PR was opened, and the loop stays open." % branch)
+        raise out.failing(refusal(created, command, "tell the user gh pr create was refused, and stop.",
+                                  "%s is pushed; no PR was opened, and the loop stays open." % branch))
     if created.code != 0:
-        out.line("gh pr create failed after the push: %s" % created.first_error())
-        close(loop, out)
-        out.tell("The branch %s is pushed, but gh pr create failed: %s. Open the PR with the title and body in "
-                 "%s/%s." % (branch, created.first_error(), loop.tracker, BODY_NAME))
+        out.done("gh pr create failed after the push: %s" % created.first_error())
+        out.done_tell("The branch %s is pushed, but gh pr create failed: %s. Open the PR with the title and body "
+                      "in %s/%s." % (branch, created.first_error(), loop.tracker, BODY_NAME))
+        close(loop, state, out)
         return out.finish("Relay the line above and stop.")
     url = [line.strip() for line in created.out.split("\n") if line.strip()]
     url = url[-1] if url else "(gh printed no URL)"
-    close(loop, out)
-    out.tell("Opened the PR: %s" % url)
+    out.done_tell("Opened the PR: %s" % url)
+    close(loop, state, out)
     return out.finish("Relay the line above and stop.")

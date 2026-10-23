@@ -1,7 +1,8 @@
 """The Doorbell machinery the Doorbell command, the Orchestrator, the
 reviews and the Codex Stop hook share: the Doorbell file, its lines and the
-Role's state file, the wait and its marker, the Codex armed file and the
-command lines a Role is told to run.
+Role's state file, the wait and its marker, arming a Codex wait (the armed
+file itself belongs to armed.py) and the command lines a Role is told to
+run.
 
 A loop's tracker directory is .scratch/<slug>/, the loop --slug names or
 the lookup finds. The Doorbell file, <tracker>/doorbells, holds one line per ring,
@@ -20,7 +21,7 @@ import re
 import time
 from typing import Callable
 
-from . import gitcmd, loopfile, loopstate, places, textfile
+from . import armed, gitcmd, loopfile, loopstate, places, textfile
 from .harness import Harness
 from .out import Failure, Output
 
@@ -33,8 +34,6 @@ HEADER_PREFIX = "# vdd doorbells "
 FILE_VERSION = "1"
 STATE_PREFIX = "vdd doorbell-state "
 STATE_VERSION = "1"
-ARMED_PREFIX = "vdd codex-armed "
-ARMED_VERSION = "1"
 WAIT_PREFIX = "vdd doorbell-wait "
 WAIT_VERSION = "1"
 
@@ -419,15 +418,6 @@ def hand_relay(role: str, harness: Harness, slug: str) -> str:
     )
 
 
-def armed_path(place: Place, thread: str) -> str:
-    return os.path.join(place.dir, loopfile.ARMED_PREFIX + thread)
-
-
-def claim_path(place: Place, thread: str) -> str:
-    """The claim marker of the Codex Stop hook for the thread's armed file."""
-    return os.path.join(place.dir, loopfile.CLAIM_PREFIX + thread)
-
-
 def arm(place: Place, role: str, harness: Harness) -> None:
     thread = os.environ.get("CODEX_THREAD_ID", "")
     if not THREAD_ID.match(thread):
@@ -441,16 +431,8 @@ def arm(place: Place, role: str, harness: Harness) -> None:
     except OSError as error:
         raise Failure("The wait could not read its files: %s" % textfile.described(error),
                       hand_relay(role, harness, place.slug))
-    count = min(state.count, len(entries))
-    data = "%s%s\n%s %d\n" % (ARMED_PREFIX, ARMED_VERSION, role, count)
     try:
-        os.makedirs(place.dir, exist_ok=True)
-        # A claim marker a killed hook left would block this wait.
-        try:
-            os.remove(claim_path(place, thread))
-        except FileNotFoundError:
-            pass
-        textfile.write_text(armed_path(place, thread), data)
+        armed.arm(place.dir, thread, role, min(state.count, len(entries)))
     except OSError as error:
         raise Failure("Cannot write the armed file: %s" % textfile.described(error),
                       hand_relay(role, harness, place.slug))

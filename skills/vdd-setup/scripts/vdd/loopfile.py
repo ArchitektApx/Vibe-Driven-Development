@@ -18,16 +18,12 @@ import os
 import re
 from typing import Iterable
 
-from . import args, gitcmd, loopstate, textfile
+from . import args, armed, gitcmd, loopstate, textfile
 from .out import TELL, Failure
 
 SLUG_PATTERN = "[a-z0-9]+(-[a-z0-9]+)*"
 FORMAT = 2
 NAME = "loop.md"
-ARMED_PREFIX = "codex-armed-"
-# The claim marker beside an armed file: its name must not start with
-# ARMED_PREFIX, which the Codex Stop hook's shell guard looks for.
-CLAIM_PREFIX = "codex-claim-"
 ROOT_FILE = "LOOP.md"
 ROOT_FIX = (
     "Delete `LOOP.md`. To carry on the loop it belongs to, run `vdd-start-loop` with its slug and answer continue."
@@ -167,23 +163,24 @@ def kind(root: str, slug: str) -> str | None:
     return NO_STATE, None
 
 
-def delete_armed(directory: str) -> list[str]:
-    """Delete every Codex armed file in directory, and every claim marker; the
-    names of the armed files deleted."""
-    gone: list[str] = []
-    try:
-        names = sorted(os.listdir(directory))
-    except OSError:
-        return gone
-    for name in names:
-        if name.startswith((ARMED_PREFIX, CLAIM_PREFIX)):
-            try:
-                os.remove(os.path.join(directory, name))
-                if name.startswith(ARMED_PREFIX):
-                    gone.append(name)
-            except OSError:
-                pass
-    return gone
+# --- closing and reopening ---
+
+def close(state: loopstate.State) -> list[str]:
+    """Close the loop: append "loop closed" and delete its Codex armed files
+    and claim markers. The names of the armed files deleted, for the caller
+    to print. Raises OSError when the state file cannot be appended to."""
+    state.add(loopstate.loop_line(loopstate.CLOSED))
+    return armed.delete(state.dir)
+
+
+def reopen(state: loopstate.State, *lines: str) -> None:
+    """Append lines, then "loop open", in one write. Raises OSError."""
+    state.add(*(lines + (loopstate.loop_line(loopstate.OPEN),)))
+
+
+def closed_line(slug: str) -> str:
+    """The line loop close and pr open print once a loop is closed."""
+    return "Closed: the loop %s. Its files stay in .scratch/%s/ as the record." % (slug, slug)
 
 
 # --- the Loop file ---

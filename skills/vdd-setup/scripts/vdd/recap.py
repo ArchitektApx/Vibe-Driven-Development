@@ -23,7 +23,7 @@ import json
 import os
 from typing import TYPE_CHECKING, Any, Iterable, Sequence
 
-from . import textfile, workfile
+from . import loopfile, textfile, workfile
 from .out import Failure, refused
 
 if TYPE_CHECKING:
@@ -302,7 +302,9 @@ def seed(loop: Loop) -> list[Record]:
 
 # --- the record step ---
 
-def record(loop: Loop, state: State, records: Iterable[Record], lines: Sequence[str]) -> None:
+def record(
+    loop: Loop, state: State, store: Records, records: Iterable[Record], lines: Sequence[str], reopen: bool = False,
+) -> None:
     """Steps 2 to 4 of the record step: the records, the state lines in one
     write, RECAP.md. store is the records the command loaded before its dry
     run returned and before its first write, so a records file it cannot
@@ -311,13 +313,22 @@ def record(loop: Loop, state: State, records: Iterable[Record], lines: Sequence[
     for item in records:
         store.put(item)
     store.save()
-    commit(loop, state, store, lines)
+    commit(loop, state, store, lines, reopen)
 
 
-def commit(loop: Loop, state: State, store: Records, lines: Sequence[str]) -> None:
+def commit(loop: Loop, state: State, store: Records, lines: Sequence[str], reopen: bool = False) -> None:
     """Steps 3 and 4: the state lines appended in one write, the commit point,
-    then RECAP.md rendered from store."""
-    state.append(*lines)
+    then RECAP.md rendered from store. With reopen, "loop open" goes in the
+    same write."""
+    if reopen:
+        try:
+            loopfile.reopen(state, *lines)
+        except OSError as error:
+            raise textfile.write_refusal(
+                "the loop state file %s" % textfile.shown(state.path), error,
+                "Otherwise tell the user the loop state file cannot be written, and stop.")
+    else:
+        state.append(*lines)
     render_recap(loop, state, store)
 
 
