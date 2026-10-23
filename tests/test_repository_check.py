@@ -337,6 +337,13 @@ class ClaudeMdTest(RepositoryCheck):
         self.add("CLAUDE.md", b"@AGENTS.md\r\n")
         self.assertFails("CLAUDE.md must contain exactly the line: @AGENTS.md")
 
+    def test_a_crlf_checkout_of_the_tracked_line_passes(self):
+        """Prevents the check refusing a Windows checkout: core.autocrlf
+        writes CLAUDE.md with CRLF while git holds the one line."""
+        with open(os.path.join(self.repo, "CLAUDE.md"), "wb") as handle:
+            handle.write(b"@AGENTS.md\r\n")
+        self.assertPasses()
+
 
 class ExecutableSurfaceTest(RepositoryCheck):
     def test_an_executable_file_fails(self):

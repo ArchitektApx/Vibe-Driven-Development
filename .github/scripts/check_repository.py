@@ -128,6 +128,14 @@ class Repo:
         except OSError:
             return None
 
+    def blob(self, path: str) -> Optional[bytes]:
+        """The bytes git holds for path in the index, which a checkout's
+        core.autocrlf does not touch; None for a path git does not track."""
+        proc = subprocess.run(
+            ["git", "cat-file", "blob", ":" + path], cwd=self.root, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        return proc.stdout if proc.returncode == 0 else None
+
     def text(self, path: str) -> Optional[str]:
         data = self.data(path)
         if data is None:
@@ -404,9 +412,10 @@ def check_start_sentence(repo: Repo) -> List[str]:
 def check_claude_md(repo: Repo) -> List[str]:
     """Claude Code reads CLAUDE.md first, so a house rule added only to
     AGENTS.md never reaches it, and one added to both is read twice. The
-    bytes are compared, trailing newlines removed and nothing else, so a byte
-    order mark or a CRLF line end is refused."""
-    if (repo.data("CLAUDE.md") or b"").rstrip(b"\n") != b"@AGENTS.md":
+    bytes git holds are compared, trailing newlines removed and nothing else,
+    so a byte order mark or a CRLF line end is refused, and a Windows
+    checkout's CRLF copy is not."""
+    if (repo.blob("CLAUDE.md") or b"").rstrip(b"\n") != b"@AGENTS.md":
         return ["CLAUDE.md must contain exactly the line: @AGENTS.md"]
     return []
 
