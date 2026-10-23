@@ -14,7 +14,7 @@ import os
 from typing import Any, Callable, Dict, List, Tuple
 
 from .. import args, gitcmd, places, textfile
-from ..out import Failure, Output
+from ..out import TELL, Failure, Output
 from . import cleanup, journal, layout1, migrate, moves, reads, restructure
 from .lock import Lock
 from .migrate import require_layout
@@ -246,15 +246,27 @@ def start(root: str, values: dict[str, Any]) -> int:
 def overview(root: str, store: Store, page: int = 1) -> tuple[list[str], str]:
     """The overview's lines with the backup line and the parts named only in
     a tldr, and the text its Next: step adds after its first sentence."""
-    lines = reads.overview(store, page)
-    named = reads.parts_named(store)
-    if named:
-        lines.append("Named as a part in their tldr but not filed under that parent: %s."
-                     % ", ".join("%s (%s)" % pair for pair in named))
+    named, offer = parts_named(store)
+    lines = reads.overview(store, page) + named
     if os.path.isdir(os.path.join(root, layout1.BACKUP)):
         lines.append("Backup of the 0.15 store: %s/ (the tool never deletes it)." % layout1.BACKUP)
-    offer = " Offer once to file the parts named above under their parents (brainstorm move)." if named else ""
     return lines, offer
+
+
+def parts_named(store: Store) -> tuple[list[str], str]:
+    """The line naming the parts filed only in a tldr, and the offer it adds
+    to a Next: step; nothing when there are none."""
+    named = reads.parts_named(store)
+    if not named:
+        return [], ""
+    return (["Named as a part in their tldr but not filed under that parent: %s."
+             % ", ".join("%s (%s)" % pair for pair in named)],
+            " Offer once to file the parts named above under their parents (brainstorm move).")
+
+
+def told(lines: list[str]) -> int:
+    """How many of lines are Tell lines."""
+    return sum(1 for line in lines if line.startswith(TELL.split('"')[0]))
 
 
 def migrate_cmd(root: str, values: dict[str, Any]) -> int:
@@ -269,11 +281,13 @@ def migrate_cmd(root: str, values: dict[str, Any]) -> int:
     if what in ("dry-half", "dry-repair"):
         return out.finish("If the user agrees, run brainstorm migrate --write.")
     if what == "noop":
-        return out.finish("Run brainstorm start.")
-    more, offer = overview(root, Store(root))
-    for line in more:
+        tells = told(lines)
+        return out.finish("Relay the Tell line%s above to the user, then run brainstorm start."
+                          % ("s" if tells > 1 else "") if tells else "Run brainstorm start.")
+    named, offer = parts_named(Store(root))
+    for line in named:
         out.line(line)
-    if what in ("migrated", "finished", "updated"):
-        return out.finish("Tell the user the migration is done, relaying the Tell line above, then answer their first "
-                          "message from the overview." + offer)
-    return out.finish(ANSWER + offer)
+    tells = told(lines)
+    relay = "" if not tells else ", relaying the Tell line above" if tells == 1 else ", relaying the Tell lines above"
+    return out.finish("Tell the user the migration is done%s, then answer their message, running brainstorm start "
+                      "first if it needs the store's overview." % relay + offer)

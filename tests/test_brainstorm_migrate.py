@@ -174,7 +174,8 @@ class Migrate(MigrateTest):
         """Prevents a lossy migration (spec stories 42, 43, 45): the backup is
         the old store byte for byte with index.md; every idea keeps its file,
         with History seeded and the events carried; research moves unchanged;
-        no parent is inferred; the undo Tell line and the overview follow."""
+        no parent is inferred; the undo Tell line and the parts named follow,
+        and no overview (story 35)."""
         before = self.tree()
         result = self.migrated()
         self.assertEqual(self.tree(self.box.path(BACKUP)), before)
@@ -194,8 +195,8 @@ class Migrate(MigrateTest):
         self.assertTrue(self.exists("research/check-links.py"))
         tells = result.tells()
         self.assertTrue(any(BACKUP in t and "rename" in t and "0.15 VDD plugin" in t for t in tells), result)
-        self.assertIn("Ideas: 3 open, 2 closed.", result.text)
-        self.assertEqual(result.text.count("Backup of the 0.15 store: %s/" % BACKUP), 1, result.text)
+        self.assertNotIn("Ideas: ", result.text)
+        self.assertNotIn("Backup of the 0.15 store", result.text)
         self.assertIn("Backup of the 0.15 store: %s/" % BACKUP, self.ok("start").text)
         self.assertIn("Named as a part in their tldr but not filed under that parent: part-one (main-idea), part-two "
                       "(main-idea).", result.text)
@@ -240,7 +241,8 @@ class Interrupted(MigrateTest):
         before = self.all_files()
         result = self.ok("migrate")
         self.assertIn("Dry run, nothing was written. With --write, brainstorm migrate would write "
-                      "%s/ (renamed from %s/):" % (S.rstrip("/"), STAGING), result.text.replace("\\", "/"))
+                      "%s/ (renamed from %s/), .layout (3):" % (S.rstrip("/"), STAGING),
+                      result.text.replace("\\", "/"))
         self.assertEqual(self.all_files(), before)
         result = self.bs("new", "--slug", "fresh", "--title", "Fresh", "--tldr", "Fresh.", "--write")
         self.assertEqual(result.code, 1, result)
@@ -249,7 +251,7 @@ class Interrupted(MigrateTest):
         self.assertIn("The interrupted migration is finished", result.text)
         self.assertTrue(any("0.15 VDD plugin" in t for t in result.tells()), result)
         self.assertNext(result, "relaying the Tell line above")
-        self.assertEqual(result.text.count("Backup of the 0.15 store"), 1, result.text)
+        self.assertNotIn("Backup of the 0.15 store", result.text)
         self.assertEqual(self.read(".layout"), "3\n")
         self.assertTrue(self.exists("main-idea.md"))
 
@@ -519,3 +521,49 @@ class LayoutOneToThree(MigrateTest):
         self.assertEqual(result.last, "Next: Run brainstorm migrate --write, then answer the user's message.")
         self.ok("migrate", "--write")
         self.assertEqual(self.read(".layout"), "3\n")
+
+
+class ShortEnd(MigrateTest):
+    """migrate --write ends with what the next step uses (story 35)."""
+
+    NEXT = ("Next: Tell the user the migration is done, relaying the Tell line above, then answer their message, "
+            "running brainstorm start first if it needs the store's overview.")
+    OFFER = " Offer once to file the parts named above under their parents (brainstorm move)."
+    UNDO = "Tell the user verbatim: \"To undo the migration: delete .scratch/_brainstorming/"
+    DONE = ("Tell the user verbatim: \"The idea store was updated to layout 3: each idea's date now comes from its "
+            "file; no idea's text changed.\"")
+    NAMED = "Named as a part in their tldr but not filed under that parent: part-one (main-idea), part-two (main-idea)."
+
+    def assertShort(self, result, *lines, next_line=NEXT):
+        """result holds lines in order, the parts named and the Next:, and
+        no overview or backup line."""
+        found = [next(i for i, x in enumerate(result.lines) if x.startswith(line)) for line in lines]
+        self.assertEqual(found, sorted(found), result)
+        self.assertIn(self.NAMED, result.lines)
+        self.assertEqual(result.last, next_line + self.OFFER)
+        self.assertNotIn("Ideas: ", result.text)
+        self.assertNotIn("Backup of the 0.15 store", result.text)
+        self.assertNotIn("Main idea. The whole thing.", result.text)
+
+    def test_a_015_migration_ends_short(self):
+        """Prevents a 3.5 KB overview the Session never uses: the result
+        line, the undo line and the layout 3 line, in that order."""
+        self.assertShort(self.migrated(), "Migrated 5 ideas from the 0.15 layout", self.UNDO)
+
+    def test_a_layout_two_migration_ends_short(self):
+        """Prevents the overview after the step that asks nothing."""
+        self.migrated()
+        self.box.write(S + ".layout", "2\n")
+        self.box.write(S + ".state/ledger.json", "{}")
+        self.assertShort(self.ok("migrate", "--write"), self.DONE)
+
+    def test_a_marker_repair_ends_short(self):
+        """Prevents the overview after a repair, with or without the ledger
+        that sends it on to the layout 2 step."""
+        self.migrated()
+        os.remove(self.box.path(S + ".layout"))
+        self.assertShort(self.ok("migrate", "--write"), "The .layout marker was missing; it now reads 3.",
+                         next_line=self.NEXT.replace(", relaying the Tell line above", ""))
+        os.remove(self.box.path(S + ".layout"))
+        self.box.write(S + ".state/ledger.json", "{}")
+        self.assertShort(self.ok("migrate", "--write"), "The .layout marker was missing; it now reads 2.", self.DONE)
