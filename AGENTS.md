@@ -53,9 +53,9 @@ The VDD tool is the package `skills/vdd-setup/scripts/vdd/`.
 
 - Shared helpers sit at the top of the package. A group with modules of its
   own is a subpackage, as `setup/`, `loop/`, `review/`, `orchestrator/` and
-  `coder/` are, and so is a concern with several modules, as `harness/` and
-  `loopstate/` are. A module that splits becomes a directory named for its
-  concern.
+  `coder/` are, and so is a concern with several modules, as `harness/`,
+  `loopstate/` and `setup/codex/` are. A module that splits becomes a
+  directory named for its concern.
 - A group module holds its command surface: help, parsing, dispatch and
   printed lines. No group module imports another group's module; `loop fold`
   is part of the `loop` group.

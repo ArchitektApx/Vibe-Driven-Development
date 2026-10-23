@@ -537,6 +537,49 @@ class SetupTest(ToolTest):
                 self.assertNotIn("Traceback", result.text)
                 self.assertNext(result, "outside the sandbox", "stop")
 
+    # (the file Setup cannot read, what else is staged, the line printed just before the refusal)
+    UNREADABLE = (
+        ("docs/agents/issue-tracker.md", {}, None),
+        ("docs/agents/domain.md", {}, "Tracker: docs/agents/issue-tracker.md configures local markdown. Passed."),
+        ("CONTEXT-MAP.md", {"docs/agents/domain.md": "See CONTEXT-MAP.md.\n"},
+         'Tell the user verbatim: "Warning: this repository was set up before Matt Pocock\'s glossary rename'),
+        ("AGENTS.md", {"docs/agents/domain.md": "See CONTEXT.md.\n", "CONTEXT.md": "x\n"},
+         'Tell the user verbatim: "git mv CONTEXT.md GLOSSARY.md"'),
+        ("CLAUDE.md", {"docs/agents/domain.md": "See CONTEXT.md.\n", "CONTEXT.md": "x\n", "AGENTS.md": "x\n"},
+         'Tell the user verbatim: "git mv CONTEXT.md GLOSSARY.md"'),
+    )
+
+    def test_an_unreadable_file_keeps_every_check_printed_before_it(self):
+        """Prevents a file Setup cannot read from ending the run on the bare
+        file error, which dropped every check Setup had already printed. A
+        directory stands in for the unreadable file on every OS."""
+        for name, staged, before in self.UNREADABLE:
+            with self.subTest(file=name):
+                self.box.write("docs/agents/issue-tracker.md", "Local markdown.\n")
+                for path, text in staged.items():
+                    self.box.write(path, text)
+                unreadable = os.path.join(self.box.proj, *name.split("/"))
+                if os.path.isfile(unreadable):
+                    os.remove(unreadable)
+                os.makedirs(unreadable)
+                result = self.setup("claude-code", "writing-for-agents", "yes")
+                shutil.rmtree(unreadable)
+                self.assertEqual(result.code, 1, result)
+                self.assertContract(result)
+                self.assertNext(result, "outside the sandbox", "Setup could not read %s, and stop." % name)
+                self.assertTrue(result.lines[-2].startswith("Could not read %s: " % name), result)
+                printed = result.lines[:-2]
+                self.assertEqual(printed[0], "Setup, Harness Claude Code (dry run, nothing is changed yet).")
+                if before is not None:
+                    self.assertTrue(printed[-1].startswith(before), result)
+                self.assertEqual(printed, self.setup("claude-code", "writing-for-agents", "yes").lines[:len(printed)])
+                for path in list(staged) + ["docs"]:
+                    full = os.path.join(self.box.proj, *path.split("/"))
+                    if os.path.isdir(full):
+                        shutil.rmtree(full)
+                    elif os.path.exists(full):
+                        os.remove(full)
+
 
 def vddtest_tree(base):
     out = {}
@@ -728,6 +771,28 @@ class CodexSetupTest(ToolTest):
         result = self.setup()
         self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
         self.assertTrue(any("could not tell whether VDD's hook is trusted" in t for t in result.tells()), result)
+
+    def test_an_unreadable_config_toml_is_unknown(self):
+        """Prevents an unreadable config.toml from ending Setup on a bare file
+        error: Setup read it twice, and the first read had no guard, so the
+        trust check's unknown was never reached."""
+        os.mkdir(os.path.join(self.codex, "config.toml"))
+        result = self.setup()
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("VDD's Codex hook: whether it is trusted is unknown, ~/.codex/config.toml could not be read.",
+                      result.lines)
+        self.assertIn("Setup could not tell whether VDD's hook is trusted. Open /hooks and trust VDD's hook if it "
+                      "is listed for review.", result.tells())
+        self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
+
+    def test_a_config_toml_read_but_not_understood_says_so(self):
+        """Prevents a config.toml Setup read but could not follow from being
+        reported as one it could not read."""
+        self.config('skills = [\n  "a",\n')
+        result = self.setup()
+        self.assertIn("VDD's Codex hook: whether it is trusted is unknown, ~/.codex/config.toml was read but not "
+                      "understood.", result.lines)
+        self.assertNotIn("could not be read", result.text)
 
     TRUST = '[hooks.state."vdd@mk:plugin.json#hooks[0]:stop:0:0"]\ntrusted_hash = "sha256:x"\n'
     SHAPES = (
