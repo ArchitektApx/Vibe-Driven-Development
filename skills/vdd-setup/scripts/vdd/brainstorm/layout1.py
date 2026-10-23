@@ -380,6 +380,6 @@ def step(root: str, events_raw: list[str], write: bool) -> Result:
                       "in %s/." % (textfile.reason(error), STAGING),
                       "Run brainstorm migrate --write again: it finishes the swap.")
     open_n = sum(1 for i in ideas.values() if i.is_open)
-    return ["Migrated %d ideas to layout %s: %d open, %d closed, each in its own file as before; %d events from the "
-            "Log carried." % (len(ideas), TO, open_n, len(ideas) - open_n, len(events)), TELL % UNDO], "migrated", []
+    return ["Migrated %d ideas from the 0.15 layout: %d open, %d closed, each in its own file as before; %d events "
+            "from the Log carried." % (len(ideas), open_n, len(ideas) - open_n, len(events)), TELL % UNDO], "migrated", []
 

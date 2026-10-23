@@ -53,7 +53,12 @@ def read_ledger(root: str) -> dict[str, str]:
 
 
 def plan_lines(root: str) -> list[str]:
-    return [PLAN]
+    return [PLAN] if os.path.isfile(ledger_path(root)) else []
+
+
+def would(root: str) -> list[str]:
+    """What a --write of this step writes."""
+    return [LAYOUT_FILE + " (3)"] + ([".state/" + LEDGER + " (removed)"] if os.path.isfile(ledger_path(root)) else [])
 
 
 def run(root: str, events_raw: list[str], write: bool) -> Result:
@@ -61,23 +66,24 @@ def run(root: str, events_raw: list[str], write: bool) -> Result:
     when another Session took the store past layout 2 while this one
     waited for the lock."""
     if not write:
-        return plan_lines(root), "dry", [LAYOUT_FILE + " (3)"] + ([".state/" + LEDGER + " (removed)"]
-                                                     if os.path.isfile(ledger_path(root)) else [])
+        return plan_lines(root), "dry", would(root)
     with Lock(root, on_take=journal.recover) as lock:
         if layout(root) != FROM:
             return lock.lines, "moved", []
         had_ledger = os.path.isfile(ledger_path(root))
         ledger = read_ledger(root)
         base = store_dir(root)
-        for name in sorted(os.listdir(base)):
+        for name in sorted(os.listdir(base)) if had_ledger else []:
             path = os.path.join(base, name)
-            if not is_idea_name(name) or name[:-3] not in ledger or not os.path.isfile(path):
+            if not is_idea_name(name) or not os.path.isfile(path):
                 continue
             data = textfile.read_bytes(path)
             day = Idea.read(name[:-3], path, data).get("last-updated")
-            if ledger[name[:-3]] == ledger_sha(data) and real_date(day):
+            # An idea the ledger does not name was written by hand into the
+            # store; layout 2 showed its last-updated, so its day keeps it.
+            if ledger.get(name[:-3], ledger_sha(data)) == ledger_sha(data) and real_date(day):
                 set_file_day(path, day)
-        if os.path.isfile(ledger_path(root)):
+        if had_ledger:
             os.remove(ledger_path(root))
         textfile.write(os.path.join(base, LAYOUT_FILE), (TO + "\n").encode("ascii"))
-    return lock.lines + [TELL % DONE], "updated", []
+    return lock.lines + ([TELL % DONE] if had_ledger else []), "updated", []

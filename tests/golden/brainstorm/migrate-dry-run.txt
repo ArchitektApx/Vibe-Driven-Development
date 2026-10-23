@@ -1,13 +1,12 @@
 $ vdd brainstorm migrate
 exit 0
-Dry run, nothing was written. With --write, brainstorm migrate would write .scratch/_brainstorming.migrating/ (built, then renamed to .scratch/_brainstorming/), .scratch/_brainstorming.pre-0.16/ (the 0.15 store, renamed):
+Dry run, nothing was written. With --write, brainstorm migrate would write .scratch/_brainstorming.migrating/ (built, then renamed to .scratch/_brainstorming/), .scratch/_brainstorming.pre-0.16/ (the 0.15 store, renamed), .layout (3):
 The idea store is in the 0.15 layout: index.md and 1 idea files, 1 open and 0 closed.
-Migration to layout 2:
+Migration from the 0.15 layout:
 - the whole store is first kept untouched as the backup .scratch/_brainstorming.pre-0.16/
 - every idea keeps its file in the same folder, its status in its frontmatter; research/ is copied as it is
 - index.md and its Log stay in the backup only; each idea gets a ## History from its created date and status
 - relations stay where they are stated; links to idea files become slugs, Next Steps included; no idea is put under a parent
 The Log names no split, merge or rename.
 Events to carry: none
-The dates move from the ledger into the files; no idea's text changes.
 Next: Ask the user once, in your own words, whether to migrate the idea store now: say what the lines above say will happen and where the backup goes, and list the events you take from the Log sentences above, only those a sentence states, each as '<YYYY-MM-DD> <slug> split into <slug>[, <slug>]' (or merged into, renamed from <slug>; a Log 'X folded into Y' is the event 'X merged into Y'). On their yes run brainstorm migrate with one --event per event and --write. On a no, stop: no other brainstorm command reads the 0.15 layout.

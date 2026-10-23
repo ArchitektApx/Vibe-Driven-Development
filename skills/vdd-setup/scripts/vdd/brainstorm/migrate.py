@@ -2,7 +2,8 @@
 
 STEPS maps a found layout to the step module that takes the store one
 layout on. Each step module offers NEEDS_USER, plan_lines and, when it needs
-the user, ask; its run applies it under --write. migrate runs the steps from
+the user, ask; its run applies it under --write. A step that follows another
+offers would, what its --write writes, for the dry run of the first. migrate runs the steps from
 the found layout to the current one, re-reading the layout after each, so a
 stop between two steps leaves a store the next run takes on from there. A
 store whose .layout marker is missing or empty is checked here and the
@@ -177,7 +178,8 @@ def migrate(root: str, events_raw: list[str], write: bool) -> Result:
         if not write:
             for step in path(after):
                 lines += step.plan_lines(root)
+                would += step.would(root)
             break
     if not whats:
-        return ["The idea store is already in layout %s; nothing to migrate." % LAYOUT], "noop", []
+        return lines + ["The idea store is already in layout %s; nothing to migrate." % LAYOUT], "noop", []
     return lines, whats[0], would

@@ -110,7 +110,11 @@ class LockTest(BrainstormTest):
         the holder's pid, and writes nothing."""
         child = self.hold(30)
         before = self.ideas_tree()
+        started = time.monotonic()
         result = self.set_size()
+        took = time.monotonic() - started
+        self.assertGreaterEqual(took, 5, result)
+        self.assertLess(took, 20, result)
         self.assertEqual(result.code, 1, result)
         self.assertIn("Another Session is writing to the idea store right now (process %d). Nothing was written."
                       % child.pid, result.lines)
@@ -419,6 +423,54 @@ class JournalTest(BrainstormTest):
         self.assertEqual(self.journal_left(), [])
         self.assertEqual(self.store_tree(), before)
         self.assertTrue(self.exists(".state/lock"))
+
+    @unittest.skipUnless(sys.platform == "darwin",
+                         "no trigger for the lock call's failure on Linux or Windows: flock works on a FIFO on Linux, "
+                         "and Windows has no FIFOs")
+    def test_a_read_the_lock_call_refuses_settles_the_journal_and_says_so_truly(self):
+        """Prevents a read told it was a write (finding 5): with a FIFO at
+        .state/lock and a pending journal, start settles it and says the
+        command went ahead without the lock."""
+        after, _ = self.stage_close(done=1)
+        path = self.box.path(S + ".state/lock")
+        os.remove(path)
+        os.mkfifo(path)
+        result = self.ok("start")
+        found = [line for line in result.lines if line.startswith("The idea store's lock is not supported here (")]
+        self.assertEqual(len(found), 1, result)
+        self.assertTrue(found[0].endswith("); this command went ahead without it."), result)
+        self.assertNotIn("write went ahead", result.text)
+        self.assertIn("An interrupted write (set part-one) was finished.", result.lines)
+        self.assertEqual(self.store_tree(), after)
+
+    def test_a_migration_that_waited_while_another_finished_it_writes_nothing(self):
+        """Prevents a second migration running the layout 2 step again over
+        a store another Session took to layout 3 while it waited for the
+        lock (commit 969010c), and the lines it gathered dropped (finding
+        9): it says nothing is left to migrate, after the recovery it did."""
+        self.stage_close(done=1)
+        self.box.write(S + ".layout", "2\n")
+        self.box.write(S + ".state/ledger.json", "{}")
+        self.set_day("main-idea.md", "2026-10-15")
+        holder = hold(self, 60)
+        signal = self.box.path("lock-opened")
+        proc = audited(self, "open", os.path.join(".state", "lock"), signal, "migrate", "--write")
+        deadline = time.monotonic() + 60
+        while not os.path.exists(signal) and proc.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertTrue(os.path.exists(signal), "migrate never tried the store lock")
+        self.box.write(S + ".layout", "3\n")
+        holder.kill()
+        holder.wait()
+        result = self.box.finish(proc)
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(result.lines[-3:], ["An interrupted write (set part-one) was finished.",
+                                             "The idea store is already in layout 3; nothing to migrate.",
+                                             "Next: Run brainstorm start."])
+        self.assertTrue(self.exists(".state/ledger.json"))
+        self.assertEqual(self.read(".layout"), "3\n")
+        stamp = os.path.getmtime(self.box.path(S + "main-idea.md"))
+        self.assertEqual(time.strftime("%Y-%m-%d", time.localtime(stamp)), "2026-10-15")
 
     def test_leftover_temp_files_are_swept(self):
         """Prevents temp files a killed write left piling up (red team F14)."""
