@@ -451,13 +451,21 @@ def run(loop: Loop, harness: Harness, write: bool) -> int:
     branch, _ = loop.setting("Feature branch")
     recorded = state.fold_record()
     if recorded is not None and not signoff.fold_owed(state):
+        wrote = write and recap.render_recap(loop, state)
+        done = "Wrote %s/%s again." % (loop.tracker, recap.NAME) if wrote else "Nothing was written."
         if recorded.kind == "folded":
-            out.line("The loop %s is already folded: %s is at %s. Nothing was written." % (
-                loop.slug, branch, recorded.tip))
+            out.line("The loop %s is already folded: %s is at %s. %s" % (loop.slug, branch, recorded.tip, done))
         else:
-            out.line("The fold of %s was already skipped: %s. Nothing was written." % (loop.slug, recorded.reason))
+            out.line("The fold of %s was already skipped: %s. %s" % (loop.slug, recorded.reason, done))
         return out.finish(signoff.pr_step(loop))
     repo = Repo(loop.root)
+    if write:
+        moved = moved_record(loop, repo, branch, signed)
+        if moved is not None:
+            # The fold's ref moved and its line was never appended: the
+            # recorded tip stands, and the fold does not run again.
+            recap.commit(loop, state, recap.Records.load(loop), [loopstate.folded_line(moved.data["tip"], signed)])
+            return folded(loop, out, branch, signed, moved)
     index_path = os.path.join(loop.dir, INDEX_NAME)
     try:
         try:
@@ -479,17 +487,53 @@ def run(loop: Loop, harness: Harness, write: bool) -> int:
         for line in lines:
             out.line(line)
         return out.finish("Run %s" % fold_command(loop, harness))
-    state.append(loopstate.folded_line(tip, signed))
     summary = "Folded %s: %d commits into %d; the folded tree equals the signed tree (%s)." % (
         branch, before, len(chain), signed[:7])
-    recap.write(loop, state, {"Commits": [summary, ""] + lines})
-    out.line("Folded %s: %d commits into %d." % (branch, before, len(chain)))
-    for line in lines:
-        out.line(line)
+    # The record, with the tip, is written before the ref moves: a signed tip
+    # cannot be computed again once the branch is at it.
+    record = recap.Record(recap.fold_key(signed), "Commits", [summary, ""] + lines,
+                          {"tip": tip, "before": before, "after": len(chain), "report": lines})
+    store = recap.Records.load(loop)
+    store.put(record)
+    store.save()
+    if tip != signed:
+        try:
+            repo.call("update-ref", "-m", "vdd loop fold", "refs/heads/" + branch, tip, signed)
+        except GitFailed as error:
+            return skipped(loop, state, out, signed, "a git error: %s: %s" % (
+                command_text(error.call), error.call.first_error()), write, harness)
+        except gitcmd.Refused as error:
+            raise Failure(
+                ["A sandbox refused %s inside the tool: %s" % (command_text(error.call), error.call.first_error()),
+                 "Nothing was folded or written; %s stays at the signed commit %s." % (branch, signed[:7])],
+                "Rerun %s outside the sandbox, the way your Harness grants that; when that is refused too, tell "
+                "the user %s was refused, and stop." % (fold_command(loop, harness, write), command_text(error.call)),
+            )
+    recap.commit(loop, state, store, [loopstate.folded_line(tip, signed)])
+    return folded(loop, out, branch, signed, record)
+
+
+def moved_record(loop: Loop, repo: Repo, branch: str, signed: str) -> recap.Record | None:
+    """The fold record of the signed commit when the branch is at its
+    recorded tip, as a fold that moved the ref and failed before its state
+    line leaves it; else None."""
+    record = recap.Records.load(loop).get(recap.fold_key(signed))
+    tip = record.data.get("tip") if record is not None else None
+    if record is None or not isinstance(tip, str) or tip == signed:
+        return None
+    at = repo.call("rev-parse", "--verify", "--quiet", "refs/heads/" + branch, ok=(0, 1)).out.strip()
+    return record if at == tip else None
+
+
+def folded(loop: Loop, out: Output, branch: str, signed: str, record: recap.Record) -> int:
+    before, after = int(record.data["before"]), int(record.data["after"])
+    out.line("Folded %s: %d commits into %d." % (branch, before, after))
+    for line in record.data.get("report") or []:
+        out.line(str(line))
     out.line("The folded tree equals the tree the Code-Reviewer signed off (%s)." % signed[:7])
     out.line("Wrote the final commits to %s/%s." % (loop.tracker, recap.NAME))
     out.tell("Folded %s: %d commits into %d. The tree equals the signed tree; RECAP.md lists the commits."
-             % (branch, before, len(chain)))
+             % (branch, before, after))
     return out.finish(signoff.pr_step(loop))
 
 
@@ -549,8 +593,6 @@ def checked_fold(
     if differ:
         raise Skip("the folded tree would differ from the signed tree in: %s" % ", ".join(differ))
     lines = report(repo, chain, sources, earlier)
-    if write and tip != signed:
-        repo.call("update-ref", "-m", "vdd loop fold", ref, tip, signed)
     return before, chain, tip, lines
 
 
@@ -601,9 +643,9 @@ def skipped(
     if not write:
         out.line("Would skip the fold: %s. %s would stay at the signed commit %s." % (reason, branch, signed[:7]))
         return out.finish("Run %s" % fold_command(loop, harness))
-    state.append(loopstate.skipped_line(signed, reason))
-    recap.write(loop, state, {"Commits": [
-        "Not folded: %s stays at the signed commit %s, because %s." % (branch, signed[:7], reason)]})
+    recap.record(loop, state, [recap.Record(recap.fold_key(signed), "Commits", [
+        "Not folded: %s stays at the signed commit %s, because %s." % (branch, signed[:7], reason)])],
+        [loopstate.skipped_line(signed, reason)])
     out.line("Not folded: %s." % reason)
     out.line("%s stays at the signed commit %s. Recorded in %s/%s." % (branch, signed[:7], loop.tracker, recap.NAME))
     pr, _ = loop.setting("PR")

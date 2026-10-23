@@ -15,7 +15,7 @@ import re
 from typing import Callable
 
 from .. import loopfile, loopstate, places, recap, textfile, workfile
-from ..out import Failure, Output, and_list, refused
+from ..out import Failure, Output, and_list
 from . import review
 
 NAME = "CODEREVIEW.md"
@@ -178,8 +178,13 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
     state.refuse_v1(loop.slug, "review add")
     refuse_moved_fold(state, loop, source)
     entry = Entry(state, loop)
-    findings = read_findings(source)
+    every = read_findings(source)
     kept = kept_blocks(loop, entry)
+    # A finding the open entry already holds was added by an earlier run
+    # whose commit point passed: a rerun adds it no second time.
+    findings = [f for f in every if not any(same(block, f) for block in kept)]
+    if not findings:
+        return already_added(loop, state, entry, source, write)
     carried = not_carried(loop, entry)
     number = entry.first
     blocks: list[list[str]] = [block.text_lines() for block in kept]
@@ -217,19 +222,12 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
         if carried:
             out.line(carried)
         return out.finish("Run %s" % command(loop, source))
-    state.lines.append(user)
+    # CODEREVIEW.md first: the committed user line names headings that must
+    # already be in it. A rerun before the commit point numbers the same
+    # findings the same way and writes the same file.
     textfile.write_or_refuse(os.path.join(loop.dir, NAME), "\n".join(lines) + "\n", review_path,
                              "Otherwise tell the user CODEREVIEW.md cannot be written, and stop.")
-    recap.write(loop, state, {})
-    state.persist(user)
-    if reopening:
-        try:
-            loopstate.append_state(loop.dir, loopstate.OPEN)
-        except OSError as error:
-            raise refused(
-                "Could not reopen the loop %s: %s" % (loop.slug, textfile.reason(error)),
-                "Otherwise tell the user the loop could not be reopened, and stop.",
-            )
+    recap.record(loop, state, [], [user] + ([loopstate.loop_line(loopstate.OPEN)] if reopening else []))
     out.line("Wrote %s." % review_path)
     out.line("Wrote %s/%s." % (loop.tracker, recap.NAME))
     out.line("Recorded in %s/%s: %s" % (loop.tracker, loopstate.STATE_NAME, user))
@@ -238,6 +236,35 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
     out.line("Findings %s open: %d blocker, %d major, %d minor." % ((workfile.join_numbers(numbers),) + counts))
     if carried:
         out.line(carried)
+    return out.finish(
+        "Tell the Orchestrator the loop has your findings; it carries on with orchestrator start."
+    )
+
+
+def same(block: workfile.Block, finding: Finding) -> bool:
+    """Whether block is finding as an earlier add wrote it: the same
+    severity, reference and text."""
+    body = block.text_lines()[1:]
+    while body and not body[0].strip():
+        body.pop(0)
+    return (block.severity == finding.severity and block.reference.strip() == finding.reference
+            and [line.rstrip() for line in body] == body_lines(finding.body))
+
+
+def already_added(loop: loopfile.Loop, state: loopstate.State, entry: Entry, source: str, write: bool) -> int:
+    """Every finding of source is in the open entry: a rerun after the commit
+    point, which writes RECAP.md again where a failure left it behind."""
+    joined = entry.joined
+    if joined is None:
+        raise RuntimeError("already_added without an open entry.")
+    store = recap.Records.load(loop)
+    out = Output()
+    numbers = workfile.join_numbers(joined.raised())
+    wrote = write and recap.render_recap(loop, state, store)
+    out.line("The findings of %s are already added after round %d's Sign-off, as findings %s. %s" % (
+        source, entry.round, numbers,
+        "Wrote %s/%s again." % (loop.tracker, recap.NAME) if wrote else "Nothing was written."))
+    out.line("Findings %s open: %d blocker, %d major, %d minor." % ((numbers,) + tuple(joined.counts)))
     return out.finish(
         "Tell the Orchestrator the loop has your findings; it carries on with orchestrator start."
     )

@@ -424,10 +424,7 @@ def lint_findings(round_: Round, found: list[fixes.Entry], at: Callable[[workfil
 def check(round_: Round, write: bool) -> int:
     if not round_.started:
         if round_.newest and round_.state.review("code", round_.newest) is None:
-            out = Output()
-            out.line("Round %d's end is already recorded. Nothing was written." % round_.newest)
-            out.line(loopstate.coder_doorbell(round_.newest))
-            return out.finish("End your turn with the Doorbell line above as your whole reply.")
+            return already_recorded(round_, write)
         raise Failure(
             "Code round %d has not been started, so %s has no frame to check." % (round_.number, round_.relative),
             "Run %s first." % round_.command("start"),
@@ -466,17 +463,55 @@ def check(round_: Round, write: bool) -> int:
         out.line("%s passes: round %d." % (fixes.NAME, round_.number))
         return out.finish("Run %s" % round_.command("check"))
     tip = head(root)
-    cleaned = workfile.squeeze(workfile.without_guides(parsed.texts))
-    textfile.write_or_refuse(round_.file, "\n".join(cleaned) + "\n", round_.relative,
-                             "Otherwise tell the user FIXES.md cannot be written, and stop.")
+    cleaned = cleaned_text(parsed)
+    records = []
     if round_.number == 1:
-        recap.write(round_.loop, round_.state, {"Tickets": recap_tickets(workfile.Parsed("\n".join(cleaned)))})
-    round_.state.append(loopstate.code_mark_line("end", round_.number, tip))
+        records.append(recap.Record(recap.TICKETS_KEY, "Tickets", recap_tickets(workfile.Parsed(cleaned))))
+    recap.record(round_.loop, round_.state, store, records, [loopstate.code_mark_line("end", round_.number, tip)])
+    write_recorded(round_, cleaned)
     out.line("%s: round %d checked and written." % (fixes.NAME, round_.number))
     out.line("Round %d ends at %s." % (round_.number, tip))
     if round_.number == 1:
         out.line("Copied the Ticket entries to %s." % round_.path(recap.NAME))
     out.line(loopstate.coder_doorbell(round_.number))
+    return out.finish("End your turn with the Doorbell line above as your whole reply.")
+
+
+def cleaned_text(parsed: workfile.Parsed) -> str:
+    """FIXES.md after a passing check: no guidance comment. Computed from its
+    own result it gives the same text."""
+    return "\n".join(workfile.squeeze(workfile.without_guides(parsed.texts))) + "\n"
+
+
+def write_recorded(round_: Round, text: str) -> None:
+    """Step 5: FIXES.md rewritten, after the commit point."""
+    textfile.write_or_refuse(round_.file, text, round_.relative,
+                             "Otherwise tell the user the round is recorded and FIXES.md cannot be written; once it "
+                             "can be, the same command run again writes it. Then stop.")
+
+
+def already_recorded(round_: Round, write: bool) -> int:
+    """A rerun after the commit point: RECAP.md and FIXES.md written again
+    where a failure left them behind, the round not recorded twice."""
+    out = Output()
+    written = []
+    store = recap.Records.load(round_.loop)
+    if write:
+        if recap.render_recap(round_.loop, round_.state, store):
+            written.append(round_.path(recap.NAME))
+        text = textfile.read(round_.file)
+        parsed = workfile.Parsed(text) if text is not None else None
+        title = parsed.title if parsed is not None else None
+        if parsed is not None and title is not None and title.text.strip() == "# Fixes, round %d" % round_.newest:
+            cleaned = cleaned_text(parsed)
+            if cleaned != text:
+                write_recorded(round_, cleaned)
+                written.append(round_.relative)
+    if written:
+        out.line("Round %d's end is already recorded. Wrote %s again." % (round_.newest, " and ".join(written)))
+    else:
+        out.line("Round %d's end is already recorded. Nothing was written." % round_.newest)
+    out.line(loopstate.coder_doorbell(round_.newest))
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
 
 

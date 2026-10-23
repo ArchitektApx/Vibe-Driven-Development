@@ -110,7 +110,9 @@ class Round:
     """The review round a command acts on: the next one after the last
     recorded review."""
 
-    def __init__(self, loop: loopfile.Loop, state: loopstate.State, role: str) -> None:
+    def __init__(self, loop: loopfile.Loop, state: loopstate.State, role: str, number: int | None = None) -> None:
+        """The next round, or with number the round number as it stood before
+        it was recorded."""
         self.loop = loop
         self.state = state
         self.role = role
@@ -118,10 +120,12 @@ class Round:
         self.name = FILES[self.kind]
         self.file = os.path.join(loop.dir, self.name)
         self.relative = "%s/%s" % (loop.tracker, self.name)
-        self.last = state.last_review(self.kind)
+        reviews = state.reviews(self.kind)
+        earlier = [r for r in reviews if number is None or r < number]
+        self.last = reviews[max(earlier)] if earlier else None
         self.number = (self.last.round + 1) if self.last else 1
         self.carried_numbers: list[int] = list(self.last.open) if self.last else []
-        self.first_new = state.next_number(self.kind)
+        self.first_new = self.last.next if self.last else 1
         self.carried_file = os.path.join(loop.dir, CARRIED % self.kind)
         self._documents: list[str] | None = None
 
@@ -704,7 +708,11 @@ def recap_not_carried(round_: Round, items: list[tuple[str, list[int]]]) -> list
 def check(round_: Round, write: bool) -> int:
     if not round_.state.review_started(round_.kind, round_.number):
         if round_.last and not round_available(round_):
-            return already_recorded(round_, round_.last)
+            if round_.last.user:
+                # The user's entry is not this reviewer's round: its counts
+                # are never answered as the reviewer's own.
+                require_round(round_)
+            return already_recorded(round_, round_.last, write)
         raise Failure(
             "Round %d of the %s review has not been started, so %s has no frame to check."
             % (round_.number, round_.kind, round_.relative),
@@ -737,16 +745,17 @@ def check(round_: Round, write: bool) -> int:
     next_number = max([round_.first_new - 1] + [b.number for b in parsed.blocks if b.number is not None]) + 1
     line = loopstate.reviewed_line(round_.kind, round_.number, signed_off, numbers, counts, next_number, new,
                                    len(closed), checks_text(round_, parsed))
-    round_.state.lines.append(line)
-    review = round_.state.reviews(round_.kind)[round_.number]
     section = "Plan findings" if round_.kind == "plan" else "Code findings"
     items = not_carried(parsed, None) if round_.kind == "code" else []
     dropped = [number for _, numbers in items for number in numbers]
-    textfile.write_or_refuse(round_.file, "\n".join(cleaned(parsed, status, closed, dropped)) + "\n",
-                             round_.relative, "Otherwise tell the user the review file cannot be written, and stop.")
-    recap.write(round_.loop, round_.state, {section: recap_findings(round_, closed),
-                                            "Not carried": recap_not_carried(round_, items)})
-    round_.state.persist(line)
+    rewritten = "\n".join(cleaned(parsed, status, closed, dropped)) + "\n"
+    records = [recap.Record(recap.findings_key(round_.kind, round_.number), section, recap_findings(round_, closed))]
+    if round_.kind == "code":
+        records.append(recap.Record(recap.not_carried_key(round_.number), "Not carried",
+                                    recap_not_carried(round_, items)))
+    recap.record(round_.loop, round_.state, store, records, [line])
+    write_recorded(round_, rewritten)
+    review = round_.state.reviews(round_.kind)[round_.number]
     out.line("%s: round %d checked and written." % (round_.name, round_.number))
     out.line(status)
     if closed:
@@ -760,8 +769,48 @@ def check(round_: Round, write: bool) -> int:
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
 
 
-def already_recorded(round_: Round, review: loopstate.Review) -> int:
+def write_recorded(round_: Round, text: str) -> None:
+    """Step 5: the review file rewritten, after the commit point."""
+    textfile.write_or_refuse(round_.file, text, round_.relative,
+                             "Otherwise tell the user the round is recorded and the review file cannot be written; "
+                             "once it can be, the same command run again writes it. Then stop.")
+
+
+def rewrite_recorded(round_: Round, review: loopstate.Review) -> bool:
+    """Step 5 again for a recorded round: the review file as the round's
+    check left it, computed from the file as it is. Whether it wrote."""
+    text = textfile.read(round_.file)
+    if text is None:
+        return False
+    recorded = Round(round_.loop, round_.state, round_.role, review.round)
+    parsed = workfile.Parsed(text)
+    if parsed.title is None or parsed.title.text.strip() != "# %s, round %d" % (TITLES[round_.kind], review.round):
+        return False
+    _, closed, _, _ = outcome(recorded, parsed)
+    items = not_carried(parsed, None) if round_.kind == "code" else []
+    dropped = [number for _, numbers in items for number in numbers]
+    rewritten = "\n".join(cleaned(parsed, status_line(review.counts, review.signed_off), closed, dropped)) + "\n"
+    if rewritten == text:
+        return False
+    write_recorded(round_, rewritten)
+    return True
+
+
+def already_recorded(round_: Round, review: loopstate.Review, write: bool) -> int:
+    """A rerun after the commit point: RECAP.md and the review file written
+    again where a failure left them behind, the round not recorded twice."""
     out = Output()
-    out.line("Round %d of the %s review is already recorded. Nothing was written." % (review.round, round_.kind))
+    written = []
+    store = recap.Records.load(round_.loop)
+    if write:
+        if recap.render_recap(round_.loop, round_.state, store):
+            written.append(round_.path(recap.NAME))
+        if rewrite_recorded(round_, review):
+            written.append(round_.relative)
+    if written:
+        out.line("Round %d of the %s review is already recorded. Wrote %s again." % (
+            review.round, round_.kind, " and ".join(written)))
+    else:
+        out.line("Round %d of the %s review is already recorded. Nothing was written." % (review.round, round_.kind))
     out.line(loopstate.review_doorbell(review))
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
