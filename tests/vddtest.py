@@ -456,6 +456,15 @@ class Sandbox:
             return None
         return path
 
+    def ls_remote_report(self, remote, env):
+        """git ls-remote <remote> HEAD as the tool runs it under env, for a
+        failure message: the tool keeps git's stderr to itself."""
+        proc = subprocess.run(["git", "ls-remote", remote, "HEAD"], cwd=self.proj, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, env=env)
+        return "git %s; PATH %s; ls-remote %s HEAD exited %d: %s" % (
+            shutil.which("git"), env.get("PATH"), remote, proc.returncode,
+            proc.stderr.decode("utf-8", "replace").strip())
+
     def cleanup(self):
         remove_tree(self.root)
 

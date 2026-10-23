@@ -852,7 +852,8 @@ class PreflightTest(LoopTest):
     def test_the_remote_the_base_branch_tracks_else_the_single_else_origin(self):
         self.box.bare_origin("upstream")
         result = self.write_yes("one")
-        self.assertIn("Preflight, can push, remote upstream: passed.", result.lines)
+        self.assertIn("Preflight, can push, remote upstream: passed.", result.lines,
+                      self.box.ls_remote_report("upstream", self.env))
         self.box.bare_origin("fork")
         result = self.write_yes("two")
         self.assertIn("Preflight, can push, remote origin: failed (no remote origin is configured).", result.lines)

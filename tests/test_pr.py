@@ -337,7 +337,7 @@ class NoGhTest(PRScene):
         self.ready_to_open()
         self.assertEqual(self.box.remote_ref(self.origin, "refs/heads/demo"), "")
         checked = self.pr_check()
-        self.assertIn("Path: push-only", checked.lines)
+        self.assertIn("Path: push-only", checked.lines, self.box.ls_remote_report("origin", self.env))
         result = self.pr_open()
         self.assertEqual(result.code, 0, result)
         self.assertIn("Pushed demo to origin.", result.lines)
@@ -348,7 +348,7 @@ class NoGhTest(PRScene):
         the other test's ref."""
         self.assertEqual(self.box.remote_ref(self.origin, "refs/heads/demo"), "")
         self.ready_to_open()
-        self.assertEqual(self.pr_open().code, 0)
+        self.assertEqual(self.pr_open().code, 0, self.box.ls_remote_report("origin", self.env))
         self.assertEqual(self.box.remote_ref(self.origin, "refs/heads/demo"), self.sha("demo"))
 
 
