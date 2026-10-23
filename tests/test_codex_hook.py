@@ -265,11 +265,50 @@ class CodexHookTest(ToolTest):
 
     def test_an_error_inside_exits_zero(self):
         """Exit 0 on every path, exceptions included: Codex reads exit 2 as a
-        block and repeats it without limit (ADR 0008)."""
+        block and repeats it without limit (ADR 0008). A wait that fails after
+        the claim took the armed file blocks once with the failure and the
+        hand-relay step, naming the Shared copy: a silent exit left the
+        Session idle with no wait armed."""
         self.loop()
         self.armed(ID)
         self.box.write(os.path.join(TRACKER, "doorbells"), "# vdd doorbells 99\n")
+        reason = self.assertBlock(self.hook(stop_input(ID)))
+        self.assertTrue(reason.startswith(".scratch/feat/doorbells has format version 99, which this copy of the "
+                                          "VDD tool does not know. Next: Tell the user in one line that this wait "
+                                          "cannot run, so they paste the Planner's next Doorbell here."), reason)
+        self.assertIn('%s" doorbell take --role Orchestrator --pasted' % os.path.join(self.box.shared, "vdd.py"),
+                      reason)
+        self.assertTrue(self.gone(ID))
         self.assertSilent(self.hook(stop_input(ID)))
+
+    def test_an_unreadable_state_file_after_the_claim_blocks_once(self):
+        """A state file the wait cannot read, after the claim took the armed
+        file, blocks with the read failure and the hand-relay step, once."""
+        self.loop()
+        self.armed(ID)
+        self.ring("Orchestrator", P1)
+        os.makedirs(self.box.path(TRACKER, "doorbell-state-orchestrator"))
+        reason = self.assertBlock(self.hook(stop_input(ID)))
+        self.assertTrue(reason.startswith("The wait could not read its files: "
+                                          ".scratch/feat/doorbell-state-orchestrator: "), reason)
+        self.assertRegex(reason, r"\S\. Next: Tell the user in one line that this wait cannot run")
+        self.assertIn("--pasted", reason)
+        self.assertTrue(self.gone(ID))
+        self.assertSilent(self.hook(stop_input(ID)))
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
+    def test_a_failure_before_the_claim_stays_silent(self):
+        """A claim that cannot create its marker ends the turn as usual: before
+        the claim nothing is taken, so blocking would stop an unrelated turn
+        end."""
+        self.loop()
+        self.armed(ID)
+        self.ring("Orchestrator", P1)
+        tracker = self.box.path(TRACKER)
+        os.chmod(tracker, stat.S_IRUSR | stat.S_IXUSR)
+        self.addCleanup(os.chmod, tracker, stat.S_IRWXU)
+        self.assertSilent(self.hook(stop_input(ID)))
+        self.assertFalse(self.gone(ID))
 
     def test_two_turn_ends_racing_claim_the_arm_once(self):
         """Two turn ends can race for the same armed file; only one of them

@@ -3,7 +3,7 @@ it the round."""
 
 from __future__ import annotations
 
-from .. import loopstate, workfile
+from .. import doorbells, loopstate, workfile
 from ..out import Output
 from .flow import Flow
 
@@ -22,10 +22,10 @@ def handoff(flow: Flow, role: str, number: int) -> str:
         review = flow.state.review("code", number - 1)
         if review is None:
             raise RuntimeError("No code review is recorded for round %d." % (number - 1))
-        return loopstate.review_doorbell(review)
+        return doorbells.review_doorbell(review)
     if role == "Code-Reviewer":
-        return loopstate.coder_doorbell(number)
-    return loopstate.planner_doorbell(flow.loop.tracker, number)
+        return doorbells.coder_doorbell(number)
+    return doorbells.planner_doorbell(flow.loop.tracker, number)
 
 
 def next_after(flow: Flow, role: str) -> str:

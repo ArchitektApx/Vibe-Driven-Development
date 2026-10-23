@@ -1,7 +1,7 @@
 """The Doorbell command between the Planner and the Orchestrator: ring, wait,
 take. The Doorbell file, its lines and states, the wait and its marker live in
-doorbells.py, which the Orchestrator, the reviews and the Codex Stop hook
-share.
+the doorbells package, which the Orchestrator, the reviews and the Codex Stop
+hook share.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ import signal
 from types import FrameType
 from typing import Any, NoReturn
 
-from . import args, doorbells, harness as harnesses, loopstate, places, textfile
+from . import args, doorbells, harness as harnesses, places, textfile
 from .harness import Harness
 from .out import Failure, Output, or_list
 
@@ -87,14 +87,14 @@ def composed(place: doorbells.Place, role: str) -> str:
     place.state.refuse_v1(place.require_loop().slug, "doorbell ring")
     last = place.state.last_review("plan")
     if role == "Planner":
-        return loopstate.planner_doorbell(place.tracker, last.round + 1 if last else 1)
+        return doorbells.planner_doorbell(place.tracker, last.round + 1 if last else 1)
     if last is None:
         raise Failure(
             "No plan review is recorded for the loop %s, so there is nothing to relay. Nothing was written."
             % place.slug,
             "Wait for the Plan-Reviewer's return, as your skill says.",
         )
-    return loopstate.review_doorbell(last)
+    return doorbells.review_doorbell(last)
 
 
 def ring(place: doorbells.Place, role: str, harness: Harness, write: bool) -> int:
@@ -229,17 +229,12 @@ def wait(place: doorbells.Place, role: str, harness: Harness) -> int:
     end_on_signal()
     marker = doorbells.Marker(place, role, doorbells.timings()[0])
     try:
-        found = doorbells.watch(place, role, beat=marker.beat)
-    except OSError as error:
-        raise Failure(
-            "The wait could not read its files: %s" % textfile.described(error),
-            doorbells.hand_relay(role, harness, place.slug),
-        )
+        outcome = doorbells.wait_for(place, role, harness, beat=marker.beat)
     finally:
         marker.clear()
     out = Output()
-    if found:
+    if isinstance(outcome, doorbells.Found):
         out.line("A Doorbell for the %s is waiting." % role)
-        return out.finish("Run: %s" % doorbells.take_command(role, harness, place.slug))
+        return out.finish("Run: %s" % outcome.take)
     out.line("TIMEOUT")
-    return out.finish(doorbells.timeout_next(role, harness, place.slug))
+    return out.finish(outcome.next_step)

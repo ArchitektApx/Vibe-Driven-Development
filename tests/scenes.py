@@ -326,6 +326,13 @@ class Staged(LoopRepoTest):
             handle.write(("10:00:00 to: Orchestrator VDD Planner: .scratch/feat/ ready, round 1. "
                           "Read spec.md and issues/.\n").encode())
 
+    def codex_armed_newer_doorbells(self):
+        """An armed Codex Orchestrator whose Doorbell file has a format
+        version this copy does not know: the wait fails after the claim."""
+        self.codex_armed()
+        with open(self.box.path(".scratch", "feat", "doorbells"), "wb") as handle:
+            handle.write(b"# vdd doorbells 99\n")
+
     def wayfinder_installed(self):
         self.repo()
         self.box.write(os.path.join(self.box.home, ".claude", "plugins", "cache", "mattpocock", "mattpocock-skills",

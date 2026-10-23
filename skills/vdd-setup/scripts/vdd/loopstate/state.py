@@ -310,27 +310,6 @@ class State:
         self.lines.extend(lines)
 
 
-# --- the Doorbell lines, byte-identical to the ones the Roles composed (ADR 0002) ---
-
-REVIEW_FILES = {"plan": ("Plan-Reviewer", "PLAN-REVIEW.md"), "code": ("Code-Reviewer", "CODEREVIEW.md")}
-
-
-def review_doorbell(review: Review) -> str:
-    role, name = REVIEW_FILES[review.kind]
-    if review.signed_off:
-        return "VDD %s: %s SIGNED OFF, round %d." % (role, name, review.round)
-    return "VDD %s: %s written, round %d: %d blocker, %d major, %d minor. Read it." % (
-        (role, name, review.round) + tuple(review.counts))
-
-
-def planner_doorbell(tracker: str, round_number: int) -> str:
-    return "VDD Planner: %s/ ready, round %d. Read spec.md and issues/." % (tracker, round_number)
-
-
-def coder_doorbell(round_number: int) -> str:
-    return "VDD Coder: FIXES.md written, round %d. Read it." % round_number
-
-
 def closed_loop(slug: str, why: str = "") -> Failure:
     """The Failure for a command that needs an open loop. why, when given,
     follows "is closed" in the first line."""

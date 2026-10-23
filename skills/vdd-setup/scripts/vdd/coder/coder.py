@@ -314,7 +314,7 @@ def check(round_: Round, write: bool) -> int:
     out.line("Round %d ends at %s." % (round_.number, tip))
     if round_.number == 1:
         out.line("Copied the Ticket entries to %s." % round_.path(recap.NAME))
-    out.line(loopstate.coder_doorbell(round_.number))
+    out.line(doorbells.coder_doorbell(round_.number))
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
 
 
@@ -352,7 +352,7 @@ def already_recorded(round_: Round, write: bool) -> int:
         out.line("Round %d's end is already recorded. Wrote %s again." % (round_.newest, " and ".join(written)))
     else:
         out.line("Round %d's end is already recorded. Nothing was written." % round_.newest)
-    out.line(loopstate.coder_doorbell(round_.newest))
+    out.line(doorbells.coder_doorbell(round_.newest))
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
 
 

@@ -271,6 +271,9 @@ ROWS = [
     ("codex-stop", "codex-stop", "armed", S.codex_armed, ("codex-stop",), None,
      json.dumps({"session_id": CODEX_ID, "turn_id": "t1", "hook_event_name": "Stop", "stop_hook_active": False,
                  "last_assistant_message": "Done."}).encode("utf-8"), 0),
+    ("codex-stop", "codex-stop", "wait-fails", S.codex_armed_newer_doorbells, ("codex-stop",), None,
+     json.dumps({"session_id": CODEX_ID, "turn_id": "t1", "hook_event_name": "Stop", "stop_hook_active": False,
+                 "last_assistant_message": "Done."}).encode("utf-8"), 0),
 
     # The refusals in loopstate.header, textfile.check_header and
     # State.persist. A damaged header never reaches loopstate.header's own

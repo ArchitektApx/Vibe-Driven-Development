@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 from typing import Any, Iterable
 
-from .. import args, gitcmd, loopfile, loopstate, places, textfile, workfile
+from .. import args, doorbells, gitcmd, loopfile, loopstate, places, textfile, workfile
 from ..loopstate import recap
 from ..out import Failure, Output
 from .frame import start
@@ -218,7 +218,7 @@ def check(round_: Round, write: bool) -> int:
     if items:
         out.line("Moved to %s: %d Not carried line%s." % (
             round_.path(recap.NAME), len(items), "" if len(items) == 1 else "s"))
-    out.line(loopstate.review_doorbell(review))
+    out.line(doorbells.review_doorbell(review))
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
 
 
@@ -265,5 +265,5 @@ def already_recorded(round_: Round, review: loopstate.Review, write: bool) -> in
             review.round, round_.kind, " and ".join(written)))
     else:
         out.line("Round %d of the %s review is already recorded. Nothing was written." % (review.round, round_.kind))
-    out.line(loopstate.review_doorbell(review))
+    out.line(doorbells.review_doorbell(review))
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
