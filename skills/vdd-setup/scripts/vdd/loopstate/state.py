@@ -16,7 +16,7 @@ closed; the round commands refuse it. Besides the loop lines it holds:
   respawn <Role> <every round|never|over <n>k>
   respawn-once <Role>
   orchestrator session <s>
-  spawn <Role> <r> session <s> [once] [reason <text>]
+  spawn <Role> <r> session <s> [reason <text>]
   resume <Role> <r> session <s>
   return <Role> <r> ok
   return <Role> <r> miss
@@ -39,21 +39,18 @@ from __future__ import annotations
 
 import os
 import re
-from typing import TYPE_CHECKING, Iterable, Literal, Sequence
+from typing import TYPE_CHECKING, Literal
 
-from . import textfile
-from .out import TELL, Failure
+from .. import textfile
+from ..out import TELL, Failure
+from .lines import STATE_PREFIX, code_mark_line, header_line, loop_line, review_started_line
 
 if TYPE_CHECKING:
-    from .loopfile import Loop
+    from ..loopfile import Loop
 
 STATE_NAME = "loop-state"
-STATE_PREFIX = "vdd loop-state "
-STATE_VERSION = "2"
-# The versions read_state reads. Version 1 has only loop lines.
+# The versions State reads. Version 1 has only loop lines.
 STATE_VERSIONS = ("1", "2")
-# The one release that wrote version 1.
-V1_RELEASE = "0.16.0-beta.3"
 OPEN = "open"
 CLOSED = "closed"
 
@@ -120,82 +117,56 @@ def header(path: str, lines: list[str]) -> str:
     return version
 
 
-def read_state(directory: str) -> str | None:
-    """OPEN or CLOSED from the state file in directory, or None when there is
-    none. A file with no loop line reads as CLOSED."""
-    path = os.path.join(directory, STATE_NAME)
-    lines = textfile.lines(path)
-    if lines is None:
-        return None
-    header(path, lines)
-    state = CLOSED
-    for line in lines[1:]:
-        parts = line.split()
-        if len(parts) == 2 and parts[0] == "loop" and parts[1] in (OPEN, CLOSED):
-            state = parts[1]
-    return state
-
-
-def state_version(directory: str) -> str | None:
-    """The state file's version, "1" or "2", or None when there is none."""
-    lines = textfile.lines(os.path.join(directory, STATE_NAME))
-    if not lines or not lines[0].startswith(STATE_PREFIX):
-        return None
-    return lines[0][len(STATE_PREFIX):].strip()
-
-
-def refuse_v1(loop: Loop, command: str) -> None:
-    """Refuse a command that reads the loop's rounds on a loop whose state
-    file is version 1: that loop was started by 0.16.0-beta.3, and this
-    version reads no rounds from it."""
-    if state_version(loop.dir) != "1":
-        return
-    raise Failure(
-        [
-            "The loop %s was started by VDD %s, the one release that wrote state file version 1. %s does "
-            "not run on it: this version reads no rounds from a version 1 loop."
-            % (loop.slug, V1_RELEASE, command),
-            TELL % (
-                "The loop %s was started by VDD %s. To finish it, reinstall VDD %s; or move it aside with "
-                "loop aside --slug %s --write and start the loop again with vdd-start-loop."
-                % (loop.slug, V1_RELEASE, V1_RELEASE, loop.slug)
-            ),
-        ],
-        "Relay the Tell the user verbatim line above unchanged, and stop.",
-    )
-
-
-def needs_new_state(directory: str) -> bool:
-    """Whether a new loop in directory writes its state file whole: there is
-    none, or a damaged one. False for a readable one, which a new loop appends
-    to. A newer format version refuses, before anything is written."""
-    try:
-        return read_state(directory) is None
-    except Damaged:
-        return True
-
-
 def start_state(directory: str) -> None:
     """Write a new state file holding one open loop, replacing a damaged one."""
-    textfile.write_text(os.path.join(directory, STATE_NAME), STATE_PREFIX + STATE_VERSION + "\nloop %s\n" % OPEN)
-
-
-def append_state(directory: str, state: str) -> None:
-    """Append "loop <state>" to the loop's state file, which every caller
-    has read first."""
-    textfile.append(os.path.join(directory, STATE_NAME), "loop %s\n" % state)
+    textfile.write_text(os.path.join(directory, STATE_NAME), header_line() + "\n" + loop_line(OPEN) + "\n")
 
 
 class State:
-    """Every line of the state file, read once."""
+    """Every line of the state file, read once per command: its version,
+    whether the loop is open, and the round lines."""
 
     def __init__(self, directory: str) -> None:
         self.dir = directory
         self.path = os.path.join(directory, STATE_NAME)
-        lines: list[str] = textfile.lines(self.path) or []
-        if lines:
-            header(self.path, lines)
-        self.lines = lines[1:]
+        lines = textfile.lines(self.path)
+        # None when there is no state file.
+        self.version: str | None = None if lines is None else header(self.path, lines)
+        self.lines: list[str] = (lines or [])[1:]
+
+    @property
+    def status(self) -> str | None:
+        """OPEN or CLOSED, the last loop line winning, or None when there is
+        no state file. A file with no loop line reads as CLOSED."""
+        if self.version is None:
+            return None
+        status = CLOSED
+        for line in self.lines:
+            parts = line.split()
+            if len(parts) == 2 and parts[0] == "loop" and parts[1] in (OPEN, CLOSED):
+                status = parts[1]
+        return status
+
+    @property
+    def is_open(self) -> bool:
+        return self.status == OPEN
+
+    def refuse_v1(self, slug: str, command: str) -> None:
+        """Refuse a command that reads the loop's rounds on a version 1 state
+        file: this version reads no rounds from it."""
+        if self.version != "1":
+            return
+        raise Failure(
+            [
+                "The loop %s has state file version 1, which this VDD no longer reads. %s does not run on it."
+                % (slug, command),
+                TELL % (
+                    "The loop %s has state file version 1, which this VDD no longer reads. Move it aside with "
+                    "loop aside --slug %s --write, and start the loop afresh with vdd-start-loop." % (slug, slug)
+                ),
+            ],
+            "Relay the Tell the user verbatim line above unchanged, and stop.",
+        )
 
     # --- reading ---
 
@@ -263,12 +234,12 @@ class State:
         return self.reviews(kind).get(round_number)
 
     def review_started(self, kind: str, round_number: int) -> bool:
-        return ("%s %d review-started" % (kind, round_number)) in self.lines
+        return review_started_line(kind, round_number) in self.lines
 
-    def code_mark(self, which: str, round_number: int) -> str | None:
+    def code_mark(self, which: Literal["start", "end"], round_number: int) -> str | None:
         """The sha of a code round's start or end line, the last winning, or
         None."""
-        prefix = "code %d %s " % (round_number, which)
+        prefix = code_mark_line(which, round_number, "")
         sha: str | None = None
         for line in self.lines:
             if line.startswith(prefix):
@@ -284,18 +255,37 @@ class State:
                 newest = max(newest, int(match.group(1)))
         return newest
 
-    def fold_record(self, kind: str | None = None) -> Fold | None:
-        """The fold's last recorded outcome, of kind when given, or None."""
-        found: Fold | None = None
+    def folds(self) -> list[Fold]:
+        """Every fold line, folded or skipped, as a Fold, in order."""
+        found: list[Fold] = []
         for line in self.lines:
             match = re.match(r"^fold folded (\S+) signed (\S+)", line)
-            if match and kind in (None, "folded"):
-                found = Fold("folded", match.group(2), tip=match.group(1))
+            if match:
+                found.append(Fold("folded", match.group(2), tip=match.group(1)))
                 continue
             match = re.match(r"^fold skipped (\S+) (.*)$", line)
-            if match and kind in (None, "skipped"):
-                found = Fold("skipped", match.group(1), reason=match.group(2))
+            if match:
+                found.append(Fold("skipped", match.group(1), reason=match.group(2)))
         return found
+
+    def fold_record(self, kind: str | None = None) -> Fold | None:
+        """The fold's last recorded outcome, of kind when given, or None."""
+        wanted = [fold for fold in self.folds() if kind in (None, fold.kind)]
+        return wanted[-1] if wanted else None
+
+    def fold_signed(self) -> set[str]:
+        """The signed commits a fold line, folded or skipped, names."""
+        return {fold.signed for fold in self.folds()}
+
+    def fold_owed(self) -> bool:
+        """Whether the fold is owed: the newest code record is a reviewer's
+        signed-off review, and no fold line exists or the last one ran on
+        another commit than that round's recorded end."""
+        review = self.last_review("code")
+        if review is None or not review.signed_off:
+            return False
+        record = self.fold_record()
+        return record is None or record.signed != self.code_mark("end", review.round)
 
     def next_number(self, kind: str) -> int:
         """The number a round's new findings start at: the last review's
@@ -307,35 +297,17 @@ class State:
 
     def append(self, *lines: str) -> None:
         """Append lines to the state file, or raise a refused Failure."""
-        self.persist(*lines)
-        self.lines.extend(lines)
-
-    def persist(self, *lines: str) -> None:
-        """Append lines to the state file on disk only: for lines already
-        added to self.lines so the files written before them saw them."""
         try:
-            textfile.append(self.path, "".join(line + "\n" for line in lines))
+            self.add(*lines)
         except OSError as error:
             raise textfile.write_refusal("the loop state file %s" % textfile.shown(self.path), error,
                                          "Otherwise tell the user the loop state file cannot be written, and stop.")
 
-
-def user_line(
-    round_number: int, open_numbers: Iterable[int], counts: Sequence[int], next_number: int, new: int,
-) -> str:
-    numbers = ",".join(str(n) for n in open_numbers)
-    return "code %d user open %s counts %d %d %d next %d new %d" % (
-        round_number, numbers, counts[0], counts[1], counts[2], next_number, new)
-
-
-def reviewed_line(
-    kind: str, round_number: int, signed_off: bool, open_numbers: Iterable[int], counts: Sequence[int],
-    next_number: int, new: int, closed: int, checks: str,
-) -> str:
-    numbers = ",".join(str(n) for n in open_numbers) or "-"
-    return "%s %d reviewed %s %s counts %d %d %d next %d new %d closed %d checks %s" % (
-        kind, round_number, "signed-off" if signed_off else "open", numbers, counts[0], counts[1], counts[2],
-        next_number, new, closed, checks)
+    def add(self, *lines: str) -> None:
+        """Append lines to the state file in one write, for a caller that
+        words its own refusal. Raises OSError."""
+        textfile.append(self.path, "".join(line + "\n" for line in lines))
+        self.lines.extend(lines)
 
 
 # --- the Doorbell lines, byte-identical to the ones the Roles composed (ADR 0002) ---
@@ -369,8 +341,10 @@ def closed_loop(slug: str, why: str = "") -> Failure:
 
 
 def open_loop(loop: Loop, command: str) -> State:
-    """Refuse a round command on a version 1 or a closed loop."""
-    refuse_v1(loop, command)
-    if not loop.is_open():
+    """The loop's State, read once; refuses a round command on a version 1 or
+    a closed loop."""
+    state = loop.load_state()
+    state.refuse_v1(loop.slug, command)
+    if not state.is_open:
         raise closed_loop(loop.slug)
-    return State(loop.dir)
+    return state

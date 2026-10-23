@@ -15,7 +15,7 @@ import re
 import shutil
 from typing import TYPE_CHECKING, Any, Iterable
 
-from . import args, gitcmd, loopfile, loopstate, places, preflight, signoff, textfile, workfile
+from . import args, doorbells, gitcmd, loopfile, loopstate, places, preflight, textfile, workfile
 from .gitcmd import Refused
 from .out import Failure, Output, refused
 
@@ -77,10 +77,10 @@ def dispatch(sub: str, values: dict[str, Any]) -> int:
     args.require(values, ["slug", "harness"], usage())
     harness = args.harness_of(values, usage())
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
-    loopstate.open_loop(loop, "pr %s" % sub)
-    signoff.require_code_sign_off(loop)
+    state = loopstate.open_loop(loop, "pr %s" % sub)
+    loopstate.require_code_sign_off(state)
     if sub == "open":
-        return open_pr(loop, harness, values["path"], values["write"])
+        return open_pr(loop, state, harness, values["path"], values["write"])
     return check(loop, harness)
 
 
@@ -88,20 +88,12 @@ def gh(root: str, *argv: str) -> gitcmd.Call:
     return gitcmd.run(root, ["gh"] + list(argv), timeout=TIMEOUT_SECONDS)
 
 
-def call_text(call: gitcmd.Call) -> str:
-    return " ".join(call.argv[:3])
-
-
 def refusal(
     call: gitcmd.Call, command: str, otherwise: str, what: str = "Nothing was pushed or written; the loop stays open.",
 ) -> Failure:
     """The Failure for a call a sandbox refused inside the tool; what says
     what happened before it."""
-    return Failure(
-        ["A sandbox refused %s inside the tool: %s" % (call_text(call), call.first_error()), what],
-        "Rerun %s outside the sandbox, the way your Harness grants that; when that is refused too, %s" % (
-            command, otherwise),
-    )
+    return gitcmd.sandbox_refusal(call, command, otherwise, [what])
 
 
 def check_command(loop: loopfile.Loop, harness: Harness) -> str:
@@ -224,13 +216,13 @@ def existing_pr(root: str, branch: str) -> str | None:
 
 def path_of(loop: loopfile.Loop) -> Path:
     """The Path for the loop's PR: line, or Refused."""
-    pr, _ = loop.setting("PR")
+    pr = loop.pr
     if pr == "manual":
         return Path(MANUAL)
     if pr == "no":
         return Path(NO_PR)
-    base, _ = loop.setting("Base branch")
-    branch, _ = loop.setting("Feature branch")
+    base = loop.base
+    branch = loop.branch
     remote, found = preflight.checks(loop.root, base)
     for check in found:
         if check.refused is not None:
@@ -273,8 +265,8 @@ def print_path(out: Output, path: Path) -> None:
 def check(loop: loopfile.Loop, harness: Harness) -> int:
     root = loop.root
     out = Output()
-    for name in ("Base branch", "Feature branch", "PR"):
-        out.line("%s: %s" % (name, loop.setting(name)[0]))
+    for name, value in (("Base branch", loop.base), ("Feature branch", loop.branch), ("PR", loop.pr)):
+        out.line("%s: %s" % (name, value))
     found = template(root)
     command = check_command(loop, harness)
     if found:
@@ -284,15 +276,15 @@ def check(loop: loopfile.Loop, harness: Harness) -> int:
         try:
             print_history(out, history(root))
         except Refused as error:
-            raise refusal(error.call, command, "tell the user %s was refused, and stop." % call_text(error.call))
+            raise refusal(error.call, command, "tell the user %s was refused, and stop." % gitcmd.call_text(error.call))
     try:
         path = path_of(loop)
     except Refused as error:
         raise refusal(error.call, command,
-                      "tell the user %s was refused, and stop." % call_text(error.call))
+                      "tell the user %s was refused, and stop." % gitcmd.call_text(error.call))
     print_path(out, path)
     if path.name == NO_PR:
-        return out.finish(signoff.pr_step(loop))
+        return out.finish(loopstate.pr_step(loop))
     return out.finish(
         "Assemble the title and body as your skill's step 3 says and write them to %s/%s, then go on from its "
         "step 4 (the PR: line)." % (loop.tracker, BODY_NAME)
@@ -351,41 +343,40 @@ def changed(path: Path, wanted: str) -> str:
     return "the path is now %s" % path.name
 
 
-def close(loop: loopfile.Loop, out: Output) -> None:
+def close(loop: loopfile.Loop, state: loopstate.State, out: Output) -> None:
+    """Close the loop, every line printed a done line: a failure after it
+    still shows what happened."""
     try:
-        loopstate.append_state(loop.dir, loopstate.CLOSED)
-        for name in loopfile.delete_armed(loop.dir):
-            out.line("Deleted the Codex armed file %s." % name)
+        for name in loopfile.close(state):
+            out.done("Deleted the Codex armed file %s." % name)
     except OSError as error:
-        raise refused(
+        raise out.failing(refused(
             "Could not close the loop %s: %s" % (loop.slug, textfile.reason(error)),
             "Otherwise tell the user the loop could not be closed, and stop.",
-        )
-    out.line("Closed: the loop %s. Its files stay in %s/ as the record." % (loop.slug, loop.tracker))
+        ))
+    out.done(loopfile.closed_line(loop.slug))
 
 
-def open_pr(loop: loopfile.Loop, harness: Harness, wanted: str, write: bool) -> int:
+def open_pr(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wanted: str, write: bool) -> int:
     if wanted not in (OPEN, PUSH_ONLY, EXISTING):
         raise Failure(
             "--path takes open, push-only or existing: the path pr check printed.",
             "Run %s pr check --slug %s --harness %s, and copy the path from its Path: line." % (
                 places.command(), loop.slug, harness.name),
         )
-    state = loopstate.State(loop.dir)
-    signoff.require_code_sign_off(loop)
-    if signoff.fold_owed(state):
+    if doorbells.Place(loop.root, loop.slug, loop, state).position().fold_owed:
         raise Failure(
             "The fold's outcome is not recorded for the code Sign-off: the branch is pushed only after the Sign-off "
             "and the fold. Nothing was pushed.",
-            "Stop, and tell the user the fold has not run; the Orchestrator runs %s loop fold --slug %s --harness "
-            "%s --write at the code Sign-off." % (places.command(), loop.slug, harness.name),
+            "Stop, and tell the user the fold has not run; the Orchestrator runs %s at the code Sign-off."
+            % loopstate.fold_command(loop, harness),
         )
     title, body = read_body(loop)
     command = open_command(loop, harness, wanted)
     try:
         path = path_of(loop)
     except Refused as error:
-        raise refusal(error.call, command, "tell the user %s was refused, and stop." % call_text(error.call))
+        raise refusal(error.call, command, "tell the user %s was refused, and stop." % gitcmd.call_text(error.call))
     out = Output()
     if path.name != wanted:
         out.line("The path is no longer %s: %s. Nothing was pushed." % (wanted, changed(path, wanted)))
@@ -393,8 +384,8 @@ def open_pr(loop: loopfile.Loop, harness: Harness, wanted: str, write: bool) -> 
         return out.finish(
             "Relay the line above, then run %s pr check --slug %s --harness %s and go on with the path it prints."
             % (places.command(), loop.slug, harness.name), 1)
-    branch, _ = loop.setting("Feature branch")
-    base, _ = loop.setting("Base branch")
+    branch = loop.branch
+    base = loop.base
     if not write:
         what = {OPEN: " and open the PR into %s" % base, EXISTING: ", to the PR %s" % path.url}.get(wanted, "")
         out.line("Would push %s to %s%s, then close the loop." % (branch, path.remote, what))
@@ -409,32 +400,32 @@ def open_pr(loop: loopfile.Loop, harness: Harness, wanted: str, write: bool) -> 
         out.tell("The push of %s failed: %s" % (branch, push.first_error()))
         return out.finish(
             "Relay the line above and wait for the user to fix it; when they say it is fixed, run %s" % command, 1)
-    out.line("Pushed %s to %s." % (branch, path.remote))
+    out.done("Pushed %s to %s." % (branch, path.remote))
     if wanted == EXISTING:
-        close(loop, out)
-        out.tell("Pushed %s to %s: the PR %s has the new commits." % (branch, path.remote, path.url))
+        out.done_tell("Pushed %s to %s: the PR %s has the new commits." % (branch, path.remote, path.url))
+        close(loop, state, out)
         return out.finish("Relay the line above and stop.")
     if wanted == PUSH_ONLY:
         failed = path.failed()
-        close(loop, out)
-        out.tell("Pushed %s to %s. gh cannot open the PR here (%s): open it in the web UI with the title and body "
-                 "in %s/%s." % (branch, path.remote, failed[0].why if failed else "the open-a-PR check failed",
-                                loop.tracker, BODY_NAME))
+        out.done_tell("Pushed %s to %s. gh cannot open the PR here (%s): open it in the web UI with the title and "
+                      "body in %s/%s." % (branch, path.remote, failed[0].why if failed else
+                                          "the open-a-PR check failed", loop.tracker, BODY_NAME))
+        close(loop, state, out)
         return out.finish("Relay the line above and stop.")
     created = gitcmd.run(loop.root, ["gh", "pr", "create", "--head", branch, "--base", base, "--title", title,
                                      "--body-file", "-"], data=body.encode("utf-8"),
                          timeout=TIMEOUT_SECONDS)
     if created.refused:
-        raise refusal(created, command, "tell the user gh pr create was refused, and stop.",
-                      "%s is pushed; no PR was opened, and the loop stays open." % branch)
+        raise out.failing(refusal(created, command, "tell the user gh pr create was refused, and stop.",
+                                  "%s is pushed; no PR was opened, and the loop stays open." % branch))
     if created.code != 0:
-        out.line("gh pr create failed after the push: %s" % created.first_error())
-        close(loop, out)
-        out.tell("The branch %s is pushed, but gh pr create failed: %s. Open the PR with the title and body in "
-                 "%s/%s." % (branch, created.first_error(), loop.tracker, BODY_NAME))
+        out.done("gh pr create failed after the push: %s" % created.first_error())
+        out.done_tell("The branch %s is pushed, but gh pr create failed: %s. Open the PR with the title and body "
+                      "in %s/%s." % (branch, created.first_error(), loop.tracker, BODY_NAME))
+        close(loop, state, out)
         return out.finish("Relay the line above and stop.")
     url = [line.strip() for line in created.out.split("\n") if line.strip()]
     url = url[-1] if url else "(gh printed no URL)"
-    close(loop, out)
-    out.tell("Opened the PR: %s" % url)
+    out.done_tell("Opened the PR: %s" % url)
+    close(loop, state, out)
     return out.finish("Relay the line above and stop.")

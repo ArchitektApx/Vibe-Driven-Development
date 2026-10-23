@@ -18,7 +18,7 @@ import shutil
 from typing import Dict, List, Tuple
 
 from .. import textfile
-from ..out import TELL, Failure
+from ..out import TELL, Failure, refused
 from .ideafile import CLOSED, Idea, fenced, real_date, split_frontmatter, today
 from .lock import Lock
 from .store import LAYOUT_FILE, STORE, layout, read_once, set_file_day
@@ -368,11 +368,10 @@ def step(root: str, events_raw: list[str], write: bool) -> Result:
         os.rename(store, backup)
     except OSError as error:
         shutil.rmtree(staging, ignore_errors=True)
-        raise Failure("The old store could not be renamed to the backup (%s); it is untouched and nothing was written."
-                      % textfile.reason(error),
-                      "If a sandbox refused it, rerun the same command once outside the sandbox. Otherwise "
-                      "tell the user a file in .scratch/_brainstorming/ is held open (an editor?), ask them "
-                      "to close it, and run the command again.")
+        raise refused("The old store could not be renamed to the backup (%s); it is untouched and nothing was "
+                      "written." % textfile.reason(error),
+                      "Otherwise tell the user a file in .scratch/_brainstorming/ is held open (an editor?), ask "
+                      "them to close it, and run the command again.")
     try:
         os.rename(staging, store)
     except OSError as error:

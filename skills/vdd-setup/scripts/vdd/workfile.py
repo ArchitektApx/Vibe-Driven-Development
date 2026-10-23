@@ -9,10 +9,12 @@ finding that quotes Markdown cannot break the frame.
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Iterable, overload
 
-from .out import and_list
+from . import textfile
+from .out import Failure, and_list
 
 FINDING = re.compile(r"^### ([0-9]+)\. (\S+) \(([^)]*)\): (.+?)\s*$")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
@@ -159,6 +161,10 @@ class Block:
         """(label, joined text, Line) for each frame line under the heading
         that starts with "<label>:", the text running on over the following
         non-blank frame lines that start no other label."""
+        # Not merged with fixes.Entry.labels on purpose: in a review file a
+        # blank line ends a label and starts the finding's own text; in
+        # FIXES.md a label runs across paragraphs, so a multi-paragraph Why:
+        # reaches the reviewer whole.
         out: list[tuple[str, str, Line]] = []
         # Whether the lines below run on the text of the last label in out.
         running = False
@@ -280,3 +286,116 @@ def squeeze(texts: Iterable[str]) -> list[str]:
 def join_numbers(numbers: Iterable[int | str]) -> str:
     """1 -> "1"; 1, 2 -> "1 and 2"; 1, 2, 3 -> "1, 2 and 3"."""
     return and_list(str(n) for n in numbers)
+
+
+# --- the Working files each hosted Role reads and writes ---
+
+SPEC = "spec.md"
+ISSUES = "issues/"
+
+
+class RoleFiles:
+    """One hosted Role's Working files, as names under the tracker
+    directory: what it reads in round 1 and in a later round (the carried
+    file exists from round 2), what it writes, the review file it reads
+    findings from and the carried file behind it."""
+
+    def __init__(
+        self, first: tuple[str, ...], later: tuple[str, ...], write: tuple[str, ...], own: str, review: str,
+        carried: str,
+    ) -> None:
+        self.first = first
+        self.later = later
+        self.write = write
+        self.own = own
+        self.review = review
+        self.carried = carried
+
+    def read(self, number: int) -> tuple[str, ...]:
+        return self.first if number == 1 else self.later
+
+
+WORKING_FILES = {
+    "Plan-Reviewer": RoleFiles((SPEC, ISSUES), ("PLAN-REVIEW.md", SPEC, ISSUES), ("PLAN-REVIEW.md",),
+                               "PLAN-REVIEW.md", "PLAN-REVIEW.md", "carried-plan.md"),
+    "Coder": RoleFiles((SPEC, ISSUES), ("CODEREVIEW.md", SPEC, ISSUES),
+                       ("FIXES.md", ISSUES + " (the ticked checkboxes)"), "FIXES.md", "CODEREVIEW.md",
+                       "carried-code.md"),
+    "Code-Reviewer": RoleFiles((SPEC, ISSUES, "FIXES.md"), ("CODEREVIEW.md", SPEC, ISSUES), ("CODEREVIEW.md",),
+                               "CODEREVIEW.md", "CODEREVIEW.md", "carried-code.md"),
+}
+
+
+def own_files() -> list[str]:
+    """Each hosted Role's own file, in the Workflow's order."""
+    return [files.own for files in WORKING_FILES.values()]
+
+
+# --- the open findings' text ---
+
+def open_blocks(directory: str, files: RoleFiles, numbers: Iterable[int]) -> tuple[dict[int, Block], list[int]]:
+    """(number -> Block, the numbers not found) of the given open findings:
+    from the review file as the last check left it first, then from the
+    carried file. One rule decides where an open finding's text lives; each
+    caller words its own refusal for the missing."""
+    wanted = list(numbers)
+    found: dict[int, Block] = {}
+    for name in (files.review, files.carried):
+        text = textfile.read(os.path.join(directory, name))
+        if text is None:
+            continue
+        for block in Parsed(text).blocks:
+            if block.match and block.number in wanted and block.number not in found:
+                found[block.number] = block
+    return found, [n for n in wanted if n not in found]
+
+
+# --- the lint collector ---
+
+class Lint:
+    """The problems of one lint, each prefixed with the file and line, printed
+    in line order: a problem with no line first, a block to put back after
+    every line's, and a problem of the whole round last."""
+
+    BLOCK = 10 ** 9
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.problems: list[tuple[int, list[str]]] = []
+
+    def at(self, line: Line | int | None, text: str) -> None:
+        number = line.number if isinstance(line, Line) else line
+        if not number:
+            self.problems.append((0, ["%s: %s" % (self.name, text)]))
+        else:
+            self.problems.append((number, ["%s line %d: %s" % (self.name, number, text)]))
+
+    def block(self, text: str, block_lines: list[str]) -> None:
+        """A refusal followed by a block to put back, one output line per
+        line of the block."""
+        self.problems.append((self.BLOCK, ["%s: %s" % (self.name, text)] + block_lines))
+
+    def last(self, text: str) -> None:
+        """A problem of the whole round, not of a line of the file."""
+        self.problems.append((self.BLOCK + 1, [text]))
+
+    def title(self, parsed: Parsed, title: str) -> None:
+        """The title the tool wrote, and a comment or fence left open."""
+        if parsed.title is None:
+            self.at(None, "the title \"%s\" is missing. Put it back as the first line." % title)
+        elif parsed.title.text.strip() != title:
+            self.at(parsed.title, "the title is \"%s\", as the tool wrote it." % title)
+        if parsed.unclosed is not None:
+            self.at(parsed.unclosed, unclosed_text(parsed.unclosed))
+
+    def lines(self) -> list[str]:
+        found: list[str] = []
+        for _, texts in sorted(self.problems, key=lambda problem: problem[0]):
+            found += texts
+        return found
+
+    def refuse(self, next_step: str) -> None:
+        """Raise the Failure for a file that does not pass: its problems, then
+        "Nothing written."."""
+        if self.problems:
+            raise Failure(self.lines() + ["Nothing written."], next_step)

@@ -12,14 +12,16 @@ from __future__ import annotations
 import os
 import re
 import textwrap
-from typing import Any, Callable
+from typing import Any
 
-from . import args, fixes, gitcmd, loopfile, loopstate, places, recap, textfile, workfile
-from .out import Failure, Output
+from .. import args, doorbells, fixes, gitcmd, loopfile, loopstate, places, textfile, workfile
+from ..loopstate import recap
+from ..out import Failure, Output
+from .branch import decide_branch, dirty, git, head, new_untracked, start_gone, to_branch, untracked
+from .lint import lint
 
 SUBCOMMANDS = ("start", "check")
 TICKET_FILE = re.compile(r"^([0-9]+)-.+\.md$")
-ANSWERS = ("fixed", "pushback")
 SNAPSHOT = "coder-untracked-%d"
 
 HELP = [
@@ -63,57 +65,14 @@ def dispatch(sub: str, values: dict[str, Any]) -> int:
     return check(round_, values["write"])
 
 
-# --- git ---
-
-def git(root: str, *argv: str) -> gitcmd.Call:
-    """The finished gitcmd.Call of a git command run in root; refuses when git
-    cannot run."""
-    call = gitcmd.git(root, *argv)
-    if call.code is None:
-        raise Failure("git could not run: %s" % call.err, "Tell the user git is needed for the Coder's round, and stop.")
-    return call
-
-
-def head(root: str) -> str:
-    call = git(root, "rev-parse", "HEAD")
-    sha = call.out.strip()
-    if not call.ok or not sha:
-        raise Failure("This repository has no commit, so the round has no start.",
-                      "Tell the user the repository needs a first commit on the base branch, and stop.")
-    return sha
-
-
-def branch_exists(root: str, branch: str) -> bool:
-    return git(root, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch).ok
-
-
-def dirty(root: str) -> list[str]:
-    """The tracked files with uncommitted changes."""
-    call = git(root, "diff", "--name-only", "HEAD")
-    if not call.ok:
-        raise Failure("git diff failed: %s" % call.err.strip(), "Tell the user git diff fails in this repository, and stop.")
-    return [line.strip() for line in call.out.strip().split("\n") if line.strip()]
-
-
-def untracked(root: str) -> list[str]:
-    """The work tree's untracked, not ignored files, from git's NUL-separated
-    list. A path that holds a line break is left out: a snapshot keeps one
-    path per line."""
-    call = git(root, "ls-files", "--others", "--exclude-standard", "-z")
-    if not call.ok:
-        raise Failure("git ls-files failed: %s" % call.err.strip(),
-                      "Tell the user git ls-files fails in this repository, and stop.")
-    return [name for name in call.out.split("\0") if name and "\n" not in name]
-
-
 class Round:
     """The code round a command acts on."""
 
     def __init__(self, loop: loopfile.Loop, state: loopstate.State) -> None:
         self.loop = loop
         self.state = state
-        self.base = loop.setting("Base branch")[0]
-        self.branch = loop.setting("Feature branch")[0]
+        self.base = loop.base
+        self.branch = loop.branch
         self.file = os.path.join(loop.dir, fixes.NAME)
         self.relative = "%s/%s" % (loop.tracker, fixes.NAME)
         newest = state.code_round()
@@ -139,11 +98,16 @@ class Round:
         return [line for line in text.split("\n") if line]
 
     def path(self, name: str) -> str:
-        return "%s/%s" % (self.loop.tracker, name)
+        return self.loop.path(name)
 
     def read_list(self) -> list[str]:
-        names = (["CODEREVIEW.md"] if self.number > 1 else []) + ["spec.md", "issues/"]
-        return [self.path(name) for name in names]
+        return [self.path(name) for name in workfile.WORKING_FILES["Coder"].read(self.number)]
+
+    def tickets(self) -> list[tuple[str, str]]:
+        return tickets(self.loop)
+
+    def open_findings(self) -> list[tuple[int, str, str]]:
+        return open_findings(self)
 
 
 def tickets(loop: loopfile.Loop) -> list[tuple[str, str]]:
@@ -161,13 +125,19 @@ def tickets(loop: loopfile.Loop) -> list[tuple[str, str]]:
     return sorted(found, key=lambda item: (int(item[0]), item[1]))
 
 
-# --- start ---
-
 def precondition(round_: Round) -> None:
-    """Refuse a round its loop is not ready for."""
+    """Refuse a round the position does not owe the Coder."""
     state = round_.state
-    if round_.started:
+    where = doorbells.Place(round_.loop.root, round_.loop.slug, round_.loop, state).position()
+    if where.owed_by("Coder", round_.number):
         return
+    plan = state.last_review("plan")
+    if where.owed_by("Plan-Reviewer") and plan is not None and plan.signed_off:
+        raise Failure(
+            "The Planner rang plan round %d after the plan Sign-off: the changed Spec is reviewed before the "
+            "code Loop starts. Nothing was written." % where.round,
+            "End your turn with BLOCKED: plan round %d is not reviewed yet." % where.round,
+        )
     if round_.newest:
         review = state.review("code", round_.newest)
         if review is None:
@@ -182,58 +152,16 @@ def precondition(round_: Round) -> None:
                 % (round_.newest, round_.number),
                 "End your turn with BLOCKED: the code Loop is already signed off.",
             )
-        return
-    plan = state.last_review("plan")
-    if plan is None or not plan.signed_off:
         raise Failure(
-            "The plan Loop is not finished: the plan review has not signed off, so the Spec is no contract yet. "
-            "Nothing was written.",
-            "End your turn with BLOCKED: the plan Loop is not signed off.",
+            "There is no code round %d for the Coder now: the %s owes the next move. Nothing was written."
+            % (round_.number, where.owes),
+            "End your turn with BLOCKED: the %s owes the next move." % where.owes,
         )
-
-
-def to_branch(round_: Round, out: Output, write: bool = True) -> bool:
-    """Put the Coder on the feature branch, or refuse naming both branches.
-    Without write, switch nothing and return whether a switch is owed."""
-    root = round_.loop.root
-    current = gitcmd.current_branch(root)
-    if current == round_.branch:
-        out.line("On the feature branch %s." % round_.branch)
-        return False
-    if current != round_.base:
-        raise Failure(
-            "The checked-out branch is %s: neither the base branch %s nor the feature branch %s. Nothing was "
-            "written." % (current or "none (a detached HEAD)", round_.base, round_.branch),
-            "Return QUESTION: I am on %s, neither the base branch %s nor the feature branch %s. Which branch "
-            "do I work on?" % (current or "a detached HEAD", round_.base, round_.branch),
-        )
-    if not write:
-        if branch_exists(root, round_.branch):
-            out.line("Would switch to the feature branch %s." % round_.branch)
-        else:
-            out.line("Would create the feature branch %s from %s and switch to it." % (round_.branch, round_.base))
-        return True
-    if branch_exists(root, round_.branch):
-        call = git(root, "checkout", "-q", round_.branch)
-        verb = "Switched to the feature branch %s." % round_.branch
-    else:
-        call = git(root, "checkout", "-q", "-b", round_.branch)
-        verb = "Created the feature branch %s from %s and switched to it." % (round_.branch, round_.base)
-    if not call.ok:
-        error = call.err.strip()
-        if call.refused:
-            raise Failure(
-                "git could not switch to %s: %s" % (round_.branch, error),
-                "A sandbox refused git. Rerun %s outside the sandbox, the way your Harness grants that; when "
-                "that is denied too, tell the user git could not check out the feature branch %s, and stop."
-                % (round_.command("start"), round_.branch),
-            )
-        raise Failure(
-            "git could not switch to %s: %s" % (round_.branch, error),
-            "Tell the user git could not check out the feature branch %s, and stop." % round_.branch,
-        )
-    out.line(verb)
-    return False
+    raise Failure(
+        "The plan Loop is not finished: the plan review has not signed off, so the Spec is no contract yet. "
+        "Nothing was written.",
+        "End your turn with BLOCKED: the plan Loop is not signed off.",
+    )
 
 
 def ticket_guidance() -> list[str]:
@@ -255,15 +183,8 @@ def finding_guidance() -> list[str]:
 def open_findings(round_: Round) -> list[tuple[int, str, str]]:
     """(number, severity, reference) of every finding the last review left
     open, from CODEREVIEW.md's headings, else carried-code.md's."""
-    found = {}
-    for name in ("CODEREVIEW.md", "carried-code.md"):
-        text = textfile.read(os.path.join(round_.loop.dir, name))
-        if text is None:
-            continue
-        for block in workfile.Parsed(text).blocks:
-            if block.number in round_.open_numbers and block.number not in found and block.match:
-                found[block.number] = (block.number, block.severity, block.reference)
-    missing = [n for n in round_.open_numbers if n not in found]
+    blocks, missing = workfile.open_blocks(round_.loop.dir, workfile.WORKING_FILES["Coder"], round_.open_numbers)
+    found = dict((n, (n, b.severity, b.reference)) for n, b in blocks.items())
     if missing:
         raise Failure(
             "CODEREVIEW.md has no heading for finding%s %s, which round %d's review left open. Nothing was "
@@ -298,6 +219,12 @@ def start(round_: Round, write: bool) -> int:
     out = Output()
     again = round_.started
     if not write and not again:
+        # Every read-only check of the write path runs before a dry run
+        # returns, so it refuses wherever --write would.
+        skeleton(round_)
+        head(round_.loop.root)
+        decide_branch(round_)
+        untracked(round_.loop.root)
         out.line("Would start code round %d on %s and write the frame of %s." % (
             round_.number, round_.branch, round_.relative))
         return out.finish("Run the same command with --write.")
@@ -312,15 +239,15 @@ def start(round_: Round, write: bool) -> int:
     else:
         lines = skeleton(round_)
         head(round_.loop.root)  # an unborn HEAD refuses before the switch
+        found = untracked(round_.loop.root)
         to_branch(round_, out)
         sha = head(round_.loop.root)
         textfile.write_or_refuse(round_.file, "\n".join(lines) + "\n", round_.relative,
                                  "Otherwise tell the user FIXES.md cannot be written, and stop.")
-        found = untracked(round_.loop.root)
         textfile.write_or_refuse(os.path.join(round_.loop.dir, round_.snapshot_name()),
                                  "".join(name + "\n" for name in found), round_.path(round_.snapshot_name()),
                                  "Otherwise tell the user the round's snapshot cannot be written, and stop.")
-        round_.state.append("code %d start %s" % (round_.number, sha))
+        round_.state.append(loopstate.code_mark_line("start", round_.number, sha))
         out.line("Wrote the frame of %s." % round_.relative)
     out.line("Round %d starts at %s." % (round_.number, sha))
     if round_.number == 1:
@@ -336,98 +263,10 @@ def start(round_: Round, write: bool) -> int:
     )
 
 
-# --- check ---
-
-def lint(round_: Round, parsed: workfile.Parsed) -> list[str]:
-    problems: list[tuple[int, str]] = []
-
-    def at(line: workfile.Line | None, text: str) -> None:
-        problems.append((line.number if line else 0, "%s line %d: %s" % (fixes.NAME, line.number, text) if line
-                         else "%s: %s" % (fixes.NAME, text)))
-
-    title = "# Fixes, round %d" % round_.number
-    if parsed.title is None:
-        at(None, "the title \"%s\" is missing. Put it back as the first line." % title)
-    elif parsed.title.text.strip() != title:
-        at(parsed.title, "the title is \"%s\", as the tool wrote it." % title)
-    if parsed.unclosed is not None:
-        at(parsed.unclosed, workfile.unclosed_text(parsed.unclosed))
-    found = fixes.entries(parsed)
-    if round_.number == 1:
-        lint_tickets(round_, found, at)
-    else:
-        lint_findings(round_, found, at)
-    return [text for _, text in sorted(problems, key=lambda p: p[0])]
-
-
-def lint_tickets(round_: Round, found: list[fixes.Entry], at: Callable[[workfile.Line | None, str], None]) -> None:
-    by_number = {}
-    for entry in found:
-        match = fixes.TICKET_HEADING.match(entry.heading.text)
-        if not match:
-            at(entry.heading, "\"%s\" is not an entry of this file. An entry is \"## Ticket <NN>: <file name>\", "
-               "as the tool wrote it." % entry.heading.text)
-            continue
-        by_number[match.group(1)] = entry
-    for number, name in tickets(round_.loop):
-        entry = by_number.get(number)
-        if entry is None:
-            at(None, "Ticket %s's entry \"## Ticket %s: %s\" is missing. Put it back and fill it in: every "
-               "Ticket gets an entry." % (number, number, name))
-            continue
-        labels = entry.labels(fixes.TICKET_LABELS)
-        for label in ("Files", "Change", "Verified"):
-            text, line = labels.get(label, ("", None))
-            if line is None:
-                at(entry.heading, "Ticket %s has no %s: line. Put it back under its heading and fill it in."
-                   % (number, label))
-            elif not text:
-                fix = {"Files": "the files you touched", "Change": "what you changed",
-                       "Verified": "the result of each check you ran, not its output"}[label]
-                at(line, "Ticket %s's %s: is empty. Write %s." % (number, label, fix))
-
-
-def lint_findings(round_: Round, found: list[fixes.Entry], at: Callable[[workfile.Line | None, str], None]) -> None:
-    by_number = {}
-    for entry in found:
-        match = fixes.FINDING_HEADING.match(entry.heading.text)
-        if not match:
-            at(entry.heading, "\"%s\" is not an entry of this file. An entry is \"## Finding <n>. <severity>: "
-               "<reference>\", as the tool wrote it." % entry.heading.text)
-            continue
-        by_number[int(match.group(1))] = entry
-    headings = None
-    for number in round_.open_numbers:
-        entry = by_number.get(number)
-        if entry is None:
-            if headings is None:
-                headings = dict((n, "## Finding %d. %s: %s" % (n, severity, reference))
-                                for n, severity, reference in open_findings(round_))
-            at(None, "finding %d's entry is missing. Put back \"%s\" as the tool wrote it and answer it: every "
-               "open finding gets an entry." % (number, headings[number]))
-            continue
-        labels = entry.labels(fixes.FINDING_LABELS)
-        answer, line = labels.get("Answer", ("", None))
-        if line is None:
-            at(entry.heading, "finding %d has no Answer: line. Write \"Answer: fixed\" or \"Answer: pushback\" "
-               "under it." % number)
-            continue
-        if answer not in ANSWERS:
-            at(line, "finding %d: \"Answer: %s\": the answer is fixed or pushback." % (number, answer))
-            continue
-        why = labels.get("Why", ("", None))[0]
-        if answer == "pushback" and not why:
-            at(line, "finding %d answers pushback with no Why:. A pushback needs its reason for the reviewer."
-               % number)
-
-
 def check(round_: Round, write: bool) -> int:
     if not round_.started:
         if round_.newest and round_.state.review("code", round_.newest) is None:
-            out = Output()
-            out.line("Round %d's end is already recorded. Nothing was written." % round_.newest)
-            out.line(loopstate.coder_doorbell(round_.newest))
-            return out.finish("End your turn with the Doorbell line above as your whole reply.")
+            return already_recorded(round_, write)
         raise Failure(
             "Code round %d has not been started, so %s has no frame to check." % (round_.number, round_.relative),
             "Run %s first." % round_.command("start"),
@@ -445,33 +284,32 @@ def check(round_: Round, write: bool) -> int:
         raise Failure("%s does not exist. Nothing was written." % round_.relative,
                       "Tell the user FIXES.md is gone in the middle of round %d, and stop." % round_.number)
     parsed = workfile.Parsed(text)
-    problems = lint(round_, parsed)
+    lint_ = lint(round_, parsed)
     rewritten = start_gone(round_)
     if rewritten:
-        problems.append(rewritten)
+        lint_.last(rewritten)
     changed = dirty(root)
     if changed:
-        problems.append("The working tree has uncommitted changes to tracked files: %s. Uncommitted work is not "
-                        "reviewed; commit it with git." % ", ".join(changed))
+        lint_.last("The working tree has uncommitted changes to tracked files: %s. Uncommitted work is not "
+                   "reviewed; commit it with git." % ", ".join(changed))
     left = new_untracked(round_)
     if left:
-        problems.append("The round left untracked files that were not untracked when it started: %s. A file never "
-                        "added misses the commits, the fold and the PR: commit it with git if it belongs to the "
-                        "work, or delete it if it is a by-product." % ", ".join(left))
-    if problems:
-        raise Failure(problems + ["Nothing written."],
-                      "Fix the lines above, then run %s again." % round_.command("check", write))
+        lint_.last("The round left untracked files that were not untracked when it started: %s. A file never "
+                   "added misses the commits, the fold and the PR: commit it with git if it belongs to the "
+                   "work, or delete it if it is a by-product." % ", ".join(left))
+    lint_.refuse("Fix the lines above, then run %s again." % round_.command("check", write))
+    store = recap.Records.load(round_.loop)
     out = Output()
     if not write:
         out.line("%s passes: round %d." % (fixes.NAME, round_.number))
         return out.finish("Run %s" % round_.command("check"))
     tip = head(root)
-    cleaned = workfile.squeeze(workfile.without_guides(parsed.texts))
-    textfile.write_or_refuse(round_.file, "\n".join(cleaned) + "\n", round_.relative,
-                             "Otherwise tell the user FIXES.md cannot be written, and stop.")
+    cleaned = cleaned_text(parsed)
+    records = []
     if round_.number == 1:
-        recap.write(round_.loop, round_.state, {"Tickets": recap_tickets(workfile.Parsed("\n".join(cleaned)))})
-    round_.state.append("code %d end %s" % (round_.number, tip))
+        records.append(recap.Record(recap.TICKETS_KEY, "Tickets", recap_tickets(workfile.Parsed(cleaned))))
+    recap.record(round_.loop, round_.state, store, records, [loopstate.code_mark_line("end", round_.number, tip)])
+    write_recorded(round_, cleaned)
     out.line("%s: round %d checked and written." % (fixes.NAME, round_.number))
     out.line("Round %d ends at %s." % (round_.number, tip))
     if round_.number == 1:
@@ -480,30 +318,42 @@ def check(round_: Round, write: bool) -> int:
     return out.finish("End your turn with the Doorbell line above as your whole reply.")
 
 
-def new_untracked(round_: Round) -> list[str]:
-    """The untracked, not ignored files the round's start did not record. A
-    round with no snapshot (started on an older version) has none."""
-    before = round_.snapshot()
-    if before is None:
-        return []
-    known = set(before)
-    known.add(round_.path(round_.snapshot_name()))
-    return [name for name in untracked(round_.loop.root) if name not in known]
+def cleaned_text(parsed: workfile.Parsed) -> str:
+    """FIXES.md after a passing check: no guidance comment. Computed from its
+    own result it gives the same text."""
+    return "\n".join(workfile.squeeze(workfile.without_guides(parsed.texts))) + "\n"
 
 
-def start_gone(round_: Round) -> str | None:
-    """The refusal for a round whose recorded start is no longer in HEAD's
-    history, or None. The fold after the code Sign-off reads every round's
-    recorded end; an amend, rebase or reset of an earlier round's commit
-    loses it (ticket 71)."""
-    start = round_.state.code_mark("start", round_.number)
-    if not start:
-        return None
-    if git(round_.loop.root, "merge-base", "--is-ancestor", start, "HEAD").ok:
-        return None
-    return ("Round %d started at %s, and that commit is no longer in %s's history: an earlier commit was amended, "
-            "rebased or reset. Bring the earlier commits back with `git reset --soft %s`, which keeps your "
-            "changes, then commit the change as a new commit." % (round_.number, start, round_.branch, start))
+def write_recorded(round_: Round, text: str) -> None:
+    """Step 5: FIXES.md rewritten, after the commit point."""
+    textfile.write_or_refuse(round_.file, text, round_.relative,
+                             "Otherwise tell the user the round is recorded and FIXES.md cannot be written; once it "
+                             "can be, the same command run again writes it. Then stop.")
+
+
+def already_recorded(round_: Round, write: bool) -> int:
+    """A rerun after the commit point: RECAP.md and FIXES.md written again
+    where a failure left them behind, the round not recorded twice."""
+    out = Output()
+    written = []
+    store = recap.Records.load(round_.loop)
+    if write:
+        if recap.render_recap(round_.loop, round_.state, store):
+            written.append(round_.path(recap.NAME))
+        text = textfile.read(round_.file)
+        parsed = workfile.Parsed(text) if text is not None else None
+        title = parsed.title if parsed is not None else None
+        if parsed is not None and title is not None and title.text.strip() == "# Fixes, round %d" % round_.newest:
+            cleaned = cleaned_text(parsed)
+            if cleaned != text:
+                write_recorded(round_, cleaned)
+                written.append(round_.relative)
+    if written:
+        out.line("Round %d's end is already recorded. Wrote %s again." % (round_.newest, " and ".join(written)))
+    else:
+        out.line("Round %d's end is already recorded. Nothing was written." % round_.newest)
+    out.line(loopstate.coder_doorbell(round_.newest))
+    return out.finish("End your turn with the Doorbell line above as your whole reply.")
 
 
 def recap_tickets(parsed: workfile.Parsed) -> list[str]:

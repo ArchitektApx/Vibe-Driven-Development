@@ -50,13 +50,13 @@ def load(name: str) -> ModuleType:
     elif name == "codex-stop":
         from . import codex_hook as module
     elif name == "coder":
-        from . import coder as module
+        from .coder import coder as module
     elif name == "doorbell":
         from . import doorbell as module
     elif name == "loop":
         from .loop import loop as module
     elif name == "orchestrator":
-        from . import orchestrator as module
+        from .orchestrator import orchestrator as module
     elif name == "review":
         from .review import review as module
     elif name == "pr":
@@ -81,4 +81,10 @@ def main(argv: list[str]) -> int:
         return refused(
             "A file could not be read or written: %s" % textfile.described(error),
             "Otherwise tell the user which file it names and that the command could not run, and stop.",
+        ).emit()
+    except Exception as error:  # noqa: B902 - the last resort; KeyboardInterrupt and SystemExit pass
+        return Failure(
+            "The VDD tool hit an internal error: %s: %s" % (type(error).__name__, error),
+            "Tell the user the VDD tool hit an internal error and show them the line above, so they can report it; "
+            "then stop.",
         ).emit()

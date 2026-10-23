@@ -11,6 +11,7 @@ Next: is never taken for the tool's own.
 from __future__ import annotations
 
 import os
+import re
 from typing import Any, Callable, Dict, List, Tuple
 
 from .. import args, gitcmd, places, textfile
@@ -167,6 +168,10 @@ def write(root: str, command: str, values: dict[str, Any]) -> int:
     handler = WRITES[command]
     out = Output()
     if not values["write"]:
+        # A dry run plans against the store the --write will see: a write a
+        # killed run left half done is settled first, as a read does.
+        for line in recover_quietly(root):
+            out.line(line)
         store = Store(root)
         lines, _, _ = handler(store, values)
         would = store.planned()
@@ -209,7 +214,7 @@ def loop_lines(store: Store) -> list[str]:
 def page_number(value: str | None) -> int:
     if value is None:
         return 1
-    if not value.strip().isdigit():
+    if not re.fullmatch(r"[0-9]+", value.strip()):
         raise Failure("--page %s is not a number. Nothing was read." % value, "Run brainstorm start --page <n>.")
     return int(value.strip())
 

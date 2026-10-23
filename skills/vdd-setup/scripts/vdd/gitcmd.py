@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 import subprocess
-from typing import Any
+from typing import Any, Iterable
 
-from . import textfile
+from . import seams, textfile
+from .out import Failure
 
 MINIMUM = (2, 40)
 VERSION = re.compile(r"^git version ([0-9]+)\.([0-9]+)")
@@ -41,6 +43,11 @@ ENGLISH = {"LC_ALL": "C"}
 # GCM_INTERACTIVE for Git Credential Manager, which ignores the first and
 # opens a sign-in window that a hidden Session never closes.
 NO_PROMPT = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
+# Every call ends after this many seconds unless its caller passes its own:
+# a signing call waiting on a pinentry dialog a hidden Session never sees
+# would otherwise wait for ever, and a user typing a passphrase gets minutes.
+TIMEOUT_SECONDS = 300.0
+WINDOWS = os.name == "nt"
 
 
 def environment(extra: dict[str, str] | None = None) -> dict[str, str]:
@@ -57,12 +64,17 @@ class Call:
     """One finished call: its exit code (None when it could not start),
     stdout and stderr as text, and stdout as bytes."""
 
-    def __init__(self, argv: list[str], code: int | None, data: bytes, error: bytes) -> None:
+    def __init__(
+        self, argv: list[str], code: int | None, data: bytes, error: bytes, timed_out: float | None = None,
+    ) -> None:
         self.argv = argv
         self.code = code
         self.data = data
         self.out = textfile.decode(data)
         self.err = textfile.decode(error)
+        # The seconds after which the call was ended, or None; error then
+        # holds the line that says so.
+        self.timed_out = timed_out
 
     @property
     def ok(self) -> bool:
@@ -126,25 +138,74 @@ def run(
     timeout: float | None = None,
 ) -> Call:
     """Run argv in root and return its Call. data, bytes, goes to standard
-    input; without it standard input is empty. env adds variables."""
+    input; without it standard input is empty. env adds variables. The call
+    ends after timeout seconds, by default TIMEOUT_SECONDS or the
+    VDD_GIT_TIMEOUT_SECONDS seam; on POSIX with every process it started, so
+    a gpg it left behind cannot hold its output open."""
     full = environment(env)
+    seconds = timeout if timeout is not None else seams.seconds("VDD_GIT_TIMEOUT_SECONDS", TIMEOUT_SECONDS)
     try:
-        proc = subprocess.run(
-            argv,
-            cwd=root,
-            input=data if data is not None else b"",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=full,
-            timeout=timeout,
-        )
+        proc = subprocess.Popen(argv, cwd=root, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, env=full, start_new_session=not WINDOWS)
     except (OSError, subprocess.SubprocessError) as error:
         return Call(argv, None, b"", str(error).encode("utf-8", "replace"))
-    return Call(argv, proc.returncode, proc.stdout, proc.stderr)
+    try:
+        out, err = proc.communicate(data if data is not None else b"", timeout=seconds)
+    except subprocess.TimeoutExpired:
+        end(proc)
+        line = "%s timed out after %g seconds" % (" ".join(argv[:3]), seconds)
+        return Call(argv, None, b"", line.encode("utf-8"), timed_out=seconds)
+    except BaseException:
+        end(proc)
+        raise
+    return Call(argv, proc.returncode, out, err)
+
+
+def end(proc: subprocess.Popen[bytes]) -> None:
+    """Kill the call and, on POSIX, every process in its session."""
+    try:
+        if WINDOWS:
+            proc.kill()
+        else:
+            os.killpg(proc.pid, signal.SIGKILL)
+    except OSError:
+        pass
+    try:
+        proc.communicate(timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def call_text(call: Call) -> str:
+    """The call as a line names it: the program and its first two arguments."""
+    return " ".join(call.argv[:3])
+
+
+def sandbox_refusal(
+    call: Call, command: str, otherwise: str, done: Iterable[str] = (), name: str | None = None,
+) -> Failure:
+    """The Failure for a git or gh call a sandbox refused inside the tool:
+    the call, by name when given, else by call_text, and its error, the
+    lines done says about what happened before it, and the rerun of command
+    outside the sandbox, otherwise after it."""
+    return Failure(
+        ["A sandbox refused %s inside the tool: %s" % (name or call_text(call), call.first_error())] + list(done),
+        "Rerun %s outside the sandbox, the way your Harness grants that; when that is refused too, %s" % (
+            command, otherwise),
+    )
 
 
 def git(root: str, *argv: str, **kwargs: Any) -> Call:
     return run(root, ["git"] + list(argv), **kwargs)
+
+
+def answered(call: Call) -> Call:
+    """call, or the one Failure for a call that timed out, naming the call
+    and the seconds: a caller never reads a timeout as a state of the
+    repository."""
+    if call.timed_out is not None:
+        raise Failure(call.first_error() + ".", "Tell the user %s did not finish, and stop." % call_text(call))
+    return call
 
 
 def project_root(cwd: str) -> str:
@@ -159,24 +220,26 @@ def project_root(cwd: str) -> str:
 
 
 def current_branch(root: str) -> str:
-    """The checked-out branch, or "" on a detached HEAD or outside git."""
-    call = git(root, "branch", "--show-current")
+    """The checked-out branch, or "" on a detached HEAD or outside git.
+    Refuses a call that timed out."""
+    call = answered(git(root, "branch", "--show-current"))
     if call.code != 0:
         return ""
     return call.out.strip()
 
 
-def version(root: str | None = None) -> tuple[tuple[int, int] | None, str]:
-    """((major, minor) or None, the text git --version printed). None for
-    the tuple when git cannot run or prints no version."""
+def version(root: str | None = None) -> tuple[tuple[int, int] | None, str, str]:
+    """((major, minor) or None, the text git --version printed, the line
+    that says it timed out or ""). None for the tuple when git cannot run,
+    times out or prints no version."""
     call = git(root or os.getcwd(), "--version")
     text = call.out.strip()
     if call.code is None:
-        return None, ""
+        return None, "", call.err.strip() if call.timed_out is not None else ""
     match = VERSION.match(text)
     if not match:
-        return None, text
-    return (int(match.group(1)), int(match.group(2))), text
+        return None, text, ""
+    return (int(match.group(1)), int(match.group(2))), text, ""
 
 
 def number(text: str) -> str:

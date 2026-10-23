@@ -3,7 +3,7 @@
 The Loop file holds a loop's settings, format 2, one "<Name>: <value>" line
 each. A line it no longer names, such as the Coder's respawn line a loop
 from 0.16.0-beta.3 wrote, is read and ignored. The loop's state file,
-.scratch/<slug>/loop-state, belongs to loopstate.py; this module asks it
+.scratch/<slug>/loop-state, belongs to the loopstate package; this module asks it
 whether a loop is open or closed.
 
 A loop is a directory under .scratch/ that holds the Loop file and the state file, and its slug is that
@@ -18,16 +18,13 @@ import os
 import re
 from typing import Iterable
 
-from . import args, gitcmd, loopstate, textfile
-from .out import TELL, Failure
+from . import args, armed, gitcmd, harness as harnesses, loopstate, textfile
+from .harness import Harness
+from .out import TELL, Failure, notice
 
 SLUG_PATTERN = "[a-z0-9]+(-[a-z0-9]+)*"
 FORMAT = 2
 NAME = "loop.md"
-ARMED_PREFIX = "codex-armed-"
-# The claim marker beside an armed file: its name must not start with
-# ARMED_PREFIX, which the Codex Stop hook's shell guard looks for.
-CLAIM_PREFIX = "codex-claim-"
 ROOT_FILE = "LOOP.md"
 ROOT_FIX = (
     "Delete `LOOP.md`. To carry on the loop it belongs to, run `vdd-start-loop` with its slug and answer continue."
@@ -135,40 +132,57 @@ def refuse_root(root: str) -> None:
         )
 
 
-def kind(root: str, slug: str) -> str | None:
-    """What .scratch/<slug> is: None when it does not exist, OPEN or CLOSED
-    for a loop, NO_STATE for any other existing path, a damaged state file
-    included. A state file of a newer format version still refuses."""
+def probe(directory: str) -> loopstate.State | None:
+    """The State of the loop in directory, read once, or None when directory
+    holds no Loop file or no readable state file. A state file of a newer
+    format version still refuses."""
+    if not (os.path.isdir(directory) and os.path.isfile(os.path.join(directory, NAME))):
+        return None
+    return readable(directory)
+
+
+def readable(directory: str) -> loopstate.State | None:
+    """The State in directory, or None when it has no readable state file. A
+    state file of a newer format version still refuses."""
+    try:
+        state = loopstate.State(directory)
+    except loopstate.Damaged:
+        return None
+    return state if state.version is not None else None
+
+
+def look(root: str, slug: str) -> tuple[str | None, loopstate.State | None]:
+    """What .scratch/<slug> is, and the State probe() read for a loop: None when
+    it does not exist, OPEN or CLOSED for a loop, NO_STATE for any other
+    existing path, a damaged state file included. A state file of a newer
+    format version beside a Loop file still refuses."""
     directory = tracker_dir(root, slug)
     if not os.path.lexists(directory):
-        return None
-    if os.path.isdir(directory) and os.path.isfile(os.path.join(directory, NAME)):
-        try:
-            state = loopstate.read_state(directory)
-        except loopstate.Damaged:
-            return NO_STATE
-        if state is not None:
-            return state
-    return NO_STATE
+        return None, None
+    state = probe(directory)
+    if state is not None and state.status:
+        return state.status, state
+    return NO_STATE, None
 
 
-def delete_armed(directory: str) -> list[str]:
-    """Delete every Codex armed file in directory, and every claim marker; the
-    names of the armed files deleted."""
-    gone: list[str] = []
-    try:
-        names = sorted(os.listdir(directory))
-    except OSError:
-        return gone
-    for name in names:
-        if name.startswith((ARMED_PREFIX, CLAIM_PREFIX)):
-            try:
-                os.remove(os.path.join(directory, name))
-                if name.startswith(ARMED_PREFIX):
-                    gone.append(name)
-            except OSError:
-                pass
-    return gone
+# --- closing and reopening ---
+
+def close(state: loopstate.State) -> list[str]:
+    """Close the loop: append "loop closed" and delete its Codex armed files
+    and claim markers. The names of the armed files deleted, for the caller
+    to print. Raises OSError when the state file cannot be appended to."""
+    state.add(loopstate.loop_line(loopstate.CLOSED))
+    return armed.delete(state.dir)
+
+
+def reopen(state: loopstate.State, *lines: str) -> None:
+    """Append lines, then "loop open", in one write. Raises OSError."""
+    state.add(*(lines + (loopstate.loop_line(loopstate.OPEN),)))
+
+
+def closed_line(slug: str) -> str:
+    """The line loop close and pr open print once a loop is closed."""
+    return "Closed: the loop %s. Its files stay in .scratch/%s/ as the record." % (slug, slug)
 
 
 # --- the Loop file ---
@@ -176,7 +190,7 @@ def delete_armed(directory: str) -> list[str]:
 class Loop:
     """One loop: its slug, its tracker directory and its Loop file's lines."""
 
-    def __init__(self, root: str, slug: str) -> None:
+    def __init__(self, root: str, slug: str, state: loopstate.State | None = None) -> None:
         self.root = root
         self.slug = slug
         self.dir = tracker_dir(root, slug)
@@ -185,6 +199,7 @@ class Loop:
         self.relative = ".scratch/%s/%s" % (slug, NAME)
         self.lines: list[str] = textfile.lines(self.file) or []
         self.fields = fields_of(self.lines)
+        self._state = state
 
     def check(self) -> Loop:
         """Refuse a Loop file this copy does not read, or one that lacks a
@@ -222,14 +237,48 @@ class Loop:
             return DEFAULTS[name], "malformed"
         return value, None
 
+    # --- the settings: a setting with a default falls back to it; Base
+    # branch and Feature branch have none, as check() refuses them missing ---
+
+    @property
+    def base(self) -> str:
+        return self.setting("Base branch")[0]
+
+    @property
+    def branch(self) -> str:
+        return self.setting("Feature branch")[0]
+
+    @property
+    def pr(self) -> str:
+        return self.setting("PR")[0]
+
+    @property
+    def minors(self) -> str:
+        return self.setting("Minors")[0]
+
+    @property
+    def harness_label(self) -> str:
+        """The Harness: line's own value: Generic's Harness module has no
+        label."""
+        return self.setting("Harness")[0]
+
+    @property
+    def harness(self) -> Harness:
+        return harnesses.known(harness_slug(self.harness_label))
+
     def harness_file(self) -> str:
-        return "harness-%s.md" % harness_slug(self.setting("Harness")[0])
+        return "harness-%s.md" % harness_slug(self.harness_label)
 
-    def state(self) -> str | None:
-        return loopstate.read_state(self.dir)
+    def path(self, name: str) -> str:
+        """A path under the tracker directory, as the tool prints it."""
+        return "%s/%s" % (self.tracker, name)
 
-    def is_open(self) -> bool:
-        return self.state() == loopstate.OPEN
+    def load_state(self) -> loopstate.State:
+        """The loop's state file, read once: by the lookup that found the
+        loop, or on the first call."""
+        if self._state is None:
+            self._state = loopstate.State(self.dir)
+        return self._state
 
 
 def render(fields: dict[str, str]) -> str:
@@ -266,23 +315,25 @@ def replace_line(lines: Iterable[str], name: str, value: str) -> list[str]:
 
 # --- finding the loop ---
 
-def loops(root: str) -> list[tuple[str, str]]:
-    """Every loop under .scratch/: (slug, state), by slug."""
+def loops(root: str) -> tuple[list[tuple[str, loopstate.State]], list[tuple[str, str]]]:
+    """Every loop under .scratch/: ([(slug, its State)], [(slug, why)]), by
+    slug. A loop whose state file a newer VDD wrote is left out, with the
+    line saying why; a damaged one is no loop."""
     try:
         names = sorted(os.listdir(scratch(root)))
     except OSError:
-        return []
-    found: list[tuple[str, str]] = []
+        return [], []
+    found: list[tuple[str, loopstate.State]] = []
+    left: list[tuple[str, str]] = []
     for name in names:
-        directory = os.path.join(scratch(root), name)
-        if os.path.isdir(directory) and os.path.isfile(os.path.join(directory, NAME)):
-            try:
-                state = loopstate.read_state(directory)
-            except Failure:
-                continue
-            if state is not None:
-                found.append((name, state))
-    return found
+        try:
+            state = probe(os.path.join(scratch(root), name))
+        except Failure as failure:
+            left.append((name, failure.lines[0]))
+            continue
+        if state is not None:
+            found.append((name, state))
+    return found, left
 
 
 def find(root: str, slug: str | None = None) -> Loop:
@@ -291,23 +342,26 @@ def find(root: str, slug: str | None = None) -> Loop:
     refuse_root(root)
     if slug is not None:
         return named(root, slug)
-    every = loops(root)
+    every, left = loops(root)
+    for name, why in left:
+        notice("Left out the loop %s: %s" % (name, why))
+    states = dict(every)
     branch = gitcmd.current_branch(root)
     if branch:
-        on_branch = [(name, state) for name, state in every if branch_of(root, name) == branch]
+        on_branch = [(name, state.status) for name, state in every if branch_of(root, name) == branch]
         for state in (loopstate.OPEN, loopstate.CLOSED):
             matches = [name for name, s in on_branch if s == state]
             if len(matches) == 1:
-                return Loop(root, matches[0]).check()
+                return Loop(root, matches[0], states[matches[0]]).check()
             if len(matches) > 1:
                 raise Failure(
                     "Several %s loops have the checked-out branch %s as their feature branch: %s."
                     % (state, branch, ", ".join(matches)),
                     "Ask the user which loop this is, then run the command again with --slug <slug>.",
                 )
-    opened = [name for name, state in every if state == loopstate.OPEN]
+    opened = [name for name, state in every if state.is_open]
     if len(opened) == 1:
-        return Loop(root, opened[0]).check()
+        return Loop(root, opened[0], states[opened[0]]).check()
     if opened:
         raise Failure(
             "Several loops are open: %s. The tool cannot tell which one you mean." % ", ".join(opened),
@@ -327,15 +381,16 @@ def branch_of(root: str, slug: str) -> str:
 
 def named(root: str, slug: str) -> Loop:
     check_slug(slug)
-    found = kind(root, slug)
-    if found is None:
+    directory = tracker_dir(root, slug)
+    if not os.path.lexists(directory):
         raise Failure(
             "No loop %s: .scratch/%s/ does not exist." % (slug, slug),
             "Check the slug with the user, then run the command again with the right --slug.",
         )
-    if found == NO_STATE:
+    state = probe(directory)
+    if state is None:
         raise Failure(
             ".scratch/%s/ holds no loop the VDD tool started: it lacks %s or %s." % (slug, NAME, loopstate.STATE_NAME),
             "Tell the user to run vdd-start-loop with the slug %s and answer continue, and stop." % slug,
         )
-    return Loop(root, slug).check()
+    return Loop(root, slug, state).check()

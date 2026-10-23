@@ -14,9 +14,10 @@ import os
 import re
 from typing import Callable
 
-from .. import loopfile, loopstate, places, recap, textfile, workfile
-from ..out import Failure, Output, and_list, refused
-from . import review
+from .. import gitcmd, loopfile, loopstate, places, textfile, workfile
+from ..loopstate import recap
+from ..out import Failure, Output, and_list
+from . import rounds
 
 NAME = "CODEREVIEW.md"
 NUMBERED = re.compile(r"^### [0-9]+[.)]")
@@ -45,10 +46,8 @@ def read_findings(source: str) -> list[Finding]:
         raise Failure("--from %s cannot be read: %s. Nothing was written." % (source, textfile.reason(error)),
                       "Run the command again with --from naming a file that holds the findings.")
     lines, opener = workfile.walk(workfile.split(text))
-    problems: list[tuple[int, str]] = []
-
-    def at(number: int, message: str) -> None:
-        problems.append((number, "%s line %d: %s" % (source, number, message)))
+    lint = workfile.Lint(source)
+    at = lint.at
 
     found: list[Finding] = []
     stray = False
@@ -71,9 +70,9 @@ def read_findings(source: str) -> list[Finding]:
     if opener is not None:
         at(opener.number, workfile.unclosed_text(opener))
     if not found:
-        problems.append((0, "%s holds no finding. Write each as \"%s\" and a body." % (source, FORM)))
-    if problems:
-        raise Failure([text for _, text in sorted(problems, key=lambda p: p[0])] + ["Nothing was written."],
+        lint.problems.append((0, ["%s holds no finding. Write each as \"%s\" and a body." % (source, FORM)]))
+    if lint.problems:
+        raise Failure(lint.lines() + ["Nothing was written."],
                       "Fix the lines above in %s, then run the command again." % source)
     return found
 
@@ -140,15 +139,43 @@ class Entry:
         self.review = last
 
 
+def refuse_moved_fold(state: loopstate.State, loop: loopfile.Loop, source: str) -> None:
+    """The refusal while a fold moved the branch and stopped before its
+    state line: a user line recorded now would drop that fold's Commits from
+    the Recap once a later round runs. Any other unfolded Sign-off is
+    accepted."""
+    if not loopstate.code_position(state).fold_owed:
+        return
+    review = state.last_review("code")
+    if review is None:
+        return
+    signed = state.code_mark("end", review.round)
+    if not signed:
+        return
+    try:
+        moved = recap.moved_fold(recap.Records.load(loop), loop.root, loop.branch, signed)
+    except gitcmd.Refused as error:
+        raise gitcmd.sandbox_refusal(error.call, command(loop, source), "tell the user %s was refused, and stop."
+                                     % gitcmd.call_text(error.call), ["Nothing was written."])
+    if moved is None:
+        return
+    fold = loopstate.fold_command(loop, loop.harness)
+    steps = [fold, "this command again"]
+    if state.status == loopstate.CLOSED:
+        steps.insert(0, "%s loop reopen --slug %s --write" % (places.command(), loop.slug))
+    raise Failure(
+        "Code round %d was folded but its fold is not recorded. Nothing was written." % review.round,
+        "Run %s." % ", then ".join(steps),
+    )
+
+
 def kept_blocks(loop: loopfile.Loop, entry: Entry) -> list[workfile.Block]:
     """The headings and bodies of the open entry a second add joins, as the
     first add left CODEREVIEW.md."""
     if entry.joined is None:
         return []
-    text = textfile.read(os.path.join(loop.dir, NAME)) or ""
-    found = dict((b.number, b) for b in workfile.Parsed(text).blocks if b.match and b.number is not None)
     wanted = entry.joined.raised()
-    missing = [n for n in wanted if n not in found]
+    found, missing = workfile.open_blocks(loop.dir, workfile.WORKING_FILES["Code-Reviewer"], wanted)
     if missing:
         raise Failure(
             "%s/%s no longer holds the heading of finding%s %s of the user's entry after round %d. Nothing was "
@@ -174,11 +201,17 @@ def not_carried(loop: loopfile.Loop, entry: Entry) -> str | None:
 # --- the command ---
 
 def run(loop: loopfile.Loop, source: str, write: bool) -> int:
-    loopstate.refuse_v1(loop, "review add")
-    state = loopstate.State(loop.dir)
+    state = loop.load_state()
+    state.refuse_v1(loop.slug, "review add")
+    refuse_moved_fold(state, loop, source)
     entry = Entry(state, loop)
-    findings = read_findings(source)
+    every = read_findings(source)
     kept = kept_blocks(loop, entry)
+    # A finding the open entry already holds was added by an earlier run
+    # whose commit point passed: a rerun adds it no second time.
+    findings = [f for f in every if not any(same(block, f) for block in kept)]
+    if not findings:
+        return already_added(loop, state, entry, source, write)
     carried = not_carried(loop, entry)
     number = entry.first
     blocks: list[list[str]] = [block.text_lines() for block in kept]
@@ -192,14 +225,15 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
         number += 1
     counts = tuple(severities.count(name) for name in loopstate.SEVERITIES)
     numbers = (entry.joined.raised() if entry.joined else []) + list(range(entry.first, number))
-    status = review.status_line(counts, False)
-    lines = ["# %s, round %d" % (review.TITLES["code"], entry.round), "", status, "",
+    status = rounds.status_line(counts, False)
+    lines = ["# %s, round %d" % (rounds.TITLES["code"], entry.round), "", status, "",
              "Findings raised by the user after the round-%d Sign-off." % entry.round, "", "## New findings"]
     for block in blocks:
         lines += [""] + block
     review_path = "%s/%s" % (loop.tracker, NAME)
-    reopening = loop.state() == loopstate.CLOSED
+    reopening = state.status == loopstate.CLOSED
     user = loopstate.user_line(entry.round, numbers, counts, number, len(numbers))
+    store = recap.Records.load(loop)
     out = Output()
     if not write:
         out.line("Would add %d finding%s after round %d's Sign-off%s:" % (
@@ -216,19 +250,12 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
         if carried:
             out.line(carried)
         return out.finish("Run %s" % command(loop, source))
-    state.lines.append(user)
+    # CODEREVIEW.md first: the committed user line names headings that must
+    # already be in it. A rerun before the commit point numbers the same
+    # findings the same way and writes the same file.
     textfile.write_or_refuse(os.path.join(loop.dir, NAME), "\n".join(lines) + "\n", review_path,
                              "Otherwise tell the user CODEREVIEW.md cannot be written, and stop.")
-    recap.write(loop, state, {})
-    state.persist(user)
-    if reopening:
-        try:
-            loopstate.append_state(loop.dir, loopstate.OPEN)
-        except OSError as error:
-            raise refused(
-                "Could not reopen the loop %s: %s" % (loop.slug, textfile.reason(error)),
-                "Otherwise tell the user the loop could not be reopened, and stop.",
-            )
+    recap.record(loop, state, store, [], [user], reopen=reopening)
     out.line("Wrote %s." % review_path)
     out.line("Wrote %s/%s." % (loop.tracker, recap.NAME))
     out.line("Recorded in %s/%s: %s" % (loop.tracker, loopstate.STATE_NAME, user))
@@ -237,6 +264,35 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
     out.line("Findings %s open: %d blocker, %d major, %d minor." % ((workfile.join_numbers(numbers),) + counts))
     if carried:
         out.line(carried)
+    return out.finish(
+        "Tell the Orchestrator the loop has your findings; it carries on with orchestrator start."
+    )
+
+
+def same(block: workfile.Block, finding: Finding) -> bool:
+    """Whether block is finding as an earlier add wrote it: the same
+    severity, reference and text."""
+    body = block.text_lines()[1:]
+    while body and not body[0].strip():
+        body.pop(0)
+    return (block.severity == finding.severity and block.reference.strip() == finding.reference
+            and [line.rstrip() for line in body] == body_lines(finding.body))
+
+
+def already_added(loop: loopfile.Loop, state: loopstate.State, entry: Entry, source: str, write: bool) -> int:
+    """Every finding of source is in the open entry: a rerun after the commit
+    point, which writes RECAP.md again where a failure left it behind."""
+    joined = entry.joined
+    if joined is None:
+        raise RuntimeError("already_added without an open entry.")
+    store = recap.Records.load(loop)
+    out = Output()
+    numbers = workfile.join_numbers(joined.raised())
+    wrote = write and recap.render_recap(loop, state, store)
+    out.line("The findings of %s are already added after round %d's Sign-off, as findings %s. %s" % (
+        source, entry.round, numbers,
+        "Wrote %s/%s again." % (loop.tracker, recap.NAME) if wrote else "Nothing was written."))
+    out.line("Findings %s open: %d blocker, %d major, %d minor." % ((numbers,) + tuple(joined.counts)))
     return out.finish(
         "Tell the Orchestrator the loop has your findings; it carries on with orchestrator start."
     )

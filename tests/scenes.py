@@ -165,6 +165,93 @@ class Staged(LoopRepoTest):
         text = text.replace("code-review: <ran | did not resolve, the Spec reviewed by hand>", "code-review: ran")
         self.put("CODEREVIEW.md", text)
 
+    # --- a whole loop, every Recap section written by the tool ---
+
+    def fill(self, name, *pairs):
+        """Replace the first old of each (old, new) in a Working file,
+        failing when old is missing, so a changed frame shows here first."""
+        text = self.read(name)
+        for old, new in pairs:
+            self.assertIn(old, text, name)
+            text = text.replace(old, new, 1)
+        self.put(name, text)
+
+    def plan_rounds(self):
+        """Plan round 1 with two findings open, round 2 signing off with both
+        fixed."""
+        self.plan()
+        self.run_ok("doorbell", "ring", "--role", "Planner", *CC, *SLUG, "--write")
+        self.run_ok("review", "start", "--role", "Plan-Reviewer", *SLUG, "--write")
+        self.put("PLAN-REVIEW.md", PLAN_REVIEW_1)
+        self.run_ok("review", "check", "--role", "Plan-Reviewer", *SLUG, "--write")
+        self.run_ok("doorbell", "ring", "--role", "Planner", *CC, *SLUG, "--write")
+        self.run_ok("review", "start", "--role", "Plan-Reviewer", *SLUG, "--write")
+        self.fill("PLAN-REVIEW.md",
+                  ("writing-for-agents: <ran | did not resolve | not needed, <reason>>", "writing-for-agents: ran"),
+                  ("### 1. major (open)", "### 1. major (fixed)"),
+                  ("### 2. minor (open)", "### 2. minor (fixed)"),
+                  ("The Spec does not say how amounts are written.",
+                   "The Spec does not say how amounts are written.\n\nResolution: the Spec names two decimals."),
+                  ("Ticket 02 leaves `summary` out.",
+                   "Ticket 02 leaves `summary` out.\n\nResolution: Ticket 02 names `summary`."))
+        self.run_ok("review", "check", "--role", "Plan-Reviewer", *SLUG, "--write")
+
+    def code_round_one(self):
+        """The Coder's round 1, both Tickets, on the feature branch."""
+        self.run_ok("coder", "start", *SLUG, "--write")
+        self.put("FIXES.md", self.read("FIXES.md").replace(
+            "Files:\nChange:\nVerified:", "Files: `a.txt`\nChange: wrote a.\nVerified: the test passed."))
+        self.commit("a.txt", "a\n", "feat: a")
+        self.run_ok("coder", "check", *SLUG, "--write")
+
+    def code_review(self, *pairs):
+        """A code review round, its frame filled with pairs."""
+        self.run_ok("review", "start", "--role", "Code-Reviewer", *SLUG, "--write")
+        self.fill("CODEREVIEW.md", *pairs)
+        self.run_ok("review", "check", "--role", "Code-Reviewer", *SLUG, "--write")
+
+    def answered(self, numbers, name, text, message):
+        """A later Coder round fixing each open finding in numbers."""
+        self.run_ok("coder", "start", *SLUG, "--write")
+        self.fill("FIXES.md", *[("Answer: <fixed | pushback>", "Answer: fixed")] * len(numbers))
+        self.commit(name, text, message)
+        self.run_ok("coder", "check", *SLUG, "--write")
+
+    def code_two_signed(self):
+        """Plan rounds with closed findings, round 1's Tickets, a code
+        finding closed in round 2 with a Not carried line in round 1, and
+        round 2 signed off: the fold absorbs the fix and moves the branch."""
+        self.plan_rounds()
+        self.code_round_one()
+        self.code_review(
+            ("code-review: <ran | did not resolve, the Spec reviewed by hand>", "code-review: ran"),
+            ("## New findings\n", "## New findings\n\n### 1. major (open): a.txt:1\n\nThe value is wrong.\n"),
+            ("- <the problem, in one line>: <why not> -->",
+             "- <the problem, in one line>: <why not> -->\n- the report's style nit on a.txt: not a defect"))
+        self.answered([1], "a.txt", "b\n", "fix: the value")
+        self.code_review(
+            ("code-review: <ran | did not resolve, the Spec reviewed by hand | not needed, <reason>>",
+             "code-review: ran"),
+            ("### 1. major (open): a.txt:1", "### 1. major (fixed): a.txt:1"),
+            ("Coder: fixed in round 2.", "Coder: fixed in round 2.\n\nResolution: a.txt holds b."))
+
+    def whole_loop(self):
+        """A loop through every Recap section: code_two_signed, the fold, the
+        user's findings closed in round 3, and a second fold."""
+        self.code_two_signed()
+        self.run_ok("loop", "fold", *SLUG, *CC, "--write")
+        self.box.write("findings.md", FINDINGS)
+        self.run_ok("review", "add", *SLUG, "--from", "findings.md", "--write")
+        self.answered([2, 3], "b.txt", "b\n", "fix: the user's findings")
+        self.code_review(
+            ("code-review: <ran | did not resolve, the Spec reviewed by hand | not needed, <reason>>",
+             "code-review: ran"),
+            ("### 2. major (open): docs/a.md:3", "### 2. major (fixed): docs/a.md:3"),
+            ("### 3. minor (open): src/b.py:9", "### 3. minor (accepted): src/b.py:9"),
+            ("Coder: fixed in round 3.", "Coder: fixed in round 3.\n\nResolution: the heading names it."),
+            ("Coder: fixed in round 3.\n\n## New", "Coder: fixed in round 3.\n\nResolution: the name stays.\n\n## New"))
+        self.run_ok("loop", "fold", *SLUG, *CC, "--write")
+
     def origin(self):
         """A local bare origin with main pushed."""
         bare = os.path.join(self.box.root, "origin.git")

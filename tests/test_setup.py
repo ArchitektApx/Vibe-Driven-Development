@@ -826,6 +826,38 @@ class GitVersionTest(ToolTest):
         self.assertIn("git version: 2.39.5, older than the 2.40 VDD needs. Failed.", result.lines)
         self.assertEqual(vddtest_tree(SCRIPTS), vddtest_tree(self.box.shared))
 
+    def hanging_on(self, argument):
+        """Setup with a git that sleeps past a one-second timeout when
+        argument is its first or second argument, and runs the real git
+        otherwise."""
+        real = shutil.which("git")
+        self.box.stub("git", "if [ \"$1\" = %s ] || [ \"$2\" = %s ]; then exec sleep 30; fi\nexec '%s' \"$@\"\n"
+                      % (argument, argument, real))
+        return self.box.run("setup", "--harness", "claude-code", "--listed", "none", "--glossary-named", "absent",
+                            env=self.box.stub_env(VDD_GIT_TIMEOUT_SECONDS="1"))
+
+    def test_a_repository_check_that_hangs_says_git_did_not_answer(self):
+        """Prevents a git that hangs on the repository check read as no
+        repository or no git: Setup names the call and the seconds and tells
+        the user to find what holds git."""
+        result = self.hanging_on("--is-inside-work-tree")
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("Git repository: git rev-parse --is-inside-work-tree timed out after 1 seconds.", result.lines)
+        self.assertIn("git did not answer in time: find what holds it, then rerun Setup.", result.tells())
+        self.assertNext(result, "Show the user the planned changes above", "setup --harness claude-code", "--write")
+
+    def test_a_version_check_that_hangs_says_git_did_not_answer(self):
+        """Prevents a git that hangs on --version read as a git with no
+        version: Setup names the call and the seconds and tells the user to
+        find what holds git."""
+        result = self.hanging_on("--version")
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("git version: git --version timed out after 1 seconds. Failed.", result.lines)
+        self.assertIn("git did not answer in time: find what holds it, then rerun Setup.", result.tells())
+        self.assertNext(result, "Show the user the planned changes above", "setup --harness claude-code", "--write")
+
     def test_2_40_and_vendor_suffixed_versions_pass(self):
         """Prevents a vendor suffix (Apple's, Git for Windows') read as part
         of the version and failing a git that is new enough."""

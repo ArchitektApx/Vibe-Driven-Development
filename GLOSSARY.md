@@ -53,7 +53,7 @@ A Role and its reviewer exchanging a working file until sign-off. The workflow h
 _Avoid_: cycle, iteration, phase
 
 **Working file**:
-Scratch space for handoff between sessions, gitignored, never part of the user's project. Every Working file sits in the tracker directory: the Loop file, the Spec and the Tickets, the three review files `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`, the Recap `RECAP.md`, and the Doorbell file. Matt Pocock's local-markdown issue tracker counts as a Working file because VDD is what invokes it.
+Scratch space for handoff between sessions, gitignored, never part of the user's project. Every Working file sits in the tracker directory: the Loop file, the Spec and the Tickets, the three review files `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`, the Recap `RECAP.md` and its records `recap.json`, and the Doorbell file. Matt Pocock's local-markdown issue tracker counts as a Working file because VDD is what invokes it.
 _Avoid_: artifact, output, deliverable
 
 **Feature slug**:
@@ -133,7 +133,7 @@ The VDD tool's rewrite of a Loop's commits after each code Sign-off. It moves ea
 _Avoid_: squash, autosquash, rebase
 
 **Recap**:
-`.scratch/<feature slug>/RECAP.md`, the account of one Loop: every closed finding with what was wrong and how it was resolved, each Ticket's record, and the commits: each final commit and what it was built from. No Role reads it during the Loop; it is for the user afterwards.
+`.scratch/<feature slug>/RECAP.md`, the account of one Loop: every closed finding with what was wrong and how it was resolved, each Ticket's record, and the commits: each final commit and what it was built from. The VDD tool renders it whole from its records, `recap.json`, on every write; no Role edits either. No Role reads it during the Loop; it is for the user afterwards.
 _Avoid_: log, history, archive
 
 **Open minor**:

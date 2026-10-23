@@ -177,6 +177,11 @@ and it offers to hand a decided idea to the next Role.
   Linux**, instead of after two seconds of retrying; Windows still retries a
   file another program holds for a moment. A refusal names a loop's state
   file by its `.scratch/<slug>/` path, as every other line does.
+- **A Spec you change after the plan Sign-off is reviewed again.** When the
+  Planner rings after the plan review signed off and before the Coder
+  starts, the Plan-Reviewer reviews the new round. Once the Coder has
+  started, VDD tells you the code loop goes on with the Spec as signed off,
+  and starts no reviewer that would only stop.
 
 #### Internal
 
@@ -212,6 +217,36 @@ and it offers to hand a decided idea to the next Role.
   independent and cost more
   ([mattpocock/skills#1257](https://github.com/mattpocock/skills/issues/1257)).
   VDD now starts each from its own instructions alone.
+- **A step that failed halfway finishes when run again.** If a review, the
+  Coder's check, `review add` or the fold failed while recording its round,
+  running it again could lose a reviewer's resolution, list a ticket twice in
+  `RECAP.md`, add your findings twice under new numbers, or report a folded
+  branch as moved. Each round is now recorded in one step, and running the
+  same command again finishes it. VDD keeps the Recap's records in
+  `.scratch/<slug>/recap.json` and writes `RECAP.md` whole from them, which
+  reads as before. A loop open across the update keeps everything its
+  `RECAP.md` held.
+- **After `review add`, the Code-Reviewer never answers with your counts.**
+  It sent your findings' counts back as if its own review had recorded them.
+- **A dry run refuses where the real run would.** The Coder's start on the
+  wrong branch and a reviewer's start with a finding gone from the review
+  file passed without `--write` and refused only with it. A Brainstormer dry
+  run first finishes a write an earlier session left half done.
+- **A failed PR step still tells you what it did.** When the loop could not
+  be closed after the push, VDD hid that the branch was pushed and the PR
+  opened. It now prints both, with the PR's link, before the error.
+- **A loop a newer VDD started is named when it is left out.** A command
+  run without `--slug` passed over it without a word; it now names the loop
+  and why.
+- **No more Python tracebacks.** An unexpected error now ends with a line
+  naming it and what to do, and a `--page` or `--tokens` value that is not
+  plain digits is refused.
+- **A git command that hangs is stopped.** A signing prompt a hidden session
+  never shows could hold the fold for ever. A git call that hangs now ends
+  after a few minutes, and the fold then leaves the branch as reviewed and
+  says why.
+- **The refusal for a loop started on 0.16.0-beta.3 offers only what works:**
+  move the loop aside and start it again.
 
 ## [0.15.0] - 2026-10-07
 

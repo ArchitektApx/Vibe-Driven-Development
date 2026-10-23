@@ -278,6 +278,20 @@ class JournalTest(BrainstormTest):
                 self.assertEqual(self.journal_left(), [])
                 self.assertTrue(self.exists(".state/lock"))
 
+    def test_a_dry_run_finishes_the_write_first(self):
+        """Prevents a dry run planning against a half-applied store that its
+        --write would never see: it settles the interrupted write first, as a
+        read does, and plans what the --write then writes."""
+        after, _ = self.stage_close(1)
+        dry = self.ok("set", "--idea", "main-idea", "--size", "large")
+        self.assertEqual(dry.lines[0], "An interrupted write (set part-one) was finished.")
+        self.assertTrue(dry.lines[1].startswith("Dry run, nothing was written. With --write, brainstorm set would "
+                                                "write main-idea.md"), dry)
+        self.assertEqual(self.store_tree(), after)
+        self.assertEqual(self.journal_left(), [])
+        written = self.ok("set", "--idea", "main-idea", "--size", "large", "--write")
+        self.assertNotIn("interrupted write", written.text)
+
     def test_a_file_edited_since_is_left_and_the_rest_rolled_back(self):
         """Prevents the roll-forward overwriting an edit made after the crash
         (red team F3): the edited file stays as it is, the other goes back to

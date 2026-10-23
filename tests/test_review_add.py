@@ -81,13 +81,14 @@ class AddTest(SceneTest):
         LoopRepoTest.coder_round(self, number, name, "x%d\n" % number)
 
     def signed_loop(self, minors_open="-", counts="0 0 0", review=SIGNED_REVIEW, extra=(), next_number=13):
-        """Code round 1 reviewed with a finding open, round 2 signed off, the
-        Loop file closed, as a Sign-off leaves a loop."""
+        """Code round 1 reviewed with a finding open, round 2 signed off and
+        folded, the Loop file closed, as a Sign-off leaves a loop."""
         self.coder_round(1)
         self.stage("code 1 reviewed open 1 counts 0 1 0 next 13 new 12 closed 0 checks code-review ran")
         self.coder_round(2)
         self.stage("code 2 reviewed signed-off %s counts %s next %d new 0 closed 1 checks code-review ran"
                    % (minors_open, counts, next_number), *extra)
+        self.stage("fold folded %s signed %s" % (self.sha(), self.sha()))
         self.put("CODEREVIEW.md", review)
 
     def findings(self, text=FINDINGS, name="findings.md"):
@@ -143,7 +144,7 @@ class DryRunAndWriteTest(AddTest):
         state = self.state().split("\n")
         self.assertEqual(state[-3:], ["code 2 user open 13,14 counts 0 1 1 next 15 new 2", "loop open", ""])
         recap = self.read("RECAP.md")
-        self.assertIn("Code Loop: 2 rounds, reopened by the user's findings after round 2.", recap)
+        self.assertIn("Code Loop: 2 rounds, reopened by the user's findings after round 2; folded.", recap)
         rows = [line for line in recap.split("\n") if line.startswith("| code |")]
         self.assertEqual(rows[1], "| code | 2 | 0 | 1 | SIGNED OFF | code-review ran |")
         self.assertEqual(rows[2], "| code | 2, user | 2 | 0 | 0 blocker, 1 major, 1 minor | none |")
@@ -151,6 +152,42 @@ class DryRunAndWriteTest(AddTest):
         self.assertIn("Reopened the loop demo.", result.lines)
         self.assertIn("Findings 13 and 14 open: 0 blocker, 1 major, 1 minor.", result.lines)
         self.assertNotIn("Tell the user verbatim", result.text)
+
+    def unfolded(self, *lines):
+        """A signed-off code Loop whose fold has not run, as signed_loop
+        leaves it without the fold line."""
+        self.coder_round(1)
+        self.stage("code 1 reviewed open 1 counts 0 1 0 next 13 new 12 closed 0 checks code-review ran")
+        self.coder_round(2)
+        self.stage("code 2 reviewed signed-off - counts 0 0 0 next 13 new 0 closed 1 checks code-review ran", *lines)
+        self.put("CODEREVIEW.md", SIGNED_REVIEW)
+        self.findings()
+
+    def test_an_unfolded_open_loop_takes_the_findings(self):
+        """Prevents review add refusing a signed-off loop whose fold has not
+        run, which no fold moved: only a fold that moved the branch and
+        stopped before its state line is refused."""
+        self.unfolded("loop open")
+        result = self.add()
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(result.lines, [
+            "Wrote .scratch/demo/CODEREVIEW.md.", "Wrote .scratch/demo/RECAP.md.",
+            "Recorded in .scratch/demo/loop-state: code 2 user open 13,14 counts 0 1 1 next 15 new 2",
+            "Findings 13 and 14 open: 0 blocker, 1 major, 1 minor.", NEXT_LINE])
+        self.assertEqual(self.read("CODEREVIEW.md"), REVIEW)
+
+    def test_a_closed_unfolded_loop_takes_the_findings_and_reopens(self):
+        """Prevents review add refusing a loop closed before its fold ran, as
+        a PR-Author started by hand leaves it, with a Next: whose fold then
+        refuses the closed loop."""
+        self.unfolded()
+        result = self.add()
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(result.lines, [
+            "Wrote .scratch/demo/CODEREVIEW.md.", "Wrote .scratch/demo/RECAP.md.",
+            "Recorded in .scratch/demo/loop-state: code 2 user open 13,14 counts 0 1 1 next 15 new 2",
+            "Reopened the loop demo.", "Findings 13 and 14 open: 0 blocker, 1 major, 1 minor.", NEXT_LINE])
+        self.assertEqual(self.read("CODEREVIEW.md"), REVIEW)
 
     def test_an_open_loop_is_not_reopened_again(self):
         self.signed_loop()
@@ -367,9 +404,11 @@ class RoundAfterTest(AddTest):
         self.assertIn("### 13. major, raised by the user after round 2, fixed in round 3: docs/a.md:3", recap)
         self.assertIn("### 14. minor, raised by the user after round 2, accepted in round 3: the Spec, Testing "
                       "Decisions", recap)
-        self.assertIn("Code Loop: 3 rounds, signed off in round 3.", recap)
-        # A later add numbers on from round 3's next and writes a second user row.
-        again = self.add(self.findings("### minor: z.md:1\n\nLate.\n", "late.md"))
+        self.assertIn("Code Loop: 3 rounds, signed off in round 3; folded.", recap)
+        # A later add, before round 3's fold, numbers on from round 3's next
+        # and writes a second user row.
+        self.findings("### minor: z.md:1\n\nLate.\n", "late.md")
+        again = self.add("late.md")
         self.assertEqual(again.code, 0, again)
         self.assertIn("### 15. minor (open): z.md:1", self.read("CODEREVIEW.md"))
         recap = self.read("RECAP.md")

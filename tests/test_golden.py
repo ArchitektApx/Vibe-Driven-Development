@@ -15,6 +15,7 @@ becomes <version>. VDD_TODAY fixes the dates.
 import json
 import os
 import re
+import shutil
 import subprocess
 import unittest
 
@@ -84,6 +85,27 @@ class Golden(Staged):
         self.assertEqual(expected, actual, "golden %s differs" % os.path.relpath(path, REPO))
 
 
+def checkout_refused(t):
+    """A git on PATH whose checkout a sandbox refuses, the real git
+    otherwise."""
+    real = shutil.which("git")
+    t.box.stub("git", 'if [ "$1" = checkout ]; then echo "fatal: Operation not permitted" >&2; exit 128; fi\n'
+                      "exec '%s' \"$@\"\n" % real)
+    return {"PATH": t.box.bin + os.pathsep + os.environ.get("PATH", "")}
+
+
+def legacy_store_backup_blocked(t):
+    """A 0.15 store with a file where the migration's backup directory
+    goes, so the rename of the old store fails."""
+    t.legacy_store()
+    t.box.write(".scratch/_brainstorming.pre-0.16", "in the way\n")
+
+
+# Rows whose env is a POSIX sh stub, and rows whose output holds an error
+# the OS words: each skips on Windows.
+POSIX_ENVS = (checkout_refused,)
+POSIX_SCENES = (legacy_store_backup_blocked,)
+
 S = Staged
 
 ROWS = [
@@ -98,6 +120,7 @@ ROWS = [
     ("loop", "set", "write", S.plan, ("loop", "set", *SLUG, "--minors", "leave", "--write"), None, None, 0),
     ("loop", "fold", "dry-run", S.code_signed, ("loop", "fold", *SLUG, *CC), None, None, 0),
     ("loop", "fold", "write", S.code_signed, ("loop", "fold", *SLUG, *CC, "--write"), None, None, 0),
+    ("loop", "fold", "write-moved", S.code_two_signed, ("loop", "fold", *SLUG, *CC, "--write"), None, None, 0),
     ("loop", "close", "write", S.plan, ("loop", "close", *SLUG, "--write"), None, None, 0),
     ("loop", "reopen", "write", lambda t: (t.plan(), t.stage("loop closed")), ("loop", "reopen", *SLUG, "--write"),
      None, None, 0),
@@ -143,9 +166,9 @@ ROWS = [
      ("review", "check", "--role", "Plan-Reviewer", *SLUG, "--write"), None, None, 0),
     ("review", "check", "code-signed-off", S.code_review_written,
      ("review", "check", "--role", "Code-Reviewer", *SLUG, "--write"), None, None, 0),
-    ("review", "add", "dry-run", lambda t: (t.code_signed(), t.box.write("findings.md", FINDINGS)),
+    ("review", "add", "dry-run", lambda t: (t.folded(), t.box.write("findings.md", FINDINGS)),
      ("review", "add", *SLUG, "--from", "findings.md"), None, None, 0),
-    ("review", "add", "write", lambda t: (t.code_signed(), t.stage("loop closed"),
+    ("review", "add", "write", lambda t: (t.folded(), t.stage("loop closed"),
                                           t.box.write("findings.md", FINDINGS)),
      ("review", "add", *SLUG, "--from", "findings.md", "--write"), None, None, 0),
 
@@ -239,6 +262,12 @@ ROWS = [
     ("brainstorm", "migrate", "dry-run", S.legacy_store, ("brainstorm", "migrate",), None, None, 0),
     ("brainstorm", "migrate", "write", S.legacy_store, ("brainstorm", "migrate", "--write"), None, None, 0),
 
+    # Two refusals whose wording the owner settled without a model run.
+    ("refusal", "coder-start", "sandbox-refused-checkout", S.signed, ("coder", "start", *SLUG, "--write"),
+     checkout_refused, None, 1),
+    ("refusal", "brainstorm-migrate", "backup-rename-fails", legacy_store_backup_blocked,
+     ("brainstorm", "migrate", "--write"), None, None, 1),
+
     ("codex-stop", "codex-stop", "armed", S.codex_armed, ("codex-stop",), None,
      json.dumps({"session_id": CODEX_ID, "turn_id": "t1", "hook_event_name": "Stop", "stop_hook_active": False,
                  "last_assistant_message": "Done."}).encode("utf-8"), 0),
@@ -254,12 +283,52 @@ ROWS = [
 ]
 
 
+# Content goldens: a Working file the tool wrote, pinned whole after a staged
+# scene. (group, case, scene, file under .scratch/demo/); the golden is
+# golden/<group>/<case>.md.
+CONTENT = [
+    # Generated from 0.16.0-beta.10's Recap writer before the Recap moved to
+    # records, so the renderer from records is held to the Recap users know.
+    ("recap", "whole-loop", S.whole_loop, "RECAP.md"),
+]
+
+
+def content_path(group, case):
+    return os.path.join(GOLDEN, group, "%s.md" % case)
+
+
+def make_content_test(row):
+    group, case, scene, name = row
+
+    def test(self):
+        scene(self)
+        actual = normalise(self.read(name), self.box)
+        path = content_path(group, case)
+        if UPDATE:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "wb") as handle:
+                handle.write(actual.encode("utf-8"))
+            return
+        if not os.path.exists(path):
+            self.fail("%s is missing: run the suite with VDD_UPDATE_GOLDENS=1 to write it"
+                      % os.path.relpath(path, REPO))
+        with open(path, "rb") as handle:
+            # A Windows checkout with core.autocrlf writes the file with CRLF.
+            expected = handle.read().decode("utf-8").replace("\r\n", "\n")
+        self.assertEqual(expected, actual, "golden %s differs" % os.path.relpath(path, REPO))
+
+    test.__doc__ = "Prevents an unseen change to the %s the tool writes, %s." % (name, case)
+    return test
+
+
 def make_test(row):
     group, command, case, scene, argv, env, stdin, code = row
 
     def test(self):
-        if WINDOWS and env is Golden.gh_on_path:
+        if WINDOWS and (env is Golden.gh_on_path or env in POSIX_ENVS):
             self.skipTest("the gh fake and the git stub are POSIX scripts")
+        if WINDOWS and scene in POSIX_SCENES:
+            self.skipTest("Windows words the rename error differently")
         if scene is Golden.read_only_state and not WINDOWS and hasattr(os, "geteuid") and os.geteuid() == 0:
             self.skipTest("root writes a read-only file")
         self.check_row(group, command, case, scene, argv, env, stdin, code)
@@ -272,6 +341,12 @@ for _row in ROWS:
     _name = "test_%s_%s_%s" % tuple(re.sub(r"\W", "_", part) for part in _row[:3])
     assert not hasattr(Golden, _name), _name
     setattr(Golden, _name, make_test(_row))
+
+
+for _row in CONTENT:
+    _name = "test_content_%s_%s" % tuple(re.sub(r"\W", "_", part) for part in _row[:2])
+    assert not hasattr(Golden, _name), _name
+    setattr(Golden, _name, make_content_test(_row))
 
 
 del S
@@ -294,6 +369,7 @@ class GoldenFileTest(unittest.TestCase):
     def test_every_golden_file_has_a_row(self):
         """Prevents a stale golden file left behind by a removed row."""
         named = set(os.path.join(row[0], "%s-%s.txt" % (row[1], row[2])) for row in ROWS)
+        named |= set(os.path.relpath(content_path(row[0], row[1]), GOLDEN) for row in CONTENT)
         found = set()
         if os.path.isdir(GOLDEN):
             for directory, _, names in os.walk(GOLDEN):
