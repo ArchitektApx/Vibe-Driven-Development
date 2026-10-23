@@ -611,6 +611,47 @@ class ReadWhole(BrainstormTest):
         self.assertEqual(result.last, "Next: Tell the user the file and line above and ask them to fix it; then run "
                                       "the same command again.")
 
+    def test_a_block_indicator_with_a_digit_or_comment_is_named_at_its_key(self):
+        """Prevents a refusal that points at a continuation line (finding 3):
+        tldr: |2 and tldr: > # c are YAML block indicators, named at line 2."""
+        data = self.raw("alpha.md")
+        for value in (b"|2", b"> # c", b"|+2", b">2-"):
+            with self.subTest(value=value):
+                self.put("alpha.md", data.replace(b"tldr: One.\n", b"tldr: " + value + b"\n  One.\n"))
+                result = self.bs("note", "--idea", "alpha", "--section", "Evidence", "--text", "x", "--write")
+                self.assertEqual(result.code, 1, result)
+                self.assertIn("alpha.md line 2: a frontmatter line this tool does not read: tldr: "
+                              + value.decode("ascii"), result.lines)
+
+    def test_a_tldr_that_reads_as_a_block_indicator_is_written_quoted(self):
+        """Prevents the tool writing a value it then refuses (finding 3): a
+        tldr of |, >- or |2, given to set, new or split, is written quoted,
+        reads back as given, and a later note rewrites the file."""
+        for n, value in enumerate(("|", ">-", "|2")):
+            with self.subTest(value=value):
+                self.ok("set", "--idea", "alpha", "--tldr", value, "--write")
+                self.assertIn('\ntldr: "%s"\n' % value, self.read("alpha.md"))
+                self.ok("note", "--idea", "alpha", "--section", "Evidence", "--text", "x%d" % n, "--write")
+                self.assertIn('\ntldr: "%s"\n' % value, self.read("alpha.md"))
+                self.assertIn("x%d" % n, self.read("alpha.md"))
+                self.ok("set", "--idea", "alpha", "--tldr", "fixed", "--write")
+                self.assertIn("\ntldr: fixed\n", self.read("alpha.md"))
+        self.new("gamma", "Gamma", "|")
+        self.assertIn('\ntldr: "|"\n', self.read("gamma.md"))
+        self.ok("note", "--idea", "gamma", "--section", "Evidence", "--text", "y", "--write")
+        shown = self.ok("show", "--idea", "gamma").lines[0]
+        self.assertIn(": |, file ", shown)
+
+    def test_a_quoted_block_indicator_tldr_reads_back_with_its_quotes(self):
+        """Prevents a tldr losing the quotes the user gave (finding 14): a
+        tldr of "|" or | survives a later note and shows as given."""
+        for n, value in enumerate(('"|"', "|", '""|""')):
+            with self.subTest(value=value):
+                self.ok("set", "--idea", "alpha", "--tldr", value, "--write")
+                self.ok("note", "--idea", "alpha", "--section", "Evidence", "--text", "q%d" % n, "--write")
+                shown = self.ok("show", "--idea", "alpha").lines[0]
+                self.assertIn(": %s, file " % value, shown)
+
     def test_check_names_each_file_that_does_not_read_whole(self):
         """Prevents a damaged file found only when a write refuses: check
         lists it with its line."""

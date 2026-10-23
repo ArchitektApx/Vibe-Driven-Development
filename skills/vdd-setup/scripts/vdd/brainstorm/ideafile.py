@@ -40,9 +40,10 @@ TLDR_MAX = 200
 # list item under the key before it.
 FM_KEY = re.compile(r"^([A-Za-z][A-Za-z0-9-]*):\s*(.*)$")
 FM_ITEM = re.compile(r"^\s+-\s+(.*)$")
-# A YAML block indicator as a key's whole value: its text sits on the lines
-# below, which split_frontmatter does not read.
-BLOCK = re.compile(r"^[>|][-+]?$")
+# A YAML block indicator as a key's whole value: | or >, a chomping sign and
+# an indentation digit in either order, a comment. Its text sits on the lines
+# below, which split_frontmatter does not read; render quotes such a value.
+BLOCK = re.compile(r"^[>|](?:[-+]?[1-9]?|[1-9][-+])(?:\s+#.*)?$")
 DEPTH_MAX = 3
 # A section's text that holds nothing yet.
 EMPTY = ("", "None.", "None", "- [ ] <smallest step that moves status forward>")
@@ -82,6 +83,15 @@ def squash(text: str | None) -> str:
 
 
 # --- Markdown -------------------------------------------------------------------
+
+
+def quoted_block(value: str) -> bool:
+    """Whether render quotes the value: a block indicator, or a value that
+    is such a quoted value itself ("|", ""|""), so one pair of quotes read
+    off gives back what was written."""
+    while value[:1] == value[-1:] == '"' and len(value) > 1:
+        value = value[1:-1]
+    return bool(BLOCK.match(value))
 
 
 def split_frontmatter(text: str) -> tuple[list[list[str]], str]:
