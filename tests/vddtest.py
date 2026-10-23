@@ -114,6 +114,17 @@ SIGNED = PLAN_SIGNED
 
 GIT_IDENTITY = ("-c", "commit.gpgsign=false", "-c", "user.name=VDD Test", "-c", "user.email=test@example.com")
 
+# No git the suite starts, the tool's included, runs maintenance or gc after a
+# commit: git detaches it into the background, and a scene copied while it
+# runs loses a lock file mid-copy (macOS CI, 2026-10-23).
+os.environ.update({
+    "GIT_CONFIG_COUNT": "2",
+    "GIT_CONFIG_KEY_0": "maintenance.auto",
+    "GIT_CONFIG_VALUE_0": "false",
+    "GIT_CONFIG_KEY_1": "gc.auto",
+    "GIT_CONFIG_VALUE_1": "0",
+})
+
 
 def b64(data):
     return None if data is None else base64.b64encode(data).decode("ascii")
