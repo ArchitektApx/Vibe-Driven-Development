@@ -14,9 +14,10 @@ import os
 import re
 from typing import Callable
 
-from .. import loopfile, loopstate, places, recap, textfile, workfile
+from .. import gitcmd, loopfile, loopstate, places, textfile, workfile
+from ..loopstate import recap
 from ..out import Failure, Output, and_list
-from . import review
+from . import rounds
 
 NAME = "CODEREVIEW.md"
 NUMBERED = re.compile(r"^### [0-9]+[.)]")
@@ -138,6 +139,36 @@ class Entry:
         self.review = last
 
 
+def refuse_moved_fold(state: loopstate.State, loop: loopfile.Loop, source: str) -> None:
+    """The refusal while a fold moved the branch and stopped before its
+    state line: a user line recorded now would drop that fold's Commits from
+    the Recap once a later round runs. Any other unfolded Sign-off is
+    accepted."""
+    if not loopstate.code_position(state).fold_owed:
+        return
+    review = state.last_review("code")
+    if review is None:
+        return
+    signed = state.code_mark("end", review.round)
+    if not signed:
+        return
+    try:
+        moved = recap.moved_fold(recap.Records.load(loop), loop.root, loop.branch, signed)
+    except gitcmd.Refused as error:
+        raise gitcmd.sandbox_refusal(error.call, command(loop, source), "tell the user %s was refused, and stop."
+                                     % gitcmd.call_text(error.call), ["Nothing was written."])
+    if moved is None:
+        return
+    fold = loopstate.fold_command(loop, loop.harness)
+    steps = [fold, "this command again"]
+    if state.status == loopstate.CLOSED:
+        steps.insert(0, "%s loop reopen --slug %s --write" % (places.command(), loop.slug))
+    raise Failure(
+        "Code round %d was folded but its fold is not recorded. Nothing was written." % review.round,
+        "Run %s." % ", then ".join(steps),
+    )
+
+
 def kept_blocks(loop: loopfile.Loop, entry: Entry) -> list[workfile.Block]:
     """The headings and bodies of the open entry a second add joins, as the
     first add left CODEREVIEW.md."""
@@ -194,14 +225,15 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
         number += 1
     counts = tuple(severities.count(name) for name in loopstate.SEVERITIES)
     numbers = (entry.joined.raised() if entry.joined else []) + list(range(entry.first, number))
-    status = review.status_line(counts, False)
-    lines = ["# %s, round %d" % (review.TITLES["code"], entry.round), "", status, "",
+    status = rounds.status_line(counts, False)
+    lines = ["# %s, round %d" % (rounds.TITLES["code"], entry.round), "", status, "",
              "Findings raised by the user after the round-%d Sign-off." % entry.round, "", "## New findings"]
     for block in blocks:
         lines += [""] + block
     review_path = "%s/%s" % (loop.tracker, NAME)
     reopening = state.status == loopstate.CLOSED
     user = loopstate.user_line(entry.round, numbers, counts, number, len(numbers))
+    store = recap.Records.load(loop)
     out = Output()
     if not write:
         out.line("Would add %d finding%s after round %d's Sign-off%s:" % (

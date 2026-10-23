@@ -23,12 +23,12 @@ import json
 import os
 from typing import TYPE_CHECKING, Any, Iterable, Sequence
 
-from . import loopfile, textfile, workfile
-from .out import Failure, refused
+from .. import gitcmd, loopfile, textfile, workfile
+from ..out import Failure, refused
 
 if TYPE_CHECKING:
-    from .loopfile import Loop
-    from .loopstate import Review, State
+    from ..loopfile import Loop
+    from .state import Review, State
 
 NAME = "RECAP.md"
 RECORDS_NAME = "recap.json"

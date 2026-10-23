@@ -3,7 +3,7 @@
 The Loop file holds a loop's settings, format 2, one "<Name>: <value>" line
 each. A line it no longer names, such as the Coder's respawn line a loop
 from 0.16.0-beta.3 wrote, is read and ignored. The loop's state file,
-.scratch/<slug>/loop-state, belongs to loopstate.py; this module asks it
+.scratch/<slug>/loop-state, belongs to the loopstate package; this module asks it
 whether a loop is open or closed.
 
 A loop is a directory under .scratch/ that holds the Loop file and the state file, and its slug is that
@@ -151,10 +151,11 @@ def readable(directory: str) -> loopstate.State | None:
     return state if state.version is not None else None
 
 
-def kind(root: str, slug: str) -> str | None:
-    """What .scratch/<slug> is: None when it does not exist, OPEN or CLOSED
-    for a loop, NO_STATE for any other existing path, a damaged state file
-    included. A state file of a newer format version still refuses."""
+def look(root: str, slug: str) -> tuple[str | None, loopstate.State | None]:
+    """What .scratch/<slug> is, and the State probe() read for a loop: None when
+    it does not exist, OPEN or CLOSED for a loop, NO_STATE for any other
+    existing path, a damaged state file included. A state file of a newer
+    format version beside a Loop file still refuses."""
     directory = tracker_dir(root, slug)
     if not os.path.lexists(directory):
         return None, None

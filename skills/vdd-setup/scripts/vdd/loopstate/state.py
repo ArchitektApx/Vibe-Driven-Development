@@ -39,17 +39,16 @@ from __future__ import annotations
 
 import os
 import re
-from typing import TYPE_CHECKING, Iterable, Literal, Sequence
+from typing import TYPE_CHECKING, Literal
 
-from . import textfile
-from .out import TELL, Failure
+from .. import textfile
+from ..out import TELL, Failure
+from .lines import STATE_PREFIX, code_mark_line, header_line, loop_line, review_started_line
 
 if TYPE_CHECKING:
-    from .loopfile import Loop
+    from ..loopfile import Loop
 
 STATE_NAME = "loop-state"
-STATE_PREFIX = "vdd loop-state "
-STATE_VERSION = "2"
 # The versions State reads. Version 1 has only loop lines.
 STATE_VERSIONS = ("1", "2")
 OPEN = "open"
@@ -256,17 +255,17 @@ class State:
                 newest = max(newest, int(match.group(1)))
         return newest
 
-    def fold_record(self, kind: str | None = None) -> Fold | None:
-        """The fold's last recorded outcome, of kind when given, or None."""
-        found: Fold | None = None
+    def folds(self) -> list[Fold]:
+        """Every fold line, folded or skipped, as a Fold, in order."""
+        found: list[Fold] = []
         for line in self.lines:
             match = re.match(r"^fold folded (\S+) signed (\S+)", line)
-            if match and kind in (None, "folded"):
-                found = Fold("folded", match.group(2), tip=match.group(1))
+            if match:
+                found.append(Fold("folded", match.group(2), tip=match.group(1)))
                 continue
             match = re.match(r"^fold skipped (\S+) (.*)$", line)
-            if match and kind in (None, "skipped"):
-                found = Fold("skipped", match.group(1), reason=match.group(2))
+            if match:
+                found.append(Fold("skipped", match.group(1), reason=match.group(2)))
         return found
 
     def fold_record(self, kind: str | None = None) -> Fold | None:
@@ -298,153 +297,17 @@ class State:
 
     def append(self, *lines: str) -> None:
         """Append lines to the state file, or raise a refused Failure."""
-        self.persist(*lines)
-        self.lines.extend(lines)
-
-    def persist(self, *lines: str) -> None:
-        """Append lines to the state file on disk only: for lines already
-        added to self.lines so the files written before them saw them."""
         try:
-            textfile.append(self.path, "".join(line + "\n" for line in lines))
+            self.add(*lines)
         except OSError as error:
             raise textfile.write_refusal("the loop state file %s" % textfile.shown(self.path), error,
                                          "Otherwise tell the user the loop state file cannot be written, and stop.")
 
-
-# --- where the Workflow stands ---
-
-OWNERS = ("Planner", "Plan-Reviewer", "Coder", "Code-Reviewer", "Fold", "PR-Author", "user")
-
-
-class Position:
-    """Where one Loop stands: its phase and round, who owes the next move,
-    whether the code Loop is signed off and whether the fold is owed. The
-    fold is run by the Orchestrator; the user owes the move on a closed
-    loop."""
-
-    def __init__(
-        self, phase: Literal["plan", "code"], round_number: int, owes: str, signed_off: bool = False,
-        fold_owed: bool = False, ring_ignored: bool = False,
-    ) -> None:
-        self.phase = phase
-        self.round = round_number
-        self.owes = owes
-        self.signed_off = signed_off
-        self.fold_owed = fold_owed
-        # The Planner rang a plan round after the plan Sign-off once the code
-        # Loop had started: no Role reviews it.
-        self.ring_ignored = ring_ignored
-
-    def owed_by(self, role: str, round_number: int | None = None) -> bool:
-        return self.owes == role and (round_number is None or self.round == round_number)
-
-
-def position(state: State, planner_round: int) -> Position:
-    """The one answer to where the Workflow stands. planner_round is the
-    newest round the Planner rang, from the Doorbell file. A Planner ring
-    after the plan Sign-off opens the next plan round while the code Loop has
-    not started; once it has, the ring is ignored."""
-    plan = state.last_review("plan")
-    reviewed = plan.round if plan else 0
-    code_started = state.code_mark("start", 1) is not None
-    plan_signed = plan is not None and plan.signed_off
-    rung = planner_round > reviewed
-    # Once the code Loop has started, the plan Loop is over: coder start ran
-    # only after its Sign-off.
-    if not code_started and (not plan_signed or rung):
-        owner = "Plan-Reviewer" if rung else "Planner"
-        return Position("plan", reviewed + 1, owner if state.is_open else "user")
-    found = code_position(state, ring_ignored=rung)
-    if not state.is_open:
-        found.owes = "user"
-    return found
-
-
-def code_position(state: State, ring_ignored: bool = False) -> Position:
-    review = state.last_review("code")
-    if review is not None and review.signed_off:
-        owed = state.fold_owed()
-        return Position("code", review.round, "Fold" if owed else "PR-Author", True, owed, ring_ignored)
-    newest = state.code_round()
-    if newest and state.code_mark("end", newest) is None:
-        return Position("code", newest, "Coder", ring_ignored=ring_ignored)
-    if newest and (review is None or review.round < newest):
-        return Position("code", newest, "Code-Reviewer", ring_ignored=ring_ignored)
-    return Position("code", review.round + 1 if review else 1, "Coder", ring_ignored=ring_ignored)
-
-
-# --- the state lines: one builder per kind, and no line formatted elsewhere ---
-
-def header_line() -> str:
-    return STATE_PREFIX + STATE_VERSION
-
-
-def loop_line(status: str) -> str:
-    """"loop open" or "loop closed"."""
-    return "loop %s" % status
-
-
-def review_started_line(kind: str, round_number: int) -> str:
-    return "%s %d review-started" % (kind, round_number)
-
-
-def reviewed_line(
-    kind: str, round_number: int, signed_off: bool, open_numbers: Iterable[int], counts: Sequence[int],
-    next_number: int, new: int, closed: int, checks: str,
-) -> str:
-    numbers = ",".join(str(n) for n in open_numbers) or "-"
-    return "%s %d reviewed %s %s counts %d %d %d next %d new %d closed %d checks %s" % (
-        kind, round_number, "signed-off" if signed_off else "open", numbers, counts[0], counts[1], counts[2],
-        next_number, new, closed, checks)
-
-
-def user_line(
-    round_number: int, open_numbers: Iterable[int], counts: Sequence[int], next_number: int, new: int,
-) -> str:
-    numbers = ",".join(str(n) for n in open_numbers)
-    return "code %d user open %s counts %d %d %d next %d new %d" % (
-        round_number, numbers, counts[0], counts[1], counts[2], next_number, new)
-
-
-def code_mark_line(which: Literal["start", "end"], round_number: int, sha: str) -> str:
-    """"code <r> start <sha>" or "code <r> end <sha>"."""
-    return "code %d %s %s" % (round_number, which, sha)
-
-
-def respawn_line(role: str, policy: str) -> str:
-    return "respawn %s %s" % (role, policy)
-
-
-def respawn_once_line(role: str) -> str:
-    return "respawn-once %s" % role
-
-
-def session_line(number: int) -> str:
-    return "orchestrator session %d" % number
-
-
-def spawn_line(role: str, round_number: int, session: int, reason: str | None = None) -> str:
-    return "spawn %s %d session %d%s" % (role, round_number, session, " reason " + reason if reason else "")
-
-
-def resume_line(role: str, round_number: int, session: int) -> str:
-    return "resume %s %d session %d" % (role, round_number, session)
-
-
-def return_line(role: str, round_number: int, ok: bool) -> str:
-    return "return %s %d %s" % (role, round_number, "ok" if ok else "miss")
-
-
-def tokens_line(role: str, round_number: int, count: int) -> str:
-    return "tokens %s %d %d" % (role, round_number, count)
-
-
-def folded_line(tip: str, signed: str) -> str:
-    return "fold folded %s signed %s" % (tip, signed)
-
-
-def skipped_line(signed: str, reason: str) -> str:
-    return "fold skipped %s %s" % (signed, " ".join(reason.split()))
+    def add(self, *lines: str) -> None:
+        """Append lines to the state file in one write, for a caller that
+        words its own refusal. Raises OSError."""
+        textfile.append(self.path, "".join(line + "\n" for line in lines))
+        self.lines.extend(lines)
 
 
 # --- the Doorbell lines, byte-identical to the ones the Roles composed (ADR 0002) ---

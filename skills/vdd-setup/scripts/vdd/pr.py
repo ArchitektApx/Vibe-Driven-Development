@@ -15,7 +15,7 @@ import re
 import shutil
 from typing import TYPE_CHECKING, Any, Iterable
 
-from . import args, doorbells, gitcmd, loopfile, loopstate, places, preflight, signoff, textfile, workfile
+from . import args, doorbells, gitcmd, loopfile, loopstate, places, preflight, textfile, workfile
 from .gitcmd import Refused
 from .out import Failure, Output, refused
 
@@ -78,7 +78,7 @@ def dispatch(sub: str, values: dict[str, Any]) -> int:
     harness = args.harness_of(values, usage())
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     state = loopstate.open_loop(loop, "pr %s" % sub)
-    signoff.require_code_sign_off(state)
+    loopstate.require_code_sign_off(state)
     if sub == "open":
         return open_pr(loop, state, harness, values["path"], values["write"])
     return check(loop, harness)
@@ -284,7 +284,7 @@ def check(loop: loopfile.Loop, harness: Harness) -> int:
                       "tell the user %s was refused, and stop." % gitcmd.call_text(error.call))
     print_path(out, path)
     if path.name == NO_PR:
-        return out.finish(signoff.pr_step(loop))
+        return out.finish(loopstate.pr_step(loop))
     return out.finish(
         "Assemble the title and body as your skill's step 3 says and write them to %s/%s, then go on from its "
         "step 4 (the PR: line)." % (loop.tracker, BODY_NAME)
@@ -368,8 +368,8 @@ def open_pr(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wante
         raise Failure(
             "The fold's outcome is not recorded for the code Sign-off: the branch is pushed only after the Sign-off "
             "and the fold. Nothing was pushed.",
-            "Stop, and tell the user the fold has not run; the Orchestrator runs %s loop fold --slug %s --harness "
-            "%s --write at the code Sign-off." % (places.command(), loop.slug, harness.name),
+            "Stop, and tell the user the fold has not run; the Orchestrator runs %s at the code Sign-off."
+            % loopstate.fold_command(loop, harness),
         )
     title, body = read_body(loop)
     command = open_command(loop, harness, wanted)

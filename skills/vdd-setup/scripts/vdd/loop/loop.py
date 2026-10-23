@@ -6,7 +6,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .. import args, gitcmd, loopfile, loopstate, places, preflight, signoff, textfile, workfile
+from .. import args, gitcmd, loopfile, loopstate, places, textfile
 from ..harness import Harness
 from ..out import Failure, Output, refused
 
@@ -89,6 +89,7 @@ def run(argv: list[str]) -> int:
 
 def dispatch(sub: str, values: dict[str, Any]) -> int:
     if sub == "new":
+        from .new import new
         harness = args.harness_of(values, usage())
         return new(gitcmd.project_root(os.getcwd()), values, harness)
     if values["harness"] is not None:
@@ -102,7 +103,7 @@ def dispatch(sub: str, values: dict[str, Any]) -> int:
         return close_or_reopen(root, values, sub)
     if sub == "fold":
         args.require(values, ["slug", "harness"], usage())
-        from . import fold
+        from .fold import fold
         return fold.run(loopfile.find(root, values["slug"]), args.harness_of(values, usage()), values["write"])
     return set_lines(root, values)
 
@@ -118,235 +119,12 @@ def check_answers(values: dict[str, Any], options: tuple[tuple[str, str], ...]) 
             )
 
 
-def quoted(value: str) -> str:
-    return '"%s"' % value if " " in value else value
-
-
-# --- new ---
-
-def new(root: str, values: dict[str, Any], harness: Harness) -> int:
-    loopfile.refuse_root(root)
-    slug = values["slug"]
-    args.require(values, ["slug"], usage())
-    loopfile.check_slug(slug)
-    check_answers(values, ANSWERS)
-    out = Output()
-    leftover = loopfile.kind(root, slug)
-    continuing = check_leftover(slug, leftover, values["leftover"])
-    if leftover == loopstate.OPEN and continuing:
-        out.line("Continuing the open loop %s: every file in .scratch/%s/ stays as it is. Nothing was written."
-                 % (slug, slug))
-        return out.finish(
-            "This Session is the Planner: invoke vdd-planner now, and pass --slug %s on every VDD tool call."
-            % slug
-        )
-    if leftover is not None and not continuing:
-        return report_leftover(root, slug, leftover, values["write"], out)
-    base = values["base"]
-    if not base:
-        base = gitcmd.current_branch(root)
-        if not base:
-            out.line("Base branch: unknown. HEAD is detached, or this is not a git repository, so the tool "
-                     "does not guess it.")
-            out.line("Nothing was written.")
-            return out.finish(
-                "Ask the user which branch the loop branches from, then run the same command again with "
-                "--base <branch>.",
-                1 if values["write"] else 0,
-            )
-        source = "the checked-out branch"
-    else:
-        source = "--base"
-    branch = values["branch"] or slug
-    if branch == base:
-        raise Failure(
-            "The feature branch %s equals the base branch. Every review diffs <base>...HEAD, so the two must "
-            "differ. Nothing was written." % branch,
-            "Ask the user for a feature branch other than %s, then run the command again with --branch "
-            "<branch>." % base,
-        )
-    fields = {
-        "Format": str(loopfile.FORMAT),
-        "Feature": slug,
-        "Base branch": base,
-        "Feature branch": branch,
-        "Harness": loopfile.LABELS[harness.name],
-    }
-    if values["write"]:
-        args.require(values, [option for option, _ in ANSWERS], usage())
-        for option, name in ANSWERS:
-            fields[name] = values[option]
-        return write_new(root, slug, fields, out, continuing)
-    out.line("Slug: %s" % slug)
-    out.line("Base branch: %s (from %s)." % (base, source))
-    out.line("Feature branch: %s%s." % (branch, " (proposed: the slug)" if not values["branch"] else ""))
-    out.line("Harness: %s." % fields["Harness"])
-    asked = questions(values, branch, base)
-    for number, text in enumerate(asked, 1):
-        out.line("Question %d, %s" % (number, text))
-    command = new_command(slug, harness, base, branch, values)
-    if not asked:
-        return out.finish("Nothing left to ask. Run: %s --write" % command)
-    return out.finish(
-        "Ask the user each Question line above, one at a time and in order, with its answers as written. "
-        "Then run: %s --write" % command
-    )
-
-
-def questions(values: dict[str, Any], branch: str, base: str) -> list[str]:
-    asked: list[str] = []
-    if not values["branch"]:
-        asked.append(
-            "feature branch: The feature branch is %s, the slug itself. Keep it, or name another branch, "
-            "which must differ from %s. (Another branch: --branch <name>.)" % (branch, base)
-        )
-    if values["minors"] is None:
-        asked.append(
-            "Minors: Does an open minor finding hold up Sign-off? Answers, in this order: "
-            "\"Leave them\" (--minors leave): a reviewer signs off with the open minors listed. "
-            "\"Fix them\" (--minors fix): both Loops run until no minor is open."
-        )
-    if values["pr"] is None:
-        asked.append(
-            "PR: Should VDD open the pull request at the end of the Workflow? Answers, in this order: "
-            "\"Open it\" (--pr yes). \"Ask at Sign-off\" (--pr \"ask at sign-off\"). "
-            "\"Manual\" (--pr manual): VDD prints the body and you open the PR. "
-            "\"No PR\" (--pr no): the branch stays local and no body is printed."
-        )
-    return asked
-
-
-def new_command(slug: str, harness: Harness, base: str, branch: str, values: dict[str, Any]) -> str:
-    parts = [places.command(), "loop new", "--slug", slug, "--harness", harness.name, "--base", base,
-             "--branch", branch]
-    if values["leftover"]:
-        parts += ["--leftover", values["leftover"]]
-    for option, _ in ANSWERS:
-        value = values[option]
-        parts += ["--" + option, quoted(value) if value is not None else '"<answer>"']
-    return " ".join(parts)
-
-
-def write_new(root: str, slug: str, fields: dict[str, str], out: Output, continuing: bool = False) -> int:
-    directory = loopfile.tracker_dir(root, slug)
-    new_state = loopstate.needs_new_state(directory)
-    if fields["PR"] == "yes":
-        warn_preflight(root, fields["Base branch"], out)
-    try:
-        loopfile.write(directory, fields)
-        if new_state:
-            loopstate.start_state(directory)
-        else:
-            loopfile.reopen(loopstate.State(directory))
-    except OSError as error:
-        raise textfile.write_refusal("the Loop file in %s/" % textfile.shown(directory), error,
-                                     "Otherwise tell the user the Loop file could not be written, and stop.")
-    out.line("Written: .scratch/%s/%s, and the loop is open.%s"
-             % (slug, loopfile.NAME, " Every other file there stays." if continuing else ""))
-    for name in loopfile.ORDER:
-        out.line("%s: %s" % (name, fields[name]))
-    out.tell("The loop's slug is %s. The Orchestrator's launch line will carry it." % slug)
-    out.tell("The Harness is %s. If that is wrong, say so and it will be corrected." % fields["Harness"])
-    out.tell("You can ask the Orchestrator to respawn any hosted Role at any round.")
-    return out.finish(
-        "Relay every Tell the user verbatim line above unchanged; only after doing that, invoke vdd-planner "
-        "as your skill says. The loop's slug is %s: pass --slug %s on every VDD tool call from here on." % (slug, slug)
-    )
-
-
-# --- a leftover tracker directory ---
-
-ANSWER_CONTINUE = (
-    "\"Continue the earlier Workflow\" (--leftover continue): only when it was interrupted. Every file stays "
-    "where it is."
-)
-ANSWER_FRESH = (
-    "\"Start fresh on this slug\" (loop aside, then loop new again): the directory moves to "
-    ".scratch/%s-<n>/, closed, and nothing is deleted."
-)
-ANSWER_OTHER = "\"Use a different slug\" (loop new with the other slug): every file stays where it is."
-
-
-def check_leftover(slug: str, leftover: str | None, answer: str | None) -> bool:
-    """Whether the user's answer continues the leftover; refuses an answer
-    its kind does not allow."""
-    if answer is None:
-        return False
-    if answer != "continue":
-        raise Failure("--leftover takes continue.", "Run %s for this command's usage." % usage())
-    if leftover is None:
-        raise Failure(
-            "There is no .scratch/%s/ to continue. Nothing was written." % slug,
-            "Run the same command without --leftover.",
-        )
-    if leftover == loopstate.CLOSED:
-        raise Failure(
-            ".scratch/%s/ holds a closed loop, and a finished loop is not continued. Nothing was written." % slug,
-            "Ask the user again: start fresh on this slug, or use a different slug.",
-        )
-    return True
-
-
-def work_left(root: str, slug: str) -> str:
-    """The line naming what of a loop's work a leftover tracker directory
-    holds, from what is on disk."""
-    directory = loopfile.tracker_dir(root, slug)
-    found = [name for name in (workfile.SPEC,) if os.path.isfile(os.path.join(directory, name))]
-    issues = os.path.join(directory, workfile.ISSUES)
-    tickets = [name for name in os.listdir(issues) if name.endswith(".md")] if os.path.isdir(issues) else []
-    if tickets:
-        found.append("%d Ticket%s in %s" % (len(tickets), "" if len(tickets) == 1 else "s", workfile.ISSUES))
-    found += [name for name in workfile.own_files() if os.path.isfile(os.path.join(directory, name))]
-    if not found:
-        return "It holds no Spec, Tickets or review files. Nothing was written."
-    return "It holds %s. Nothing was written." % ", ".join(found)
-
-
-def report_leftover(root: str, slug: str, leftover: str, write: bool, out: Output) -> int:
-    if leftover == loopstate.OPEN:
-        out.line(".scratch/%s/ holds an open loop: an earlier Workflow on this slug that did not finish." % slug)
-        answers = [ANSWER_CONTINUE, ANSWER_FRESH % slug, ANSWER_OTHER]
-    elif leftover == loopstate.CLOSED:
-        out.line(".scratch/%s/ holds a closed loop: an earlier Workflow on this slug that finished." % slug)
-        answers = [ANSWER_FRESH % slug, ANSWER_OTHER]
-    else:
-        out.line(".scratch/%s/ exists and holds no loop the VDD tool started: a loop from before this version, "
-                 "or a directory another tool made." % slug)
-        answers = [ANSWER_CONTINUE + " The questions follow, and the Loop file is written into it.",
-                   ANSWER_FRESH % slug, ANSWER_OTHER]
-    out.line(work_left(root, slug))
-    out.line("Question 1, leftover: Answers, in this order: " + " ".join(answers))
-    aside_command = "%s loop aside --slug %s --write" % (places.command(), slug)
-    on_continue = "" if leftover == loopstate.CLOSED else " On continue, run the same command with --leftover continue."
-    return out.finish(
-        "Ask the user the Question line above, with what each answer does to the files.%s On start fresh, run "
-        "%s, then this command again. On a different slug, run loop new with that slug."
-        % (on_continue, aside_command),
-        1 if write else 0,
-    )
-
-
-def warn_preflight(root: str, base: str, out: Output) -> None:
-    remote, checks = preflight.checks(root, base)
-    for check in checks:
-        if check.passed:
-            out.line("Preflight, %s, remote %s: passed." % (check.name, remote))
-        else:
-            out.line("Preflight, %s, remote %s: failed (%s)." % (check.name, remote, check.why))
-            out.tell(
-                "Warning: the %s check failed: %s. The loop goes on; fix it before Sign-off, or the "
-                "PR-Author prints the body for you to open the PR." % (check.name, check.why)
-            )
-
-
-# --- aside ---
-
 def aside(root: str, values: dict[str, Any]) -> int:
     loopfile.refuse_root(root)
     args.require(values, ["slug"], usage())
     slug = values["slug"]
     loopfile.check_slug(slug)
-    leftover = loopfile.kind(root, slug)
+    leftover, state = loopfile.look(root, slug)
     if leftover is None:
         raise Failure(
             ".scratch/%s/ does not exist: nothing to move aside." % slug,
@@ -379,8 +157,6 @@ def aside(root: str, values: dict[str, Any]) -> int:
     return out.finish("Run loop new for %s again, as your skill says." % slug)
 
 
-# --- show ---
-
 def show(root: str, values: dict[str, Any]) -> int:
     loop = loopfile.find(root, values["slug"])
     role = values["role"]
@@ -390,7 +166,7 @@ def show(root: str, values: dict[str, Any]) -> int:
     state = loop.load_state()
     if role == "PR-Author":
         state.refuse_v1(loop.slug, "loop show --role PR-Author")
-        signoff.require_code_sign_off(state)
+        loopstate.require_code_sign_off(state)
     names = loopfile.ROLES[role] if role else loopfile.IDENTITY + loopfile.SETTINGS
     out = Output()
     out.line("Slug: %s" % loop.slug)
@@ -414,8 +190,6 @@ def show(root: str, values: dict[str, Any]) -> int:
         "Pass --slug %s on every VDD tool call from here on, and go on as your skill says." % loop.slug
     )
 
-
-# --- set ---
 
 def set_lines(root: str, values: dict[str, Any]) -> int:
     if any(values[option] is not None for option in ("feature", "base-branch", "feature-branch", "base", "branch")):
@@ -443,8 +217,6 @@ def set_lines(root: str, values: dict[str, Any]) -> int:
                              "Otherwise tell the user the Loop file could not be changed, and stop.")
     return out.finish("Go on as your skill says, passing --slug %s." % loop.slug)
 
-
-# --- close and reopen ---
 
 def close_or_reopen(root: str, values: dict[str, Any], sub: str) -> int:
     loop = loopfile.find(root, values["slug"])

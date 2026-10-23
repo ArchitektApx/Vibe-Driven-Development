@@ -50,13 +50,13 @@ def load(name: str) -> ModuleType:
     elif name == "codex-stop":
         from . import codex_hook as module
     elif name == "coder":
-        from . import coder as module
+        from .coder import coder as module
     elif name == "doorbell":
         from . import doorbell as module
     elif name == "loop":
         from .loop import loop as module
     elif name == "orchestrator":
-        from . import orchestrator as module
+        from .orchestrator import orchestrator as module
     elif name == "review":
         from .review import review as module
     elif name == "pr":
