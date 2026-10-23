@@ -122,10 +122,13 @@ class EntryTest(ToolTest):
     def test_the_entry_writes_no_bytecode(self):
         """The entry turns bytecode off before it imports the package, so no
         __pycache__ lands beside the tool in the Shared directory or the plugin
-        root."""
+        root. The run clears PYTHONPYCACHEPREFIX: with the suite's prefix set,
+        Python would write any bytecode there, and a tool that turned
+        bytecode back on would still leave the copy clean."""
         copy = os.path.join(self.box.root, "copy")
         shutil.copytree(SCRIPTS, copy, ignore=shutil.ignore_patterns("__pycache__"))
-        result = self.box.run("--help", entry=os.path.join(copy, "vdd.py"))
+        result = self.box.run("--help", entry=os.path.join(copy, "vdd.py"),
+                              env=self.box.env(PYTHONPYCACHEPREFIX=None))
         self.assertEqual(result.code, 0, result)
         found = [d for d, dirs, files in os.walk(copy) if "__pycache__" in dirs]
         self.assertEqual(found, [])

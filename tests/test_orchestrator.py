@@ -6,21 +6,18 @@ import re
 import subprocess
 import unittest
 
-from vddtest import REPO, ToolTest
+from vddtest import PLAN_SIGNED, PLAN_SIGNED_2, CODE_SIGNED_2, REPO, LoopRepoTest, SceneTest
 
 P1 = "VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/."
 P2 = "VDD Planner: .scratch/demo/ ready, round 2. Read spec.md and issues/."
 PLAN_OPEN_1 = "plan 1 reviewed open 1,2 counts 0 1 1 next 3 new 2 closed 0 checks writing-for-agents ran"
-PLAN_SIGNED_2 = "plan 2 reviewed signed-off - counts 0 0 0 next 3 new 0 closed 2 checks writing-for-agents ran"
 CODE_OPEN_1 = "code 1 reviewed open 1 counts 0 1 0 next 2 new 1 closed 0 checks code-review ran"
-CODE_SIGNED_2 = "code 2 reviewed signed-off - counts 0 0 0 next 2 new 0 closed 1 checks code-review ran"
 
 
-class OrchestratorTest(ToolTest):
+class OrchestratorTest(SceneTest):
     pr = "ask at sign-off"
 
-    def setUp(self):
-        ToolTest.setUp(self)
+    def stage_scene(self):
         self.box.init_git("main")
         self.box.write_loop("demo", text=(
             "# VDD Loop\n\nFormat: 2\nFeature: demo\nBase branch: main\nFeature branch: demo\nMinors: fix\n"
@@ -31,10 +28,6 @@ class OrchestratorTest(ToolTest):
     def policies(self):
         """The Coder's Respawn policy set, so start places at once."""
         return ("respawn Coder never",)
-
-    def stage(self, *lines):
-        with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
-            handle.write("".join(line + "\n" for line in lines))
 
     def rings(self, *lines):
         path = self.box.path(".scratch", "demo", "doorbells")
@@ -53,9 +46,6 @@ class OrchestratorTest(ToolTest):
 
     def back(self, role, *extra):
         return self.orch("return", "--role", role, "--slug", "demo", "--harness", "claude-code", *extra)
-
-    def state(self):
-        return self.box.read(os.path.join(".scratch", "demo", "loop-state"))
 
     def files(self):
         """Every file under .scratch/demo/ but the state file, and git's
@@ -421,31 +411,15 @@ class FoldStepTest(OrchestratorTest):
     def signed_loop(self):
         """A real round-2 Sign-off: the commits the fold reads, and a
         Code-Reviewer out in this session."""
-        subprocess.run(["git", "checkout", "-q", "-b", "demo"], cwd=self.box.proj, check=True)
+        self.git("checkout", "-q", "-b", "demo")
         start = self.head()
         self.commit("a.txt", "a\n", "feat: one")
         end_one = self.head()
         self.commit("a.txt", "a2\n", "fix: one")
         end_two = self.head()
-        self.stage("plan 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 checks writing-for-agents ran",
-                   "orchestrator session 1", "code 1 start %s" % start, "code 1 end %s" % end_one, CODE_OPEN_1,
+        self.stage(PLAN_SIGNED, "orchestrator session 1", "code 1 start %s" % start, "code 1 end %s" % end_one, CODE_OPEN_1,
                    "code 2 start %s" % end_one, "code 2 end %s" % end_two, "spawn Code-Reviewer 2 session 1",
                    CODE_SIGNED_2)
-
-    def head(self):
-        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.box.proj, stdout=subprocess.PIPE,
-                              check=True).stdout.decode().strip()
-
-    def commit(self, name, text, message):
-        self.box.write(name, text)
-        subprocess.run(["git", "add", name], cwd=self.box.proj, check=True)
-        subprocess.run(["git", "-c", "commit.gpgsign=false", "-c", "user.name=VDD Test", "-c",
-                        "user.email=test@example.com", "commit", "-q", "-m", message], cwd=self.box.proj, check=True)
-
-    def set_pr(self, value):
-        path = os.path.join(".scratch", "demo", "loop.md")
-        text = self.box.read(path)
-        self.box.write(path, re.sub(r"PR: .*", "PR: " + value, text))
 
     def test_return_after_the_sign_off_names_the_fold_on_every_pr_value(self):
         for value in ("no", "ask at sign-off", "yes", "manual"):
@@ -477,17 +451,6 @@ class FoldStepTest(OrchestratorTest):
                 result = self.start()
                 self.assertNext(result, step)
                 self.assertNotIn("loop fold", result.last)
-
-
-class VersionOneTest(OrchestratorTest):
-    def test_every_orchestrator_command_refuses_a_version_one_loop(self):
-        self.box.write_loop("demo", version=1)
-        for argv in (("start", "--slug", "demo"),
-                     ("return", "--role", "Coder", "--slug", "demo", "--harness", "claude-code")):
-            with self.subTest(argv=argv):
-                result = self.orch(*argv)
-                self.assertNotEqual(result.code, 0, result)
-                self.assertIn("0.16.0-beta.3", result.text)
 
 
 class RespawnQuestionTest(OrchestratorTest):

@@ -101,7 +101,3 @@ def known(name: str) -> Harness:
     if found is None:
         raise ValueError("no Harness is named %s" % name)
     return found
-
-
-def all_harnesses() -> list[Harness]:
-    return [known(name) for name in NAMES]

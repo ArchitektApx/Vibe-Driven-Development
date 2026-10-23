@@ -1,0 +1,4 @@
+$ vdd brainstorm rename --idea other --to another --write
+exit 0
+Renamed other to another; relation lines, parent fields and links in 0 other ideas now name another.
+Next: Tell the user in one line.

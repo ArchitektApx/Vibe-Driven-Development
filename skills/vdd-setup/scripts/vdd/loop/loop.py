@@ -88,12 +88,12 @@ def run(argv: list[str]) -> int:
 
 
 def dispatch(sub: str, values: dict[str, Any]) -> int:
-    harness = args.harness_of(values, usage()) if values["harness"] is not None or sub == "new" else None
-    root = gitcmd.project_root(os.getcwd())
     if sub == "new":
-        if harness is None:
-            raise RuntimeError("loop new ran without its Harness.")
-        return new(root, values, harness)
+        harness = args.harness_of(values, usage())
+        return new(gitcmd.project_root(os.getcwd()), values, harness)
+    if values["harness"] is not None:
+        args.harness_of(values, usage())
+    root = gitcmd.project_root(os.getcwd())
     if sub == "aside":
         return aside(root, values)
     if sub == "show":
@@ -102,10 +102,8 @@ def dispatch(sub: str, values: dict[str, Any]) -> int:
         return close_or_reopen(root, values, sub)
     if sub == "fold":
         args.require(values, ["slug", "harness"], usage())
-        if harness is None:
-            raise RuntimeError("loop fold ran without its Harness.")
         from . import fold
-        return fold.run(loopfile.find(root, values["slug"]), harness, values["write"])
+        return fold.run(loopfile.find(root, values["slug"]), args.harness_of(values, usage()), values["write"])
     return set_lines(root, values)
 
 
@@ -241,7 +239,7 @@ def write_new(root: str, slug: str, fields: dict[str, str], out: Output, continu
         else:
             loopstate.append_state(directory, loopstate.OPEN)
     except OSError as error:
-        raise textfile.write_refusal("the Loop file in %s" % directory, error,
+        raise textfile.write_refusal("the Loop file in %s/" % textfile.shown(directory), error,
                                      "Otherwise tell the user the Loop file could not be written, and stop.")
     out.line("Written: .scratch/%s/%s, and the loop is open.%s"
              % (slug, loopfile.NAME, " Every other file there stays." if continuing else ""))
@@ -330,15 +328,15 @@ def report_leftover(root: str, slug: str, leftover: str, write: bool, out: Outpu
 
 
 def warn_preflight(root: str, base: str, out: Output) -> None:
-    remote, checks = preflight.run(root, base)
-    for name, passed, why in checks:
-        if passed:
-            out.line("Preflight, %s, remote %s: passed." % (name, remote))
+    remote, checks = preflight.checks(root, base)
+    for check in checks:
+        if check.passed:
+            out.line("Preflight, %s, remote %s: passed." % (check.name, remote))
         else:
-            out.line("Preflight, %s, remote %s: failed (%s)." % (name, remote, why))
+            out.line("Preflight, %s, remote %s: failed (%s)." % (check.name, remote, check.why))
             out.tell(
                 "Warning: the %s check failed: %s. The loop goes on; fix it before Sign-off, or the "
-                "PR-Author prints the body for you to open the PR." % (name, why)
+                "PR-Author prints the body for you to open the PR." % (check.name, check.why)
             )
 
 
@@ -375,7 +373,7 @@ def aside(root: str, values: dict[str, Any]) -> int:
         os.rename(directory, loopfile.tracker_dir(root, target))
     except OSError as error:
         raise refused(
-            "Could not move .scratch/%s/ aside: %s" % (slug, error),
+            "Could not move .scratch/%s/ aside: %s" % (slug, textfile.reason(error)),
             "Otherwise tell the user the directory could not be moved, and stop.",
         )
     out.line("Moved: .scratch/%s/ is now .scratch/%s/. Nothing was deleted." % (slug, target))
@@ -465,7 +463,7 @@ def close_or_reopen(root: str, values: dict[str, Any], sub: str) -> int:
                 out.line("Deleted the Codex armed file %s." % name)
     except OSError as error:
         raise refused(
-            "Could not change the loop state file in .scratch/%s/: %s" % (loop.slug, error),
+            "Could not change the loop state file in .scratch/%s/: %s" % (loop.slug, textfile.reason(error)),
             "Otherwise tell the user the loop could not be marked %s, and stop." % target,
         )
     if target == loopstate.CLOSED:

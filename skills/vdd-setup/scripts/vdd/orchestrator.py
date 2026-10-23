@@ -23,8 +23,6 @@ SUBCOMMANDS = ("start", "return", "respawn", "tokens")
 USER_REASON = "for the user's findings"
 POLICY = re.compile(r"^(every round|never|over ([1-9][0-9]*)(k?))$")
 HOSTED = ("Plan-Reviewer", "Coder", "Code-Reviewer")
-SKILLS = {"Plan-Reviewer": "vdd-plan-reviewer", "Coder": "vdd-coder", "Code-Reviewer": "vdd-code-reviewer"}
-
 HELP = [
     "orchestrator start --slug <slug> [--harness <h>]",
     "  Run on every start of the Orchestrator's Session, a restart included. Records a new session, names the",
@@ -109,14 +107,10 @@ class Flow:
         self.loop = loop
         self.state = state
         self.slug = loop.slug
-        harness = harnesses.get(loopfile.harness_slug(loop.setting("Harness")[0]))
-        if harness is None:
-            raise RuntimeError("harness_slug named no Harness for the loop %s." % loop.slug)
-        self.harness = harness
+        self.harness = harnesses.known(loopfile.harness_slug(loop.setting("Harness")[0]))
         # The Loop file's own value: Generic's Harness module has no label.
         self.harness_label = loop.setting("Harness")[0]
-        self.place = doorbells.Place(loop.root, loop.slug)
-        self.place.loop = loop
+        self.place = doorbells.Place(loop.root, loop.slug, loop)
 
     # --- the state, as the Orchestrator needs it ---
 
@@ -203,7 +197,7 @@ class Flow:
         return self.state.lines.count("return %s %d miss" % (role, number))
 
     def rung(self) -> int:
-        rounds = [e.doorbell.round for e in self.place.entries("Orchestrator", doorbells.LOCK_RETRY_SECONDS)
+        rounds = [e.doorbell.round for e in self.place.entries("Orchestrator")
                   if e.doorbell]
         return max(rounds) if rounds else 0
 

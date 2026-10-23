@@ -1,0 +1,12 @@
+$ vdd loop show --slug demo
+exit 0
+Slug: demo
+State: open
+Feature: demo
+Base branch: main
+Feature branch: demo
+Minors: fix
+PR: ask at sign-off
+Harness: Claude Code
+Harness file: harness-claude-code.md
+Next: Pass --slug demo on every VDD tool call from here on, and go on as your skill says.

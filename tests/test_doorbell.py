@@ -7,11 +7,10 @@ import re
 import stat
 import subprocess
 import sys
-import threading
 import time
 import unittest
 
-from vddtest import ENTRY, WINDOWS, ToolTest
+from vddtest import ENTRY, WINDOWS, LoopRepoTest
 
 P1 = "VDD Planner: .scratch/x/ ready, round 1. Read spec.md and issues/."
 P2 = "VDD Planner: .scratch/x/ ready, round 2. Read spec.md and issues/."
@@ -23,9 +22,11 @@ ROOT_FIX = (
 )
 
 
-class DoorbellTest(ToolTest):
+class DoorbellTest(LoopRepoTest):
+    slug = "x"
+
     def setUp(self):
-        ToolTest.setUp(self)
+        LoopRepoTest.setUp(self)
         self.box.write_loop("x")
 
     def db(self, *args, env=None, harness="claude-code", slug: str | None = "x"):
@@ -34,10 +35,6 @@ class DoorbellTest(ToolTest):
 
     def state_lines(self):
         return self.box.read(os.path.join(".scratch", "x", "loop-state")).split("\n")
-
-    def stage(self, *lines):
-        with open(self.box.path(".scratch", "x", "loop-state"), "ab") as handle:
-            handle.write("".join(line + "\n" for line in lines).encode("utf-8"))
 
     def last_review(self):
         rounds = [int(m.group(1)) for m in (re.match(r"^plan ([0-9]+) reviewed ", l) for l in self.state_lines()) if m]
@@ -106,18 +103,6 @@ class DoorbellTest(ToolTest):
         self.assertIn("to: Planner " + R1, self.doorbells())
         self.assertEqual(self.db("ring", "--role", "Planner", "--write").code, 0)
         self.assertIn("to: Orchestrator " + P2, self.doorbells())
-
-    def test_ring_refuses_on_a_version_one_loop(self):
-        """A version 1 loop has no plan review lines to compose a Doorbell
-        from, so ring refuses it as every round command does. The reason holds
-        for a ring, which writes no review file."""
-        self.box.write_loop("x", version=1)
-        result = self.db("ring", "--role", "Planner", "--write")
-        self.assertNotEqual(result.code, 0, result)
-        self.assertIn("0.16.0-beta.3", result.text)
-        self.assertIn("doorbell ring does not run on it: this version reads no rounds from a version 1 loop.",
-                      result.text)
-        self.assertNotIn("review file", result.text)
 
     def test_ring_without_write_changes_nothing(self):
         result = self.ring("Planner", P1, write=False)
@@ -390,9 +375,9 @@ class DoorbellTest(ToolTest):
         time.sleep(0.5)
         self.assertIsNone(proc.poll())
         self.ring("Orchestrator", R1)
-        out, _ = proc.communicate(timeout=20)
-        self.assertEqual(proc.returncode, 0)
-        self.assertIn(b"doorbell take --role Planner --harness cursor", out)
+        result = self.box.finish(proc, timeout=20)
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("doorbell take --role Planner --harness cursor", result.text)
 
     def test_wait_times_out_and_asks(self):
         """On TIMEOUT the Role asks the user whether to keep waiting
@@ -409,27 +394,16 @@ class DoorbellTest(ToolTest):
         self.assertIn("TIMEOUT", self.wait("Orchestrator", env=self.fast(timeout="0.3")).text)
 
     @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
-    def test_wait_retries_a_locked_read(self):
-        """A read that hits PermissionError is retried briefly: on Windows a
-        sharing violation and a denial look alike (0a606c2)."""
-        self.ring("Orchestrator", R1)
-        path = self.box.path(".scratch", "x", "doorbells")
-        os.chmod(path, 0)
-        self.addCleanup(os.chmod, path, stat.S_IRUSR | stat.S_IWUSR)
-        timer = threading.Timer(0.5, os.chmod, (path, stat.S_IRUSR | stat.S_IWUSR))
-        timer.start()
-        result = self.wait("Planner")
-        timer.join()
-        self.assertEqual(result.code, 0, result)
-        self.assertIn("is waiting", result.text)
-
-    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
     def test_a_wait_that_cannot_read_falls_back_to_hand_relay(self):
+        """Prevents the 2 s wait on a real denial: on POSIX the read is not
+        retried."""
         self.ring("Orchestrator", R1)
         path = self.box.path(".scratch", "x", "doorbells")
         os.chmod(path, 0)
         self.addCleanup(os.chmod, path, stat.S_IRUSR | stat.S_IWUSR)
+        started = time.monotonic()
         result = self.wait("Planner")
+        self.assertLess(time.monotonic() - started, 1.0)
         self.assertNotEqual(result.code, 0)
         self.assertNext(result, "paste", "--pasted")
 
@@ -526,8 +500,7 @@ class DoorbellTest(ToolTest):
         self.assertNext(second, self.HOLD)
         self.assertNotIn("doorbell wait", second.last)
         self.ring("Orchestrator", R2_SIGNED)
-        out, _ = proc.communicate(timeout=20)
-        self.assertIn(b"doorbell take --role Planner", out)
+        self.assertIn("doorbell take --role Planner", self.box.finish(proc, timeout=20).text)
         self.assertFalse(os.path.exists(self.marker("Planner")))
         self.assertIn("Doorbell: " + R2_SIGNED, self.take("Planner", harness="cursor").text)
 

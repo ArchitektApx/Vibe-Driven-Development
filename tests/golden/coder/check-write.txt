@@ -1,0 +1,7 @@
+$ vdd coder check --slug demo --write
+exit 0
+FIXES.md: round 1 checked and written.
+Round 1 ends at <sha>.
+Copied the Ticket entries to .scratch/demo/RECAP.md.
+VDD Coder: FIXES.md written, round 1. Read it.
+Next: End your turn with the Doorbell line above as your whole reply.

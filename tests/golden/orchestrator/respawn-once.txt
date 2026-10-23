@@ -1,0 +1,4 @@
+$ vdd orchestrator respawn --role Coder --once --slug demo --write
+exit 0
+The Coder's next spawn is fresh.
+Next: Go on with the step the tool printed before it.

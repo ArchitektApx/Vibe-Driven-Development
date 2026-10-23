@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from types import ModuleType
 
-from . import args, places
+from . import args, places, textfile
 from .out import Failure, Output, refused
 
 # Command group -> one-line summary.
@@ -79,6 +79,6 @@ def main(argv: list[str]) -> int:
         return failure.emit()
     except OSError as error:
         return refused(
-            "A file could not be read or written: %s" % error,
+            "A file could not be read or written: %s" % textfile.described(error),
             "Otherwise tell the user which file it names and that the command could not run, and stop.",
         ).emit()

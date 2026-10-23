@@ -1,0 +1,6 @@
+$ vdd brainstorm find --text half
+exit 0
+part-one [idea]: The first half.
+  > The first half.
+  > The first half.
+Next: Answer the user from these lines; show --idea <slug> opens one.

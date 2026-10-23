@@ -54,9 +54,6 @@ THREAD_ID = re.compile(r"^[0-9A-Za-z_-]+$")
 # tests shorten both.
 POLL_SECONDS = 10.0
 TIMEOUT_SECONDS = 2700.0
-# How long a read retries on PermissionError: on Windows a sharing violation
-# and a denial look alike.
-LOCK_RETRY_SECONDS = 2.0
 # A wait marker untouched for this many polls, plus the grace, is stale.
 STALE_POLLS = 3
 STALE_GRACE_SECONDS = 5.0
@@ -136,9 +133,9 @@ class Place:
     def state_path(self, role: str) -> str:
         return os.path.join(self.dir, "doorbell-state-" + role.lower())
 
-    def entries(self, role: str, retry: float = 0.0) -> list[Entry]:
+    def entries(self, role: str) -> list[Entry]:
         """Every line addressed to role, oldest first."""
-        lines = textfile.lines(self.file, retry)
+        lines = textfile.lines(self.file)
         if lines is None:
             return []
         textfile.check_header(self.file, lines, HEADER_PREFIX, (FILE_VERSION,))
@@ -152,13 +149,13 @@ class Place:
         return out
 
     def load_state(self, role: str) -> State:
-        lines = textfile.lines(self.state_path(role), LOCK_RETRY_SECONDS)
+        lines = textfile.lines(self.state_path(role))
         state = State()
         if not lines:
             return state
         if textfile.check_header(self.state_path(role), lines, STATE_PREFIX, (STATE_VERSION,)) is None:
             raise Failure(
-                "%s is not a Doorbell state file this tool wrote." % self.state_path(role),
+                "%s is not a Doorbell state file this tool wrote." % textfile.shown(self.state_path(role)),
                 "Tell the user the file is damaged; deleting it makes the Role re-read every Doorbell. Then stop.",
             )
         for line in lines[1:]:
@@ -175,7 +172,8 @@ class Place:
         lines = [STATE_PREFIX + STATE_VERSION, "count %d" % state.count]
         lines += ["handled %s %d" % key for key in sorted(state.handled)]
         textfile.write_or_refuse(
-            self.state_path(role), "\n".join(lines) + "\n", "the Doorbell state file %s" % self.state_path(role),
+            self.state_path(role), "\n".join(lines) + "\n",
+            "the Doorbell state file %s" % textfile.shown(self.state_path(role)),
             "Otherwise tell the user the Doorbell state file cannot be written, and stop.",
             ["Nothing was recorded as handled."],
         )
@@ -241,7 +239,7 @@ def mark_handled(place: Place, role: str, out: Output) -> None:
     without printing a Doorbell: the Orchestrator's start acts on what was
     rung before it from the state, so the relay after it names the wait
     rather than a Doorbell already acted on."""
-    entries = place.entries(role, LOCK_RETRY_SECONDS)
+    entries = place.entries(role)
     state = place.load_state(role)
     beyond, _ = pending(entries, state)
     if not beyond:
@@ -287,7 +285,7 @@ def watch(place: Place, role: str, floor: int = 0, beat: Callable[[], None] | No
     while True:
         if beat:
             beat()
-        entries = place.entries(role, LOCK_RETRY_SECONDS)
+        entries = place.entries(role)
         state = place.load_state(role)
         state.count = max(state.count, floor)
         _, new = pending(entries, state)
@@ -316,7 +314,7 @@ def read_marker(place: Place, role: str) -> tuple[str, float, float] | None:
     readable marker."""
     path = marker_path(place, role)
     try:
-        lines = textfile.lines(path, LOCK_RETRY_SECONDS)
+        lines = textfile.lines(path)
         age = time.time() - os.path.getmtime(path)
     except OSError:
         return None
@@ -429,9 +427,10 @@ def arm(place: Place, role: str, harness: Harness) -> None:
         )
     try:
         state = place.load_state(role)
-        entries = place.entries(role, LOCK_RETRY_SECONDS)
+        entries = place.entries(role)
     except OSError as error:
-        raise Failure("The wait could not read its files: %s" % error, hand_relay(role, harness, place.slug))
+        raise Failure("The wait could not read its files: %s" % textfile.described(error),
+                      hand_relay(role, harness, place.slug))
     count = min(state.count, len(entries))
     data = "%s%s\n%s %d\n" % (ARMED_PREFIX, ARMED_VERSION, role, count)
     try:
@@ -443,4 +442,5 @@ def arm(place: Place, role: str, harness: Harness) -> None:
             pass
         textfile.write_text(armed_path(place, thread), data)
     except OSError as error:
-        raise Failure("Cannot write the armed file: %s" % error, hand_relay(role, harness, place.slug))
+        raise Failure("Cannot write the armed file: %s" % textfile.described(error),
+                      hand_relay(role, harness, place.slug))

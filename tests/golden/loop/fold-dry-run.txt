@@ -1,0 +1,6 @@
+$ vdd loop fold --slug demo --harness claude-code
+exit 0
+Would fold demo: 1 commits into 1.
+  <sha> feat: round 1
+      <sha> feat: round 1 (round 1)
+Next: Run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" loop fold --slug demo --harness claude-code --write

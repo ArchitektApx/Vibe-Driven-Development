@@ -662,6 +662,18 @@ class CodexSetupTest(ToolTest):
         result = self.setup("--write")
         self.assertTrue(any("left ~/.codex/hooks.json untouched" in t for t in result.tells()), result)
         self.assertEqual(self.read_hooks(), "{ not json")
+        self.assertIn("~/.codex/hooks.json: left untouched, it does not parse as JSON (", result.text)
+
+    def test_a_hooks_json_that_cannot_be_read_names_the_reason_as_one(self):
+        """The Tell line read "untouched because Permission denied.", a bare
+        strerror where the user is owed a reason."""
+        os.mkdir(os.path.join(self.codex, "hooks.json"))
+        result = self.setup("--write")
+        tells = [t for t in result.tells() if "hooks.json" in t]
+        self.assertEqual(len(tells), 1, result)
+        self.assertRegex(tells[0], r"^Setup left ~/\.codex/hooks\.json untouched: it could not be read \([^()]+\)\. "
+                                   r"If it holds VDD's old Stop hook entry, remove that entry by hand\.$")
+        self.assertRegex(result.text, r"~/\.codex/hooks\.json: left untouched, it could not be read \([^()]+\)\.")
 
     def test_a_registration_in_config_toml_is_reported(self):
         self.config('[[hooks.Stop]]\n[[hooks.Stop.hooks]]\ncommand = "sh /x/vdd-codex-stop.sh"\n')
@@ -716,6 +728,31 @@ class CodexSetupTest(ToolTest):
         result = self.setup()
         self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
         self.assertTrue(any("could not tell whether VDD's hook is trusted" in t for t in result.tells()), result)
+
+    TRUST = '[hooks.state."vdd@mk:plugin.json#hooks[0]:stop:0:0"]\ntrusted_hash = "sha256:x"\n'
+    SHAPES = (
+        # (shape, the text staged before the trust entry, whether Setup finds the entry)
+        ("an array on one line", 'model = "o"\nskills = ["a", "b"]\n', True),
+        ("an array on several lines", 'skills = [\n  "a",\n  ["b", "c"],\n]\n', True),
+        ("a ] inside a string", 'skills = [\n  "a]",\n  \'b]]\',\n]\n', True),
+        ("a multi-line string", 'notes = """\nskills = [\n"""\n', True),
+        ("an unbalanced bracket", 'skills = [\n  "a",\n', None),
+    )
+
+    def test_config_toml_shapes_beside_a_trust_entry(self):
+        """Prevents a Codex user's config.toml with arrays from being misread:
+        the trust entry is found after each well-formed shape, and an
+        unbalanced bracket is unknown, never absent."""
+        for shape, before, found in self.SHAPES:
+            with self.subTest(shape=shape):
+                self.config(before + self.TRUST)
+                result = self.setup()
+                if found:
+                    self.assertTrue(any("a trust entry is in" in l for l in result.lines), result)
+                    self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
+                else:
+                    self.assertTrue(any("whether it is trusted is unknown" in l for l in result.lines), result)
+                    self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
 
     def test_codex_home_moves_the_files(self):
         home = os.path.join(self.box.root, "ch")

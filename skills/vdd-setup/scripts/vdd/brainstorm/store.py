@@ -28,10 +28,6 @@ LAYOUT_FILE = ".layout"
 STATE = ".state"
 LEDGER = "ledger.json"
 REMOVED = "removed.md"
-# How long a read of a file the store keeps once (.layout, the ledger,
-# removed.md, a journal) is retried while another process holds it: on
-# Windows an antivirus or indexer refuses a read for a moment.
-RETRY_SECONDS = 2.0
 REMOVED_HEAD = ("# Removed ideas\n\nIdeas brainstorm cleanup removed from the store, one line each: slug | title | "
                 "status | closed | removed | the Decision's gist.\n\n")
 
@@ -69,7 +65,7 @@ def utf8(data: bytes) -> bool:
 def read_once(path: str) -> str | None:
     """A file the store reads once per command, retried while another
     process holds it."""
-    return textfile.read(path, RETRY_SECONDS)
+    return textfile.read(path)
 
 
 def has_created_history(text: str) -> bool:
@@ -236,7 +232,7 @@ class Store:
             path = os.path.join(self.dir, name)
             if not is_idea_name(name) or not os.path.isfile(path):
                 continue
-            data = textfile.read_bytes(path, RETRY_SECONDS)
+            data = textfile.read_bytes(path)
             slug = name[:-3]
             self.disk[slug] = data
             self.ideas[slug] = Idea(slug, path, textfile.decode(data))
@@ -445,7 +441,7 @@ class Store:
                 ops.append((slug + ".md", self.disk[slug], None))
         for name, data in sorted(self.extra.items()):
             path = os.path.join(self.dir, name)
-            before = textfile.read_bytes(path, RETRY_SECONDS) if os.path.isfile(path) else None
+            before = textfile.read_bytes(path) if os.path.isfile(path) else None
             ops.append((name, before, data))
         return ops
 

@@ -1,0 +1,4 @@
+$ vdd coder check --slug demo
+exit 0
+FIXES.md passes: round 1.
+Next: Run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" coder check --slug demo --write

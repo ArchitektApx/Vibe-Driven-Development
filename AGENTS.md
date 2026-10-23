@@ -28,16 +28,24 @@ The VDD tool's tests use the standard library alone and run from any working
 directory:
 
 ```sh
+python3 -B tests/run.py
 python3 -B -m unittest discover -s tests
 ```
 
-On native Windows run it as `py -3 -B -m unittest discover -s tests`. `-B`
-keeps Python from caching the test modules; the tool turns bytecode off
-itself, so a run leaves no `__pycache__` behind. A test drives the tool from
-outside, as a Role or a user sees it. The one exception is the Harness
-contract test, `tests/test_harness_contract.py`, which imports the package to
-check that every Harness module implements the whole interface. A test that
-replaces a guardrail says in its docstring which failure it prevents.
+The first runs the test classes in parallel and is what CI runs; the second
+runs them one after another. On native Windows run them as
+`py -3 -B tests/run.py` and `py -3 -B -m unittest discover -s tests`. After
+a deliberate change to what the tool prints, rewrite the golden files with
+`python3 -B tests/run.py --update-goldens` (`py -3 -B tests/run.py
+--update-goldens`), or `VDD_UPDATE_GOLDENS=1` before either command, and
+review their diff. `-B` keeps Python from caching the test modules; the tool
+turns bytecode off itself, and the tests read compiled modules from a
+temporary prefix they remove, so a run leaves no `__pycache__` behind. A test
+drives the tool from outside, as a Role or a user sees it. The one exception
+is the Harness contract test, `tests/test_harness_contract.py`, which imports
+the package to check that every Harness module implements the whole
+interface. A test that replaces a guardrail says in its docstring which
+failure it prevents.
 
 ## Code layout
 
@@ -71,8 +79,8 @@ file is prose.
 ## Invariants
 
 `verify.yml` enforces these on every PR; preserve them through any refactor
-of `.github/`. The comment at each step gives its reason, and a deliberate
-exception edits the step in the same PR so the reviewer sees both.
+of `.github/`. The docstring of each check gives its reason, and a deliberate
+exception edits the check in the same PR so the reviewer sees both.
 
 - One hook: the Codex `Stop` hook inline in `.codex-plugin/plugin.json`, in
   its fixed form. No other hook, a `hooks` key in a `SKILL.md` frontmatter

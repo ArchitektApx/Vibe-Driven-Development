@@ -1,0 +1,4 @@
+$ vdd doorbell wait --role Orchestrator --harness claude-code --slug demo
+exit 0
+A Doorbell for the Orchestrator is waiting.
+Next: Run: <python> "<repo>/skills/vdd-setup/scripts/vdd.py" doorbell take --role Orchestrator --harness claude-code --slug demo

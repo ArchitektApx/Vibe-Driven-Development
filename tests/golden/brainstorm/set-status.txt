@@ -1,0 +1,4 @@
+$ vdd brainstorm set --idea other --status shaped --importance large --write
+exit 0
+other: idea -> shaped, importance large.
+Next: Tell the user in a line or two what changed.

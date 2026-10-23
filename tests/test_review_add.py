@@ -2,12 +2,9 @@
 and the rounds that run on them."""
 
 import os
-import subprocess
 import unittest
 
-from vddtest import ToolTest
-
-SIGNED = "plan 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 checks writing-for-agents ran"
+from vddtest import SIGNED, LoopRepoTest, SceneTest
 NEXT_LINE = "Next: Tell the Orchestrator the loop has your findings; it carries on with orchestrator start."
 
 FINDINGS = """### major: docs/a.md:3
@@ -62,11 +59,10 @@ Why: the Spec says so.
 """
 
 
-class AddTest(ToolTest):
+class AddTest(SceneTest):
     minors = "fix"
 
-    def setUp(self):
-        ToolTest.setUp(self)
+    def stage_scene(self):
         self.box.init_git("main")
         self.commit("a.txt", "a\n", "base")
         self.box.write(".gitignore", ".scratch/\n")
@@ -81,23 +77,8 @@ class AddTest(ToolTest):
 
     # --- staging ---
 
-    def commit(self, name, text, message):
-        self.box.write(name, text)
-        self.box.git("add", name)
-        self.box.git("commit", "-q", "-m", message)
-
-    def sha(self):
-        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.box.proj, stdout=subprocess.PIPE,
-                              check=True).stdout.decode().strip()
-
-    def stage(self, *lines):
-        with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
-            handle.write("".join(line + "\n" for line in lines))
-
     def coder_round(self, number, name=None):
-        start = self.sha()
-        self.commit(name or "src/r%d.txt" % number, "x%d\n" % number, "feat: round %d" % number)
-        self.stage("code %d start %s" % (number, start), "code %d end %s" % (number, self.sha()))
+        LoopRepoTest.coder_round(self, number, name, "x%d\n" % number)
 
     def signed_loop(self, minors_open="-", counts="0 0 0", review=SIGNED_REVIEW, extra=(), next_number=13):
         """Code round 1 reviewed with a finding open, round 2 signed off, the
@@ -109,18 +90,6 @@ class AddTest(ToolTest):
                    % (minors_open, counts, next_number), *extra)
         self.put("CODEREVIEW.md", review)
 
-    def rel(self, name):
-        return os.path.join(".scratch", "demo", name)
-
-    def read(self, name):
-        return self.box.read(self.rel(name))
-
-    def exists(self, name):
-        return os.path.exists(self.box.path(".scratch", "demo", name))
-
-    def put(self, name, text):
-        self.box.write(self.rel(name), text)
-
     def findings(self, text=FINDINGS, name="findings.md"):
         self.box.write(name, text)
         return name
@@ -128,12 +97,14 @@ class AddTest(ToolTest):
     def add(self, source="findings.md", write=True):
         return self.box.run("review", "add", "--slug", "demo", "--from", source, *(["--write"] if write else []))
 
-    def snapshot(self):
-        names = ("CODEREVIEW.md", "RECAP.md", "loop-state", "FIXES.md")
-        return dict((name, self.read(name) if self.exists(name) else None) for name in names)
+    SNAPSHOT = ("CODEREVIEW.md", "RECAP.md", "loop-state", "FIXES.md")
 
-    def state(self):
-        return self.read("loop-state")
+    def snapshot(self):
+        return LoopRepoTest.snapshot(self, self.SNAPSHOT)
+
+    def add_refused(self, *fragments, source="findings.md"):
+        return LoopRepoTest.refused(self, ("review", "add", "--slug", "demo", "--from", source, "--write"),
+                                self.SNAPSHOT, *fragments)
 
 
 class DryRunAndWriteTest(AddTest):
@@ -208,15 +179,7 @@ class LintTest(AddTest):
         review start)."""
         self.signed_loop()
         self.findings(text)
-        before = self.snapshot()
-        result = self.add()
-        self.assertNotEqual(result.code, 0, result)
-        self.assertContract(result)
-        for fragment in fragments:
-            self.assertIn(fragment, result.text)
-        self.assertIn("Nothing was written.", result.text)
-        self.assertEqual(self.snapshot(), before)
-        return result
+        return self.add_refused("Nothing was written.", *fragments)
 
     def test_text_before_the_first_finding(self):
         self.refused("My notes.\n\n### major: a.py:1\n\nBody.\n", "findings.md line 1: text before the first finding",
@@ -271,28 +234,7 @@ class LintTest(AddTest):
 class RefusalTest(AddTest):
     def refused(self, *fragments):
         self.findings()
-        before = self.snapshot()
-        result = self.add()
-        self.assertNotEqual(result.code, 0, result)
-        self.assertContract(result)
-        for fragment in fragments:
-            self.assertIn(fragment, result.text)
-        self.assertEqual(self.snapshot(), before)
-        return result
-
-    def test_a_version_one_state_file(self):
-        self.box.write_loop("demo", version=1)
-        result = self.refused("0.16.0-beta.3")
-        self.assertTrue(result.tells(), result)
-
-    def test_a_code_loop_with_no_recorded_review(self):
-        self.refused("no recorded review", "review add takes findings only after a code Sign-off")
-
-    def test_a_newest_review_with_findings_open(self):
-        self.coder_round(1)
-        self.stage("code 1 reviewed open 1 counts 0 1 0 next 2 new 1 closed 0 checks code-review ran")
-        self.put("CODEREVIEW.md", "# Code review, round 1\n")
-        self.refused("round 1's review left findings open", "review add takes findings only after a code Sign-off")
+        return self.add_refused(*fragments)
 
     def test_a_round_the_coder_has_started(self):
         self.signed_loop()

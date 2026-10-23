@@ -311,6 +311,7 @@ def start(round_: Round, write: bool) -> int:
         sha = round_.state.code_mark("start", round_.number)
     else:
         lines = skeleton(round_)
+        head(round_.loop.root)  # an unborn HEAD refuses before the switch
         to_branch(round_, out)
         sha = head(round_.loop.root)
         textfile.write_or_refuse(round_.file, "\n".join(lines) + "\n", round_.relative,

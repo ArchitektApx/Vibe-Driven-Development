@@ -16,6 +16,7 @@ from typing import Callable
 
 from .. import loopfile, loopstate, places, recap, textfile, workfile
 from ..out import Failure, Output, and_list, refused
+from . import review
 
 NAME = "CODEREVIEW.md"
 NUMBERED = re.compile(r"^### [0-9]+[.)]")
@@ -41,7 +42,7 @@ def read_findings(source: str) -> list[Finding]:
     try:
         text = textfile.decode(textfile.read_bytes(source))
     except OSError as error:
-        raise Failure("--from %s cannot be read: %s. Nothing was written." % (source, error),
+        raise Failure("--from %s cannot be read: %s. Nothing was written." % (source, textfile.reason(error)),
                       "Run the command again with --from naming a file that holds the findings.")
     lines, opener = workfile.walk(workfile.split(text))
     problems: list[tuple[int, str]] = []
@@ -191,8 +192,8 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
         number += 1
     counts = tuple(severities.count(name) for name in loopstate.SEVERITIES)
     numbers = (entry.joined.raised() if entry.joined else []) + list(range(entry.first, number))
-    status = "Open: %d blocker, %d major, %d minor." % counts
-    lines = ["# Code review, round %d" % entry.round, "", status, "",
+    status = review.status_line(counts, False)
+    lines = ["# %s, round %d" % (review.TITLES["code"], entry.round), "", status, "",
              "Findings raised by the user after the round-%d Sign-off." % entry.round, "", "## New findings"]
     for block in blocks:
         lines += [""] + block
@@ -225,7 +226,7 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
             loopstate.append_state(loop.dir, loopstate.OPEN)
         except OSError as error:
             raise refused(
-                "Could not reopen the loop %s: %s" % (loop.slug, error),
+                "Could not reopen the loop %s: %s" % (loop.slug, textfile.reason(error)),
                 "Otherwise tell the user the loop could not be reopened, and stop.",
             )
     out.line("Wrote %s." % review_path)

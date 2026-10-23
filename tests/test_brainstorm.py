@@ -2,14 +2,13 @@
 Brainstormer runs them: a staged store, each command run through vdd.py with
 VDD_TODAY set, and its output and the store's files asserted."""
 
-import base64
 import json
 import os
 import re
 import stat
 import unittest
 
-from vddtest import WINDOWS, ToolTest
+from vddtest import WINDOWS, ToolTest, b64
 
 S = ".scratch/_brainstorming/"
 TODAY = "2026-10-20"
@@ -900,9 +899,6 @@ class Rename(BrainstormTest):
         self.assertEqual(self.ideas_tree(), before)
         self.assertEqual(os.listdir(self.box.path(S + ".state/journal")), [])
 
-
-def b64(data):
-    return None if data is None else base64.b64encode(data).decode("ascii")
 
 
 class Cleanup(BrainstormTest):

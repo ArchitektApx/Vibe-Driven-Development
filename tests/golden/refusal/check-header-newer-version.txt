@@ -1,0 +1,4 @@
+$ vdd loop show --slug demo
+exit 1
+.scratch/demo/loop-state has format version 9, which this copy of the VDD tool does not know.
+Next: Tell the user this copy of the VDD tool is out of date and to rerun Setup.

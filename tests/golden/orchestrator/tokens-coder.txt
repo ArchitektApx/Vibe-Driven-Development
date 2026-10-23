@@ -1,0 +1,4 @@
+$ vdd orchestrator tokens --role Coder --tokens 52000 --slug demo
+exit 0
+Recorded: Coder round 1, 52k tokens.
+Next: Go on with the step the tool printed before it.

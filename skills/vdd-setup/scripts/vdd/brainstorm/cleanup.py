@@ -17,7 +17,7 @@ from .. import textfile
 from ..out import Failure
 from .ideafile import CLOSED, Idea, squash, today
 from .moves import Result, norm_value
-from .store import REMOVED, REMOVED_HEAD, RETRY_SECONDS, Store, removed_line
+from .store import REMOVED, REMOVED_HEAD, Store, removed_line
 
 
 def gist(idea: Idea) -> str:
@@ -138,7 +138,7 @@ def cleanup(store: Store, values: dict[str, Any]) -> Result:
         lines.append("%s %d idea%s from the store, each with one line in .scratch/_brainstorming/%s:" % (
             "Removed" if values["write"] else "Would remove", len(picked), "" if len(picked) == 1 else "s", REMOVED))
     path = os.path.join(store.dir, REMOVED)
-    record = textfile.read(path, RETRY_SECONDS) or REMOVED_HEAD
+    record = textfile.read(path) or REMOVED_HEAD
     if not record.endswith("\n"):
         record += "\n"
     for s in picked:

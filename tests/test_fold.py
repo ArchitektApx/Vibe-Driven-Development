@@ -11,9 +11,7 @@ import shutil
 import subprocess
 import unittest
 
-from vddtest import WINDOWS, ToolTest
-
-PLAN_SIGNED = "plan 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 checks writing-for-agents ran"
+from vddtest import PLAN_SIGNED, WINDOWS, LoopRepoTest, SceneTest
 
 README = (
     "# Ledger\n"
@@ -71,14 +69,13 @@ def fixed_return(text):
     return text.replace("    return str(amount)\n", "    return f\"{amount:.2f}\"\n")
 
 
-class FoldTest(ToolTest):
-    def setUp(self):
-        ToolTest.setUp(self)
+class FoldTest(SceneTest):
+    def stage_scene(self):
         self.box.init_git("main")
         for key, value in (("user.name", "VDD Test"), ("user.email", "test@example.com"),
                            ("commit.gpgsign", "false"), ("core.autocrlf", "false")):
             self.git("config", key, value)
-        self.commit({".gitignore": ".scratch/\n", "README.md": README, "ledger/report.py": REPORT}, "chore: the ledger")
+        self.commit_files({".gitignore": ".scratch/\n", "README.md": README, "ledger/report.py": REPORT}, "chore: the ledger")
         self.git("checkout", "-q", "-b", "demo")
         self.box.write_loop("demo", extra=(PLAN_SIGNED,))
         self.rounds = 0
@@ -87,17 +84,9 @@ class FoldTest(ToolTest):
 
     # --- git ---
 
-    def git(self, *argv, **kwargs):
-        return subprocess.run(["git"] + list(argv), cwd=self.box.proj, check=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, **kwargs)
-
-    def out(self, *argv):
-        return self.git(*argv).stdout.decode().strip()
-
-    def sha(self, ref="HEAD"):
-        return self.out("rev-parse", ref)
-
-    def commit(self, files, message, date=None):
+    def commit_files(self, files, message, date=None):
+        """The fold's variant of commit: several files, and an author date
+        and name when date is set."""
         for name, text in files.items():
             self.box.write(name, text)
         self.git("add", "-A")
@@ -106,10 +95,6 @@ class FoldTest(ToolTest):
             env.update(GIT_AUTHOR_DATE=date, GIT_AUTHOR_NAME="Coder", GIT_AUTHOR_EMAIL="coder@example.com")
         self.git("commit", "-q", "-m", message, env=env)
         return self.sha()
-
-    def stage(self, *lines):
-        with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
-            handle.write("".join(line + "\n" for line in lines))
 
     def code_round(self, commits, open_after=1, steps=(), reviewed=True):
         """One code round: its commits (files, message), then its recorded
@@ -120,7 +105,7 @@ class FoldTest(ToolTest):
         for step in steps:
             step()
         for files, message in commits:
-            self.commit(files, message)
+            self.commit_files(files, message)
         self.stage("code %d start %s" % (self.rounds, start), "code %d end %s" % (self.rounds, self.sha()))
         if not reviewed:
             return self.sha()
@@ -160,9 +145,6 @@ class FoldTest(ToolTest):
 
     def touched(self, subject):
         return sorted(self.out("show", "--name-only", "--format=", self.commit_of(subject)).split())
-
-    def state(self):
-        return self.box.read(os.path.join(".scratch", "demo", "loop-state"))
 
     def recap(self):
         return self.box.read(os.path.join(".scratch", "demo", "RECAP.md"))
@@ -278,9 +260,9 @@ class FoldCaseTest(FoldTest):
 
     def test_c03_a_fix_after_a_later_ticket_renamed_the_file(self):
         start = self.sha()
-        self.commit({CSV: T01, "tests/test_report_csv.py": TEST_T01}, T01_SUBJECT)
+        self.commit_files({CSV: T01, "tests/test_report_csv.py": TEST_T01}, T01_SUBJECT)
         self.git("mv", CSV, "ledger/csv_writer.py")
-        self.commit({CLI: CLI_T02, "tests/test_cli.py": TEST_T02}, T02_SUBJECT)
+        self.commit_files({CLI: CLI_T02, "tests/test_cli.py": TEST_T02}, T02_SUBJECT)
         self.rounds = 1
         self.stage("code 1 start %s" % start, "code 1 end %s" % self.sha(),
                    "code 1 reviewed open 1 counts 0 0 1 next 2 new 1 closed 0 checks code-review ran")
@@ -378,7 +360,7 @@ class FoldCaseTest(FoldTest):
         """The chain started at the merge base, so a commit made on the
         feature branch before the loop was labelled round 1 and rewritten
         when a later fix touched its lines."""
-        wip = self.commit({"README.md": README2}, "wip: my own work before the loop")
+        wip = self.commit_files({"README.md": README2}, "wip: my own work before the loop")
         self.round_one()
         self.code_round([({"README.md": README3}, "docs(readme): say csv too")])
         signed = self.code_round([], 0)
@@ -514,7 +496,7 @@ class FoldCommandTest(FoldTest):
         self.assertIn("already folded", again.text)
         self.assertEqual((self.state(), self.recap(), self.sha("demo")), before)
         self.assertNext(again, "vdd-create-pr")
-        self.commit({"x.txt": "x\n"}, "chore: after")
+        self.commit_files({"x.txt": "x\n"}, "chore: after")
         self.box.write_loop("demo", extra=(PLAN_SIGNED,))
         self.stage(*[line for line in before[0].split("\n")[2:] if line and not line.startswith("fold ")])
         self.assertEqual(self.fold().code, 0)
@@ -585,7 +567,7 @@ class SkipTest(FoldTest):
     def test_a_commit_after_the_signed_commit(self):
         """Unreviewed work is never folded into reviewed commits."""
         signed = self.signed_loop()
-        moved = self.commit({"x.txt": "x\n"}, "chore: after Sign-off")
+        moved = self.commit_files({"x.txt": "x\n"}, "chore: after Sign-off")
         result = self.fold()
         self.assertEqual(self.sha("demo"), moved)
         self.assertIn("the branch moved after Sign-off", result.tells()[0])
@@ -596,7 +578,7 @@ class SkipTest(FoldTest):
     def test_a_merge_commit_in_the_loop(self):
         self.round_one()
         self.git("checkout", "-q", "-b", "side")
-        self.commit({"side.txt": "s\n"}, "feat: side")
+        self.commit_files({"side.txt": "s\n"}, "feat: side")
         self.git("checkout", "-q", "demo")
         signed = self.code_round([], 0, steps=[lambda: self.git("merge", "-q", "--no-ff", "-m", "merge side", "side")])
         self.skipped(signed, self.fold(), "merge commit")
@@ -649,8 +631,8 @@ class SkipTest(FoldTest):
         """A branch pushed by hand without -u has no upstream, yet someone may
         have fetched it, and a rewrite would reject the next push."""
         signed = self.signed_loop()
-        self.git("remote", "add", "origin", "https://example.invalid/demo.git")
-        self.git("update-ref", "refs/remotes/origin/demo", signed)
+        self.box.bare_origin(push=("main", "demo"))
+        self.assertEqual(self.out("branch", "--format=%(upstream)", "--list", "demo"), "")
         self.skipped(signed, self.fold(), "demo was pushed to origin")
 
     def test_a_remote_branch_of_the_same_name_outside_the_loop_folds(self):
@@ -807,7 +789,7 @@ class SecondFoldTest(FoldTest):
         self.assertEqual(started.code, 0, started)
         # coder start recorded the round's start; the commit and the end
         # follow as the Coder's work does.
-        self.commit(files, message)
+        self.commit_files(files, message)
         self.stage("code 3 end %s" % self.sha())
         if reviewed:
             self.stage("code 3 reviewed signed-off - counts 0 0 0 next 3 new 0 closed 1 checks code-review ran")
@@ -910,7 +892,7 @@ class SecondFoldTest(FoldTest):
         self.assertEqual(added.code, 0, added)
         started = self.box.run("coder", "start", "--slug", "demo", "--write")
         self.assertEqual(started.code, 0, started)
-        self.commit({NOTES: "VALUE = 1\n"}, "fix(report): add the notes")
+        self.commit_files({NOTES: "VALUE = 1\n"}, "fix(report): add the notes")
         signed = self.sha()
         self.stage("code 4 end %s" % signed,
                    "code 4 reviewed signed-off - counts 0 0 0 next 4 new 0 closed 1 checks code-review ran")

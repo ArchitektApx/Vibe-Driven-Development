@@ -2,15 +2,13 @@
 code review on the tool."""
 
 import os
-import subprocess
 import unittest
 
-from vddtest import ToolTest
+from vddtest import SIGNED, LoopRepoTest, SceneTest
 
 CODE_REVIEW_1 = "<ran | did not resolve, the Spec reviewed by hand>"
 CODE_REVIEW_LATER = "<ran | did not resolve, the Spec reviewed by hand | not needed, <reason>>"
 WFA = "<ran | did not resolve | not needed, <reason>>"
-SIGNED = "plan 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 checks writing-for-agents ran"
 NOT_CARRIED_GUIDE = (
     "<!-- VDD: One line for each problem the code-review reports raise that you\n"
     "do not turn into a finding, a wrong one included. A report line that finds\n"
@@ -51,11 +49,10 @@ as it is.
 """
 
 
-class CodeReviewTest(ToolTest):
+class CodeReviewTest(SceneTest):
     minors = "fix"
 
-    def setUp(self):
-        ToolTest.setUp(self)
+    def stage_scene(self):
         self.box.init_git("main")
         self.commit("a.txt", "a\n", "base")
         self.box.git("checkout", "-q", "-b", "demo")
@@ -65,35 +62,8 @@ class CodeReviewTest(ToolTest):
         self.box.write(os.path.join(".scratch", "demo", "spec.md"), "# Spec\n")
         self.box.write(os.path.join(".scratch", "demo", "issues", "01-one.md"), "# 01\n")
 
-    def commit(self, name, text, message):
-        self.box.write(name, text)
-        self.box.git("add", name)
-        self.box.git("commit", "-q", "-m", message)
-
-    def sha(self):
-        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.box.proj, stdout=subprocess.PIPE,
-                              check=True).stdout.decode().strip()
-
-    def stage(self, *lines):
-        with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
-            handle.write("".join(line + "\n" for line in lines))
-
-    def coder_round(self, number):
-        start = self.sha()
-        self.commit("src/r%d.txt" % number, "x\n", "feat: round %d" % number)
-        self.stage("code %d start %s" % (number, start), "code %d end %s" % (number, self.sha()))
-
     def review(self, sub, write=True):
         return self.box.run("review", sub, "--role", "Code-Reviewer", "--slug", "demo", *(["--write"] if write else []))
-
-    def rel(self, name):
-        return os.path.join(".scratch", "demo", name)
-
-    def read(self, name):
-        return self.box.read(self.rel(name))
-
-    def put(self, name, text):
-        self.box.write(self.rel(name), text)
 
     def round_one(self, findings=ROUND_1_FINDINGS, not_carried=""):
         self.coder_round(1)
@@ -369,19 +339,9 @@ class ChecksValuesTest(CodeReviewTest):
 
     SKIP = "code-review: not needed, round 1 reviewed the branch; this round's fix is two lines"
 
-    def snapshot(self):
-        return (self.read("CODEREVIEW.md"), self.read("loop-state"),
-                self.read("RECAP.md") if os.path.exists(self.box.path(".scratch", "demo", "RECAP.md")) else None)
-
     def refused(self, *fragments):
-        before = self.snapshot()
-        result = self.review("check")
-        self.assertNotEqual(result.code, 0, result)
-        self.assertContract(result)
-        for fragment in fragments:
-            self.assertIn(fragment, result.text)
-        self.assertEqual(self.snapshot(), before)
-        return result
+        return LoopRepoTest.refused(self, ("review", "check", "--role", "Code-Reviewer", "--slug", "demo", "--write"),
+                                ("CODEREVIEW.md", "loop-state", "RECAP.md"), *fragments)
 
     def with_code_review(self, value):
         lines = self.read("CODEREVIEW.md").split("\n")

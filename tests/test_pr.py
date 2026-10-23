@@ -1,56 +1,32 @@
 """The pr command group, driven from outside: the PR-Author on the tool.
 
-gh is a PATH stub that records its argv and standard input and plays the
-outcome a test sets; git ls-remote is stubbed to exit 0 as PreflightTest
-does. The remote origin keeps its https://github.com URL, and its push goes
-to a local bare repository through url.<bare>.pushInsteadOf. Every test
-here runs POSIX sh and Python stubs, so they skip on native Windows."""
+NoGhTest runs with gh off PATH against a real local bare origin, on every
+OS. In PRTest, gh is a PATH stub that records its argv and standard input
+and plays the outcome a test sets, and git ls-remote is stubbed to exit 0;
+the remote origin keeps its https://github.com URL, and its push goes to a
+local bare repository through url.<bare>.pushInsteadOf. Those stubs are
+POSIX sh and Python scripts, so PRTest skips on native Windows."""
 
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
 import unittest
 
-from vddtest import WINDOWS, ToolTest
+from vddtest import GH, PLAN_SIGNED, URL, WINDOWS, LoopRepoTest, SceneTest
 
-PLAN_SIGNED = "plan 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 checks writing-for-agents ran"
-URL = "https://github.com/example/repo.git"
 HOSTS_REFUSED = "failed to read configuration: open ~/.config/gh/hosts.yml: operation not permitted"
 
-GH = """#!%(python)s
-import json, os, sys
-argv = sys.argv[1:]
-data = sys.stdin.read() if "--body-file" in argv else ""
-with open(%(log)r, "a") as handle:
-    handle.write(json.dumps({"argv": argv, "stdin": data}) + "\\n")
-with open(%(plan)r) as handle:
-    plan = json.load(handle)
-if argv[:2] == ["auth", "status"]:
-    key = "auth"
-elif argv[:2] == ["pr", "list"] and "--head" in argv:
-    key = "head"
-elif argv[:2] == ["pr", "list"]:
-    key = "merged"
-elif argv[:2] == ["pr", "create"]:
-    key = "create"
-else:
-    key = "other"
-code, out, err = plan.get(key, [0, "", ""])
-sys.stdout.write(out)
-sys.stderr.write(err)
-sys.exit(code)
-"""
 
+class PRScene(SceneTest):
+    """A loop signed off on demo, one commit ahead of main. With bare set,
+    origin is a local bare repository holding main."""
 
-@unittest.skipIf(WINDOWS, "stubbed gh and git are POSIX scripts, as in PreflightTest")
-class PRTest(ToolTest):
     pr = "yes"
+    bare = False
 
-    def setUp(self):
-        ToolTest.setUp(self)
+    def stage_scene(self):
         self.box.init_git("main")
         for key, value in (("user.name", "VDD Test"), ("user.email", "test@example.com"),
                            ("commit.gpgsign", "false")):
@@ -67,6 +43,21 @@ class PRTest(ToolTest):
                                            "code 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 "
                                            "checks code-review ran"))
         self.set_pr(self.pr)
+        if self.bare:
+            self.origin = self.box.bare_origin()
+
+    def pr_check(self, env=None):
+        return self.box.run("pr", "check", "--slug", "demo", "--harness", "claude-code",
+                            env=env if env is not None else self.box.stub_env())
+
+
+@unittest.skipIf(WINDOWS, "stubbed gh and git are POSIX scripts")
+class PRTest(PRScene):
+    """The tests that need gh: a POSIX sh stub that plays it."""
+
+    def after_copy(self):
+        """The stubs and the gh plan hold the sandbox root, so each test
+        writes its own after the copy."""
         self.log = os.path.join(self.box.root, "gh.log")
         self.plan_file = os.path.join(self.box.root, "gh-plan.json")
         self.plan()
@@ -75,18 +66,6 @@ class PRTest(ToolTest):
         self.gh = self.box.stub("gh", GH % {"python": sys.executable, "log": self.log, "plan": self.plan_file})
 
     # --- staging ---
-
-    def git(self, *argv, cwd=None):
-        return subprocess.run(["git"] + list(argv), cwd=cwd or self.box.proj, check=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE).stdout.decode().strip()
-
-    def sha(self, ref="HEAD", cwd=None):
-        return self.git("rev-parse", ref, cwd=cwd)
-
-    def set_pr(self, value):
-        path = os.path.join(".scratch", "demo", "loop.md")
-        text = self.box.read(path)
-        self.box.write(path, re.sub(r"(?m)^PR: .*$", "PR: %s" % value, text))
 
     def plan(self, **outcomes):
         """Each gh call's (exit, stdout, stderr), by auth, merged, head and
@@ -108,27 +87,9 @@ class PRTest(ToolTest):
         with open(self.log) as handle:
             return [json.loads(line) for line in handle if line.strip()]
 
-    def pr_check(self, env=None):
-        return self.box.run("pr", "check", "--slug", "demo", "--harness", "claude-code",
-                            env=env if env is not None else self.box.stub_env())
-
-    def state(self):
-        return self.box.read(os.path.join(".scratch", "demo", "loop-state"))
 
 
 class CheckTest(PRTest):
-    def test_the_first_template_in_order_and_no_history(self):
-        """The PR-Author checked six template paths by hand."""
-        self.box.write(os.path.join(".github", "pull_request_template.md"), "## What\n")
-        self.box.write(os.path.join("docs", "PULL_REQUEST_TEMPLATE.md"), "## Other\n")
-        self.set_pr("manual")
-        result = self.pr_check()
-        self.assertEqual(result.code, 0, result)
-        self.assertContract(result)
-        self.assertIn("Template: .github/pull_request_template.md", result.lines)
-        self.assertNotIn("History", result.text)
-        self.assertEqual(self.calls(), [])
-
     def test_the_history_down_to_its_shape(self):
         """The PR-Author read ten whole bodies to match a shape; the tool gives
         the titles, the headings, the issue links and the newest body whole."""
@@ -252,14 +213,6 @@ class CheckTest(PRTest):
         self.assertTrue(seen)
         self.assertEqual([line for line in seen if not line.endswith(" C")], [])
 
-    def test_no_gh_on_path_is_no_history(self):
-        self.set_pr("manual")
-        os.remove(self.gh)
-        env = self.box.env(PATH=self.box.bin)
-        result = self.pr_check(env=env)
-        self.assertEqual(result.code, 0, result)
-        self.assertIn("History: none (gh is not on PATH).", result.lines)
-
     def test_a_refused_auth_status_is_a_rerun_not_push_only(self):
         """A sandbox that refuses gh's hosts.yml made gh auth status fail, and
         the PR-Author took the push-only path on a machine that can open a
@@ -271,16 +224,6 @@ class CheckTest(PRTest):
         self.assertContract(result)
         self.assertNotIn("push-only", result.text)
         self.assertNext(result, "Rerun", "outside the sandbox", "gh auth status was refused")
-
-    def test_manual_runs_no_preflight(self):
-        self.remote()
-        self.set_pr("manual")
-        self.plan(merged=[0, "[]", ""])
-        result = self.pr_check()
-        self.assertNotIn("Preflight", result.text)
-        self.assertIn("Path: manual (PR: manual, no preflight)", result.lines)
-        self.assertFalse([c for c in self.calls() if c["argv"][:2] == ["auth", "status"]])
-        self.assertNext(result, "step 3", ".scratch/demo/pr-body.md", "step 4 (the PR: line)")
 
     def test_both_checks_pass_and_the_path_is_open_or_an_existing_pr(self):
         self.remote()
@@ -322,9 +265,58 @@ class CheckTest(PRTest):
         self.assertNext(result, "step 3", ".scratch/demo/pr-body.md", "step 4 (the PR: line)")
         self.assertNotIn("pr open", result.lines[-1])
 
+class NoGhTest(PRScene):
+    """pr check and pr open where gh is off PATH: PR: manual, PR: no, gh not
+    on PATH, and the push-only path to a real local bare origin. PATH holds
+    git and nothing else of the machine's, since every CI runner has a real
+    gh, on POSIX beside git."""
+
+    bare = True
+
+    def after_copy(self):
+        path = self.box.git_only_path()
+        if path is None:
+            self.skipTest("gh sits beside git on this machine")
+        self.assertIsNone(shutil.which("gh", path=path))
+        self.env = self.box.env(PATH=path)
+
+    def pr_check(self, env=None):
+        return PRScene.pr_check(self, env=env if env is not None else self.env)
+
+    def pr_open(self, path="push-only"):
+        return self.box.run("pr", "open", "--path", path, "--slug", "demo", "--harness", "claude-code", "--write",
+                            env=self.env)
+
+    def ready_to_open(self):
+        self.stage("fold folded %s signed %s" % (self.sha(), self.sha()))
+        self.put("pr-body.md", "feat: a\n\nThe body.\n")
+
+    def test_the_first_template_in_order_and_no_history(self):
+        """The PR-Author checked six template paths by hand."""
+        self.box.write(os.path.join(".github", "pull_request_template.md"), "## What\n")
+        self.box.write(os.path.join("docs", "PULL_REQUEST_TEMPLATE.md"), "## Other\n")
+        self.set_pr("manual")
+        result = self.pr_check()
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("Template: .github/pull_request_template.md", result.lines)
+        self.assertNotIn("History", result.text)
+
+    def test_no_gh_on_path_is_no_history(self):
+        self.set_pr("manual")
+        result = self.pr_check()
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("History: none (gh is not on PATH).", result.lines)
+
+    def test_manual_runs_no_preflight(self):
+        self.set_pr("manual")
+        result = self.pr_check()
+        self.assertNotIn("Preflight", result.text)
+        self.assertIn("Path: manual (PR: manual, no preflight)", result.lines)
+        self.assertNext(result, "step 3", ".scratch/demo/pr-body.md", "step 4 (the PR: line)")
+
     def test_pr_no_ends_on_the_fold_s_pr_step(self):
         self.set_pr("no")
-        self.plan(merged=[0, "[]", ""])
         result = self.pr_check()
         self.assertEqual(result.code, 0, result)
         self.assertIn("Path: none (PR: no, no preflight)", result.lines)
@@ -336,6 +328,28 @@ class CheckTest(PRTest):
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("The code Loop is not signed off", result.text)
 
+
+
+
+    def test_the_push_only_path_pushes_to_origin(self):
+        """A push through the tool to a real bare origin: ls-remote and push
+        run real git on every OS."""
+        self.ready_to_open()
+        self.assertEqual(self.box.remote_ref(self.origin, "refs/heads/demo"), "")
+        checked = self.pr_check()
+        self.assertIn("Path: push-only", checked.lines, self.box.ls_remote_report("origin", self.env))
+        result = self.pr_open()
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("Pushed demo to origin.", result.lines)
+        self.assertEqual(self.box.remote_ref(self.origin, "refs/heads/demo"), self.sha("demo"))
+
+    def test_a_second_push_sees_only_its_own_origin(self):
+        """Each copied scene has its own origin: this test's push is not
+        the other test's ref."""
+        self.assertEqual(self.box.remote_ref(self.origin, "refs/heads/demo"), "")
+        self.ready_to_open()
+        self.assertEqual(self.pr_open().code, 0, self.box.ls_remote_report("origin", self.env))
+        self.assertEqual(self.box.remote_ref(self.origin, "refs/heads/demo"), self.sha("demo"))
 
 
 class OpenTest(PRTest):
@@ -354,8 +368,7 @@ class OpenTest(PRTest):
         self.body(self.TITLE + "\n\n" + self.BODY)
 
     def stage_fold(self):
-        with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
-            handle.write("fold folded %s signed %s\n" % (self.sha(), self.sha()))
+        self.stage("fold folded %s signed %s" % (self.sha(), self.sha()))
 
     def body(self, text):
         self.box.write(os.path.join(".scratch", "demo", "pr-body.md"), text)

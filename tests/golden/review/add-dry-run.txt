@@ -1,0 +1,8 @@
+$ vdd review add --slug demo --from findings.md
+exit 0
+Would add 2 findings after round 1's Sign-off:
+### 1. major (open): docs/a.md:3
+### 2. minor (open): src/b.py:9
+Open: 0 blocker, 1 major, 1 minor.
+Would rewrite .scratch/demo/CODEREVIEW.md, record the findings in .scratch/demo/loop-state and write .scratch/demo/RECAP.md.
+Next: Run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" review add --slug demo --from findings.md --write

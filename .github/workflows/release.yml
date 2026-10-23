@@ -47,11 +47,22 @@ jobs:
           fi
 
       # A release never lies about its version: both manifests carry it, and on
-      # a tag push the tag names it too.
+      # a tag push the tag names it too. The version is checked before it is
+      # printed or reaches GITHUB_ENV, so a newline in it cannot add a line
+      # there; a dry run on beta carries X.Y.Z-beta.N.
       - name: The manifests agree on the version
         run: |
           name=$(jq -r '.name' .claude-plugin/plugin.json)
           version=$(jq -r '.version' .claude-plugin/plugin.json)
+          case "$GITHUB_EVENT_NAME" in
+            push) pattern='^[0-9]+\.[0-9]+\.[0-9]+$' ;;
+            workflow_dispatch) pattern='^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$' ;;
+            *) echo "::error::Event $GITHUB_EVENT_NAME does not release."; exit 1 ;;
+          esac
+          if [[ ! $version =~ $pattern ]]; then
+            echo "::error::plugin.json's version is not X.Y.Z, or X.Y.Z-beta.N on a dry run."
+            exit 1
+          fi
           entry=$(jq -r --arg n "$name" '.plugins[] | select(.name == $n) | .version' .claude-plugin/marketplace.json)
           if [ -z "$version" ] || [ "$version" = null ] || [ "$version" != "$entry" ]; then
             echo "::error::plugin.json has version '$version' and its marketplace.json entry '$entry'. Both must carry the release version."
@@ -69,14 +80,16 @@ jobs:
 
       # The release body is the version's own section. A missing section, or
       # one holding only blank lines, fails here rather than shipping an empty
-      # release.
+      # release. The output's delimiter is random per run, so no CHANGELOG line
+      # can end the notes early.
       - name: Extract the release notes from CHANGELOG.md
         id: extract
         run: |
           awk -v h="## [$VERSION]" 'index($0, h) == 1 {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
           grep -q '[^[:space:]]' notes.md || { echo "::error::CHANGELOG.md has no content under ## [$VERSION]"; exit 1; }
           cat notes.md
-          { echo 'notes<<VDD_RELEASE_NOTES_EOF'; cat notes.md; echo 'VDD_RELEASE_NOTES_EOF'; } >> "$GITHUB_OUTPUT"
+          delimiter="VDD_NOTES_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          { echo "notes<<$delimiter"; cat notes.md; echo "$delimiter"; } >> "$GITHUB_OUTPUT"
 
   release:
     needs: notes

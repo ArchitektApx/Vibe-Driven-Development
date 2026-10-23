@@ -57,8 +57,6 @@ V1_RELEASE = "0.16.0-beta.3"
 OPEN = "open"
 CLOSED = "closed"
 
-KINDS = ("plan", "code")
-ROLES = ("Plan-Reviewer", "Coder", "Code-Reviewer")
 SEVERITIES = ("blocker", "major", "minor")
 
 REVIEWED = re.compile(
@@ -116,7 +114,7 @@ def header(path: str, lines: list[str]) -> str:
     version = textfile.check_header(path, lines, STATE_PREFIX, STATE_VERSIONS)
     if version is None:
         raise Damaged(
-            "%s is not a loop state file this tool wrote." % path,
+            "%s is not a loop state file this tool wrote." % textfile.shown(path),
             "Tell the user the loop state file is damaged, and stop.",
         )
     return version
@@ -126,7 +124,7 @@ def read_state(directory: str) -> str | None:
     """OPEN or CLOSED from the state file in directory, or None when there is
     none. A file with no loop line reads as CLOSED."""
     path = os.path.join(directory, STATE_NAME)
-    lines = textfile.lines(path, 2.0)
+    lines = textfile.lines(path)
     if lines is None:
         return None
     header(path, lines)
@@ -140,7 +138,7 @@ def read_state(directory: str) -> str | None:
 
 def state_version(directory: str) -> str | None:
     """The state file's version, "1" or "2", or None when there is none."""
-    lines = textfile.lines(os.path.join(directory, STATE_NAME), 2.0)
+    lines = textfile.lines(os.path.join(directory, STATE_NAME))
     if not lines or not lines[0].startswith(STATE_PREFIX):
         return None
     return lines[0][len(STATE_PREFIX):].strip()
@@ -183,9 +181,9 @@ def start_state(directory: str) -> None:
 
 
 def append_state(directory: str, state: str) -> None:
-    """Append "loop <state>" to the state file, writing its header first when
-    the file is new."""
-    textfile.append(os.path.join(directory, STATE_NAME), "loop %s\n" % state, STATE_PREFIX + STATE_VERSION + "\n")
+    """Append "loop <state>" to the loop's state file, which every caller
+    has read first."""
+    textfile.append(os.path.join(directory, STATE_NAME), "loop %s\n" % state)
 
 
 class State:
@@ -194,7 +192,7 @@ class State:
     def __init__(self, directory: str) -> None:
         self.dir = directory
         self.path = os.path.join(directory, STATE_NAME)
-        lines: list[str] = textfile.lines(self.path, 2.0) or []
+        lines: list[str] = textfile.lines(self.path) or []
         if lines:
             header(self.path, lines)
         self.lines = lines[1:]
@@ -318,7 +316,7 @@ class State:
         try:
             textfile.append(self.path, "".join(line + "\n" for line in lines))
         except OSError as error:
-            raise textfile.write_refusal("the loop state file %s" % self.path, error,
+            raise textfile.write_refusal("the loop state file %s" % textfile.shown(self.path), error,
                                          "Otherwise tell the user the loop state file cannot be written, and stop.")
 
 

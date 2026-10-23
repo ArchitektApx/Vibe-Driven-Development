@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Container, Iterable
+from typing import Callable, Container, Iterable, TypeVar
 
 from .out import Failure, refused
 
@@ -19,36 +19,60 @@ def decode(data: bytes) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
-def read_bytes(path: str, retry_seconds: float = 0.0) -> bytes:
-    """The file's bytes. Raises OSError, FileNotFoundError included.
+# A PermissionError is retried this long on Windows, where a file another
+# process holds open for a moment (a sharing violation) and a denial look
+# alike. On POSIX a PermissionError is a denial and is raised at once.
+RETRY_SECONDS = 2.0
+WINDOWS = os.name == "nt"
 
-    With retry_seconds, a PermissionError is retried until that much time has
-    passed: on Windows a sharing violation and a denial look alike."""
-    deadline = time.monotonic() + retry_seconds
+T = TypeVar("T")
+
+
+def retried(action: Callable[[], T]) -> T:
+    """action(), with a PermissionError retried for RETRY_SECONDS on Windows
+    only. Raises the last error when the time runs out, and at once on
+    POSIX."""
+    deadline = time.monotonic() + RETRY_SECONDS
     while True:
         try:
-            with open(path, "rb") as handle:
-                return handle.read()
+            return action()
         except PermissionError:
-            if time.monotonic() >= deadline:
+            if not WINDOWS or time.monotonic() >= deadline:
                 raise
             time.sleep(0.1)
 
 
-def read(path: str, retry_seconds: float = 0.0) -> str | None:
-    """The file's text, or None when it does not exist. retry_seconds as in
-    read_bytes."""
+def read_bytes(path: str) -> bytes:
+    """The file's bytes, retried as retried says. Raises OSError,
+    FileNotFoundError included."""
+
+    def read_once() -> bytes:
+        with open(path, "rb") as handle:
+            try:
+                return handle.read()
+            except OSError as error:
+                # A read Windows refuses for another process's lock names no
+                # file; the refusal names this one.
+                if error.filename is None:
+                    error.filename = path
+                raise
+
+    return retried(read_once)
+
+
+def read(path: str) -> str | None:
+    """The file's text, or None when it does not exist."""
     try:
-        return decode(read_bytes(path, retry_seconds))
+        return decode(read_bytes(path))
     except FileNotFoundError:
         return None
     except NotADirectoryError:
         return None
 
 
-def lines(path: str, retry_seconds: float = 0.0) -> list[str] | None:
+def lines(path: str) -> list[str] | None:
     """The file's lines without line ends, or None when it does not exist."""
-    text = read(path, retry_seconds)
+    text = read(path)
     if text is None:
         return None
     if text.endswith("\n"):
@@ -59,21 +83,14 @@ def lines(path: str, retry_seconds: float = 0.0) -> list[str] | None:
 def write(path: str, data: bytes) -> None:
     """Write bytes to path whole: a reader sees the old file or the new one.
 
-    The rename is retried on PermissionError for two seconds: on Windows a
-    reader holding the file open makes os.replace fail for a moment. Raises
-    OSError when the write fails, leaving the old file in place."""
+    The rename is retried as retried says: on Windows a reader holding the
+    file open makes os.replace fail for a moment. Raises OSError when the
+    write fails, leaving the old file in place."""
     temp = "%s.vdd-new-%d" % (path, os.getpid())
     try:
         with open(temp, "wb") as handle:
             handle.write(data)
-        for attempt in range(20):
-            try:
-                os.replace(temp, path)
-                return
-            except PermissionError:
-                if attempt == 19:
-                    raise
-                time.sleep(0.1)
+        retried(lambda: os.replace(temp, path))
     finally:
         if os.path.lexists(temp):
             try:
@@ -89,9 +106,39 @@ def write_text(path: str, text: str) -> None:
 
 def write_refusal(what: str, error: OSError, otherwise: str, extra: Iterable[str] = ()) -> Failure:
     """The Failure for a write that failed: "Could not write <what>: <error>",
-    then the extra lines. otherwise is its Next: step after the one escalated
-    retry (out.refused)."""
-    return refused(["Could not write %s: %s" % (what, error)] + list(extra), otherwise)
+    then the extra lines. <error> is reason(error). otherwise is its Next:
+    step after the one escalated retry (out.refused)."""
+    return refused(["Could not write %s: %s" % (what, reason(error))] + list(extra), otherwise)
+
+
+def reason(error: Exception) -> str:
+    """An error's strerror, or the whole error when it has none (an OSError
+    raised with a message, or another exception): the whole OSError repeats
+    the absolute path, escaped on Windows."""
+    return getattr(error, "strerror", None) or str(error)
+
+
+def described(error: Exception) -> str:
+    """reason(error), after the file it names as shown() prints it, for a
+    line that does not name the file itself. A failed rename or replace
+    names its target too."""
+    filename = getattr(error, "filename", None)
+    if isinstance(filename, str) and getattr(error, "strerror", None):
+        target = getattr(error, "filename2", None)
+        if isinstance(target, str):
+            return "%s, moving it to %s: %s" % (shown(filename), shown(target), reason(error))
+        return "%s: %s" % (shown(filename), reason(error))
+    return reason(error)
+
+
+def shown(path: str) -> str:
+    """A path in a loop's tracker directory as the tool prints it, from
+    .scratch/ on with / between its parts; any other path as it is."""
+    parts = os.path.normpath(path).split(os.sep)
+    if ".scratch" not in parts:
+        return path
+    start = len(parts) - 1 - parts[::-1].index(".scratch")
+    return "/".join(parts[start:])
 
 
 def write_or_refuse(path: str, text: str, what: str, otherwise: str, extra: Iterable[str] = ()) -> None:
@@ -121,7 +168,7 @@ def check_header(path: str, lines: list[str], prefix: str, versions: Container[s
     version = lines[0][len(prefix):].strip()
     if version not in versions:
         raise Failure(
-            "%s has format version %s, which this copy of the VDD tool does not know." % (path, version),
+            "%s has format version %s, which this copy of the VDD tool does not know." % (shown(path), version),
             "Tell the user this copy of the VDD tool is out of date and to rerun Setup.",
         )
     return version

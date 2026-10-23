@@ -1,0 +1,23 @@
+$ vdd setup --harness codex --listed none --glossary-named absent
+exit 0
+Setup, Harness Codex (dry run, nothing is changed yet).
+Borrowed skills Not Present: setup-matt-pocock-skills, grill-with-docs, to-spec, to-tickets, wayfinder, code-review, writing-for-agents, grilling, domain-modeling, research, prototype.
+Tell the user verbatim: "Install Matt Pocock's collection: npx skills@latest add -g mattpocock/skills, selecting Codex when the installer asks which agents to install for, then start a new Codex Session: a skill added while a Session runs appears only in a new one. Rerun $vdd:vdd-setup there."
+Tell the user verbatim: "grill-with-docs, to-spec, to-tickets: missing or not loaded, which blocks the Planner."
+Tell the user verbatim: "domain-modeling: missing or not loaded, which blocks the Planner and the Wayfinder, because grill-with-docs and wayfinder call it."
+Tell the user verbatim: "grilling: missing or not loaded, which blocks the Planner and the Wayfinder, because grill-with-docs and wayfinder call it, and the Brainstormer talks the idea through without grilling."
+Tell the user verbatim: "code-review: missing or not loaded, which blocks the Code-Reviewer."
+Tell the user verbatim: "wayfinder: missing or not loaded, which blocks the Wayfinder."
+Tell the user verbatim: "research, prototype: missing or not loaded, which degrades the Wayfinder: its research and prototype tickets cannot run."
+Tell the user verbatim: "writing-for-agents: missing or not loaded, which degrades the Planner, the Plan-Reviewer and the Code-Reviewer: each drops its writing pass, records that in the file it writes, and carries on."
+Tell the user verbatim: "setup-matt-pocock-skills: missing or not loaded, which blocks the tracker setup, so the Planner and the Code-Reviewer wait on it."
+Tracker: docs/agents/issue-tracker.md is missing.
+Tell the user verbatim: "Invoke $setup-matt-pocock-skills and pick Local markdown when it asks which tracker to use. Until then the Planner (to-spec, to-tickets) and the Code-Reviewer (code-review) are blocked."
+Glossary rename: nothing in this repository to migrate. Passed.
+git version: <version> Passed.
+Git repository: passed.
+.gitignore: covers .scratch/. Passed.
+Planned change: install the VDD tool (vdd.py and vdd/) in <shared>
+~/.codex/hooks.json: no Stop entry from an older VDD. Passed.
+Tell the user verbatim: "Trust VDD's hook in /hooks."
+Next: Show the user the planned changes above; showing them is the consent step. Then run: <python> "<repo>/skills/vdd-setup/scripts/vdd.py" setup --harness codex --listed none --glossary-named absent --write

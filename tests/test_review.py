@@ -3,7 +3,7 @@
 import os
 import unittest
 
-from vddtest import ToolTest
+from vddtest import LoopRepoTest, SceneTest
 
 WFA = "<ran | did not resolve | not needed, <reason>>"
 P1 = "VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/."
@@ -28,9 +28,8 @@ Ticket 02 leaves `summary` out.
 """
 
 
-class ReviewTest(ToolTest):
-    def setUp(self):
-        ToolTest.setUp(self)
+class ReviewTest(SceneTest):
+    def stage_scene(self):
         self.box.init_git("main")
         self.box.write_loop("demo", text=(
             "# VDD Loop\n\nFormat: 2\nFeature: demo\nBase branch: main\nFeature branch: demo\nMinors: %s\n"
@@ -53,18 +52,6 @@ class ReviewTest(ToolTest):
     def check(self, write=True):
         return self.tool("review", "check", "--role", "Plan-Reviewer", "--slug", "demo", *(["--write"] if write else []))
 
-    def rel(self, name):
-        return os.path.join(".scratch", "demo", name)
-
-    def read(self, name):
-        return self.box.read(self.rel(name))
-
-    def exists(self, name):
-        return os.path.exists(self.box.path(".scratch", "demo", name))
-
-    def put(self, name, text):
-        self.box.write(self.rel(name), text)
-
     def round_one(self, text=ROUND_1):
         self.ring()
         started = self.start()
@@ -82,8 +69,7 @@ class ReviewTest(ToolTest):
         return started
 
     def snapshot(self):
-        names = ("PLAN-REVIEW.md", "RECAP.md", "loop-state")
-        return dict((name, self.read(name) if self.exists(name) else None) for name in names)
+        return LoopRepoTest.snapshot(self, ("PLAN-REVIEW.md", "RECAP.md", "loop-state"))
 
 
 class HelpTest(ReviewTest):
@@ -180,13 +166,8 @@ class LintTest(ReviewTest):
 
     def refused(self, text, *fragments):
         self.round_one(text)
-        before = self.snapshot()
-        result = self.check()
-        self.assertNotEqual(result.code, 0, result)
-        self.assertContract(result)
-        for fragment in fragments:
-            self.assertIn(fragment, result.text)
-        self.assertEqual(self.snapshot(), before)
+        result = LoopRepoTest.refused(self, ("review", "check", "--role", "Plan-Reviewer", "--slug", "demo", "--write"),
+                                  ("PLAN-REVIEW.md", "RECAP.md", "loop-state"), *fragments)
         self.assertFalse(self.exists("RECAP.md"))
         self.assertNext(result, "review check --role Plan-Reviewer --slug demo --write", "again")
         return result
@@ -466,23 +447,6 @@ class LeaveTest(ReviewTest):
         self.assertIn("### 1. minor (open)", review)
         self.assertIn("### 2. minor (open)", review)
         self.assertIn("VDD Plan-Reviewer: PLAN-REVIEW.md SIGNED OFF, round 1.", result.lines)
-
-
-class VersionOneTest(ReviewTest):
-    def test_every_review_command_refuses_a_version_one_loop(self):
-        """A loop 0.16.0-beta.3 started keeps review files in the old shape:
-        the round commands never overwrite them."""
-        self.box.write_loop("demo", version=1)
-        for sub in ("start", "check"):
-            with self.subTest(sub=sub):
-                result = self.tool("review", sub, "--role", "Plan-Reviewer", "--slug", "demo", "--write")
-                self.assertNotEqual(result.code, 0, result)
-                self.assertContract(result)
-                self.assertIn("0.16.0-beta.3", result.text)
-                tell = result.tells()[0]
-                self.assertIn("reinstall VDD 0.16.0-beta.3", tell)
-                self.assertIn("loop aside --slug demo --write", tell)
-        self.assertFalse(self.exists("PLAN-REVIEW.md"))
 
 
 if __name__ == "__main__":

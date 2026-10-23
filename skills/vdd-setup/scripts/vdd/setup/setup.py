@@ -356,7 +356,7 @@ class Setup:
     def gitignore(self) -> None:
         path = os.path.join(self.cwd, ".gitignore")
         try:
-            before, after, added, removed = plan_gitignore(path)
+            after, added, removed = plan_gitignore(path)
         except OSError as error:
             self.refuse_read(".gitignore", error)
         if not added and not removed:
@@ -373,13 +373,13 @@ class Setup:
             return
         try:
             textfile.write(path, after)
-            _, check, again_added, again_removed = plan_gitignore(path)
+            _, again_added, again_removed = plan_gitignore(path)
             if again_added or again_removed:
                 raise OSError("the file does not hold the change after the write")
             self.out.line(".gitignore: checked.")
         except OSError as error:
             self.failed.append(".gitignore")
-            self.out.line("Not changed: .gitignore (%s)." % error)
+            self.out.line("Not changed: .gitignore (%s)." % textfile.reason(error))
 
     # --- check 6: a Loop file from before this version ---
 
@@ -416,12 +416,12 @@ class Setup:
             self.out.line("Shared copy of the VDD tool: checked.")
         except OSError as error:
             self.failed.append("shared")
-            self.out.line("Not changed: the Shared copy of the VDD tool (%s)." % error)
+            self.out.line("Not changed: the Shared copy of the VDD tool (%s)." % textfile.reason(error))
 
     def refuse_read(self, what: str, error: OSError) -> NoReturn:
         """Stop the run on a file Setup cannot read, keeping what it printed."""
         raise refused(
-            self.out.lines + ["Could not read %s: %s" % (what, error)],
+            self.out.lines + ["Could not read %s: %s" % (what, textfile.reason(error))],
             "Otherwise tell the user Setup could not read %s, and stop." % what,
         )
 
@@ -444,12 +444,12 @@ def same_directory(one: str, other: str) -> bool:
     return os.path.normcase(os.path.realpath(one)) == os.path.normcase(os.path.realpath(other))
 
 
-def plan_gitignore(path: str) -> tuple[bytes, bytes, list[str], list[str]]:
-    """(before, after, added, removed) as bytes and entry lists. A line is
+def plan_gitignore(path: str) -> tuple[bytes, list[str], list[str]]:
+    """(after, added, removed): the planned bytes and the entry lists. A line is
     removed only when the whole line, trimmed of surrounding whitespace,
     equals a retired entry: docs/PLAN.md and !PLAN.md are the user's own."""
     try:
-        before = textfile.read_bytes(path, 2.0)
+        before = textfile.read_bytes(path)
     except FileNotFoundError:
         before = b""
     text = before.decode("utf-8", "surrogateescape")
@@ -475,4 +475,4 @@ def plan_gitignore(path: str) -> tuple[bytes, bytes, list[str], list[str]]:
     if added and after and not after.endswith(("\n", "\r")):
         after += newline
     after += "".join(entry + newline for entry in added)
-    return before, after.encode("utf-8", "surrogateescape"), added, removed
+    return after.encode("utf-8", "surrogateescape"), added, removed
