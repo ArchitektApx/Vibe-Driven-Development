@@ -9,4 +9,5 @@ Migration to layout 2:
 - relations stay where they are stated; links to idea files become slugs, Next Steps included; no idea is put under a parent
 The Log names no split, merge or rename.
 Events to carry: none
+The dates move from the ledger into the files; no idea's text changes.
 Next: Ask the user once, in your own words, whether to migrate the idea store now: say what the lines above say will happen and where the backup goes, and list the events you take from the Log sentences above, only those a sentence states, each as '<YYYY-MM-DD> <slug> split into <slug>[, <slug>]' (or merged into, renamed from <slug>; a Log 'X folded into Y' is the event 'X merged into Y'). On their yes run brainstorm migrate with one --event per event and --write. On a no, stop: no other brainstorm command reads the 0.15 layout.

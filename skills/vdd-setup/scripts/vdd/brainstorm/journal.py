@@ -2,8 +2,8 @@
 a killed run cannot leave half done.
 
 A save writes the journal whole first (every file's before and after bytes
-in base64, and the folder moves), then the folder moves, the files and the
-ledger, and deletes the journal last. The next command that holds the lock
+in base64, and the folder moves), then the folder moves and the files, and
+deletes the journal last. The next command that holds the lock
 finds a journal left behind and rolls it forward when every file still holds
 the journal's before or after bytes, or back otherwise, leaving a file
 changed since as it is. A journal not in this tool's form, or naming a path
@@ -25,7 +25,7 @@ from .. import textfile
 from ..out import TELL
 from .ideafile import SLUG_PATTERN, is_idea_name
 from .lock import Lock
-from .store import REMOVED, Store, ledger_sha, read_once, rel, state_dir, store_dir, update_ledger
+from .store import REMOVED, Store, read_once, rel, state_dir, store_dir
 
 # "pid" is read, never written: an earlier 0.16 beta wrote it. The pid is in
 # the journal's file name.
@@ -124,7 +124,7 @@ def sweep_temp(root: str) -> None:
 
 def save(store: Store, label: str) -> list[str]:
     """Write every change of one command as one move: the journal, the
-    folder moves, the files, the ledger, then the journal goes. A write
+    folder moves, the files, then the journal goes. A write
     refused partway rolls back its own changes and removes its journal.
     Returns the names written."""
     ops = store.ops()
@@ -252,27 +252,14 @@ def recover(lock: Lock) -> list[str]:
                              " It names %s, which may be half written: brainstorm check shows what is wrong."
                              % ", ".join(named)) if named else ""))
             continue
-        settled, kept = settle(root, label, ops, dirs)
-        lines += settled
-        hashes: dict[str, str] = {}
-        gone: list[str] = []
-        for file_name, _, _ in ops:
-            # A file left as it is was edited since: the ledger keeps its
-            # old hash, so the next write stamps its last-updated.
-            if is_idea_name(file_name) and file_name not in kept:
-                data = current(os.path.join(base, file_name))
-                if data is None:
-                    gone.append(file_name[:-3])
-                else:
-                    hashes[file_name[:-3]] = ledger_sha(data)
-        update_ledger(root, hashes, gone)
+        lines += settle(root, label, ops, dirs)
         os.remove(path)
     return lines
 
 
-def settle(root: str, label: str, ops: Ops, dirs: Dirs) -> tuple[list[str], set[str]]:
+def settle(root: str, label: str, ops: Ops, dirs: Dirs) -> list[str]:
     """Roll one journal forward, or back when a file changed since: the lines
-    to print and the files left as they are."""
+    to print."""
     base = store_dir(root)
     sides = [file_side(os.path.join(base, n), b, a) for n, b, a in ops]
     dir_sides: list[str] = []
@@ -284,7 +271,7 @@ def settle(root: str, label: str, ops: Ops, dirs: Dirs) -> tuple[list[str], set[
     others += ["research folder %s" % d[0] for d, side in zip(dirs, dir_sides) if side == "other"]
     if not others:
         apply(root, ops, dirs, "after")
-        return ["An interrupted write (%s) was finished." % label], set()
+        return ["An interrupted write (%s) was finished." % label]
     apply(root, [op for op, side in zip(ops, sides) if side != "other"],
           [d for d, side in zip(dirs, dir_sides) if side != "other"], "before")
     lines = ["An interrupted write (%s) was rolled back: %s changed since and %s left as it is."
@@ -298,4 +285,4 @@ def settle(root: str, label: str, ops: Ops, dirs: Dirs) -> tuple[list[str], set[
                 label, " and ".join(created),
                 ("; the undo brought back %s" % " and ".join(restored)) if restored else "",
                 "they hold" if restored or len(created) > 1 else "it holds")))
-    return lines, {op[0] for op, side in zip(ops, sides) if side == "other"}
+    return lines

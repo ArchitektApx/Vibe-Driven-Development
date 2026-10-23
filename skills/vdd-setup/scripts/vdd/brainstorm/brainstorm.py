@@ -17,7 +17,8 @@ from .. import args, gitcmd, places, textfile
 from ..out import Failure, Output
 from . import cleanup, journal, layout1, migrate, moves, reads, restructure
 from .lock import Lock
-from .store import LAYOUT, LAYOUT_FILE, Store, layout, require_layout, store_dir
+from .migrate import require_layout
+from .store import LAYOUT, LAYOUT_FILE, Store, layout, store_dir
 
 V, W, L = args.VALUE, args.FLAG, args.LIST
 METRIC_OPTIONS = {"importance": V, "size": V, "fog": V}
@@ -99,7 +100,8 @@ HELP = [
     "  idea waits on, or a part whose family stays. Research folders stay.",
     "brainstorm migrate [--event '<date> <slug> split into|merged into|folded into|renamed from <slug>' ...]",
     "  Converts a 0.15 store (index.md) to one file per idea with History, keeping the old store as",
-    "  .scratch/_brainstorming.pre-0.16/; finishes an interrupted migration; writes back a lost .layout marker.",
+    "  .scratch/_brainstorming.pre-0.16/; moves a 0.16 beta store's dates into its files; finishes an",
+    "  interrupted migration; writes back a lost .layout marker.",
     "  Without --write it prints the plan and the Log sentences each --event may carry.",
     "",
     "Run every command from the repository root. Every write needs --write; without it the command is a dry run.",
@@ -179,15 +181,12 @@ def write(root: str, command: str, values: dict[str, Any]) -> int:
     with Lock(root, on_take=journal.recover) as lock:
         store = Store(root)
         lines, nxt, label = handler(store, values)
-        stamped = list(store.stamped)
         lines += loop_lines(store)
         journal.save(store, label)
     for line in lock.lines:
         out.line(line)
     for line in lines:
         out.line(line)
-    if stamped:
-        out.line("last-updated set for ideas edited since the tool last wrote them: %s." % ", ".join(stamped))
     return out.finish(nxt)
 
 
@@ -271,12 +270,10 @@ def migrate_cmd(root: str, values: dict[str, Any]) -> int:
         return out.finish("If the user agrees, run brainstorm migrate --write.")
     if what == "noop":
         return out.finish("Run brainstorm start.")
-    if what in ("migrated", "finished"):
-        out.tell(layout1.UNDO)
     more, offer = overview(root, Store(root))
     for line in more:
         out.line(line)
-    if what in ("migrated", "finished"):
+    if what in ("migrated", "finished", "updated"):
         return out.finish("Tell the user the migration is done, relaying the Tell line above, then answer their first "
                           "message from the overview." + offer)
     return out.finish(ANSWER + offer)

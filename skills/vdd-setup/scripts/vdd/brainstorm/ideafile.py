@@ -43,10 +43,6 @@ FM_ITEM = re.compile(r"^\s+-\s+(.*)$")
 # A YAML block indicator as a key's whole value: its text sits on the lines
 # below, which split_frontmatter does not read.
 BLOCK = re.compile(r"^[>|][-+]?$")
-# Where a raw file's frontmatter ends, in any line ending, and its
-# last-updated line.
-FM_END = re.compile(r"(\r\n|\r|\n)---(\r\n|\r|\n)")
-LAST_UPDATED = re.compile(r"(?<![^\r\n])last-updated:[^\r\n]*")
 DEPTH_MAX = 3
 # A section's text that holds nothing yet.
 EMPTY = ("", "None.", "None", "- [ ] <smallest step that moves status forward>")
@@ -62,10 +58,6 @@ def today() -> str:
     if DATE.match(seam):
         return seam
     return datetime.date.today().isoformat()
-
-
-def seam_set() -> bool:
-    return bool(DATE.match(os.environ.get("VDD_TODAY", "")))
 
 
 def real_date(text: str) -> bool:
@@ -94,7 +86,8 @@ def squash(text: str | None) -> str:
 
 def split_frontmatter(text: str) -> tuple[list[list[str]], str]:
     """(fields as an ordered list of [key, value], body). A key with list
-    items below it keeps them joined with newlines. No frontmatter, or one
+    items below it keeps them joined with newlines, and a block indicator
+    render quoted ("|", ""|"") is read without one pair of quotes. No frontmatter, or one
     that is never closed, gives no fields and the whole text as body."""
     if not text.startswith("---\n"):
         return [], text
@@ -105,7 +98,10 @@ def split_frontmatter(text: str) -> tuple[list[list[str]], str]:
     for line in text[4:end].split("\n"):
         match = FM_KEY.match(line)
         if match:
-            pairs.append([match.group(1), match.group(2).strip()])
+            value = match.group(2).strip()
+            if value[:1] == value[-1:] == '"' and len(value) > 1 and quoted_block(value[1:-1]):
+                value = value[1:-1]
+            pairs.append([match.group(1), value])
             continue
         match = FM_ITEM.match(line)
         if match and pairs:
@@ -138,31 +134,6 @@ def unread_line(data: bytes) -> str | None:
         if line.strip() and not (key or FM_ITEM.match(line)):
             return unread % (n, line)
     return None
-
-
-def frontmatter_reads_whole(text: str) -> bool:
-    """Whether split_frontmatter reads every line of the frontmatter of
-    text as decoded."""
-    return unread_line(text.encode("utf-8")) is None
-
-
-def stamp_text(text: str, day: str) -> str:
-    """The file's raw text, a byte order mark and its line endings kept,
-    with its last-updated line set to day, every other byte as it was; a
-    file without the line gets it last in its frontmatter, in the line
-    ending that closes the frontmatter. A text with no frontmatter end comes
-    back as it was."""
-    match = FM_END.search(text, 3)
-    if match is None:
-        return text
-    eol = match.group(1)
-    head, tail = text[:match.start() + len(eol)], text[match.start() + len(eol):]
-    line = "last-updated: %s" % day
-    if LAST_UPDATED.search(head):
-        head = LAST_UPDATED.sub(lambda _: line, head, count=1)
-    else:
-        head += line + eol
-    return head + tail
 
 
 def fenced(lines: Iterable[str]) -> list[bool]:
@@ -293,6 +264,8 @@ class Idea:
         # The file as loaded: its name and bytes, whether it began with a
         # byte order mark, and its first line break, which render writes back.
         self.loaded_name = ""
+        # The file's modification day as loaded, in local time.
+        self.file_day = ""
         self.loaded: bytes | None = None
         self.bom = False
         self.eol = "\n"
@@ -344,6 +317,16 @@ class Idea:
                     pos = i
                     break
         self.fm.insert(pos, [key, value])
+
+    def shown_day(self) -> str:
+        """The day every read shows and compares: the later of last-updated
+        and the file's modification day, never after today, so an edit by
+        hand shows without a write."""
+        updated = self.get("last-updated")
+        day = min(self.file_day, today()) if self.file_day else ""
+        if not real_date(updated):
+            return day or updated
+        return max(updated, day)
 
     @property
     def status(self) -> str:
@@ -503,7 +486,7 @@ class Idea:
                 lines.append("%s:" % key)
                 lines.extend("  - %s" % x for x in value.split("\n"))
             else:
-                lines.append("%s: %s" % (key, value))
+                lines.append(("%s: \"%s\"" if quoted_block(value) else "%s: %s") % (key, value))
         lines.append("---")
         body = self.body if self.body.startswith("\n") else "\n" + self.body
         text = "\n".join(lines) + "\n" + body

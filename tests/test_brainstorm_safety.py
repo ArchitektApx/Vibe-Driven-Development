@@ -1,5 +1,5 @@
 """The idea store's safety, driven from outside: the write lock, the
-journal with its recovery and validation, the ledger, and killed runs staged
+journal with its recovery and validation, and killed runs staged
 as a leftover journal and lock."""
 
 import json
@@ -220,7 +220,7 @@ class JournalTest(BrainstormTest):
         self.base = self.box.path(S)
 
     def store_tree(self):
-        """The store with its ledger, without the lock and the journal."""
+        """The store without the lock and the journal."""
         return {k: v for k, v in self.tree().items()
                 if not k.startswith(".state/journal") and k != ".state/lock"}
 
@@ -233,9 +233,9 @@ class JournalTest(BrainstormTest):
             with open(path, "wb") as handle:
                 handle.write(data)
 
-    def stage_close(self, done=0, ledger=False):
+    def stage_close(self, done=0):
         """A part's close (two files: the part and its parent's History)
-        killed after done files, and after the ledger when ledger is set.
+        killed after done files.
         Returns the clean run's store and the ops."""
         before = self.store_tree()
         self.ok("set", "--idea", "part-one", "--status", "done", "--decision", "x", "--write")
@@ -248,8 +248,6 @@ class JournalTest(BrainstormTest):
             self.put(name, before.get(name))
         for op in ops[:done]:
             self.put(op["path"], after[op["path"]])
-        if ledger:
-            self.put(".state/ledger.json", after[".state/ledger.json"])
         self.journal(ops)
         return after, ops
 
@@ -264,13 +262,12 @@ class JournalTest(BrainstormTest):
     def test_start_finishes_a_write_killed_at_any_step(self):
         """Prevents a half-applied move the next command cannot finish (red
         team U3, F3, D6): killed after the journal, after one file, after both
-        files or after the ledger, start rolls it forward to a clean run's
-        store."""
-        for done, ledger in ((0, False), (1, False), (2, False), (2, True)):
-            with self.subTest(done=done, ledger=ledger):
+        files, start rolls it forward to a clean run's store."""
+        for done in (0, 1, 2):
+            with self.subTest(done=done):
                 self.box.cleanup()
                 self.setUp()
-                after, _ = self.stage_close(done, ledger)
+                after, _ = self.stage_close(done)
                 result = self.ok("start")
                 self.assertIn("An interrupted write (set part-one) was finished.", result.text)
                 self.assertEqual(self.store_tree(), after)
@@ -280,18 +277,15 @@ class JournalTest(BrainstormTest):
     def test_a_file_edited_since_is_left_and_the_rest_rolled_back(self):
         """Prevents the roll-forward overwriting an edit made after the crash
         (red team F3): the edited file stays as it is, the other goes back to
-        its before bytes, and the file is named. The ledger keeps the file's
-        old hash, so the hand edit is stamped, never taken for the tool's
-        own (spec 'last-updated and the ledger')."""
+        its before bytes, and the file is named, left byte for byte as
+        edited."""
         self.stage_close(done=2)
         edited = self.read("part-one.md").replace("last-updated: %s" % TODAY, "last-updated: 2026-01-01")
         edited += "\nA hand note.\n"
         self.box.write(S + "part-one.md", edited)
         result = self.ok("set", "--idea", "main-idea", "--size", "large", "--write")
         self.assertIn("was rolled back: part-one.md changed since and was left as it is.", result.text)
-        self.assertIn("last-updated set for ideas edited since the tool last wrote them: part-one.", result.text)
-        self.assertIn("A hand note.", self.read("part-one.md"))
-        self.assertIn("last-updated: %s" % TODAY, self.read("part-one.md"))
+        self.assertEqual(self.read("part-one.md"), edited)
         self.assertNotIn("part part-one done", self.read("main-idea.md"))
 
     def test_a_created_file_edited_since_is_kept_and_told(self):
@@ -429,10 +423,10 @@ class JournalTest(BrainstormTest):
     def test_leftover_temp_files_are_swept(self):
         """Prevents temp files a killed write left piling up (red team F14)."""
         self.box.write(S + "part-one.md.vdd-new-999", "half")
-        self.box.write(S + ".state/ledger.json.vdd-new-999", "half")
+        self.box.write(S + ".state/journal.vdd-new-999", "half")
         self.ok("set", "--idea", "part-one", "--size", "large", "--write")
         self.assertFalse(self.exists("part-one.md.vdd-new-999"))
-        self.assertFalse(self.exists(".state/ledger.json.vdd-new-999"))
+        self.assertFalse(self.exists(".state/journal.vdd-new-999"))
 
 
     def test_a_beta_journal_with_a_pid_settles_and_a_new_one_has_none(self):

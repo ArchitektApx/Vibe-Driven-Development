@@ -18,10 +18,10 @@ import shutil
 from typing import Dict, List, Tuple
 
 from .. import textfile
-from ..out import Failure
+from ..out import TELL, Failure
 from .ideafile import CLOSED, Idea, fenced, real_date, split_frontmatter, today
 from .lock import Lock
-from .store import LAYOUT_FILE, LEDGER, STATE, STORE, layout, ledger_bytes, ledger_sha, read_once
+from .store import LAYOUT_FILE, STORE, layout, read_once, set_file_day
 
 # The layout this step reads and the one it leaves.
 FROM, TO = "1", "2"
@@ -307,13 +307,13 @@ def build_staging(store: str, staging: str, ideas: dict[str, Idea], old: dict[st
             target = os.path.join(staging, name) if rel_base == "." else os.path.join(staging, rel_base, name)
             os.makedirs(os.path.dirname(target), exist_ok=True)
             shutil.copyfile(os.path.join(base, name), target)
-    hashes: dict[str, str] = {}
     for slug, idea in sorted(ideas.items()):
-        data = idea.render().encode("utf-8")
-        textfile.write(os.path.join(staging, slug + ".md"), data)
-        hashes[slug] = ledger_sha(data)
-    os.makedirs(os.path.join(staging, STATE), exist_ok=True)
-    textfile.write(os.path.join(staging, STATE, LEDGER), ledger_bytes(hashes))
+        path = os.path.join(staging, slug + ".md")
+        textfile.write(path, idea.render().encode("utf-8"))
+        # The file's day carries the idea's date: a read shows the later of
+        # the two. An idea without a real date keeps the migration day.
+        if real_date(idea.get("last-updated")):
+            set_file_day(path, idea.get("last-updated"))
     textfile.write(os.path.join(staging, LAYOUT_FILE), (TO + "\n").encode("ascii"))
 
 
@@ -340,7 +340,7 @@ def step(root: str, events_raw: list[str], write: bool) -> Result:
                      % (BACKUP, STAGING), "migrate --write renames it into place; nothing else changes."]
             return lines, "dry-half", ["%s/ (renamed from %s/)" % (STORE, STAGING)]
         os.rename(staging, store)
-        return ["The interrupted migration is finished: the staging became the store."], "finished", []
+        return ["The interrupted migration is finished: the staging became the store.", TELL % UNDO], "finished", []
     if where == "none":
         if os.path.isdir(backup):
             raise Failure("There is no .scratch/_brainstorming/, but a migration's backup is at %s/ with no finished "
@@ -381,5 +381,5 @@ def step(root: str, events_raw: list[str], write: bool) -> Result:
                       "Run brainstorm migrate --write again: it finishes the swap.")
     open_n = sum(1 for i in ideas.values() if i.is_open)
     return ["Migrated %d ideas to layout %s: %d open, %d closed, each in its own file as before; %d events from the "
-            "Log carried." % (len(ideas), TO, open_n, len(ideas) - open_n, len(events))], "migrated", []
+            "Log carried." % (len(ideas), TO, open_n, len(ideas) - open_n, len(events)), TELL % UNDO], "migrated", []
 

@@ -234,8 +234,6 @@ def rename(store: Store, values: dict[str, Any]) -> Result:
     store.dirty.discard(a)
     store.dirty.add(b)
     store.deleted.add(a)
-    if a in store.stamped:
-        store.stamped.remove(a)
     has_research = os.path.isdir(research_old)
     if has_research:
         store.dir_moves.append(("research/" + a, "research/" + b))

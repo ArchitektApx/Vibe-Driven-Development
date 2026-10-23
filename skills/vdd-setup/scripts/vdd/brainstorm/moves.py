@@ -167,7 +167,7 @@ def match_lines(store: Store, hits: list[dupes.Match]) -> list[str]:
             lines.append(quoted(entry.get("gist", "")))
             continue
         idea = store.ideas[hit.slug]
-        lines.append("%s [%s, %s]: %s (shared: %s)" % (hit.slug, idea.status, idea.get("last-updated"), idea.tldr,
+        lines.append("%s [%s, %s]: %s (shared: %s)" % (hit.slug, idea.status, idea.shown_day(), idea.tldr,
                                                        shared))
         if not idea.is_open:
             lines.append(quoted("Reopen when: " + (idea.reopen_when() or "not recorded")))
@@ -273,7 +273,7 @@ def stale_naming(store: Store, slug: str) -> list[str]:
     near.update(store.children(slug))
     day = today()
     return sorted(s for s in near if s in store.ideas and store.ideas[s].is_open
-                  and (store.ideas[s].get("last-updated") or "") < day)
+                  and store.ideas[s].shown_day() < day)
 
 
 def set_cmd(store: Store, values: dict[str, Any]) -> Result:
@@ -402,7 +402,7 @@ def change_lines(store: Store, slugs: list[str], changed: list[tuple[str, str, s
                 if stale:
                     lines.append("Open ideas that name %s and were last updated before today (check whether this "
                                  "landing changes them): %s." % (slug, ", ".join(
-                                     "%s (%s)" % (s, store.ideas[s].get("last-updated")) for s in stale)))
+                                     "%s (%s)" % (s, store.ideas[s].shown_day()) for s in stale)))
         if idea.status == "decided" and status == "decided" and slug in changed_slugs:
             lines.append("Decided idea for the next Role: %s" % rel(store.root, idea.path))
     return lines
