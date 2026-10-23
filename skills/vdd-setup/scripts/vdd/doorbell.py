@@ -83,8 +83,8 @@ def composed(place: doorbells.Place, role: str) -> str:
     """The Doorbell line role rings, from the loop's state: the Planner's
     round is the last plan review's plus one, or 1; the Orchestrator relays
     the last plan review."""
-    loopstate.refuse_v1(place.require_loop(), "doorbell ring")
-    last = loopstate.State(place.dir).last_review("plan")
+    place.state.refuse_v1(place.require_loop().slug, "doorbell ring")
+    last = place.state.last_review("plan")
     if role == "Planner":
         return loopstate.planner_doorbell(place.tracker, last.round + 1 if last else 1)
     if last is None:

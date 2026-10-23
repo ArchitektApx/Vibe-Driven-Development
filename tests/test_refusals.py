@@ -24,7 +24,7 @@ import unittest
 from scenes import CC, CODEX_ID, FINDINGS, SLUG, Staged
 from vddtest import PLAN_SIGNED, WINDOWS
 
-V1 = "0.16.0-beta.3"
+V1 = "has state file version 1, which this VDD no longer reads."
 NEXT_V1 = "Relay the Tell the user verbatim line above unchanged, and stop."
 GH_REFUSED = "failed to read configuration: open ~/.config/gh/hosts.yml: operation not permitted"
 
@@ -167,8 +167,10 @@ class Refusals(Staged):
         self.assertEqual(self.snapshot(), before, "%s: the refusal left a trace\n%r" % (label, result))
         if case.startswith("version-1"):
             tells = result.tells()
-            self.assertTrue(tells and "loop aside --slug demo --write" in tells[0],
-                            "%s: no loop aside in the Tell line\n%r" % (label, result))
+            self.assertTrue(tells and "loop aside --slug demo --write" in tells[0] and "vdd-start-loop" in tells[0],
+                            "%s: no loop aside or vdd-start-loop in the Tell line\n%r" % (label, result))
+            self.assertNotIn("reinstall", tells[0], label)
+            self.assertIn(V1, result.lines[0], label)
             self.assertNotIn("review file", result.text, label)
         self.assertNotEqual(result.code, 0, "%s: exit 0\n%r" % (label, result))
         self.assertNotIn(b"\r", result.data, label)
@@ -196,7 +198,7 @@ TABLES = {
     ],
     "doorbell": [
         ("version-1-ring", R.version_one, ("doorbell", "ring", "--role", "Planner", *CC, *SLUG, "--write"),
-         "doorbell ring does not run on it: this version reads no rounds from a version 1 loop.", NEXT_V1, None,
+         "doorbell ring does not run on it.", NEXT_V1, None,
          False),
         ("closed-loop-ring", lambda t: (t.plan(), t.stage("loop closed")),
          ("doorbell", "ring", "--role", "Planner", *CC, *SLUG, "--write"), "is closed", "ask the Orchestrator to reopen it", None,

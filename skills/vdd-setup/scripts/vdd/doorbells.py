@@ -103,7 +103,9 @@ class Place:
     """The files of one loop: its tracker directory, the Doorbell file, the
     state files."""
 
-    def __init__(self, root: str, slug: str, loop: loopfile.Loop | None = None) -> None:
+    def __init__(
+        self, root: str, slug: str, loop: loopfile.Loop | None = None, state: loopstate.State | None = None,
+    ) -> None:
         self.root = root
         self.slug = slug
         self.tracker = ".scratch/" + slug
@@ -112,6 +114,14 @@ class Place:
         # The checked Loop, when the Place is built from one; the Codex Stop
         # hook builds it from a slug alone.
         self.loop = loop
+        self._state = state
+
+    @property
+    def state(self) -> loopstate.State:
+        """The loop's state file, read once per command."""
+        if self._state is None:
+            self._state = self.loop.load_state() if self.loop is not None else loopstate.State(self.dir)
+        return self._state
 
     @classmethod
     def find(cls, slug: str | None = None) -> Place:
@@ -127,7 +137,8 @@ class Place:
 
     def require_open(self, what: str) -> None:
         """Refuse ring and wait on a closed loop: no Session would ever answer."""
-        if not self.require_loop().is_open():
+        self.require_loop()
+        if not self.state.is_open:
             raise loopstate.closed_loop(self.slug, ", so %s would never be answered" % what)
 
     def state_path(self, role: str) -> str:
@@ -254,7 +265,7 @@ def mark_handled(place: Place, role: str, out: Output) -> None:
 
 def last_plan_review(place: Place) -> loopstate.Review | None:
     """The last plan review the state file records, or None."""
-    return loopstate.State(place.dir).last_review("plan")
+    return place.state.last_review("plan")
 
 
 def plan_signed_off(place: Place) -> bool:

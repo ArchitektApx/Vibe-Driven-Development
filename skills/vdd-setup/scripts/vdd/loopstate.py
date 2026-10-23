@@ -50,10 +50,8 @@ if TYPE_CHECKING:
 STATE_NAME = "loop-state"
 STATE_PREFIX = "vdd loop-state "
 STATE_VERSION = "2"
-# The versions read_state reads. Version 1 has only loop lines.
+# The versions State reads. Version 1 has only loop lines.
 STATE_VERSIONS = ("1", "2")
-# The one release that wrote version 1.
-V1_RELEASE = "0.16.0-beta.3"
 OPEN = "open"
 CLOSED = "closed"
 
@@ -120,61 +118,6 @@ def header(path: str, lines: list[str]) -> str:
     return version
 
 
-def read_state(directory: str) -> str | None:
-    """OPEN or CLOSED from the state file in directory, or None when there is
-    none. A file with no loop line reads as CLOSED."""
-    path = os.path.join(directory, STATE_NAME)
-    lines = textfile.lines(path)
-    if lines is None:
-        return None
-    header(path, lines)
-    state = CLOSED
-    for line in lines[1:]:
-        parts = line.split()
-        if len(parts) == 2 and parts[0] == "loop" and parts[1] in (OPEN, CLOSED):
-            state = parts[1]
-    return state
-
-
-def state_version(directory: str) -> str | None:
-    """The state file's version, "1" or "2", or None when there is none."""
-    lines = textfile.lines(os.path.join(directory, STATE_NAME))
-    if not lines or not lines[0].startswith(STATE_PREFIX):
-        return None
-    return lines[0][len(STATE_PREFIX):].strip()
-
-
-def refuse_v1(loop: Loop, command: str) -> None:
-    """Refuse a command that reads the loop's rounds on a loop whose state
-    file is version 1: that loop was started by 0.16.0-beta.3, and this
-    version reads no rounds from it."""
-    if state_version(loop.dir) != "1":
-        return
-    raise Failure(
-        [
-            "The loop %s was started by VDD %s, the one release that wrote state file version 1. %s does "
-            "not run on it: this version reads no rounds from a version 1 loop."
-            % (loop.slug, V1_RELEASE, command),
-            TELL % (
-                "The loop %s was started by VDD %s. To finish it, reinstall VDD %s; or move it aside with "
-                "loop aside --slug %s --write and start the loop again with vdd-start-loop."
-                % (loop.slug, V1_RELEASE, V1_RELEASE, loop.slug)
-            ),
-        ],
-        "Relay the Tell the user verbatim line above unchanged, and stop.",
-    )
-
-
-def needs_new_state(directory: str) -> bool:
-    """Whether a new loop in directory writes its state file whole: there is
-    none, or a damaged one. False for a readable one, which a new loop appends
-    to. A newer format version refuses, before anything is written."""
-    try:
-        return read_state(directory) is None
-    except Damaged:
-        return True
-
-
 def start_state(directory: str) -> None:
     """Write a new state file holding one open loop, replacing a damaged one."""
     textfile.write_text(os.path.join(directory, STATE_NAME), STATE_PREFIX + STATE_VERSION + "\nloop %s\n" % OPEN)
@@ -187,15 +130,50 @@ def append_state(directory: str, state: str) -> None:
 
 
 class State:
-    """Every line of the state file, read once."""
+    """Every line of the state file, read once per command: its version,
+    whether the loop is open, and the round lines."""
 
     def __init__(self, directory: str) -> None:
         self.dir = directory
         self.path = os.path.join(directory, STATE_NAME)
-        lines: list[str] = textfile.lines(self.path) or []
-        if lines:
-            header(self.path, lines)
-        self.lines = lines[1:]
+        lines = textfile.lines(self.path)
+        # None when there is no state file.
+        self.version: str | None = None if lines is None else header(self.path, lines)
+        self.lines: list[str] = (lines or [])[1:]
+
+    @property
+    def status(self) -> str | None:
+        """OPEN or CLOSED, the last loop line winning, or None when there is
+        no state file. A file with no loop line reads as CLOSED."""
+        if self.version is None:
+            return None
+        status = CLOSED
+        for line in self.lines:
+            parts = line.split()
+            if len(parts) == 2 and parts[0] == "loop" and parts[1] in (OPEN, CLOSED):
+                status = parts[1]
+        return status
+
+    @property
+    def is_open(self) -> bool:
+        return self.status == OPEN
+
+    def refuse_v1(self, slug: str, command: str) -> None:
+        """Refuse a command that reads the loop's rounds on a version 1 state
+        file: this version reads no rounds from it."""
+        if self.version != "1":
+            return
+        raise Failure(
+            [
+                "The loop %s has state file version 1, which this VDD no longer reads. %s does not run on it."
+                % (slug, command),
+                TELL % (
+                    "The loop %s has state file version 1, which this VDD no longer reads. Move it aside with "
+                    "loop aside --slug %s --write, and start the loop afresh with vdd-start-loop." % (slug, slug)
+                ),
+            ],
+            "Relay the Tell the user verbatim line above unchanged, and stop.",
+        )
 
     # --- reading ---
 
@@ -369,8 +347,10 @@ def closed_loop(slug: str, why: str = "") -> Failure:
 
 
 def open_loop(loop: Loop, command: str) -> State:
-    """Refuse a round command on a version 1 or a closed loop."""
-    refuse_v1(loop, command)
-    if not loop.is_open():
+    """The loop's State, read once; refuses a round command on a version 1 or
+    a closed loop."""
+    state = loop.load_state()
+    state.refuse_v1(loop.slug, command)
+    if not state.is_open:
         raise closed_loop(loop.slug)
-    return State(loop.dir)
+    return state

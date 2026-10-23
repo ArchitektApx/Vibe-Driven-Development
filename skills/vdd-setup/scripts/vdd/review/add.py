@@ -174,8 +174,9 @@ def not_carried(loop: loopfile.Loop, entry: Entry) -> str | None:
 # --- the command ---
 
 def run(loop: loopfile.Loop, source: str, write: bool) -> int:
-    loopstate.refuse_v1(loop, "review add")
-    state = loopstate.State(loop.dir)
+    state = loop.load_state()
+    state.refuse_v1(loop.slug, "review add")
+    refuse_moved_fold(state, loop, source)
     entry = Entry(state, loop)
     findings = read_findings(source)
     kept = kept_blocks(loop, entry)
@@ -198,7 +199,7 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
     for block in blocks:
         lines += [""] + block
     review_path = "%s/%s" % (loop.tracker, NAME)
-    reopening = loop.state() == loopstate.CLOSED
+    reopening = state.status == loopstate.CLOSED
     user = loopstate.user_line(entry.round, numbers, counts, number, len(numbers))
     out = Output()
     if not write:

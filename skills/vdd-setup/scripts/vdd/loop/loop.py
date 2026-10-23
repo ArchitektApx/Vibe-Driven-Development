@@ -389,12 +389,14 @@ def show(root: str, values: dict[str, Any]) -> int:
     if role is not None:
         args.choice(role, loopfile.ROLES, "--role takes one of: %s." % ", ".join(loopfile.ROLES),
                     "Run the command again with your Role's name.")
+    state = loop.load_state()
     if role == "PR-Author":
-        signoff.require_code_sign_off(loop)
+        state.refuse_v1(loop.slug, "loop show --role PR-Author")
+        signoff.require_code_sign_off(state)
     names = loopfile.ROLES[role] if role else loopfile.IDENTITY + loopfile.SETTINGS
     out = Output()
     out.line("Slug: %s" % loop.slug)
-    out.line("State: %s" % loop.state())
+    out.line("State: %s" % state.status)
     faults = []
     for name in names:
         value, fault = loop.setting(name)
@@ -450,7 +452,7 @@ def close_or_reopen(root: str, values: dict[str, Any], sub: str) -> int:
     loop = loopfile.find(root, values["slug"])
     target = loopstate.CLOSED if sub == "close" else loopstate.OPEN
     out = Output()
-    if loop.state() == target:
+    if loop.load_state().status == target:
         out.line("The loop %s is already %s. Nothing was written." % (loop.slug, target))
         return out.finish("Go on as your skill says, passing --slug %s." % loop.slug)
     if not values["write"]:

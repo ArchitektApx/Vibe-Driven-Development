@@ -77,10 +77,10 @@ def dispatch(sub: str, values: dict[str, Any]) -> int:
     args.require(values, ["slug", "harness"], usage())
     harness = args.harness_of(values, usage())
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
-    loopstate.open_loop(loop, "pr %s" % sub)
-    signoff.require_code_sign_off(loop)
+    state = loopstate.open_loop(loop, "pr %s" % sub)
+    signoff.require_code_sign_off(state)
     if sub == "open":
-        return open_pr(loop, harness, values["path"], values["write"])
+        return open_pr(loop, state, harness, values["path"], values["write"])
     return check(loop, harness)
 
 
@@ -364,15 +364,13 @@ def close(loop: loopfile.Loop, out: Output) -> None:
     out.line("Closed: the loop %s. Its files stay in %s/ as the record." % (loop.slug, loop.tracker))
 
 
-def open_pr(loop: loopfile.Loop, harness: Harness, wanted: str, write: bool) -> int:
+def open_pr(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wanted: str, write: bool) -> int:
     if wanted not in (OPEN, PUSH_ONLY, EXISTING):
         raise Failure(
             "--path takes open, push-only or existing: the path pr check printed.",
             "Run %s pr check --slug %s --harness %s, and copy the path from its Path: line." % (
                 places.command(), loop.slug, harness.name),
         )
-    state = loopstate.State(loop.dir)
-    signoff.require_code_sign_off(loop)
     if signoff.fold_owed(state):
         raise Failure(
             "The fold's outcome is not recorded for the code Sign-off: the branch is pushed only after the Sign-off "

@@ -34,13 +34,21 @@ def fold_owed(state: loopstate.State) -> bool:
     return record is None or record.signed != state.code_mark("end", review.round)
 
 
-def require_code_sign_off(loop: Loop) -> None:
-    """The PR-Author runs only once the state file records the code
-    Sign-off: an unsigned review has no PR to open yet."""
-    loopstate.refuse_v1(loop, "loop show --role PR-Author")
-    review = loopstate.State(loop.dir).last_review("code")
+def sign_off_blocker(state: loopstate.State) -> str | None:
+    """What stands in the way of the code Sign-off the state records, or None
+    once the newest code record is a reviewer's signed-off review."""
+    review = state.last_review("code")
     if review is None or not review.signed_off:
-        where = not_signed_off(review)
+        return not_signed_off(review)
+    return None
+
+
+def require_code_sign_off(state: loopstate.State) -> None:
+    """The PR-Author runs only once the state file records the code
+    Sign-off: an unsigned review has no PR to open yet. pr and loop show
+    --role PR-Author print this refusal word for word."""
+    where = sign_off_blocker(state)
+    if where is not None:
         raise Failure(
             "The code Loop is not signed off: %s. The Loop is not finished, so there is no PR to open yet."
             % where,

@@ -110,7 +110,7 @@ class Flow:
         self.harness = harnesses.known(loopfile.harness_slug(loop.setting("Harness")[0]))
         # The Loop file's own value: Generic's Harness module has no label.
         self.harness_label = loop.setting("Harness")[0]
-        self.place = doorbells.Place(loop.root, loop.slug, loop)
+        self.place = doorbells.Place(loop.root, loop.slug, loop, state)
 
     # --- the state, as the Orchestrator needs it ---
 
@@ -350,14 +350,15 @@ def after_sign_off(flow: Flow, out: Output) -> int:
     """The step after the code Sign-off: the fold while no fold outcome is
     recorded, on every PR: value, else the PR step."""
     out.line("Code Loop: signed off.")
-    outcome = flow.state.fold_record()
-    if outcome is None or signoff.fold_owed(flow.state):
+    if signoff.fold_owed(flow.state):
         out.line("Fold: not run yet.")
         return out.finish(
             "Run %s, relay its Tell the user verbatim line, then do what its Next: line says." % flow.command(
                 "loop fold --slug %s --harness %s --write" % (flow.slug, flow.harness.name))
         )
-    out.line("Fold: %s." % outcome.kind)
+    # Not owed after a signed-off review means a fold line is recorded.
+    outcome = flow.state.fold_record()
+    out.line("Fold: %s." % (outcome.kind if outcome else "not run yet"))
     return out.finish(signoff.pr_step(flow.loop))
 
 
