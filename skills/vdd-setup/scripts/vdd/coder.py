@@ -320,7 +320,7 @@ def start(round_: Round, write: bool) -> int:
         textfile.write_or_refuse(os.path.join(round_.loop.dir, round_.snapshot_name()),
                                  "".join(name + "\n" for name in found), round_.path(round_.snapshot_name()),
                                  "Otherwise tell the user the round's snapshot cannot be written, and stop.")
-        round_.state.append("code %d start %s" % (round_.number, sha))
+        round_.state.append(loopstate.code_mark_line("start", round_.number, sha))
         out.line("Wrote the frame of %s." % round_.relative)
     out.line("Round %d starts at %s." % (round_.number, sha))
     if round_.number == 1:
@@ -471,7 +471,7 @@ def check(round_: Round, write: bool) -> int:
                              "Otherwise tell the user FIXES.md cannot be written, and stop.")
     if round_.number == 1:
         recap.write(round_.loop, round_.state, {"Tickets": recap_tickets(workfile.Parsed("\n".join(cleaned)))})
-    round_.state.append("code %d end %s" % (round_.number, tip))
+    round_.state.append(loopstate.code_mark_line("end", round_.number, tip))
     out.line("%s: round %d checked and written." % (fixes.NAME, round_.number))
     out.line("Round %d ends at %s." % (round_.number, tip))
     if round_.number == 1:

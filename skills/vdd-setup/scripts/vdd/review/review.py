@@ -369,7 +369,7 @@ def start(round_: Round, write: bool) -> int:
         textfile.write_or_refuse(round_.carried_file, carried_text + "\n" if carried_text else "",
                                  round_.relative, cannot)
         textfile.write_or_refuse(round_.file, frame, round_.relative, cannot)
-        round_.state.append("%s %d review-started" % (round_.kind, round_.number))
+        round_.state.append(loopstate.review_started_line(round_.kind, round_.number))
         out.line("Wrote the frame of %s." % round_.relative)
     if round_.carried_numbers:
         carried = "finding%s %s carried open" % (

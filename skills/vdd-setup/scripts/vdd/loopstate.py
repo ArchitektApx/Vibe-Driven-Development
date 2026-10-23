@@ -16,7 +16,7 @@ closed; the round commands refuse it. Besides the loop lines it holds:
   respawn <Role> <every round|never|over <n>k>
   respawn-once <Role>
   orchestrator session <s>
-  spawn <Role> <r> session <s> [once] [reason <text>]
+  spawn <Role> <r> session <s> [reason <text>]
   resume <Role> <r> session <s>
   return <Role> <r> ok
   return <Role> <r> miss
@@ -120,13 +120,13 @@ def header(path: str, lines: list[str]) -> str:
 
 def start_state(directory: str) -> None:
     """Write a new state file holding one open loop, replacing a damaged one."""
-    textfile.write_text(os.path.join(directory, STATE_NAME), STATE_PREFIX + STATE_VERSION + "\nloop %s\n" % OPEN)
+    textfile.write_text(os.path.join(directory, STATE_NAME), header_line() + "\n" + loop_line(OPEN) + "\n")
 
 
 def append_state(directory: str, state: str) -> None:
     """Append "loop <state>" to the loop's state file, which every caller
     has read first."""
-    textfile.append(os.path.join(directory, STATE_NAME), "loop %s\n" % state)
+    textfile.append(os.path.join(directory, STATE_NAME), loop_line(state) + "\n")
 
 
 class State:
@@ -241,12 +241,12 @@ class State:
         return self.reviews(kind).get(round_number)
 
     def review_started(self, kind: str, round_number: int) -> bool:
-        return ("%s %d review-started" % (kind, round_number)) in self.lines
+        return review_started_line(kind, round_number) in self.lines
 
-    def code_mark(self, which: str, round_number: int) -> str | None:
+    def code_mark(self, which: Literal["start", "end"], round_number: int) -> str | None:
         """The sha of a code round's start or end line, the last winning, or
         None."""
-        prefix = "code %d %s " % (round_number, which)
+        prefix = code_mark_line(which, round_number, "")
         sha: str | None = None
         for line in self.lines:
             if line.startswith(prefix):
@@ -298,12 +298,19 @@ class State:
                                          "Otherwise tell the user the loop state file cannot be written, and stop.")
 
 
-def user_line(
-    round_number: int, open_numbers: Iterable[int], counts: Sequence[int], next_number: int, new: int,
-) -> str:
-    numbers = ",".join(str(n) for n in open_numbers)
-    return "code %d user open %s counts %d %d %d next %d new %d" % (
-        round_number, numbers, counts[0], counts[1], counts[2], next_number, new)
+# --- the state lines: one builder per kind, and no line formatted elsewhere ---
+
+def header_line() -> str:
+    return STATE_PREFIX + STATE_VERSION
+
+
+def loop_line(status: str) -> str:
+    """"loop open" or "loop closed"."""
+    return "loop %s" % status
+
+
+def review_started_line(kind: str, round_number: int) -> str:
+    return "%s %d review-started" % (kind, round_number)
 
 
 def reviewed_line(
@@ -314,6 +321,55 @@ def reviewed_line(
     return "%s %d reviewed %s %s counts %d %d %d next %d new %d closed %d checks %s" % (
         kind, round_number, "signed-off" if signed_off else "open", numbers, counts[0], counts[1], counts[2],
         next_number, new, closed, checks)
+
+
+def user_line(
+    round_number: int, open_numbers: Iterable[int], counts: Sequence[int], next_number: int, new: int,
+) -> str:
+    numbers = ",".join(str(n) for n in open_numbers)
+    return "code %d user open %s counts %d %d %d next %d new %d" % (
+        round_number, numbers, counts[0], counts[1], counts[2], next_number, new)
+
+
+def code_mark_line(which: Literal["start", "end"], round_number: int, sha: str) -> str:
+    """"code <r> start <sha>" or "code <r> end <sha>"."""
+    return "code %d %s %s" % (round_number, which, sha)
+
+
+def respawn_line(role: str, policy: str) -> str:
+    return "respawn %s %s" % (role, policy)
+
+
+def respawn_once_line(role: str) -> str:
+    return "respawn-once %s" % role
+
+
+def session_line(number: int) -> str:
+    return "orchestrator session %d" % number
+
+
+def spawn_line(role: str, round_number: int, session: int, reason: str | None = None) -> str:
+    return "spawn %s %d session %d%s" % (role, round_number, session, " reason " + reason if reason else "")
+
+
+def resume_line(role: str, round_number: int, session: int) -> str:
+    return "resume %s %d session %d" % (role, round_number, session)
+
+
+def return_line(role: str, round_number: int, ok: bool) -> str:
+    return "return %s %d %s" % (role, round_number, "ok" if ok else "miss")
+
+
+def tokens_line(role: str, round_number: int, count: int) -> str:
+    return "tokens %s %d %d" % (role, round_number, count)
+
+
+def folded_line(tip: str, signed: str) -> str:
+    return "fold folded %s signed %s" % (tip, signed)
+
+
+def skipped_line(signed: str, reason: str) -> str:
+    return "fold skipped %s %s" % (signed, " ".join(reason.split()))
 
 
 # --- the Doorbell lines, byte-identical to the ones the Roles composed (ADR 0002) ---

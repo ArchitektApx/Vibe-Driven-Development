@@ -479,7 +479,7 @@ def run(loop: Loop, harness: Harness, write: bool) -> int:
         for line in lines:
             out.line(line)
         return out.finish("Run %s" % fold_command(loop, harness))
-    state.append("fold folded %s signed %s" % (tip, signed))
+    state.append(loopstate.folded_line(tip, signed))
     summary = "Folded %s: %d commits into %d; the folded tree equals the signed tree (%s)." % (
         branch, before, len(chain), signed[:7])
     recap.write(loop, state, {"Commits": [summary, ""] + lines})
@@ -601,7 +601,7 @@ def skipped(
     if not write:
         out.line("Would skip the fold: %s. %s would stay at the signed commit %s." % (reason, branch, signed[:7]))
         return out.finish("Run %s" % fold_command(loop, harness))
-    state.append("fold skipped %s %s" % (signed, " ".join(reason.split())))
+    state.append(loopstate.skipped_line(signed, reason))
     recap.write(loop, state, {"Commits": [
         "Not folded: %s stays at the signed commit %s, because %s." % (branch, signed[:7], reason)]})
     out.line("Not folded: %s." % reason)

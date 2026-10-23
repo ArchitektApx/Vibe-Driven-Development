@@ -85,6 +85,26 @@ def dispatch(sub: str, values: dict[str, Any]) -> int:
     return returned(flow, role)
 
 
+# The spawn ledger's lines, as loopstate's builders write them.
+SESSION = re.compile(r"^orchestrator session ([0-9]+)$")
+SPAWNED = re.compile(r"^(spawn|resume) (\S+) ([0-9]+) session ([0-9]+)(?: reason (.*))?$")
+ONCE = re.compile(r"^respawn-once (\S+)$")
+RESPAWN = re.compile(r"^respawn (\S+) (.+)$")
+RETURNED = re.compile(r"^return (\S+) ([0-9]+) (ok|miss)$")
+TOKENS = re.compile(r"^tokens (\S+) ([0-9]+) ([0-9]+)$")
+
+
+class Spawned:
+    """One spawn or resume line."""
+
+    def __init__(self, kind: str, role: str, round_number: int, session: int, reason: str | None) -> None:
+        self.kind = kind
+        self.role = role
+        self.round = round_number
+        self.session = session
+        self.reason = reason
+
+
 class Flow:
     """One loop as the Orchestrator sees it: its state file, its Doorbell
     file and the Harness the Loop file names."""
@@ -111,36 +131,69 @@ class Flow:
         # The Loop file's own value: Generic's Harness module has no label.
         self.harness_label = loop.setting("Harness")[0]
         self.place = doorbells.Place(loop.root, loop.slug, loop, state)
+        self.last_session = 0
+        self.spawns: list[Spawned] = []
+        self.once: dict[str, bool] = {}
+        self.policies: dict[str, str] = {}
+        self.returns: list[tuple[str, int, bool]] = []
+        self.counts: dict[tuple[str, int], int] = {}
+        for line in state.lines:
+            self.read(line)
 
-    # --- the state, as the Orchestrator needs it ---
+    # --- the spawn ledger, parsed once at load ---
+
+    def read(self, line: str) -> None:
+        """Add one state line to the records it belongs to."""
+        match = SESSION.match(line)
+        if match:
+            self.last_session = int(match.group(1))
+            return
+        match = SPAWNED.match(line)
+        if match:
+            record = Spawned(match.group(1), match.group(2), int(match.group(3)), int(match.group(4)),
+                             match.group(5))
+            self.spawns.append(record)
+            if record.kind == "spawn":
+                self.once[record.role] = False
+            return
+        match = ONCE.match(line)
+        if match:
+            self.once[match.group(1)] = True
+            return
+        match = RESPAWN.match(line)
+        if match:
+            self.policies[match.group(1)] = match.group(2).strip()
+            return
+        match = RETURNED.match(line)
+        if match:
+            self.returns.append((match.group(1), int(match.group(2)), match.group(3) == "ok"))
+            return
+        match = TOKENS.match(line)
+        if match:
+            self.counts[(match.group(1), int(match.group(2)))] = int(match.group(3))
+
+    def append(self, line: str) -> None:
+        """Append a built state line and add it to the records."""
+        self.state.append(line)
+        self.read(line)
 
     def session(self) -> int:
-        number = 0
-        for line in self.state.lines:
-            match = re.match(r"^orchestrator session ([0-9]+)$", line)
-            if match:
-                number = int(match.group(1))
-        return number
+        return self.last_session
 
     def out(self, role: str, session: int | None = None) -> tuple[str, int] | None:
         """(kind, round) of the Role's last spawn or resume in the session,
         or None: whether a live subagent of that Role is out."""
         session = self.session() if session is None else session
         last: tuple[str, int] | None = None
-        for line in self.state.lines:
-            match = re.match(r"^(spawn|resume) (\S+) ([0-9]+) session ([0-9]+)(\s|$)", line)
-            if match and match.group(2) == role and int(match.group(4)) == session:
-                last = (match.group(1), int(match.group(3)))
+        for record in self.spawns:
+            if record.role == role and record.session == session:
+                last = (record.kind, record.round)
         return last
 
     def policy(self, role: str) -> str | None:
         """The Role's Respawn policy: its last respawn line, else never for a
         reviewer and None (unset) for the Coder."""
-        found: str | None = None
-        prefix = "respawn %s " % role
-        for line in self.state.lines:
-            if line.startswith(prefix):
-                found = line[len(prefix):].strip()
+        found = self.policies.get(role)
         if found is None and role != "Coder":
             return "never"
         return found
@@ -148,53 +201,36 @@ class Flow:
     def once_pending(self, role: str) -> bool:
         """Whether a respawn-once request for the Role waits for its next
         spawn."""
-        pending = False
-        for line in self.state.lines:
-            if line == "respawn-once %s" % role:
-                pending = True
-            elif re.match(r"^spawn %s [0-9]+ " % re.escape(role), line):
-                pending = False
-        return pending
+        return self.once.get(role, False)
 
     def spawned_before(self, role: str) -> bool:
         """Whether an earlier session spawned or resumed the Role."""
         session = self.session()
-        for line in self.state.lines:
-            match = re.match(r"^(spawn|resume) (\S+) [0-9]+ session ([0-9]+)", line)
-            if match and match.group(2) == role and int(match.group(3)) < session:
-                return True
-        return False
+        return any(r.role == role and r.session < session for r in self.spawns)
 
     def spawn_reason(self, role: str, number: int) -> str | None:
         """The reason of the Role's last spawn for the round in this
         session, or None."""
         session = self.session()
         found: str | None = None
-        for line in self.state.lines:
-            match = re.match(r"^spawn (\S+) ([0-9]+) session ([0-9]+)(?: once)?(?: reason (.*))?$", line)
-            if match and match.group(1) == role and int(match.group(2)) == number and int(match.group(3)) == session:
-                found = match.group(4)
+        for record in self.spawns:
+            if record.kind == "spawn" and record.role == role and record.round == number and record.session == session:
+                found = record.reason
         return found
 
     def tokens(self, role: str, number: int) -> int | None:
-        found: int | None = None
-        for line in self.state.lines:
-            match = re.match(r"^tokens (\S+) ([0-9]+) ([0-9]+)$", line)
-            if match and match.group(1) == role and int(match.group(2)) == number:
-                found = int(match.group(3))
-        return found
+        return self.counts.get((role, number))
 
     def any_spawn(self) -> bool:
         """Whether this session has recorded a spawn or resume."""
         session = self.session()
-        return any(re.match(r"^(spawn|resume) \S+ [0-9]+ session %d(\s|$)" % session, line)
-                   for line in self.state.lines) if session else False
+        return bool(session) and any(r.session == session for r in self.spawns)
 
     def acted(self, role: str, number: int) -> bool:
-        return ("return %s %d ok" % (role, number)) in self.state.lines
+        return (role, number, True) in self.returns
 
     def misses(self, role: str, number: int) -> int:
-        return self.state.lines.count("return %s %d miss" % (role, number))
+        return self.returns.count((role, number, False))
 
     def rung(self) -> int:
         rounds = [e.doorbell.round for e in self.place.entries("Orchestrator")
@@ -265,8 +301,7 @@ def spawn(flow: Flow, out: Output, role: str, number: int, reason: str | None = 
           first: str | None = None) -> int:
     """Record a fresh spawn and print it. first, when given, is a step to
     take before it."""
-    flow.state.append("spawn %s %d session %d%s" % (role, number, flow.session(),
-                                                     " reason " + reason if reason else ""))
+    flow.append(loopstate.spawn_line(role, number, flow.session(), reason))
     read, write = lists(flow, role, number)
     out.line("Spawning %s, <model>, round %d%s." % (role, number, ", " + reason if reason else ""))
     out.line("Read: %s" % ", ".join(read))
@@ -280,7 +315,7 @@ def spawn(flow: Flow, out: Output, role: str, number: int, reason: str | None = 
 
 
 def resume(flow: Flow, out: Output, role: str, number: int, message: str, first: str | None = None) -> int:
-    flow.state.append("resume %s %d session %d" % (role, number, flow.session()))
+    flow.append(loopstate.resume_line(role, number, flow.session()))
     out.line("Resuming %s, round %d." % (role, number))
     out.line("Resume message:")
     out.line(message)
@@ -443,7 +478,7 @@ def start(flow: Flow) -> int:
             "Ask Model approval and the Respawn question above in one message, and wait for the user. Then run %s"
             % flow.command('orchestrator respawn --role Coder --policy "<answer>" --slug %s --write' % flow.slug)
         )
-    flow.state.append("orchestrator session %d" % (previous + 1))
+    flow.append(loopstate.session_line(previous + 1))
     # A wait an earlier session started wakes that session, not this one.
     doorbells.clear_marker(flow.place, "Orchestrator")
     # The placement below acts on every Doorbell rung so far.
@@ -498,7 +533,7 @@ def returned(flow: Flow, role: str) -> int:
         already(role, number)
     out = Output()
     if not flow.done(role, number):
-        flow.state.append("return %s %d miss" % (role, number))
+        flow.append(loopstate.return_line(role, number, False))
         if flow.misses(role, number) == 1:
             out.line("%s round %d ended without `%s`: the round is not finished." % (
                 role, number, flow.check_command(role)))
@@ -511,7 +546,7 @@ def returned(flow: Flow, role: str) -> int:
             "user's words as the message. On respawn, run %s. On stop, stop." % (
                 role, flow.command("orchestrator respawn --role %s --once --slug %s --write" % (role, flow.slug)))
         )
-    flow.state.append("return %s %d ok" % (role, number))
+    flow.append(loopstate.return_line(role, number, True))
     if role == "Coder":
         out.line("Code Loop: Coder round %d done." % number)
         fresh = USER_REASON if flow.spawn_reason("Coder", number) == USER_REASON else None
@@ -550,7 +585,7 @@ def planner_returned(flow: Flow) -> int:
     live = flow.out("Plan-Reviewer")
     if flow.acted("Planner", number) or (live is not None and live[1] == number):
         already("Planner", number)
-    flow.state.append("return Planner %d ok" % number)
+    flow.append(loopstate.return_line("Planner", number, True))
     out = Output()
     out.line("Plan Loop: the Planner rang round %d." % number)
     return step(flow, out, "Plan-Reviewer", number)
@@ -568,7 +603,7 @@ def respawn(flow: Flow, values: dict[str, Any]) -> int:
         if not values["write"]:
             out.line("Would make the %s's next spawn fresh." % role)
             return out.finish("Run the same command with --write.")
-        flow.state.append("respawn-once %s" % role)
+        flow.append(loopstate.respawn_once_line(role))
         live = flow.out(role)
         if live is not None and not flow.acted(role, live[1]) and not flow.done(role, live[1]):
             out.line("The %s's round %d is unfinished: a fresh %s takes it over." % (role, live[1], role))
@@ -596,7 +631,7 @@ def respawn(flow: Flow, values: dict[str, Any]) -> int:
     if not values["write"]:
         out.line("Would set: respawn %s %s." % (role, policy))
         return out.finish("Run the same command with --write.")
-    flow.state.append("respawn %s %s" % (role, policy))
+    flow.append(loopstate.respawn_line(role, policy))
     out.line(policies_line(flow))
     if flow.any_spawn():
         return out.finish("The policy applies from the Role's next round; go on with the step the tool printed "
@@ -624,7 +659,7 @@ def tokens(flow: Flow, values: dict[str, Any]) -> int:
             "Go on with the step the tool printed before it.",
         )
     count = int(values["tokens"])
-    flow.state.append("tokens %s %d %d" % (role, live[1], count))
+    flow.append(loopstate.tokens_line(role, live[1], count))
     out = Output()
     out.line("Recorded: %s round %d, %s tokens." % (role, live[1], size(count)))
     waiting = waiting_step(flow, role)
