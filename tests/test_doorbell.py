@@ -626,6 +626,34 @@ class DoorbellTest(LoopRepoTest):
                 self.assertNext(result, "paste")
                 self.assertEqual([f for f in os.listdir(self.box.path(".scratch", "x")) if "armed" in f], [])
 
+    # --- the wait seams ---
+
+    BAD_SEAMS = ("ten", "0", "-1", "nan", "inf")
+
+    def test_a_bad_poll_seam_falls_back_to_the_default(self):
+        """Prevents a poll seam that is no finite positive number crashing the
+        wait ("ten") or busy-polling it ("0", "-1"): the wait marker records the
+        default poll, 10 seconds."""
+        for value in self.BAD_SEAMS:
+            with self.subTest(value=value):
+                proc = self.start_wait("Orchestrator", poll=value)
+                self.assertEqual(self.box.read(self.marker("Orchestrator")).split("\n")[1].split()[1], "10.0")
+                proc.kill()
+                proc.communicate()
+                os.remove(self.marker("Orchestrator"))
+
+    def test_a_bad_timeout_seam_falls_back_to_the_default(self):
+        """Prevents a timeout seam that is no finite positive number crashing
+        the wait ("ten") or timing it out at once ("0", "-1"): the wait keeps
+        running until a Doorbell arrives."""
+        for value in self.BAD_SEAMS:
+            with self.subTest(value=value):
+                self.box.cleanup()
+                self.setUp()
+                proc = self.start_wait("Orchestrator", timeout=value)
+                self.ring("Planner", P1)
+                self.assertIn("doorbell take --role Orchestrator", self.box.finish(proc, timeout=20).text)
+
 
 if __name__ == "__main__":
     unittest.main()

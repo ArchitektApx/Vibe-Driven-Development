@@ -34,6 +34,15 @@ def and_list(items: Iterable[str]) -> str:
     return "%s and %s" % (", ".join(items[:-1]), items[-1])
 
 
+# Lines a command prints first, whatever it prints after: what the loop
+# lookup left out. One command runs per process.
+NOTICES: list[str] = []
+
+
+def notice(text: str) -> None:
+    NOTICES.append(one_line(text))
+
+
 class Output:
     """Collects lines and writes them once, ending in the Next: line. A line
     that records something done, a push or a closed loop, also prints before
@@ -67,7 +76,8 @@ class Output:
 
     def finish(self, next_step: str, code: int = 0) -> int:
         self.lines.append("Next: " + one_line(next_step))
-        write(self.lines)
+        write(NOTICES + self.lines)
+        del NOTICES[:]
         return code
 
 

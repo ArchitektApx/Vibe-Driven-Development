@@ -52,14 +52,21 @@ class Scenes(Staged):
     def code_ended(self):
         self.coding(policies=NEVER)
 
+    def review_file(self, reference):
+        """CODEREVIEW.md holding finding 1 open, as the round's check left it."""
+        self.put("CODEREVIEW.md", "# Code review, round 1\n\nOpen: 0 blocker, 1 major, 0 minor.\n\n## Open findings\n\n"
+                 "### 1. major (open): %s\n\nThe value is wrong.\n" % reference)
+
     def code_open(self):
         self.coding(policies=NEVER)
         self.stage(CODE_OPEN_1)
+        self.review_file("a.txt:1")
 
     def user_findings(self):
         """T4: the user's findings after the round-1 Sign-off."""
         self.code_signed(policies=NEVER)
         self.stage(USER_1)
+        self.review_file("docs/a.md:3")
 
     def fold_owed(self):
         self.code_signed(policies=NEVER)
@@ -71,6 +78,7 @@ class Scenes(Staged):
         """The user's findings after round 1, and the Coder's round 2 done."""
         self.code_signed(policies=NEVER)
         self.stage(USER_1)
+        self.review_file("docs/a.md:3")
         self.coder_round(2)
 
 

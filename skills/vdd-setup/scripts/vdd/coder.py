@@ -202,14 +202,14 @@ def precondition(round_: Round) -> None:
     )
 
 
-def to_branch(round_: Round, out: Output, write: bool = True) -> bool:
-    """Put the Coder on the feature branch, or refuse naming both branches.
-    Without write, switch nothing and return whether a switch is owed."""
+def decide_branch(round_: Round) -> str | None:
+    """The branch switch the round needs, read-only: None on the feature
+    branch, "switch" to an existing one, "create" from the base branch. Refuses
+    on any other branch, naming both."""
     root = round_.loop.root
     current = gitcmd.current_branch(root)
     if current == round_.branch:
-        out.line("On the feature branch %s." % round_.branch)
-        return False
+        return None
     if current != round_.base:
         raise Failure(
             "The checked-out branch is %s: neither the base branch %s nor the feature branch %s. Nothing was "
@@ -217,13 +217,30 @@ def to_branch(round_: Round, out: Output, write: bool = True) -> bool:
             "Return QUESTION: I am on %s, neither the base branch %s nor the feature branch %s. Which branch "
             "do I work on?" % (current or "a detached HEAD", round_.base, round_.branch),
         )
+    return "switch" if branch_exists(root, round_.branch) else "create"
+
+
+def to_branch(round_: Round, out: Output, write: bool = True) -> bool:
+    """Put the Coder on the feature branch, or refuse naming both branches.
+    Without write, switch nothing and return whether a switch is owed."""
+    decision = decide_branch(round_)
+    if decision is None:
+        out.line("On the feature branch %s." % round_.branch)
+        return False
     if not write:
-        if branch_exists(root, round_.branch):
+        if decision == "switch":
             out.line("Would switch to the feature branch %s." % round_.branch)
         else:
             out.line("Would create the feature branch %s from %s and switch to it." % (round_.branch, round_.base))
         return True
-    if branch_exists(root, round_.branch):
+    apply_branch(round_, decision, out)
+    return False
+
+
+def apply_branch(round_: Round, decision: str, out: Output) -> None:
+    """Switch to the feature branch as decide_branch decided."""
+    root = round_.loop.root
+    if decision == "switch":
         call = git(root, "checkout", "-q", round_.branch)
         verb = "Switched to the feature branch %s." % round_.branch
     else:
@@ -243,7 +260,6 @@ def to_branch(round_: Round, out: Output, write: bool = True) -> bool:
             "Tell the user git could not check out the feature branch %s, and stop." % round_.branch,
         )
     out.line(verb)
-    return False
 
 
 def ticket_guidance() -> list[str]:
@@ -308,6 +324,12 @@ def start(round_: Round, write: bool) -> int:
     out = Output()
     again = round_.started
     if not write and not again:
+        # Every read-only check of the write path runs before a dry run
+        # returns, so it refuses wherever --write would.
+        skeleton(round_)
+        head(round_.loop.root)
+        decide_branch(round_)
+        untracked(round_.loop.root)
         out.line("Would start code round %d on %s and write the frame of %s." % (
             round_.number, round_.branch, round_.relative))
         return out.finish("Run the same command with --write.")

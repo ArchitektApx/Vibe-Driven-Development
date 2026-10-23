@@ -82,3 +82,9 @@ def main(argv: list[str]) -> int:
             "A file could not be read or written: %s" % textfile.described(error),
             "Otherwise tell the user which file it names and that the command could not run, and stop.",
         ).emit()
+    except Exception as error:  # noqa: B902 - the last resort; KeyboardInterrupt and SystemExit pass
+        return Failure(
+            "The VDD tool hit an internal error: %s: %s" % (type(error).__name__, error),
+            "Tell the user the VDD tool hit an internal error and show them the line above, so they can report it; "
+            "then stop.",
+        ).emit()

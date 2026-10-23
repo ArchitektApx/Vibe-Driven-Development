@@ -648,7 +648,7 @@ def tokens(flow: Flow, values: dict[str, Any]) -> int:
             "%s reports no subagent token count, so there is none to record." % flow.harness_label,
             "Go on with the step the tool printed before it.",
         )
-    if not values["tokens"].isdigit():
+    if not re.fullmatch(r"[0-9]+", values["tokens"]):
         raise Failure("--tokens takes a whole number: subagent_tokens from the completion notice.",
                       "Run the command again with the number.")
     live = flow.out(role)

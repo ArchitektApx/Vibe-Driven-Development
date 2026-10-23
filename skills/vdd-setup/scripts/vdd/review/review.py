@@ -366,6 +366,9 @@ def start(round_: Round, write: bool) -> int:
         out.line("Round %d was already started: %s stays as it is. Nothing was written."
                  % (round_.number, round_.relative))
     elif not write:
+        # The carried findings and the frame are read-only checks of the
+        # write path: a dry run refuses wherever --write would.
+        skeleton(round_, carried_blocks(round_))
         out.line("Would write the frame of %s for round %d." % (round_.relative, round_.number))
         return out.finish("Run the same command with --write.")
     else:
@@ -467,7 +470,7 @@ def lint(round_: Round, parsed: workfile.Parsed) -> Lint:
     lint_findings(round_, parsed, lint_)
     if round_.kind == "code":
         lint_kept_open(round_, parsed, lint_)
-        not_carried(parsed, lint_)
+        lint_not_carried(parsed, lint_)
     return lint_
 
 
@@ -490,14 +493,17 @@ def lint_kept_open(round_: Round, parsed: workfile.Parsed, lint_: Lint) -> None:
                      % (block.number, round_.number, round_.number))
 
 
-def not_carried(parsed: workfile.Parsed, lint_: Lint | None) -> list[tuple[str, list[int]]]:
-    """The Not carried lines, a wrapped line joined: [(text, [line numbers])].
-    A line that is neither a "- " line nor an indented continuation, and a
-    "- " line with nothing after it, are refused when lint_ is given."""
+def parse_not_carried(
+    parsed: workfile.Parsed,
+) -> tuple[list[tuple[str, list[int]]], list[tuple[workfile.Line, str]]]:
+    """The Not carried lines, a wrapped line joined: ([(text, [line numbers])],
+    [(line, problem)]). A line that is neither a "- " line nor an indented
+    continuation, and a "- " line with nothing after it, are problems."""
     section = parsed.section("Not carried")
     items: list[tuple[str, list[int]]] = []
+    problems: list[tuple[workfile.Line, str]] = []
     if section is None:
-        return items
+        return items, problems
     firsts = []
     for line in section.body:
         if not line.frame or not line.text.strip():
@@ -508,15 +514,24 @@ def not_carried(parsed: workfile.Parsed, lint_: Lint | None) -> list[tuple[str, 
         elif line.text[:1] in (" ", "\t") and items:
             items[-1] = ((items[-1][0] + " " + line.text.strip()).strip(), items[-1][1])
             items[-1][1].append(line.number)
-        elif lint_ is not None:
-            lint_.at(line, "under ## Not carried every line starts with \"- \": \"- <the problem, in one line>: "
-                     "<why not>\". A wrapped line goes on an indented next line.")
-    if lint_ is not None:
-        for (text, _), line in zip(items, firsts):
-            if not text:
-                lint_.at(line, "this Not carried line is empty. Write \"- <the problem, in one line>: <why not>\", "
-                         "or remove it.")
-    return items
+        else:
+            problems.append((line, "under ## Not carried every line starts with \"- \": \"- <the problem, in one "
+                             "line>: <why not>\". A wrapped line goes on an indented next line."))
+    for (text, _), line in zip(items, firsts):
+        if not text:
+            problems.append((line, "this Not carried line is empty. Write \"- <the problem, in one line>: <why "
+                             "not>\", or remove it."))
+    return items, problems
+
+
+def not_carried(parsed: workfile.Parsed) -> list[tuple[str, list[int]]]:
+    """The Not carried lines, parsed."""
+    return parse_not_carried(parsed)[0]
+
+
+def lint_not_carried(parsed: workfile.Parsed, lint_: Lint) -> None:
+    for line, text in parse_not_carried(parsed)[1]:
+        lint_.at(line, text)
 
 
 def lint_checks(round_: Round, parsed: workfile.Parsed, lint_: Lint) -> None:
@@ -749,7 +764,7 @@ def check(round_: Round, write: bool) -> int:
     line = loopstate.reviewed_line(round_.kind, round_.number, signed_off, numbers, counts, next_number, new,
                                    len(closed), checks_text(round_, parsed))
     section = "Plan findings" if round_.kind == "plan" else "Code findings"
-    items = not_carried(parsed, None) if round_.kind == "code" else []
+    items = not_carried(parsed) if round_.kind == "code" else []
     dropped = [number for _, numbers in items for number in numbers]
     rewritten = "\n".join(cleaned(parsed, status, closed, dropped)) + "\n"
     records = [recap.Record(recap.findings_key(round_.kind, round_.number), section, recap_findings(round_, closed))]
@@ -790,7 +805,7 @@ def rewrite_recorded(round_: Round, review: loopstate.Review) -> bool:
     if parsed.title is None or parsed.title.text.strip() != "# %s, round %d" % (TITLES[round_.kind], review.round):
         return False
     _, closed, _, _ = outcome(recorded, parsed)
-    items = not_carried(parsed, None) if round_.kind == "code" else []
+    items = not_carried(parsed) if round_.kind == "code" else []
     dropped = [number for _, numbers in items for number in numbers]
     rewritten = "\n".join(cleaned(parsed, status_line(review.counts, review.signed_off), closed, dropped)) + "\n"
     if rewritten == text:

@@ -19,7 +19,7 @@ import re
 from typing import Iterable
 
 from . import args, armed, gitcmd, loopstate, textfile
-from .out import TELL, Failure
+from .out import TELL, Failure, notice
 
 SLUG_PATTERN = "[a-z0-9]+(-[a-z0-9]+)*"
 FORMAT = 2
@@ -280,21 +280,25 @@ def replace_line(lines: Iterable[str], name: str, value: str) -> list[str]:
 
 # --- finding the loop ---
 
-def loops(root: str) -> list[tuple[str, loopstate.State]]:
-    """Every loop under .scratch/: (slug, its State), by slug."""
+def loops(root: str) -> tuple[list[tuple[str, loopstate.State]], list[tuple[str, str]]]:
+    """Every loop under .scratch/: ([(slug, its State)], [(slug, why)]), by
+    slug. A loop whose state file a newer VDD wrote is left out, with the
+    line saying why; a damaged one is no loop."""
     try:
         names = sorted(os.listdir(scratch(root)))
     except OSError:
-        return []
+        return [], []
     found: list[tuple[str, loopstate.State]] = []
+    left: list[tuple[str, str]] = []
     for name in names:
         try:
             state = probe(os.path.join(scratch(root), name))
-        except Failure:
+        except Failure as failure:
+            left.append((name, failure.lines[0]))
             continue
         if state is not None:
             found.append((name, state))
-    return found
+    return found, left
 
 
 def find(root: str, slug: str | None = None) -> Loop:
@@ -303,7 +307,9 @@ def find(root: str, slug: str | None = None) -> Loop:
     refuse_root(root)
     if slug is not None:
         return named(root, slug)
-    every = loops(root)
+    every, left = loops(root)
+    for name, why in left:
+        notice("Left out the loop %s: %s" % (name, why))
     states = dict(every)
     branch = gitcmd.current_branch(root)
     if branch:

@@ -21,7 +21,7 @@ import re
 import time
 from typing import Callable
 
-from . import armed, gitcmd, loopfile, loopstate, places, textfile
+from . import armed, gitcmd, loopfile, loopstate, places, seams, textfile
 from .harness import Harness
 from .out import Failure, Output
 
@@ -280,9 +280,9 @@ def plan_signed_off(place: Place) -> bool:
 
 
 def timings() -> tuple[float, float]:
-    poll = float(os.environ.get("VDD_WAIT_POLL_SECONDS") or POLL_SECONDS)
-    total = float(os.environ.get("VDD_WAIT_TIMEOUT_SECONDS") or TIMEOUT_SECONDS)
-    return poll, total
+    """(poll, total) seconds of a wait, each from its test seam."""
+    return (seams.seconds("VDD_WAIT_POLL_SECONDS", POLL_SECONDS),
+            seams.seconds("VDD_WAIT_TIMEOUT_SECONDS", TIMEOUT_SECONDS))
 
 
 def watch(place: Place, role: str, floor: int = 0, beat: Callable[[], None] | None = None) -> bool:
