@@ -444,7 +444,15 @@ class Sandbox:
         if real is None:
             return None
         if WINDOWS:
+            # Git for Windows' cmd directory: its git.exe sets up the PATH the
+            # sh.exe a local ls-remote starts needs. A bare ucrt64\bin or
+            # mingw64\bin git.exe alone crashes there (CI, 2026-10-23).
             path = os.path.dirname(real)
+            root = path
+            while os.path.dirname(root) != root and not os.path.isfile(os.path.join(root, "cmd", "git.exe")):
+                root = os.path.dirname(root)
+            if os.path.isfile(os.path.join(root, "cmd", "git.exe")):
+                path = os.path.join(root, "cmd")
         else:
             os.makedirs(self.bin, exist_ok=True)
             launcher = os.path.join(self.bin, "git")
