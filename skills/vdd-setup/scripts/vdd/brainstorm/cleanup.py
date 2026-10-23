@@ -16,7 +16,8 @@ from typing import Any
 from .. import textfile
 from ..out import Failure
 from .ideafile import CLOSED, Idea, squash, today
-from .moves import Result, norm_value
+from .moves import norm_value
+from .printed import Result
 from .store import REMOVED, REMOVED_HEAD, Store, removed_line
 
 
@@ -57,7 +58,7 @@ def age_of(closed: str) -> int | None:
         return None
 
 
-def candidates(store: Store, statuses: list[str], named: list[str],
+def closed_to_remove(store: Store, statuses: list[str], named: list[str],
                days: int | None) -> tuple[list[str], list[tuple[str, str]]]:
     """(picked, kept with the reason) before the family checks."""
     kept: list[tuple[str, str]] = []
@@ -124,7 +125,7 @@ def cleanup(store: Store, values: dict[str, Any]) -> Result:
     for s in values["idea"]:
         store.get(s)
     named = list(dict.fromkeys(values["idea"]))
-    picked, kept = candidates(store, statuses, named, days)
+    picked, kept = closed_to_remove(store, statuses, named, days)
     kept += family_checks(store, picked)
     refused = [(s, r) for s, r in kept if s in named]
     if refused:

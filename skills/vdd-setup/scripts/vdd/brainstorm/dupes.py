@@ -51,7 +51,7 @@ def terms(text: str | None) -> list[str]:
     return out
 
 
-def candidates(store: Store) -> Iterable[tuple[str, dict[str, str], str]]:
+def compared_ideas(store: Store) -> Iterable[tuple[str, dict[str, str], str]]:
     """(slug, fields, where) of every idea and removed idea: fields are the
     texts compared, where is "open", "closed" or "removed"."""
     for slug, idea in sorted(store.ideas.items()):
@@ -72,7 +72,7 @@ def similar(store: Store, text: str, exclude: Iterable[str] = ()) -> list[Match]
     words = set(terms(text))
     left_out = set(exclude)
     out: list[Match] = []
-    for slug, fields, where in candidates(store):
+    for slug, fields, where in compared_ideas(store):
         if slug in left_out:
             continue
         best, shared = 0.0, []

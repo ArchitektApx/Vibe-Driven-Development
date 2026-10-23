@@ -745,6 +745,24 @@ class Families(BrainstormTest):
                 self.assertIn(says, result.text)
         self.assertEqual(self.ideas_tree(), before)
 
+    def test_a_move_that_breaks_the_family_tree_gets_the_saves_refusal(self):
+        """Prevents two wordings of one refusal: move relies on the guard
+        every save runs, so its family-tree refusal is the save's line and
+        Next:, in a dry run as with --write."""
+        self.split()
+        self.new("leaf", "Leaf", "Deepest.", "--parent", "t3-threads")
+        self.new("other-root", "Other root", "Elsewhere.")
+        self.new("other-kid", "Other kid", "Below.", "--parent", "other-root")
+        before = self.ideas_tree()
+        for extra in ([], ["--write"]):
+            with self.subTest(extra=extra):
+                result = self.bs("move", "--set", "other-root=t3-names", *extra)
+                self.assertEqual(result.code, 1, result)
+                self.assertIn("Refused, nothing was written: the change would break the family tree.", result.lines)
+                self.assertIn("other-kid would sit 4 levels deep; a family keeps at most 3", result.lines)
+                self.assertEqual(result.last, "Next: Ask the user where the idea belongs instead.")
+        self.assertEqual(self.ideas_tree(), before)
+
     def test_merge_is_refused_while_an_open_part_is_left(self):
         """Prevents an open part stranded under a dropped idea (spec story
         30): the refusal names each open part at any level and the move that

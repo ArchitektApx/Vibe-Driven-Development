@@ -101,7 +101,7 @@ def log_entries(store: str) -> list[tuple[str, str]]:
     return out
 
 
-def candidates(store: str) -> list[tuple[str, str, list[str]]]:
+def restructure_sentences(store: str) -> list[tuple[str, str, list[str]]]:
     """[(label, the entry's first sentence, the other sentences that may
     record a restructure)] of the Log."""
     out: list[tuple[str, str, list[str]]] = []
@@ -134,7 +134,7 @@ def plan_lines(root: str) -> list[str]:
         "- relations stay where they are stated; links to idea files become slugs, Next Steps included; no idea is "
         "put under a parent",
     ]
-    found = candidates(store)
+    found = restructure_sentences(store)
     slugs = set(old)
     if not found:
         lines.append("The Log names no split, merge or rename.")

@@ -8,7 +8,7 @@ from typing import Any
 
 from ..out import Failure, Output
 from .ideafile import DEPTH_MAX, STATUSES, Idea, is_idea_name, reflow, squash
-from .moves import QUOTE, quoted, step_line
+from .printed import QUOTE, quoted, step_line
 from .store import REMOVED, Store, rel, removed_entries, removed_entry
 
 FIND_MAX = 10

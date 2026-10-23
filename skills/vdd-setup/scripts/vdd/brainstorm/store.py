@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+from typing import Callable
 
 from .. import textfile
 from ..out import Failure
@@ -68,10 +69,6 @@ def read_once(path: str) -> str | None:
     return textfile.read(path)
 
 
-def has_created_history(text: str) -> bool:
-    return re.search(r"^## History\s*\n(?:\s*\n)*- \d{4}-\d{2}-\d{2}: created", text, re.M) is not None
-
-
 def layout(root: str) -> str | None:
     """The store's layout: the marker's text, "damaged" for an empty marker,
     "lost" for a layout-2 store without its marker, "1" for a 0.15 store,
@@ -92,7 +89,7 @@ def layout(root: str) -> str | None:
         return "1"
     ideas = [n for n in names if is_idea_name(n)]
     for name in ideas:
-        if has_created_history(textfile.read(os.path.join(base, name)) or ""):
+        if Idea(name[:-3], os.path.join(base, name), textfile.read(os.path.join(base, name)) or "").created():
             return "lost"
     return "1" if ideas else None
 
@@ -302,37 +299,34 @@ class Store:
             todo = self.children(s) + todo
         return out
 
-    def ancestors(self, slug: str) -> list[str]:
+    def parent_walk(self, slug: str, parent_of: Callable[[str], str | None] | None = None
+                    ) -> tuple[list[str], str | None]:
+        """(the ancestors of slug, nearest first, and the idea where the walk
+        met a parent loop, or None). The walk ends at a parent that is no
+        idea, or at the first idea it meets twice. parent_of gives each
+        idea's parent, the current one by default."""
+        parent = parent_of or (lambda s: self.ideas[s].parent)
         out: list[str] = []
         seen = {slug}
-        cur = self.ideas[slug].parent
-        while cur and cur in self.ideas and cur not in seen:
+        cur = parent(slug)
+        while cur and cur in self.ideas:
+            if cur in seen:
+                return out, cur
             seen.add(cur)
             out.append(cur)
-            cur = self.ideas[cur].parent
-        return out
+            cur = parent(cur)
+        return out, None
+
+    def ancestors(self, slug: str) -> list[str]:
+        return self.parent_walk(slug)[0]
 
     def in_cycle(self, slug: str) -> bool:
         """Whether following parents from slug leads back to slug."""
-        seen: set[str] = set()
-        cur = self.ideas[slug].parent
-        while cur and cur in self.ideas and cur not in seen:
-            if cur == slug:
-                return True
-            seen.add(cur)
-            cur = self.ideas[cur].parent
-        return False
+        return self.parent_walk(slug)[1] == slug
 
     def under_loop(self, slug: str) -> bool:
         """Whether following parents from slug runs into a loop."""
-        seen = {slug}
-        cur = self.ideas[slug].parent
-        while cur and cur in self.ideas:
-            if cur in seen:
-                return True
-            seen.add(cur)
-            cur = self.ideas[cur].parent
-        return False
+        return self.parent_walk(slug)[1] is not None
 
     def depth(self, slug: str) -> int:
         return 1 + len(self.ancestors(slug))
@@ -377,18 +371,10 @@ class Store:
         """Whether slug sat in or under a parent loop as the store was
         loaded, and the command left its parent and every parent above it
         as they were."""
-        seen = {slug}
-        cur = slug
-        while True:
-            parent = self.loaded_parents.get(cur)
-            if cur not in self.ideas or self.ideas[cur].parent != parent:
-                return False
-            if not parent or parent not in self.ideas:
-                return False
-            if parent in seen:
-                return True
-            seen.add(parent)
-            cur = parent
+        if slug not in self.ideas:
+            return False
+        chain, loop = self.parent_walk(slug, self.loaded_parents.get)
+        return loop is not None and all(self.ideas[s].parent == self.loaded_parents.get(s) for s in [slug] + chain)
 
     def structure_problems(self, slugs: set[str] | list[str]) -> list[str]:
         """Parent loops and families deeper than DEPTH_MAX among slugs and

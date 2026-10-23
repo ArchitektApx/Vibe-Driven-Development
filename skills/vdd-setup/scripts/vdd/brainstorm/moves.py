@@ -8,29 +8,19 @@ dry run. A refusal raises Failure before anything is saved.
 from __future__ import annotations
 
 import re
-from typing import Any, List, Tuple
+from typing import Any
 
 from ..out import Failure
 from . import dupes
 from .ideafile import (CLOSED, DEPTH_MAX, HISTORY, KIND_RE, KINDS, METRICS, ORDER, RESERVED, SLUG_PATTERN,
                        STATUSES, TLDR_MAX, Idea, is_open_step, squash, today, usable_slug)
+from .printed import Result, quoted, step_line
 from .store import Store, rel, removed_entry, unknown_lines
 
-QUOTE = "  > "
 LIST_SECTIONS = ("Pro", "Con", "Open Questions", "Evidence", "Related Ideas", "Next Steps", "Prior Art")
 FIRST_STEP = "Talk it through with the user."
 WORD = {"done": "Done", "dropped": "Dropped", "decided": "Decided", "shaped": "Shaped", "discussed": "Discussed",
         "in-progress": "In progress", "idea": "Reopened"}
-
-Result = Tuple[List[str], str, str]
-
-
-def quoted(text: str) -> str:
-    return QUOTE + squash(text)
-
-
-def step_line(text: str) -> str:
-    return QUOTE + "[ ] " + squash(text)
 
 
 def norm_value(value: str | None, allowed: tuple[str, ...], name: str) -> str:
