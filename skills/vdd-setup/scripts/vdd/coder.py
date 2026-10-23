@@ -280,15 +280,8 @@ def finding_guidance() -> list[str]:
 def open_findings(round_: Round) -> list[tuple[int, str, str]]:
     """(number, severity, reference) of every finding the last review left
     open, from CODEREVIEW.md's headings, else carried-code.md's."""
-    found = {}
-    for name in ("CODEREVIEW.md", "carried-code.md"):
-        text = textfile.read(os.path.join(round_.loop.dir, name))
-        if text is None:
-            continue
-        for block in workfile.Parsed(text).blocks:
-            if block.number in round_.open_numbers and block.number not in found and block.match:
-                found[block.number] = (block.number, block.severity, block.reference)
-    missing = [n for n in round_.open_numbers if n not in found]
+    blocks, missing = workfile.open_blocks(round_.loop.dir, workfile.WORKING_FILES["Coder"], round_.open_numbers)
+    found = dict((n, (n, b.severity, b.reference)) for n, b in blocks.items())
     if missing:
         raise Failure(
             "CODEREVIEW.md has no heading for finding%s %s, which round %d's review left open. Nothing was "
@@ -369,26 +362,15 @@ def start(round_: Round, write: bool) -> int:
 
 # --- check ---
 
-def lint(round_: Round, parsed: workfile.Parsed) -> list[str]:
-    problems: list[tuple[int, str]] = []
-
-    def at(line: workfile.Line | None, text: str) -> None:
-        problems.append((line.number if line else 0, "%s line %d: %s" % (fixes.NAME, line.number, text) if line
-                         else "%s: %s" % (fixes.NAME, text)))
-
-    title = "# Fixes, round %d" % round_.number
-    if parsed.title is None:
-        at(None, "the title \"%s\" is missing. Put it back as the first line." % title)
-    elif parsed.title.text.strip() != title:
-        at(parsed.title, "the title is \"%s\", as the tool wrote it." % title)
-    if parsed.unclosed is not None:
-        at(parsed.unclosed, workfile.unclosed_text(parsed.unclosed))
+def lint(round_: Round, parsed: workfile.Parsed) -> workfile.Lint:
+    lint_ = workfile.Lint(fixes.NAME)
+    lint_.title(parsed, "# Fixes, round %d" % round_.number)
     found = fixes.entries(parsed)
     if round_.number == 1:
-        lint_tickets(round_, found, at)
+        lint_tickets(round_, found, lint_.at)
     else:
-        lint_findings(round_, found, at)
-    return [text for _, text in sorted(problems, key=lambda p: p[0])]
+        lint_findings(round_, found, lint_.at)
+    return lint_
 
 
 def lint_tickets(round_: Round, found: list[fixes.Entry], at: Callable[[workfile.Line | None, str], None]) -> None:
@@ -473,22 +455,21 @@ def check(round_: Round, write: bool) -> int:
         raise Failure("%s does not exist. Nothing was written." % round_.relative,
                       "Tell the user FIXES.md is gone in the middle of round %d, and stop." % round_.number)
     parsed = workfile.Parsed(text)
-    problems = lint(round_, parsed)
+    lint_ = lint(round_, parsed)
     rewritten = start_gone(round_)
     if rewritten:
-        problems.append(rewritten)
+        lint_.last(rewritten)
     changed = dirty(root)
     if changed:
-        problems.append("The working tree has uncommitted changes to tracked files: %s. Uncommitted work is not "
-                        "reviewed; commit it with git." % ", ".join(changed))
+        lint_.last("The working tree has uncommitted changes to tracked files: %s. Uncommitted work is not "
+                   "reviewed; commit it with git." % ", ".join(changed))
     left = new_untracked(round_)
     if left:
-        problems.append("The round left untracked files that were not untracked when it started: %s. A file never "
-                        "added misses the commits, the fold and the PR: commit it with git if it belongs to the "
-                        "work, or delete it if it is a by-product." % ", ".join(left))
-    if problems:
-        raise Failure(problems + ["Nothing written."],
-                      "Fix the lines above, then run %s again." % round_.command("check", write))
+        lint_.last("The round left untracked files that were not untracked when it started: %s. A file never "
+                   "added misses the commits, the fold and the PR: commit it with git if it belongs to the "
+                   "work, or delete it if it is a by-product." % ", ".join(left))
+    lint_.refuse("Fix the lines above, then run %s again." % round_.command("check", write))
+    store = recap.Records.load(round_.loop)
     out = Output()
     if not write:
         out.line("%s passes: round %d." % (fixes.NAME, round_.number))

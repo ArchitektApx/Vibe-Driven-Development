@@ -272,15 +272,9 @@ def round_available(round_: Round) -> bool:
 def carried_blocks(round_: Round) -> list[list[str]]:
     """number -> the block's lines, for every finding still open, from the
     review file as the last check left it, else from the carried file."""
-    blocks: dict[int, list[str]] = {}
-    for path in (round_.file, round_.carried_file):
-        text = textfile.read(path)
-        if text is None:
-            continue
-        for block in workfile.Parsed(text).blocks:
-            if block.number in round_.carried_numbers and block.number not in blocks:
-                blocks[block.number] = block.text_lines()
-    missing = [n for n in round_.carried_numbers if n not in blocks]
+    found, missing = workfile.open_blocks(round_.loop.dir, workfile.WORKING_FILES[round_.role],
+                                          round_.carried_numbers)
+    blocks = dict((number, block.text_lines()) for number, block in found.items())
     if missing:
         raise Failure(
             "%s no longer holds finding%s %s, which round %d left open. Nothing was written."
@@ -415,25 +409,6 @@ def start(round_: Round, write: bool) -> int:
 
 # --- check ---
 
-class Lint:
-    """The refusals of one check, in file order."""
-
-    def __init__(self, round_: Round) -> None:
-        self.round = round_
-        self.problems: list[tuple[int, list[str]]] = []
-
-    def at(self, line: workfile.Line | None, text: str) -> None:
-        if line is None:
-            self.problems.append((0, ["%s: %s" % (self.round.name, text)]))
-        else:
-            self.problems.append((line.number, ["%s line %d: %s" % (self.round.name, line.number, text)]))
-
-    def block(self, text: str, block_lines: list[str]) -> None:
-        """A refusal followed by a block to put back, one output line per
-        line of the block."""
-        self.problems.append((10 ** 9, ["%s: %s" % (self.round.name, text)] + block_lines))
-
-
 def sections_expected(round_: Round) -> list[str]:
     names = ["Checks"]
     if round_.number > 1:
@@ -444,13 +419,9 @@ def sections_expected(round_: Round) -> list[str]:
     return names
 
 
-def lint(round_: Round, parsed: workfile.Parsed) -> Lint:
-    lint_ = Lint(round_)
-    title = "# %s, round %d" % (TITLES[round_.kind], round_.number)
-    if parsed.title is None:
-        lint_.at(None, "the title \"%s\" is missing. Put it back as the first line." % title)
-    elif parsed.title.text.strip() != title:
-        lint_.at(parsed.title, "the title is \"%s\", as the tool wrote it." % title)
+def lint(round_: Round, parsed: workfile.Parsed) -> workfile.Lint:
+    lint_ = workfile.Lint(round_.name)
+    lint_.title(parsed, "# %s, round %d" % (TITLES[round_.kind], round_.number))
     expected = sections_expected(round_)
     for section in parsed.sections:
         if section.name not in expected:
@@ -460,8 +431,6 @@ def lint(round_: Round, parsed: workfile.Parsed) -> Lint:
     for name in expected:
         if parsed.section(name) is None:
             lint_.at(None, "the heading \"## %s\" is missing. Put it back as the tool wrote it." % name)
-    if parsed.unclosed is not None:
-        lint_.at(parsed.unclosed, workfile.unclosed_text(parsed.unclosed))
     lint_checks(round_, parsed, lint_)
     lint_findings(round_, parsed, lint_)
     if round_.kind == "code":
@@ -470,7 +439,7 @@ def lint(round_: Round, parsed: workfile.Parsed) -> Lint:
     return lint_
 
 
-def lint_kept_open(round_: Round, parsed: workfile.Parsed, lint_: Lint) -> None:
+def lint_kept_open(round_: Round, parsed: workfile.Parsed, lint_: workfile.Lint) -> None:
     """A carried finding the Coder answered this round and the reviewer keeps
     open needs the reviewer's reason."""
     marker = "in round %d." % round_.number
@@ -525,12 +494,12 @@ def not_carried(parsed: workfile.Parsed) -> list[tuple[str, list[int]]]:
     return parse_not_carried(parsed)[0]
 
 
-def lint_not_carried(parsed: workfile.Parsed, lint_: Lint) -> None:
+def lint_not_carried(parsed: workfile.Parsed, lint_: workfile.Lint) -> None:
     for line, text in parse_not_carried(parsed)[1]:
         lint_.at(line, text)
 
 
-def lint_checks(round_: Round, parsed: workfile.Parsed, lint_: Lint) -> None:
+def lint_checks(round_: Round, parsed: workfile.Parsed, lint_: workfile.Lint) -> None:
     section = parsed.section("Checks")
     if section is None:
         return
@@ -578,7 +547,7 @@ def skip_problem(round_: Round, name: str, value: str) -> str | None:
     return None
 
 
-def lint_findings(round_: Round, parsed: workfile.Parsed, lint_: Lint) -> None:
+def lint_findings(round_: Round, parsed: workfile.Parsed, lint_: workfile.Lint) -> None:
     carried = set(round_.carried_numbers)
     seen = set()
     new_numbers = []
@@ -739,13 +708,7 @@ def check(round_: Round, write: bool) -> int:
             "Run %s; it writes the frame again, then fill it in." % round_.command("start"),
         )
     parsed = workfile.Parsed(text)
-    lint_ = lint(round_, parsed)
-    if lint_.problems:
-        lines = []
-        for _, texts in sorted(lint_.problems, key=lambda p: p[0]):
-            lines += texts
-        lines.append("Nothing written; RECAP.md and the state file are unchanged.")
-        raise Failure(lines, "Fix the lines above, then run %s again." % round_.command("check", write))
+    lint(round_, parsed).refuse("Fix the lines above, then run %s again." % round_.command("check", write))
     open_blocks, closed, counts, signed_off = outcome(round_, parsed)
     status = status_line(counts, signed_off)
     new = sum(1 for b in parsed.blocks_in("New findings") if b.match is not None)

@@ -45,10 +45,8 @@ def read_findings(source: str) -> list[Finding]:
         raise Failure("--from %s cannot be read: %s. Nothing was written." % (source, textfile.reason(error)),
                       "Run the command again with --from naming a file that holds the findings.")
     lines, opener = workfile.walk(workfile.split(text))
-    problems: list[tuple[int, str]] = []
-
-    def at(number: int, message: str) -> None:
-        problems.append((number, "%s line %d: %s" % (source, number, message)))
+    lint = workfile.Lint(source)
+    at = lint.at
 
     found: list[Finding] = []
     stray = False
@@ -71,9 +69,9 @@ def read_findings(source: str) -> list[Finding]:
     if opener is not None:
         at(opener.number, workfile.unclosed_text(opener))
     if not found:
-        problems.append((0, "%s holds no finding. Write each as \"%s\" and a body." % (source, FORM)))
-    if problems:
-        raise Failure([text for _, text in sorted(problems, key=lambda p: p[0])] + ["Nothing was written."],
+        lint.problems.append((0, ["%s holds no finding. Write each as \"%s\" and a body." % (source, FORM)]))
+    if lint.problems:
+        raise Failure(lint.lines() + ["Nothing was written."],
                       "Fix the lines above in %s, then run the command again." % source)
     return found
 
@@ -145,10 +143,8 @@ def kept_blocks(loop: loopfile.Loop, entry: Entry) -> list[workfile.Block]:
     first add left CODEREVIEW.md."""
     if entry.joined is None:
         return []
-    text = textfile.read(os.path.join(loop.dir, NAME)) or ""
-    found = dict((b.number, b) for b in workfile.Parsed(text).blocks if b.match and b.number is not None)
     wanted = entry.joined.raised()
-    missing = [n for n in wanted if n not in found]
+    found, missing = workfile.open_blocks(loop.dir, workfile.WORKING_FILES["Code-Reviewer"], wanted)
     if missing:
         raise Failure(
             "%s/%s no longer holds the heading of finding%s %s of the user's entry after round %d. Nothing was "

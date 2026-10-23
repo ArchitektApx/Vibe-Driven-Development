@@ -27,6 +27,10 @@ class Entry:
     def labels(self, names: Iterable[str]) -> dict[str, tuple[str, workfile.Line]]:
         """label -> (joined text, Line): the label line plus every line after
         it up to the next label or heading, joined with single spaces."""
+        # Not merged with workfile.Block.labels on purpose: in FIXES.md a
+        # label runs across paragraphs, so a multi-paragraph Why: reaches the
+        # reviewer whole; in a review file a blank line ends a label and
+        # starts the finding's own text.
         found: dict[str, tuple[str, workfile.Line]] = {}
         # The label whose text the lines below run on, None after a repeated
         # label: only a label's first line counts.
