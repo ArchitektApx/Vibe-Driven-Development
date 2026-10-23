@@ -1,14 +1,14 @@
 """The loop command group: the Loop file and the loop's state, written, read,
-changed, closed and reopened only here."""
+changed, closed and reopened only here. Each write command is a precondition
+and a plan the runner prints as its dry run or applies with --write."""
 
 from __future__ import annotations
 
 import os
 from typing import Any
 
-from .. import catalog, gitcmd, harness as harnesses, loopfile, loopstate, textfile
-from ..harness import Harness
-from ..out import Failure, Output, or_list, refused
+from .. import catalog, gitcmd, harness as harnesses, loopfile, loopstate, runner, textfile
+from ..out import TELL, Failure, Output, or_list, refused
 
 HELP = catalog.Help({
     "new": [
@@ -81,20 +81,22 @@ def dispatch(ctx: catalog.Context) -> int:
     if sub == "new":
         from .new import new
         harness = harnesses.from_option(values, ctx.usage)
-        return new(gitcmd.project_root(os.getcwd()), ctx, harness)
+        new_root = gitcmd.project_root(os.getcwd())
+        return runner.run(ctx, lambda: new(new_root, ctx, harness))
     if values["harness"] is not None:
         harnesses.from_option(values, ctx.usage)
     root = gitcmd.project_root(os.getcwd())
-    if sub == "aside":
-        return aside(root, values)
     if sub == "show":
         return show(root, values)
+    if sub == "aside":
+        return runner.run(ctx, lambda: aside(root, values))
     if sub in ("close", "reopen"):
-        return close_or_reopen(root, values, sub)
+        return runner.run(ctx, lambda: close_or_reopen(root, values, sub))
     if sub == "fold":
         from .fold import fold
-        return fold.run(loopfile.find(root, values["slug"]), harnesses.from_option(values, ctx.usage), values["write"])
-    return set_lines(root, values, ctx.usage)
+        return runner.run(ctx, lambda: fold.plan(
+            loopfile.find(root, values["slug"]), harnesses.from_option(values, ctx.usage), values["write"]))
+    return runner.run(ctx, lambda: set_lines(root, values, ctx.usage))
 
 
 def check_answers(values: dict[str, Any], options: tuple[tuple[str, str], ...]) -> None:
@@ -108,7 +110,7 @@ def check_answers(values: dict[str, Any], options: tuple[tuple[str, str], ...]) 
             )
 
 
-def aside(root: str, values: dict[str, Any]) -> int:
+def aside(root: str, values: dict[str, Any]) -> runner.Plan:
     loopfile.refuse_root(root)
     slug = values["slug"]
     loopfile.check_slug(slug)
@@ -122,27 +124,28 @@ def aside(root: str, values: dict[str, Any]) -> int:
     while os.path.lexists(loopfile.tracker_dir(root, "%s-%d" % (slug, number))):
         number += 1
     target = "%s-%d" % (slug, number)
-    out = Output()
     closing = leftover == loopstate.OPEN
-    if not values["write"]:
-        out.line("Would move .scratch/%s/ to .scratch/%s/%s." % (
-            slug, target, ", closing its open loop first" if closing else ""))
-        return out.finish("Run the same command with --write.")
-    directory = loopfile.tracker_dir(root, slug)
-    try:
-        if closing and state is not None:
-            for name in loopfile.close(state):
-                out.line("Deleted the Codex armed file %s." % name)
-            out.line("Closed the loop %s." % slug)
-        os.rename(directory, loopfile.tracker_dir(root, target))
-    except OSError as error:
-        raise refused(
+
+    def refuse(error: OSError) -> Failure:
+        return refused(
             "Could not move .scratch/%s/ aside: %s" % (slug, textfile.reason(error)),
             "Otherwise tell the user the directory could not be moved, and stop.",
         )
-    out.line("Moved: .scratch/%s/ is now .scratch/%s/. Nothing was deleted." % (slug, target))
-    out.tell("The earlier Workflow's files are now in .scratch/%s/." % target)
-    return out.finish("Run %s for %s again, as your skill says." % (catalog.bare("loop", "new"), slug))
+
+    def move() -> list[str]:
+        try:
+            os.rename(loopfile.tracker_dir(root, slug), loopfile.tracker_dir(root, target))
+        except OSError as error:
+            raise refuse(error)
+        return ["Moved: .scratch/%s/ is now .scratch/%s/. Nothing was deleted." % (slug, target),
+                TELL % ("The earlier Workflow's files are now in .scratch/%s/." % target)]
+
+    effects: list[runner.Effect] = []
+    if closing and state is not None:
+        effects += runner.close(state, done=["Closed the loop %s." % slug], refuse=refuse)
+    effects.append(runner.Step(move, dry=["Would move .scratch/%s/ to .scratch/%s/%s." % (
+        slug, target, ", closing its open loop first" if closing else "")], after=True))
+    return runner.Plan(effects, "Run %s for %s again, as your skill says." % (catalog.bare("loop", "new"), slug))
 
 
 def show(root: str, values: dict[str, Any]) -> int:
@@ -176,7 +179,7 @@ def show(root: str, values: dict[str, Any]) -> int:
     )
 
 
-def set_lines(root: str, values: dict[str, Any], usage: str) -> int:
+def set_lines(root: str, values: dict[str, Any], usage: str) -> runner.Plan:
     if any(values[option] is not None for option in ("feature", "base-branch", "feature-branch", "base", "branch")):
         raise Failure(
             "loop set never changes the Feature:, Base branch: or Feature branch: line: they name the loop and "
@@ -192,41 +195,37 @@ def set_lines(root: str, values: dict[str, Any], usage: str) -> int:
     check_answers(values, SETTABLE)
     loop = loopfile.find(root, values["slug"])
     lines = list(loop.lines)
-    out = Output()
     for option, name in changes:
         lines = loopfile.replace_line(lines, name, values[option])
-        out.line("%s %s: %s" % ("Set:" if values["write"] else "Would set:", name, values[option]))
-    if not values["write"]:
-        return out.finish("Run the same command with --write.")
-    textfile.write_or_refuse(loop.file, "\n".join(lines) + "\n", "the Loop file %s" % loop.relative,
-                             "Otherwise tell the user the Loop file could not be changed, and stop.")
-    return out.finish("Go on as your skill says, passing --slug %s." % loop.slug)
+    written = runner.WriteFile(
+        loop.file, "\n".join(lines) + "\n", "the Loop file %s" % loop.relative,
+        "Otherwise tell the user the Loop file could not be changed, and stop.",
+        dry=["Would set: %s: %s" % (name, values[option]) for option, name in changes],
+        done=["Set: %s: %s" % (name, values[option]) for option, name in changes])
+    return runner.Plan([written], go_on(loop.slug))
 
 
-def close_or_reopen(root: str, values: dict[str, Any], sub: str) -> int:
+def go_on(slug: str) -> str:
+    return "Go on as your skill says, passing --slug %s." % slug
+
+
+def close_or_reopen(root: str, values: dict[str, Any], sub: str) -> runner.Plan:
     loop = loopfile.find(root, values["slug"])
     target = loopstate.CLOSED if sub == "close" else loopstate.OPEN
-    out = Output()
     state = loop.load_state()
     if state.status == target:
-        out.line("The loop %s is already %s. Nothing was written." % (loop.slug, target))
-        return out.finish("Go on as your skill says, passing --slug %s." % loop.slug)
-    if not values["write"]:
-        out.line("Would mark the loop %s %s." % (loop.slug, target))
-        return out.finish("Run the same command with --write.")
-    try:
-        if target == loopstate.CLOSED:
-            for name in loopfile.close(state):
-                out.line("Deleted the Codex armed file %s." % name)
-        else:
-            loopfile.reopen(state)
-    except OSError as error:
-        raise refused(
+        return runner.Plan([], go_on(loop.slug),
+                           lines=["The loop %s is already %s. Nothing was written." % (loop.slug, target)])
+
+    def refuse(error: OSError) -> Failure:
+        return refused(
             "Could not change the loop state file in .scratch/%s/: %s" % (loop.slug, textfile.reason(error)),
             "Otherwise tell the user the loop could not be marked %s, and stop." % target,
         )
+
+    dry = ["Would mark the loop %s %s." % (loop.slug, target)]
     if target == loopstate.CLOSED:
-        out.line(loopfile.closed_line(loop.slug))
+        effects = runner.close(state, dry, [runner.closed_line(loop.slug)], refuse)
     else:
-        out.line("Reopened: the loop %s is open again." % loop.slug)
-    return out.finish("Go on as your skill says, passing --slug %s." % loop.slug)
+        effects = [runner.reopen(state, dry, ["Reopened: the loop %s is open again." % loop.slug], refuse)]
+    return runner.Plan(effects, go_on(loop.slug))

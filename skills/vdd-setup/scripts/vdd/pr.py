@@ -15,7 +15,9 @@ import re
 import shutil
 from typing import TYPE_CHECKING, Iterable
 
-from . import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, preflight, textfile, workfile
+from . import (
+    catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, preflight, runner, textfile, workfile,
+)
 from .gitcmd import Refused
 from .out import Failure, Output, refused
 
@@ -70,7 +72,7 @@ def dispatch(ctx: catalog.Context) -> int:
     sub, values = ctx.command, ctx.values
     harness = harnesses.from_option(values, ctx.usage)
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
-    state = loopstate.open_loop(loop, "pr %s" % sub)
+    state = runner.open_loop(loop, "pr %s" % sub)
     loopstate.require_code_sign_off(state)
     if sub == "open":
         return open_pr(loop, state, harness, values["path"], values["write"])
@@ -339,15 +341,14 @@ def changed(path: Path, wanted: str) -> str:
 def close(loop: loopfile.Loop, state: loopstate.State, out: Output) -> None:
     """Close the loop, every line printed a done line: a failure after it
     still shows what happened."""
-    try:
-        for name in loopfile.close(state):
-            out.done("Deleted the Codex armed file %s." % name)
-    except OSError as error:
-        raise out.failing(refused(
+    def refuse(error: OSError) -> Failure:
+        return out.failing(refused(
             "Could not close the loop %s: %s" % (loop.slug, textfile.reason(error)),
             "Otherwise tell the user the loop could not be closed, and stop.",
         ))
-    out.done(loopfile.closed_line(loop.slug))
+
+    for line in runner.apply(runner.close(state, done=[runner.closed_line(loop.slug)], refuse=refuse)):
+        out.done(line)
 
 
 def open_pr(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wanted: str, write: bool) -> int:

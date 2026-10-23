@@ -1,24 +1,25 @@
 """loop new: its questions, a leftover tracker directory with the work it
-holds, and the preflight warning for PR: yes."""
+holds, and the preflight warning for PR: yes. Without --write its plan's dry
+lines are the questions; with the answers and --write the runner writes the
+Loop file and opens the loop."""
 
 from __future__ import annotations
 
 import os
 from typing import Any
 
-from .. import catalog, gitcmd, loopfile, loopstate, preflight, textfile, workfile
+from .. import catalog, gitcmd, loopfile, loopstate, preflight, runner, textfile, workfile
 from ..harness import Harness
-from ..out import Failure, Output
+from ..out import TELL, Failure
 from .loop import ANSWERS, check_answers
 
 
-def new(root: str, ctx: catalog.Context, harness: Harness) -> int:
+def new(root: str, ctx: catalog.Context, harness: Harness) -> runner.Plan:
     values = ctx.values
     loopfile.refuse_root(root)
     slug = values["slug"]
     loopfile.check_slug(slug)
     check_answers(values, ANSWERS)
-    out = Output()
     leftover, state = loopfile.look(root, slug)
     continuing = check_leftover(slug, leftover, values["leftover"])
     if continuing and leftover == loopfile.NO_STATE:
@@ -27,25 +28,22 @@ def new(root: str, ctx: catalog.Context, harness: Harness) -> int:
         # written, and a readable one is reopened.
         state = loopfile.readable(loopfile.tracker_dir(root, slug))
     if leftover == loopstate.OPEN and continuing:
-        out.line("Continuing the open loop %s: every file in .scratch/%s/ stays as it is. Nothing was written."
-                 % (slug, slug))
-        return out.finish(
-            "This Session is the Planner: invoke vdd-planner now, and pass --slug %s on every VDD tool call."
-            % slug
-        )
+        return runner.Plan(
+            [], "This Session is the Planner: invoke vdd-planner now, and pass --slug %s on every VDD tool call."
+            % slug,
+            lines=["Continuing the open loop %s: every file in .scratch/%s/ stays as it is. Nothing was written."
+                   % (slug, slug)])
     if leftover is not None and not continuing:
-        return report_leftover(root, slug, leftover, values["write"], out)
+        raise report_leftover(root, slug, leftover)
     base = values["base"]
     if not base:
         base = gitcmd.current_branch(root)
         if not base:
-            out.line("Base branch: unknown. HEAD is detached, or this is not a git repository, so the tool "
-                     "does not guess it.")
-            out.line("Nothing was written.")
-            return out.finish(
+            raise runner.Ask(
+                ["Base branch: unknown. HEAD is detached, or this is not a git repository, so the tool does not "
+                 "guess it.", "Nothing was written."],
                 "Ask the user which branch the loop branches from, then run the same command again with "
                 "--base <branch>.",
-                1 if values["write"] else 0,
             )
         source = "the checked-out branch"
     else:
@@ -65,25 +63,27 @@ def new(root: str, ctx: catalog.Context, harness: Harness) -> int:
         "Feature branch": branch,
         "Harness": harness.label,
     }
-    if values["write"]:
-        ctx.require(*(option for option, _ in ANSWERS))
-        for option, name in ANSWERS:
-            fields[name] = values[option]
-        return write_new(root, slug, fields, state, out, continuing)
-    out.line("Slug: %s" % slug)
-    out.line("Base branch: %s (from %s)." % (base, source))
-    out.line("Feature branch: %s%s." % (branch, " (proposed: the slug)" if not values["branch"] else ""))
-    out.line("Harness: %s." % fields["Harness"])
+    for option, name in ANSWERS:
+        # An answer not given is asked on the dry run; --write requires it.
+        fields[name] = values[option] or ""
     asked = questions(values, branch, base)
-    for number, text in enumerate(asked, 1):
-        out.line("Question %d, %s" % (number, text))
+    dry = [
+        "Slug: %s" % slug,
+        "Base branch: %s (from %s)." % (base, source),
+        "Feature branch: %s%s." % (branch, " (proposed: the slug)" if not values["branch"] else ""),
+        "Harness: %s." % fields["Harness"],
+    ] + ["Question %d, %s" % (number, text) for number, text in enumerate(asked, 1)]
     command = new_command(slug, harness, base, branch, values)
     if not asked:
-        return out.finish("Nothing left to ask. Run: %s" % command)
-    return out.finish(
-        "Ask the user each Question line above, one at a time and in order, with its answers as written. "
-        "Then run: %s" % command
-    )
+        dry_next = "Nothing left to ask. Run: %s" % command
+    else:
+        dry_next = ("Ask the user each Question line above, one at a time and in order, with its answers as written. "
+                    "Then run: %s" % command)
+    return runner.Plan(
+        writes(root, slug, fields, state, dry, continuing),
+        "Relay every Tell the user verbatim line above unchanged; only after doing that, invoke vdd-planner as your "
+        "skill says. The loop's slug is %s: pass --slug %s on every VDD tool call from here on." % (slug, slug),
+        dry_next, requires=[option for option, _ in ANSWERS])
 
 
 def questions(values: dict[str, Any], branch: str, base: str) -> list[str]:
@@ -118,34 +118,34 @@ def new_command(slug: str, harness: Harness, base: str, branch: str, values: dic
                         leftover=values["leftover"], **answers, write=True)
 
 
-def write_new(
-    root: str, slug: str, fields: dict[str, str], state: loopstate.State | None, out: Output, continuing: bool = False,
-) -> int:
-    """Write the Loop file, and reopen state, the readable state file the
-    command read, or start a missing or damaged one anew."""
+def writes(
+    root: str, slug: str, fields: dict[str, str], state: loopstate.State | None, dry: list[str], continuing: bool,
+) -> list[runner.Effect]:
+    """The preflight warning on PR: yes, the Loop file, then the state file:
+    state, the readable one the command read, reopened, or a missing or
+    damaged one started anew."""
     directory = loopfile.tracker_dir(root, slug)
+    what = "the Loop file in %s/" % textfile.shown(directory)
+    otherwise = "Otherwise tell the user the Loop file could not be written, and stop."
+    effects: list[runner.Effect] = []
     if fields["PR"] == "yes":
-        warn_preflight(root, fields["Base branch"], out)
-    try:
-        loopfile.write(directory, fields)
-        if state is None:
-            loopstate.start_state(directory)
-        else:
-            loopfile.reopen(state)
-    except OSError as error:
-        raise textfile.write_refusal("the Loop file in %s/" % textfile.shown(directory), error,
-                                     "Otherwise tell the user the Loop file could not be written, and stop.")
-    out.line("Written: .scratch/%s/%s, and the loop is open.%s"
-             % (slug, loopfile.NAME, " Every other file there stays." if continuing else ""))
-    for name in loopfile.ORDER:
-        out.line("%s: %s" % (name, fields[name]))
-    out.tell("The loop's slug is %s. The Orchestrator's launch line will carry it." % slug)
-    out.tell("The Harness is %s. If that is wrong, say so and it will be corrected." % fields["Harness"])
-    out.tell("You can ask the Orchestrator to respawn any hosted Role at any round.")
-    return out.finish(
-        "Relay every Tell the user verbatim line above unchanged; only after doing that, invoke vdd-planner "
-        "as your skill says. The loop's slug is %s: pass --slug %s on every VDD tool call from here on." % (slug, slug)
-    )
+        effects.append(runner.Step(lambda: preflight_lines(root, fields["Base branch"])))
+    done = ["Written: .scratch/%s/%s, and the loop is open.%s"
+            % (slug, loopfile.NAME, " Every other file there stays." if continuing else "")]
+    done += ["%s: %s" % (name, fields[name]) for name in loopfile.ORDER]
+    done += [TELL % text for text in (
+        "The loop's slug is %s. The Orchestrator's launch line will carry it." % slug,
+        "The Harness is %s. If that is wrong, say so and it will be corrected." % fields["Harness"],
+        "You can ask the Orchestrator to respawn any hosted Role at any round.",
+    )]
+    effects.append(runner.WriteFile(os.path.join(directory, loopfile.NAME), loopfile.render(fields), what, otherwise,
+                                    dry=dry, done=done))
+    if state is None:
+        effects.append(runner.WriteFile(os.path.join(directory, loopstate.STATE_NAME), loopstate.start_text(), what,
+                                        otherwise))
+    else:
+        effects.append(runner.reopen(state, refuse=lambda error: textfile.write_refusal(what, error, otherwise)))
+    return effects
 
 
 ANSWER_CONTINUE = (
@@ -194,38 +194,42 @@ def work_left(root: str, slug: str) -> str:
     return "It holds %s. Nothing was written." % ", ".join(found)
 
 
-def report_leftover(root: str, slug: str, leftover: str, write: bool, out: Output) -> int:
+def report_leftover(root: str, slug: str, leftover: str) -> runner.Ask:
+    """The question a leftover tracker directory asks before loop new can
+    plan."""
     if leftover == loopstate.OPEN:
-        out.line(".scratch/%s/ holds an open loop: an earlier Workflow on this slug that did not finish." % slug)
+        found = ".scratch/%s/ holds an open loop: an earlier Workflow on this slug that did not finish." % slug
         answers = [ANSWER_CONTINUE, ANSWER_FRESH % slug, ANSWER_OTHER]
     elif leftover == loopstate.CLOSED:
-        out.line(".scratch/%s/ holds a closed loop: an earlier Workflow on this slug that finished." % slug)
+        found = ".scratch/%s/ holds a closed loop: an earlier Workflow on this slug that finished." % slug
         answers = [ANSWER_FRESH % slug, ANSWER_OTHER]
     else:
-        out.line(".scratch/%s/ exists and holds no loop the VDD tool started: a loop from before this version, "
+        found = (".scratch/%s/ exists and holds no loop the VDD tool started: a loop from before this version, "
                  "or a directory another tool made." % slug)
         answers = [ANSWER_CONTINUE + " The questions follow, and the Loop file is written into it.",
                    ANSWER_FRESH % slug, ANSWER_OTHER]
-    out.line(work_left(root, slug))
-    out.line("Question 1, leftover: Answers, in this order: " + " ".join(answers))
     aside_command = catalog.line("loop", "aside", slug=slug, write=True)
     on_continue = "" if leftover == loopstate.CLOSED else " On continue, run the same command with --leftover continue."
-    return out.finish(
+    return runner.Ask(
+        [found, work_left(root, slug), "Question 1, leftover: Answers, in this order: " + " ".join(answers)],
         "Ask the user the Question line above, with what each answer does to the files.%s On start fresh, run "
         "%s, then this command again. On a different slug, run %s with that slug."
         % (on_continue, aside_command, catalog.bare("loop", "new")),
-        1 if write else 0,
     )
 
 
-def warn_preflight(root: str, base: str, out: Output) -> None:
+def preflight_lines(root: str, base: str) -> list[str]:
+    """The preflight's lines on PR: yes: a failed check warns and never
+    blocks."""
     remote, checks = preflight.checks(root, base)
+    lines: list[str] = []
     for check in checks:
         if check.passed:
-            out.line("Preflight, %s, remote %s: passed." % (check.name, remote))
+            lines.append("Preflight, %s, remote %s: passed." % (check.name, remote))
         else:
-            out.line("Preflight, %s, remote %s: failed (%s)." % (check.name, remote, check.why))
-            out.tell(
+            lines.append("Preflight, %s, remote %s: failed (%s)." % (check.name, remote, check.why))
+            lines.append(TELL % (
                 "Warning: the %s check failed: %s. The loop goes on; fix it before Sign-off, or the "
                 "PR-Author prints the body for you to open the PR." % (check.name, check.why)
-            )
+            ))
+    return lines

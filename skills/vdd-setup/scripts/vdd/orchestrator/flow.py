@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import re
 
-from .. import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate
+from .. import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, runner
 from ..out import Failure
 
 
@@ -39,7 +39,7 @@ class Flow:
     def find(cls, ctx: catalog.Context) -> Flow:
         values = ctx.values
         loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
-        state = loopstate.open_loop(loop, ctx.label)
+        state = runner.open_loop(loop, ctx.label)
         flow = cls(loop, state)
         if values["harness"] is not None:
             given = harnesses.from_option(values, ctx.usage)

@@ -14,8 +14,8 @@ import os
 import re
 from typing import Callable
 
-from .. import catalog, gitcmd, loopfile, loopstate, textfile, workfile
-from ..loopstate import recap
+from .. import catalog, gitcmd, loopfile, loopstate, runner, textfile, workfile
+from ..loopstate import recap, records
 from ..out import Failure, Output, and_list
 from . import rounds
 
@@ -153,7 +153,7 @@ def refuse_moved_fold(state: loopstate.State, loop: loopfile.Loop, source: str) 
     if not signed:
         return
     try:
-        moved = recap.moved_fold(recap.Records.load(loop), loop.root, loop.branch, signed)
+        moved = records.moved_fold(records.Records.load(loop), loop.root, loop.branch, signed)
     except gitcmd.Refused as error:
         raise gitcmd.sandbox_refusal(error.call, command(loop, source), "tell the user %s was refused, and stop."
                                      % gitcmd.call_text(error.call), ["Nothing was written."])
@@ -233,7 +233,7 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
     review_path = "%s/%s" % (loop.tracker, NAME)
     reopening = state.status == loopstate.CLOSED
     user = loopstate.user_line(entry.round, numbers, counts, number, len(numbers))
-    store = recap.Records.load(loop)
+    store = records.Records.load(loop)
     out = Output()
     if not write:
         out.line("Would add %d finding%s after round %d's Sign-off%s:" % (
@@ -255,7 +255,7 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
     # findings the same way and writes the same file.
     textfile.write_or_refuse(os.path.join(loop.dir, NAME), "\n".join(lines) + "\n", review_path,
                              "Otherwise tell the user CODEREVIEW.md cannot be written, and stop.")
-    recap.record(loop, state, store, [], [user], reopen=reopening)
+    runner.apply(runner.record_step(store, state, [], [user], reopen_loop=reopening))
     out.line("Wrote %s." % review_path)
     out.line("Wrote %s/%s." % (loop.tracker, recap.NAME))
     out.line("Recorded in %s/%s: %s" % (loop.tracker, loopstate.STATE_NAME, user))
@@ -283,7 +283,7 @@ def already_added(loop: loopfile.Loop, state: loopstate.State, entry: Entry, sou
     joined = entry.joined
     if joined is None:
         raise RuntimeError("already_added without an open entry.")
-    store = recap.Records.load(loop)
+    store = records.Records.load(loop)
     out = Output()
     numbers = workfile.join_numbers(joined.raised())
     wrote = write and recap.render_recap(loop, state, store)

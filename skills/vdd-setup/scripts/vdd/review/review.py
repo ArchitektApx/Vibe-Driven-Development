@@ -13,8 +13,8 @@ from __future__ import annotations
 import os
 from typing import Iterable
 
-from .. import catalog, doorbells, gitcmd, loopfile, loopstate, textfile, workfile
-from ..loopstate import recap
+from .. import catalog, doorbells, gitcmd, loopfile, loopstate, runner, textfile, workfile
+from ..loopstate import recap, records
 from ..out import Failure, Output
 from .frame import start
 from .lint import lint, not_carried
@@ -66,7 +66,7 @@ def dispatch(ctx: catalog.Context) -> int:
                        values["write"])
     role = values["role"]
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
-    state = loopstate.open_loop(loop, "review %s" % sub)
+    state = runner.open_loop(loop, "review %s" % sub)
     round_ = Round(loop, state, role)
     if sub == "start":
         return start(round_, values["write"])
@@ -178,7 +178,7 @@ def check(round_: Round, write: bool) -> int:
     open_blocks, closed, counts, signed_off = outcome(round_, parsed)
     status = status_line(counts, signed_off)
     new = sum(1 for b in parsed.blocks_in("New findings") if b.match is not None)
-    store = recap.Records.load(round_.loop)
+    store = records.Records.load(round_.loop)
     out = Output()
     if not write:
         out.line("%s passes: round %d, %d new finding%s, %d closed." % (
@@ -193,11 +193,11 @@ def check(round_: Round, write: bool) -> int:
     items = not_carried(parsed) if round_.kind == "code" else []
     dropped = [number for _, numbers in items for number in numbers]
     rewritten = "\n".join(cleaned(parsed, status, closed, dropped)) + "\n"
-    records = [recap.Record(recap.findings_key(round_.kind, round_.number), section, recap_findings(round_, closed))]
+    found = [records.Record(records.findings_key(round_.kind, round_.number), section, recap_findings(round_, closed))]
     if round_.kind == "code":
-        records.append(recap.Record(recap.not_carried_key(round_.number), "Not carried",
+        found.append(records.Record(records.not_carried_key(round_.number), "Not carried",
                                     recap_not_carried(round_, items)))
-    recap.record(round_.loop, round_.state, store, records, [line])
+    runner.apply(runner.record_step(store, round_.state, found, [line]))
     write_recorded(round_, rewritten)
     review = round_.state.reviews(round_.kind)[round_.number]
     out.line("%s: round %d checked and written." % (round_.name, round_.number))
@@ -245,7 +245,7 @@ def already_recorded(round_: Round, review: loopstate.Review, write: bool) -> in
     again where a failure left them behind, the round not recorded twice."""
     out = Output()
     written = []
-    store = recap.Records.load(round_.loop)
+    store = records.Records.load(round_.loop)
     if write:
         if recap.render_recap(round_.loop, round_.state, store):
             written.append(round_.path(recap.NAME))

@@ -13,8 +13,8 @@ import os
 import re
 import textwrap
 
-from .. import catalog, doorbells, fixes, gitcmd, loopfile, loopstate, textfile, workfile
-from ..loopstate import recap
+from .. import catalog, doorbells, fixes, gitcmd, loopfile, loopstate, runner, textfile, workfile
+from ..loopstate import recap, records
 from ..out import Failure, Output
 from .branch import decide_branch, dirty, git, head, new_untracked, start_gone, to_branch, untracked
 from .lint import lint
@@ -52,7 +52,7 @@ def run(argv: list[str]) -> int:
 def dispatch(ctx: catalog.Context) -> int:
     sub, values = ctx.command, ctx.values
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
-    state = loopstate.open_loop(loop, "coder %s" % sub)
+    state = runner.open_loop(loop, "coder %s" % sub)
     round_ = Round(loop, state)
     if sub == "start":
         return start(round_, values["write"])
@@ -292,17 +292,18 @@ def check(round_: Round, write: bool) -> int:
                    "added misses the commits, the fold and the PR: commit it with git if it belongs to the "
                    "work, or delete it if it is a by-product." % ", ".join(left))
     lint_.refuse("Fix the lines above, then run %s again." % round_.command("check", write))
-    store = recap.Records.load(round_.loop)
+    store = records.Records.load(round_.loop)
     out = Output()
     if not write:
         out.line("%s passes: round %d." % (fixes.NAME, round_.number))
         return out.finish("Run %s" % round_.command("check"))
     tip = head(root)
     cleaned = cleaned_text(parsed)
-    records = []
+    found = []
     if round_.number == 1:
-        records.append(recap.Record(recap.TICKETS_KEY, "Tickets", recap_tickets(workfile.Parsed(cleaned))))
-    recap.record(round_.loop, round_.state, store, records, [loopstate.code_mark_line("end", round_.number, tip)])
+        found.append(records.Record(records.TICKETS_KEY, "Tickets", recap_tickets(workfile.Parsed(cleaned))))
+    runner.apply(runner.record_step(store, round_.state, found,
+                                    [loopstate.code_mark_line("end", round_.number, tip)]))
     write_recorded(round_, cleaned)
     out.line("%s: round %d checked and written." % (fixes.NAME, round_.number))
     out.line("Round %d ends at %s." % (round_.number, tip))
@@ -330,7 +331,7 @@ def already_recorded(round_: Round, write: bool) -> int:
     where a failure left them behind, the round not recorded twice."""
     out = Output()
     written = []
-    store = recap.Records.load(round_.loop)
+    store = records.Records.load(round_.loop)
     if write:
         if recap.render_recap(round_.loop, round_.state, store):
             written.append(round_.path(recap.NAME))

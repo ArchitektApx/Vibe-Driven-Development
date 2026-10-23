@@ -39,14 +39,11 @@ from __future__ import annotations
 
 import os
 import re
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from .. import catalog, textfile
 from ..out import TELL, Failure
 from .lines import STATE_PREFIX, code_mark_line, header_line, loop_line, review_started_line
-
-if TYPE_CHECKING:
-    from ..loopfile import Loop
 
 STATE_NAME = "loop-state"
 # The versions State reads. Version 1 has only loop lines.
@@ -117,9 +114,9 @@ def header(path: str, lines: list[str]) -> str:
     return version
 
 
-def start_state(directory: str) -> None:
-    """Write a new state file holding one open loop, replacing a damaged one."""
-    textfile.write_text(os.path.join(directory, STATE_NAME), header_line() + "\n" + loop_line(OPEN) + "\n")
+def start_text() -> str:
+    """The text of a new state file holding one open loop."""
+    return header_line() + "\n" + loop_line(OPEN) + "\n"
 
 
 class State:
@@ -309,22 +306,3 @@ class State:
         words its own refusal. Raises OSError."""
         textfile.append(self.path, "".join(line + "\n" for line in lines))
         self.lines.extend(lines)
-
-
-def closed_loop(slug: str, why: str = "") -> Failure:
-    """The Failure for a command that needs an open loop. why, when given,
-    follows "is closed" in the first line."""
-    return Failure(
-        "The loop %s is closed%s. Nothing was written." % (slug, why),
-        "Tell the user the loop %s is closed. To carry on, they ask the Orchestrator to reopen it." % slug,
-    )
-
-
-def open_loop(loop: Loop, command: str) -> State:
-    """The loop's State, read once; refuses a round command on a version 1 or
-    a closed loop."""
-    state = loop.load_state()
-    state.refuse_v1(loop.slug, command)
-    if not state.is_open:
-        raise closed_loop(loop.slug)
-    return state

@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 import time
 
-from .. import gitcmd, loopfile, loopstate, textfile
+from .. import gitcmd, loopfile, loopstate, runner, textfile
 from ..out import Failure, Output
 from .lines import ADDRESS, Entry, parse
 
@@ -66,7 +66,7 @@ class Place:
         """Refuse ring and wait on a closed loop: no Session would ever answer."""
         self.require_loop()
         if not self.state.is_open:
-            raise loopstate.closed_loop(self.slug, ", so %s would never be answered" % what)
+            raise runner.closed_loop(self.slug, ", so %s would never be answered" % what)
 
     def planner_round(self) -> int:
         """The newest round the Planner rang, from the Doorbell file, or 0."""
