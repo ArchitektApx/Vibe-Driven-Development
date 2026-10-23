@@ -6,14 +6,10 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .. import catalog, gitcmd, loopfile, loopstate, places, preflight, textfile, workfile
+from .. import catalog, gitcmd, loopfile, loopstate, preflight, textfile, workfile
 from ..harness import Harness
 from ..out import Failure, Output
 from .loop import ANSWERS, check_answers
-
-
-def quoted(value: str) -> str:
-    return '"%s"' % value if " " in value else value
 
 
 def new(root: str, ctx: catalog.Context, harness: Harness) -> int:
@@ -83,10 +79,10 @@ def new(root: str, ctx: catalog.Context, harness: Harness) -> int:
         out.line("Question %d, %s" % (number, text))
     command = new_command(slug, harness, base, branch, values)
     if not asked:
-        return out.finish("Nothing left to ask. Run: %s --write" % command)
+        return out.finish("Nothing left to ask. Run: %s" % command)
     return out.finish(
         "Ask the user each Question line above, one at a time and in order, with its answers as written. "
-        "Then run: %s --write" % command
+        "Then run: %s" % command
     )
 
 
@@ -114,14 +110,12 @@ def questions(values: dict[str, Any], branch: str, base: str) -> list[str]:
 
 
 def new_command(slug: str, harness: Harness, base: str, branch: str, values: dict[str, Any]) -> str:
-    parts = [places.command(), "loop new", "--slug", slug, "--harness", harness.name, "--base", base,
-             "--branch", branch]
-    if values["leftover"]:
-        parts += ["--leftover", values["leftover"]]
-    for option, _ in ANSWERS:
-        value = values[option]
-        parts += ["--" + option, quoted(value) if value is not None else '"<answer>"']
-    return " ".join(parts)
+    """The loop new command that writes this loop, every answer not given
+    left as "<answer>" for the Role to fill in."""
+    answers = {option: catalog.quoted(values[option]) if values[option] is not None else '"<answer>"'
+               for option, _ in ANSWERS}
+    return catalog.line("loop", "new", slug=slug, harness=harness.name, base=base, branch=branch,
+                        leftover=values["leftover"], **answers, write=True)
 
 
 def write_new(
@@ -214,12 +208,12 @@ def report_leftover(root: str, slug: str, leftover: str, write: bool, out: Outpu
                    ANSWER_FRESH % slug, ANSWER_OTHER]
     out.line(work_left(root, slug))
     out.line("Question 1, leftover: Answers, in this order: " + " ".join(answers))
-    aside_command = "%s loop aside --slug %s --write" % (places.command(), slug)
+    aside_command = catalog.line("loop", "aside", slug=slug, write=True)
     on_continue = "" if leftover == loopstate.CLOSED else " On continue, run the same command with --leftover continue."
     return out.finish(
         "Ask the user the Question line above, with what each answer does to the files.%s On start fresh, run "
-        "%s, then this command again. On a different slug, run loop new with that slug."
-        % (on_continue, aside_command),
+        "%s, then this command again. On a different slug, run %s with that slug."
+        % (on_continue, aside_command, catalog.bare("loop", "new")),
         1 if write else 0,
     )
 

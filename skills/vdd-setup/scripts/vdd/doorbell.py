@@ -10,7 +10,7 @@ import signal
 from types import FrameType
 from typing import NoReturn
 
-from . import catalog, doorbells, harness as harnesses, places, textfile
+from . import catalog, doorbells, harness as harnesses, textfile
 from .harness import Harness
 from .out import Failure, Output, or_list
 
@@ -134,7 +134,7 @@ def take(place: doorbells.Place, role: str, harness: Harness, pasted: str | None
         if role != "Planner":
             raise Failure(
                 "--resumed is the Planner's.",
-                "Place the Workflow with orchestrator start, as your skill says.",
+                "Place the Workflow with %s, as your skill says." % catalog.bare("orchestrator", "start"),
             )
         # A wait an earlier Session started wakes that Session, not this one.
         doorbells.clear_marker(place, role)
@@ -179,8 +179,7 @@ def act_next(place: doorbells.Place, role: str, harness: Harness) -> str:
     """The step after a Doorbell take printed: the Orchestrator runs
     orchestrator return for the Planner's Doorbell."""
     if role == "Orchestrator":
-        return "Run %s orchestrator return --role Planner --slug %s --harness %s" % (
-            places.command(), place.slug, harness.name)
+        return "Run %s" % catalog.line("orchestrator", "return", role="Planner", slug=place.slug, harness=harness.name)
     return "Act on this Doorbell as your skill says."
 
 

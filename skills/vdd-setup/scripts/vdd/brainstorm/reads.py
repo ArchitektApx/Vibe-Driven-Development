@@ -7,6 +7,7 @@ import re
 from typing import Any
 
 from ..out import Failure, Output
+from . import printed
 from .ideafile import DEPTH_MAX, STATUSES, Idea, is_idea_name, reflow, squash, unread_line
 from .printed import QUOTE, quoted, step_line
 from .store import REMOVED, Store, rel, removed_entries, removed_entry
@@ -138,8 +139,8 @@ def family_block(store: Store, top: str, note: str, waits: dict[str, list[str]],
         kept.append(text)
         size += len(text.encode("utf-8")) + 1
     listed = sum(1 + text.count(", ") if "parts by slug: " in text else 1 for text in kept)
-    kept.append("  - %d more parts of %s are left out of this read; brainstorm show --idea %s lists the whole "
-                "family." % (len(members) - listed, top, top))
+    kept.append("  - %d more parts of %s are left out of this read; %s lists the whole family."
+                % (len(members) - listed, top, printed.command("show", idea=top)))
     return Block(kept, listed, recent, len(members) - listed)
 
 
@@ -173,7 +174,8 @@ def overview(store: Store, page: int = 1) -> list[str]:
     if page < 1 or page > len(pages):
         raise Failure("There is no page %d; the start read has %d (the last is page %d)." % (page, len(pages),
                                                                                           len(pages)),
-                      "Run brainstorm start, or brainstorm start --page with a number up to %d." % len(pages))
+                      "Run %s, or %s with a number up to %d."
+                      % (printed.START, printed.command("start", page=True), len(pages)))
     lines = [overview_head(store)]
     for block in pages[page - 1]:
         lines += block.lines
@@ -184,11 +186,12 @@ def overview(store: Store, page: int = 1) -> list[str]:
         text = "Page %d of %d: %d of %d open ideas, the most recently updated families first." % (
             page, len(pages), shown, open_n)
         if elsewhere:
-            text += " %d open ideas are left out of this page; brainstorm start --page %d lists the %s ones." % (
-                elsewhere, page + 1 if page < len(pages) else 1, "next" if page < len(pages) else "first")
+            text += " %d open ideas are left out of this page; %s lists the %s ones." % (
+                elsewhere, printed.command("start", page=str(page + 1 if page < len(pages) else 1)),
+                "next" if page < len(pages) else "first")
         if withheld:
-            text += (" %d parts of families too big for a page are on no page; brainstorm show --idea <family> lists "
-                     "them, as the family's own line says." % withheld)
+            text += (" %d parts of families too big for a page are on no page; %s lists them, as the family's own "
+                     "line says." % (withheld, printed.command("show", idea="<family>")))
         lines.append(text)
     if cut is not None:
         lines.append("Long tldrs are cut at %d characters to keep this read small; show --idea prints one whole." % cut)

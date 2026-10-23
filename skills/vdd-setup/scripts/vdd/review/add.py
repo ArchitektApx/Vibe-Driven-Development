@@ -14,7 +14,7 @@ import os
 import re
 from typing import Callable
 
-from .. import gitcmd, loopfile, loopstate, places, textfile, workfile
+from .. import catalog, gitcmd, loopfile, loopstate, textfile, workfile
 from ..loopstate import recap
 from ..out import Failure, Output, and_list
 from . import rounds
@@ -162,7 +162,7 @@ def refuse_moved_fold(state: loopstate.State, loop: loopfile.Loop, source: str) 
     fold = loopstate.fold_command(loop, loop.harness)
     steps = [fold, "this command again"]
     if state.status == loopstate.CLOSED:
-        steps.insert(0, "%s loop reopen --slug %s --write" % (places.command(), loop.slug))
+        steps.insert(0, catalog.line("loop", "reopen", slug=loop.slug, write=True))
     raise Failure(
         "Code round %d was folded but its fold is not recorded. Nothing was written." % review.round,
         "Run %s." % ", then ".join(steps),
@@ -264,9 +264,7 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
     out.line("Findings %s open: %d blocker, %d major, %d minor." % ((workfile.join_numbers(numbers),) + counts))
     if carried:
         out.line(carried)
-    return out.finish(
-        "Tell the Orchestrator the loop has your findings; it carries on with orchestrator start."
-    )
+    return out.finish(CARRY_ON)
 
 
 def same(block: workfile.Block, finding: Finding) -> bool:
@@ -293,11 +291,12 @@ def already_added(loop: loopfile.Loop, state: loopstate.State, entry: Entry, sou
         source, entry.round, numbers,
         "Wrote %s/%s again." % (loop.tracker, recap.NAME) if wrote else "Nothing was written."))
     out.line("Findings %s open: %d blocker, %d major, %d minor." % ((numbers,) + tuple(joined.counts)))
-    return out.finish(
-        "Tell the Orchestrator the loop has your findings; it carries on with orchestrator start."
-    )
+    return out.finish(CARRY_ON)
+
+
+CARRY_ON = ("Tell the Orchestrator the loop has your findings; it carries on with %s."
+            % catalog.bare("orchestrator", "start"))
 
 
 def command(loop: loopfile.Loop, source: str) -> str:
-    quoted = '"%s"' % source if " " in source else source
-    return "%s review add --slug %s --from %s --write" % (places.command(), loop.slug, quoted)
+    return catalog.line("review", "add", slug=loop.slug, from_=catalog.quoted(source), write=True)

@@ -41,7 +41,7 @@ import os
 import re
 from typing import TYPE_CHECKING, Literal
 
-from .. import textfile
+from .. import catalog, textfile
 from ..out import TELL, Failure
 from .lines import STATE_PREFIX, code_mark_line, header_line, loop_line, review_started_line
 
@@ -162,7 +162,8 @@ class State:
                 % (slug, command),
                 TELL % (
                     "The loop %s has state file version 1, which this VDD no longer reads. Move it aside with "
-                    "loop aside --slug %s --write, and start the loop afresh with vdd-start-loop." % (slug, slug)
+                    "%s, and start the loop afresh with vdd-start-loop."
+                    % (slug, catalog.bare("loop", "aside", slug=slug, write=True))
                 ),
             ],
             "Relay the Tell the user verbatim line above unchanged, and stop.",

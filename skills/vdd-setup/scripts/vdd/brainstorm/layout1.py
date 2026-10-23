@@ -19,6 +19,7 @@ from typing import Dict, List, Tuple
 
 from .. import textfile
 from ..out import TELL, Failure, refused
+from . import printed
 from .ideafile import CLOSED, Idea, fenced, real_date, split_frontmatter, today
 from .lock import Lock
 from .store import LAYOUT_FILE, STORE, layout, read_once, set_file_day
@@ -346,7 +347,7 @@ def step(root: str, events_raw: list[str], write: bool) -> Result:
             raise Failure("There is no .scratch/_brainstorming/, but a migration's backup is at %s/ with no finished "
                           "new layout beside it." % BACKUP,
                           "Tell the user the store is missing: to go back, rename %s/ to .scratch/_brainstorming/ and "
-                          "run brainstorm start again. Stop." % BACKUP)
+                          "run %s again. Stop." % (BACKUP, printed.START))
         raise Failure("This project has no idea store to migrate.", "Answer the user's message; there are no ideas yet.")
     if where == "done":
         return [], "moved", []
@@ -377,7 +378,7 @@ def step(root: str, events_raw: list[str], write: bool) -> Result:
     except OSError as error:
         raise Failure("The new store could not be renamed into place (%s). The backup is complete; the staging waits "
                       "in %s/." % (textfile.reason(error), STAGING),
-                      "Run brainstorm migrate --write again: it finishes the swap.")
+                      "Run %s again: it finishes the swap." % printed.MIGRATE)
     open_n = sum(1 for i in ideas.values() if i.is_open)
     return ["Migrated %d ideas from the 0.15 layout: %d open, %d closed, each in its own file as before; %d events "
             "from the Log carried." % (len(ideas), open_n, len(ideas) - open_n, len(events)), TELL % UNDO], "migrated", []

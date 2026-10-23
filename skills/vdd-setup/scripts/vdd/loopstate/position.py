@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-from .. import places
+from .. import catalog
 from ..out import Failure
 from .state import Review, State
 
@@ -108,8 +108,7 @@ def require_code_sign_off(state: State) -> None:
 
 def fold_command(loop: Loop, harness: Harness, write: bool = True) -> str:
     """The command that runs the fold, as every caller names it."""
-    return "%s loop fold --slug %s --harness %s%s" % (places.command(), loop.slug, harness.name,
-                                                       " --write" if write else "")
+    return catalog.line("loop", "fold", slug=loop.slug, harness=harness.name, write=write)
 
 
 def pr_step(loop: Loop) -> str:
@@ -117,6 +116,6 @@ def pr_step(loop: Loop) -> str:
     pr = loop.pr
     branch = loop.branch
     if pr == "no":
-        return ("Run %s loop close --slug %s --write, then print \"Loop signed off. `PR: no`: `%s` stays local, "
-                "nothing pushed.\" and stop." % (places.command(), loop.slug, branch))
+        return ("Print \"Loop signed off. `PR: no`: `%s` stays local, nothing pushed.\", then run %s and stop."
+                % (branch, catalog.line("loop", "close", slug=loop.slug, write=True)))
     return "Invoke the vdd-create-pr skill in your own Session, never as a subagent."

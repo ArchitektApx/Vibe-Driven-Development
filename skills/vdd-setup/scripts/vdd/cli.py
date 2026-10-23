@@ -7,7 +7,7 @@ import os
 import sys
 from types import ModuleType
 
-from . import catalog, places, textfile
+from . import catalog, textfile
 from .catalog import help as helps
 from .out import Failure, refused
 
@@ -69,7 +69,7 @@ def dispatch(argv: list[str]) -> int:
         if not argv or argv[0] in ("-h", "--help", "help"):
             return helps.top()
         if argv[0] not in catalog.GROUPS:
-            catalog.unknown_command(argv[0], "%s --help" % places.command())
+            catalog.unknown_command(argv[0], catalog.line("", help=True))
         return load(argv[0]).run(argv[1:])
     except Failure as failure:
         return failure.emit()

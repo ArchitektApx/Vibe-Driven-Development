@@ -14,6 +14,7 @@ import re
 from typing import Any
 
 from ..out import Failure
+from . import printed
 from .ideafile import (DEPTH_MAX, HISTORY, KIND_RE, Idea, is_open_step, lead_end, reflow,
                        section_spans, squash, today)
 from .moves import new_idea, refuse_slug, tldr_warning, write_decision
@@ -119,7 +120,8 @@ def merge(store: Store, values: dict[str, Any]) -> Result:
         raise Failure(["%s has open parts: %s. An idea with open parts cannot merge, and its parts never move "
                        "with it. Nothing was written." % (a, ", ".join(kids)),
                        "Each moves with its own command, under the parent the user names or to the top level:"]
-                      + ["  brainstorm move --set %s=<parent>|top --write" % k for k in kids],
+                      + ["  " + printed.command("move", set="%s=<parent>|top" % k, write=True)
+                         for k in kids],
                       "Ask the user where those parts go; on their word file each with the brainstorm move above, "
                       "then run the merge again.")
     steps = absorbed.open_steps()

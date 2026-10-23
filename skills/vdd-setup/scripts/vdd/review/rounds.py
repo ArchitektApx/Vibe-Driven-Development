@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import re
 
-from .. import doorbells, gitcmd, loopfile, loopstate, places, workfile
+from .. import catalog, doorbells, gitcmd, loopfile, loopstate, workfile
 from ..out import Failure
 from . import agentdocs
 
@@ -56,8 +56,7 @@ class Round:
         self._documents: list[str] | None = None
 
     def command(self, sub: str, write: bool = True) -> str:
-        return "%s review %s --role %s --slug %s%s" % (
-            places.command(), sub, self.role, self.loop.slug, " --write" if write else "")
+        return catalog.line("review", sub, role=self.role, slug=self.loop.slug, write=write)
 
     def minors(self) -> str:
         return self.loop.minors

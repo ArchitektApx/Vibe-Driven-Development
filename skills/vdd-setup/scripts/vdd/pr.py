@@ -15,7 +15,7 @@ import re
 import shutil
 from typing import TYPE_CHECKING, Iterable
 
-from . import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, places, preflight, textfile, workfile
+from . import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, preflight, textfile, workfile
 from .gitcmd import Refused
 from .out import Failure, Output, refused
 
@@ -88,7 +88,7 @@ def refusal(
 
 
 def check_command(loop: loopfile.Loop, harness: Harness) -> str:
-    return "%s pr check --slug %s --harness %s" % (places.command(), loop.slug, harness.name)
+    return catalog.line("pr", "check", slug=loop.slug, harness=harness.name)
 
 
 # --- the template and the history ---
@@ -285,7 +285,7 @@ def check(loop: loopfile.Loop, harness: Harness) -> int:
 # --- open ---
 
 def open_command(loop: loopfile.Loop, harness: Harness, path: str) -> str:
-    return "%s pr open --path %s --slug %s --harness %s --write" % (places.command(), path, loop.slug, harness.name)
+    return catalog.line("pr", "open", path=path, slug=loop.slug, harness=harness.name, write=True)
 
 
 def read_body(loop: loopfile.Loop) -> tuple[str, str]:
@@ -367,8 +367,7 @@ def open_pr(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wante
         out.line("The path is no longer %s: %s. Nothing was pushed." % (wanted, changed(path, wanted)))
         out.tell("Nothing was pushed: %s." % changed(path, wanted))
         return out.finish(
-            "Relay the line above, then run %s pr check --slug %s --harness %s and go on with the path it prints."
-            % (places.command(), loop.slug, harness.name), 1)
+            "Relay the line above, then run %s and go on with the path it prints." % check_command(loop, harness), 1)
     branch = loop.branch
     base = loop.base
     if not write:

@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .. import catalog, gitcmd, harness as harnesses, places
+from .. import catalog, gitcmd, harness as harnesses
 from ..harness import Harness
 from ..out import Failure, escalate
 from . import borrowed, checks
@@ -40,8 +40,8 @@ HELP = [
 
 
 def run(argv: list[str]) -> int:
-    return catalog.run("setup", argv, HELP, "Run %s setup with the options above, without --write first."
-                       % places.command(), setup)
+    return catalog.run("setup", argv, HELP, "Run %s with the options above, without --write first."
+                       % catalog.line("setup"), setup)
 
 
 def setup(ctx: catalog.Context) -> int:
@@ -59,21 +59,9 @@ def setup(ctx: catalog.Context) -> int:
 
 def command(harness: Harness, values: dict[str, Any], write: bool) -> str:
     """The setup command line this run names, with or without --write."""
-    parts = [
-        places.command(),
-        "setup",
-        "--harness",
-        harness.name,
-        "--listed",
-        quote(values["listed"]),
-        "--glossary-named",
-        values["glossary-named"],
-    ]
-    if values["user-answer"]:
-        parts += ["--user-answer", values["user-answer"]]
-    if write:
-        parts.append("--write")
-    return " ".join(parts)
+    return catalog.line("setup", harness=harness.name, listed=quote(values["listed"]),
+                        glossary_named=values["glossary-named"], user_answer=values["user-answer"] or None,
+                        write=write)
 
 
 def require_root(harness: Harness, values: dict[str, Any], cwd: str) -> None:

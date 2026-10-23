@@ -160,19 +160,36 @@ LOOP_TEXT = (
 )
 
 
-# The Next: check. Every Next: line a test's tool run prints is read for VDD
-# tool commands: an interpreter (python3, or py -3), the quoted path of a
-# vdd.py, then the group, the command and its options. Each command is run
-# again with --help and must exit 0: the parser refuses an unknown option
-# before it honours --help, so --help is the oracle for "a Role can run this
-# line verbatim". Skipped, by rule: a Next: line with no tool command, and a
-# command holding a <...> placeholder, which the Role fills in. A command
-# whose vdd.py does not exist fails. A command that passed is checked once per
-# process. The Codex Stop hook's JSON reason and a run started with Popen
-# (Sandbox.finish) are swept the same way.
+# The Next: check. Every line a test's tool run prints for a Role to act on
+# is read for VDD tool commands: its Next: line, its Tell lines, and the
+# resume message the Orchestrator hands a hosted Role. A command is an
+# interpreter (python3, or py -3), the quoted path of a vdd.py, then the
+# group, the command and its options; or, bare, a command of any group the
+# tool's --help lists, without the path (run against this checkout's
+# vdd.py). Each command is run again with --help and must exit 0: the parser
+# refuses an option its command's spec does not take, and a value outside
+# its option's choices, before it honours --help, so --help is the oracle
+# for "a Role can run this line verbatim". A command with the tool's path
+# and at least one option, and no --help, must also carry every option its
+# usage line names outside [...] and (...). A <...> placeholder value, which
+# the Role fills in, is replaced by a dummy value so its option names are
+# still checked, and by the option's first choice when the option has
+# choices; so is the value of an option a line names without one
+# ("brainstorm set --decision;"). Skipped: a line with no tool command, a
+# command whose group or command word is a placeholder, and a bare word pair
+# that names no command of its group (its commands are read from its
+# --help). A command whose vdd.py does not exist fails. A command that passed is checked once per process. The Codex Stop
+# hook's JSON reason and a run started with Popen (Sandbox.finish) are swept
+# the same way.
 FLAGS = ("--write", "--once", "--resumed", "--help")
-# setup is a group with no command under it.
-TOOL_COMMAND = re.compile(r'(?:python3|py -3|"[^"]*python[^"]*") "([^"]*vdd\.py)" ([^\n]*)')
+DUMMY = "x"
+TELL_PREFIX = 'Tell the user verbatim: "'
+INTERPRETER = r'(?:python3|py -3|"[^"]*python[^"]*") "([^"]*vdd\.py)" '
+TOOL_COMMAND = re.compile(INTERPRETER)
+# A bare command: its group, not just after a tool path, then a word. The
+# groups are read from the tool's --help on first use.
+BARE = []
+BARE_GROUPS = {}
 NEXT_CHECKED = {}
 
 
@@ -185,55 +202,124 @@ def _report_next():
 atexit.register(_report_next)
 
 
+def tool_command(entry=ENTRY):
+    """The command form a Role runs the tool at entry with on this
+    platform."""
+    return ('py -3 "%s"' if WINDOWS else 'python3 "%s"') % entry
+
+
 def tokens(text):
     """The words of text, a double-quoted run one word with its quotes
-    removed, each with whether a punctuation mark ended it."""
+    removed, each with whether a punctuation mark, a closing backtick or a
+    closing parenthesis ended it."""
     out = []
-    for match in re.finditer(r'"([^"]*)"([.,;:]?)|(\S+)', text):
+    for match in re.finditer(r'"([^"]*)"([.,;:`)]?)|(\S+)', text):
         if match.group(3) is not None:
             word = match.group(3)
-            stripped = word.rstrip(".,;:")
+            stripped = word.rstrip(".,;:`)")
             out.append((stripped, stripped != word))
         else:
             out.append((match.group(1), bool(match.group(2))))
     return out
 
 
-def next_commands(line):
-    """The tool commands in a Next: line, each (entry, argv), and the
-    placeholder-holding ones as None."""
-    found = []
-    for match in TOOL_COMMAND.finditer(line):
-        words = tokens(match.group(2))
-        argv = []
-        expects = 0
-        words_before_options = 1 if words[:1] and words[0][0] == "setup" else 2
-        for index, (word, ended) in enumerate(words):
-            if index < words_before_options and not word.startswith("--"):
-                argv.append(word)
-            elif word.startswith("--"):
-                argv.append(word)
-                expects = 0 if word in FLAGS else 1
-            elif expects:
-                argv.append(word)
-                expects = 0
-            else:
-                break
-            if ended:
-                break
-        if any("<" in word and ">" in word for word in argv):
-            found.append(None)
+def placeholder(word):
+    return "<" in word and ">" in word
+
+
+def options(words, argv):
+    """argv, the command's leading words, followed by the options in words,
+    up to the first word that is neither an option nor its value; a
+    placeholder value, or a value a line leaves out, becomes DUMMY. None
+    when an option's name is a placeholder."""
+    argv = list(argv)
+    expects = False
+    for word, ended in words:
+        if word.startswith("--"):
+            if placeholder(word):
+                return None
+            argv.append(word)
+            expects = word not in FLAGS and "=" not in word
+            if expects and ended:
+                argv.append(DUMMY)
+                expects = False
+        elif expects:
+            argv.append(DUMMY if placeholder(word) else word)
+            expects = False
         else:
-            found.append((match.group(1), tuple(argv)))
+            break
+        if ended:
+            break
+    if expects:
+        argv.append(DUMMY)
+    return tuple(argv)
+
+
+def path_commands(line):
+    """The tool commands with a vdd.py path in line, each (entry, argv), and
+    the ones whose group or command word is a placeholder as None."""
+    found = []
+    starts = list(TOOL_COMMAND.finditer(line))
+    for index, match in enumerate(starts):
+        stop = starts[index + 1].start() if index + 1 < len(starts) else len(line)
+        words = tokens(line[match.end():stop])
+        # setup is a group with no command under it.
+        lead = 1 if words[:1] and words[0][0] == "setup" else 2
+        head = []
+        for word, ended in words[:lead]:
+            if word.startswith("--"):
+                break
+            head.append((word, ended))
+        if any(placeholder(word) for word, _ in head):
+            found.append(None)
+            continue
+        argv = [word for word, _ in head]
+        rest = words[len(head):] if not any(ended for _, ended in head) else []
+        argv = options(rest, argv)
+        found.append(None if argv is None else (match.group(1), argv))
+    return found
+
+
+def bare_group(box, group):
+    """The commands of a bare group, read from its --help."""
+    if group not in BARE_GROUPS:
+        proc = subprocess.run([sys.executable, ENTRY, group, "--help"], cwd=box.proj, stdin=subprocess.DEVNULL,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=box.env(), timeout=120)
+        BARE_GROUPS[group] = set(re.findall(r"^%s ([a-z][a-z-]*)" % group, proc.stdout.decode("utf-8"), re.M))
+    return BARE_GROUPS[group]
+
+
+def bare_pattern(box):
+    """The pattern of a bare command of every group the tool's --help
+    lists."""
+    if not BARE:
+        proc = subprocess.run([sys.executable, ENTRY, "--help"], cwd=box.proj, stdin=subprocess.DEVNULL,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=box.env(), timeout=120)
+        groups = re.findall(r"^  ([a-z][a-z-]*) ", proc.stdout.decode("utf-8"), re.M)
+        assert groups, proc
+        BARE.append(re.compile(r'(?<![\w/.-])(?<!vdd\.py" )(%s) ([a-z][a-z-]*)' % "|".join(groups)))
+    return BARE[0]
+
+
+def bare_commands(box, line):
+    """The bare commands in line, of any group, each (ENTRY, argv)."""
+    found = []
+    for match in bare_pattern(box).finditer(line):
+        group, command = match.group(1), match.group(2)
+        if command not in bare_group(box, group):
+            continue
+        after = line[match.end():]
+        words = tokens(after) if after.startswith(" ") else []
+        argv = options(words, (group, command))
+        if argv is not None:
+            found.append((ENTRY, argv))
     return found
 
 
 def next_lines(result):
-    """The Next: steps a result hands a Role: its last line when that is a
-    Next: line, or, for the Codex Stop hook's one JSON line, each Next: step
-    in its decoded reason."""
-    if result.last.startswith("Next:"):
-        return [result.last]
+    """The lines a result hands a Role to act on: its Next: line when it is
+    the last, its Tell lines and the resume message; or, for the Codex Stop
+    hook's one JSON line, each Next: step in its decoded reason."""
     if len(result.lines) == 1 and result.last.startswith("{"):
         try:
             reason = json.loads(result.last).get("reason")
@@ -241,31 +327,44 @@ def next_lines(result):
             return []
         if isinstance(reason, str) and "Next:" in reason:
             return ["Next:" + part for part in reason.split("Next:")[1:]]
-    return []
+        return []
+    lines = [line for line in result.lines if line.startswith(TELL_PREFIX)]
+    lines += [after for before, after in zip(result.lines, result.lines[1:]) if before == "Resume message:"]
+    if result.last.startswith("Next:"):
+        lines.append(result.last)
+    return lines
 
 
 def check_next(box, result, test="a test"):
-    """Run each tool command result's Next: steps name with --help; raise
-    AssertionError naming the command and the test when one fails. Returns
-    the commands checked. Only a command that passed is cached, so every test
-    that prints a broken one fails."""
+    """Run each tool command result's Next:, Tell and resume lines name with
+    --help; raise AssertionError naming the command and the test when one
+    fails: an unknown option, a value outside its option's choices, or a
+    line with a tool path that leaves out an option its usage needs. Returns
+    the commands checked. Only a command that passed is cached, so every
+    test that prints a broken one fails."""
     checked = []
-    for command in [c for line in next_lines(result) for c in next_commands(line)]:
-        if command is None:
-            continue
-        if not os.path.isfile(command[0]):
-            raise AssertionError("The Next: line %s printed names a vdd.py that does not exist: %s"
-                                 % (test, command[0]))
-        checked.append(command)
-        if NEXT_CHECKED.get(command):
-            continue
-        proc = subprocess.run([sys.executable, command[0]] + list(command[1]) + ["--help"], cwd=box.proj,
-                              stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              env=box.env(), timeout=120)
-        NEXT_CHECKED[command] = proc.returncode == 0
-        if proc.returncode != 0:
-            raise AssertionError("The Next: line %s printed does not parse: %s --help exited %d\n%s"
-                                 % (test, " ".join(command[1]), proc.returncode, proc.stdout.decode("utf-8", "replace")))
+    for line in next_lines(result):
+        path = [(c, True) for c in path_commands(line) if c is not None]
+        for command, verbatim in path + [(c, False) for c in bare_commands(box, line)]:
+            if not os.path.isfile(command[0]):
+                raise AssertionError("The Next: line %s printed names a vdd.py that does not exist: %s"
+                                     % (test, command[0]))
+            checked.append(command)
+            if NEXT_CHECKED.get((command, verbatim)):
+                continue
+            proc = help_run(box, command)
+            text = proc.stdout.decode("utf-8", "replace")
+            NEXT_CHECKED[(command, verbatim)] = proc.returncode == 0
+            if proc.returncode != 0:
+                raise AssertionError("The Next: line %s printed does not parse: %s --help exited %d\n%s"
+                                     % (test, " ".join(command[1]), proc.returncode, text))
+            words = list(itertools.takewhile(lambda word: not word.startswith("--"), command[1]))
+            runs = verbatim and len(words) < len(command[1]) and "--help" not in command[1]
+            absent = usage_required(text, words) - set(command[1]) if runs else ()
+            if absent:
+                NEXT_CHECKED[(command, verbatim)] = False
+                raise AssertionError("The Next: line %s printed leaves out %s: %s"
+                                     % (test, ", ".join(sorted(absent)), " ".join(command[1])))
     return checked
 
 
@@ -281,7 +380,7 @@ class Result:
         return self.lines[-1] if self.lines else ""
 
     def tells(self):
-        prefix = 'Tell the user verbatim: "'
+        prefix = TELL_PREFIX
         return [line[len(prefix):-1] for line in self.lines if line.startswith(prefix)]
 
     def __repr__(self):

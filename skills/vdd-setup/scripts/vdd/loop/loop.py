@@ -104,7 +104,7 @@ def aside(root: str, values: dict[str, Any]) -> int:
     if leftover is None:
         raise Failure(
             ".scratch/%s/ does not exist: nothing to move aside." % slug,
-            "Run loop new for the slug instead.",
+            "Run %s for the slug instead." % catalog.bare("loop", "new"),
         )
     number = 2
     while os.path.lexists(loopfile.tracker_dir(root, "%s-%d" % (slug, number))):
@@ -130,7 +130,7 @@ def aside(root: str, values: dict[str, Any]) -> int:
         )
     out.line("Moved: .scratch/%s/ is now .scratch/%s/. Nothing was deleted." % (slug, target))
     out.tell("The earlier Workflow's files are now in .scratch/%s/." % target)
-    return out.finish("Run loop new for %s again, as your skill says." % slug)
+    return out.finish("Run %s for %s again, as your skill says." % (catalog.bare("loop", "new"), slug))
 
 
 def show(root: str, values: dict[str, Any]) -> int:

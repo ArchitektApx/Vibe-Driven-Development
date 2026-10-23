@@ -7,6 +7,7 @@ from typing import Iterable
 
 from .. import places
 from ..out import Output
+from .builder import line
 from .specs import GROUPS
 
 ABOUT = [
@@ -35,4 +36,4 @@ def top() -> int:
     out.line("Command groups:")
     for name in sorted(GROUPS):
         out.line("  %-13s %s" % (name, GROUPS[name]))
-    return out.finish("Run %s <group> --help for the group your skill names." % places.command())
+    return out.finish("Run %s for the group your skill names." % line("<group>", help=True))

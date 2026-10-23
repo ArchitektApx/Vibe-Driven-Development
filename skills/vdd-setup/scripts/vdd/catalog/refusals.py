@@ -8,8 +8,8 @@ import difflib
 import re
 from typing import Iterable, NoReturn, Sequence
 
-from .. import places
 from ..out import Failure, or_list
+from .builder import line
 
 
 def unknown_option(name: str, options: Iterable[str], usage: str) -> Failure:
@@ -44,8 +44,8 @@ def unknown_command(typed: str, usage: str) -> NoReturn:
     if word.startswith("-"):
         raise Failure(
             "Option before its command: %s" % word,
-            "Put every option after the group and its command, as in %s loop show --role <Role> --slug <slug>, "
-            "and run it again. Run %s for the commands." % (places.command(), usage),
+            "Put every option after the group and its command, as in %s, and run it again. Run %s for the "
+            "commands." % (line("loop", "show", role="<Role>", slug="<slug>"), usage),
         )
     raise Failure(
         [

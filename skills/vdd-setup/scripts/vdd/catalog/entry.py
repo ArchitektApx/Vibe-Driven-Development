@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Sequence
 
-from .. import places
 from . import help as helps
+from .builder import line
 from .parse import given, parse
 from .refusals import missing, unknown_command
 from .specs import COMMANDS, SINGLE, Command
@@ -39,7 +39,7 @@ class Context:
 
 def usage(group: str) -> str:
     """The --help command a refusal in group names."""
-    return "%s %s --help" % (places.command(), group)
+    return line(group, help=True)
 
 
 def run(

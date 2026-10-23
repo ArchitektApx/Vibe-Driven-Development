@@ -13,7 +13,7 @@ import os
 import re
 import textwrap
 
-from .. import catalog, doorbells, fixes, gitcmd, loopfile, loopstate, places, textfile, workfile
+from .. import catalog, doorbells, fixes, gitcmd, loopfile, loopstate, textfile, workfile
 from ..loopstate import recap
 from ..out import Failure, Output
 from .branch import decide_branch, dirty, git, head, new_untracked, start_gone, to_branch, untracked
@@ -75,7 +75,7 @@ class Round:
         self.open_numbers: list[int] = list(previous.open) if previous else []
 
     def command(self, sub: str, write: bool = True) -> str:
-        return "%s coder %s --slug %s%s" % (places.command(), sub, self.loop.slug, " --write" if write else "")
+        return catalog.line("coder", sub, slug=self.loop.slug, write=write)
 
     def snapshot_name(self) -> str:
         return SNAPSHOT % self.number

@@ -140,7 +140,7 @@ def start(flow: Flow) -> int:
         out.line(respawn_question(flow))
         return out.finish(
             "Ask Model approval and the Respawn question above in one message, and wait for the user. Then run %s"
-            % flow.command('orchestrator respawn --role Coder --policy "<answer>" --slug %s --write' % flow.slug)
+            % flow.command("respawn", role="Coder", policy='"<answer>"', slug=flow.slug, write=True)
         )
     flow.append(loopstate.session_line(previous + 1))
     # A wait an earlier session started wakes that session, not this one.
@@ -185,7 +185,7 @@ def returned(flow: Flow, role: str) -> int:
     if live is None:
         raise Failure(
             "No %s is out in this Orchestrator session, so there is no return to act on." % role,
-            "Run %s" % flow.command("orchestrator start --slug %s --harness %s" % (flow.slug, flow.harness.name)),
+            "Run %s" % flow.start_command(),
         )
     number = live[1]
     if flow.acted(role, number):
@@ -195,15 +195,16 @@ def returned(flow: Flow, role: str) -> int:
         flow.append(loopstate.return_line(role, number, False))
         if flow.misses(role, number) == 1:
             out.line("%s round %d ended without `%s`: the round is not finished." % (
-                role, number, flow.check_command(role)))
+                role, number, flow.check_command(role, bare=True)))
             return resume(flow, out, role, number, fixed_resume(flow, role, number))
-        out.line("%s round %d ended without `%s` a second time." % (role, number, flow.check_command(role)))
+        out.line("%s round %d ended without `%s` a second time."
+                 % (role, number, flow.check_command(role, bare=True)))
         out.tell("The %s ended round %d twice without finishing it. Answer resume to resume it once more, respawn "
                  "to start a fresh %s for round %d, or stop." % (role, number, role, number))
         return out.finish(
             "Relay the line above and end your turn; the user decides. On resume, resume the same %s with the "
             "user's words as the message. On respawn, run %s. On stop, stop." % (
-                role, flow.command("orchestrator respawn --role %s --once --slug %s --write" % (role, flow.slug)))
+                role, flow.command("respawn", role=role, once=True, slug=flow.slug, write=True))
         )
     flow.append(loopstate.return_line(role, number, True))
     if role == "Coder":

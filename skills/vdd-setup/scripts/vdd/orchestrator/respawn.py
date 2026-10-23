@@ -50,8 +50,8 @@ def step(flow: Flow, out: Output, role: str, number: int, first: str | None = No
                      % (role, policy, live[1]))
             return out.finish(
                 "Run %s, with subagent_tokens from the %s's latest completion notice; it records the count and "
-                "prints the step that waits for it." % (flow.command(
-                    "orchestrator tokens --role %s --tokens <subagent_tokens> --slug %s" % (role, flow.slug)), role)
+                "prints the step that waits for it."
+                % (flow.command("tokens", role=role, tokens="<subagent_tokens>", slug=flow.slug), role)
             )
         if count > limit:
             return spawn(flow, out, role, number, "respawn at %s" % size(count), first)
@@ -63,10 +63,6 @@ def policies_line(flow: Flow) -> str:
         "%s %s" % (role, flow.policy(role) or "not set") for role in ("Coder", "Plan-Reviewer", "Code-Reviewer"))
 
 
-def quoted(value: str) -> str:
-    return '"%s"' % value if " " in value else value
-
-
 def respawn_question(flow: Flow) -> str:
     recommended, limit = flow.harness.respawn_recommendation()
     answers = [("Every round", "every round"), ("Never", "never")]
@@ -76,7 +72,7 @@ def respawn_question(flow: Flow) -> str:
     parts = []
     for label, value in answers:
         mark = " (recommended)" if value == recommended else ""
-        parts.append("\"%s\"%s (--policy %s)." % (label, mark, quoted(value)))
+        parts.append("\"%s\"%s (--policy %s)." % (label, mark, catalog.quoted(value)))
     return ("Respawn question: When should the Orchestrator respawn the Coder, spawning it anew for a round in "
             "place of resuming the one before? Answers, in this order: " + " ".join(parts))
 
@@ -126,8 +122,7 @@ def respawn(flow: Flow, ctx: catalog.Context) -> int:
     if flow.any_spawn():
         return out.finish("The policy applies from the Role's next round; go on with the step the tool printed "
                           "before it.")
-    return out.finish("Run %s" % flow.command("orchestrator start --slug %s --harness %s" % (flow.slug,
-                                                                                           flow.harness.name)))
+    return out.finish("Run %s" % flow.start_command())
 
 
 def tokens(flow: Flow, values: dict[str, Any]) -> int:

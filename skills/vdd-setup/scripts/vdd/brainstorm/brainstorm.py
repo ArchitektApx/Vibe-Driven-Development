@@ -16,7 +16,7 @@ from typing import Any, Callable, Dict, List, Tuple
 
 from .. import catalog, gitcmd, textfile
 from ..out import TELL, Failure, Output
-from . import cleanup, journal, layout1, migrate, moves, reads, restructure
+from . import cleanup, journal, layout1, migrate, moves, printed, reads, restructure
 from .lock import Lock
 from .migrate import require_layout
 from .store import LAYOUT, LAYOUT_FILE, Store, layout, store_dir
@@ -98,7 +98,7 @@ def dispatch(ctx: catalog.Context) -> int:
         # Between the migration's two renames there is no store: a new one
         # here would leave two half stores (F2).
         raise Failure("A migration was interrupted after the backup; the idea store is not in place yet. Nothing was "
-                      "written.", "Run brainstorm migrate --write, then brainstorm start.")
+                      "written.", "Run %s, then %s." % (printed.MIGRATE, printed.START))
     found = layout(root)
     if command == "new" and found is None:
         if values["write"]:
@@ -169,8 +169,8 @@ def loop_lines(store: Store) -> list[str]:
         chain = [slug] + store.ancestors(slug)
         seen.update(chain)
         lines.append("%s sit in a parent loop written by hand, left as it is: %s -> %s. To break it, file one at the "
-                     "top level: brainstorm move --set %s=top --write" % (" and ".join(sorted(chain)),
-                                                                          " -> ".join(chain), slug, slug))
+                     "top level: %s" % (" and ".join(sorted(chain)), " -> ".join(chain), slug,
+                                        printed.command("move", set="%s=top" % slug, write=True)))
     return lines
 
 
@@ -178,7 +178,8 @@ def page_number(value: str | None) -> int:
     if value is None:
         return 1
     if not re.fullmatch(r"[0-9]+", value.strip()):
-        raise Failure("--page %s is not a number. Nothing was read." % value, "Run brainstorm start --page <n>.")
+        raise Failure("--page %s is not a number. Nothing was read." % value,
+                      "Run %s." % printed.command("start", page="<n>"))
     return int(value.strip())
 
 
@@ -186,9 +187,9 @@ def start(root: str, values: dict[str, Any]) -> int:
     found = layout(root)
     out = Output()
     if migrate.STEPS["1"].half(root):
-        out.line("A migration was interrupted after the backup: %s/ is complete and %s/ waits beside it; brainstorm "
-                 "migrate --write finishes it." % (layout1.BACKUP, layout1.STAGING))
-        return out.finish("Run brainstorm migrate --write, then brainstorm start again.")
+        out.line("A migration was interrupted after the backup: %s/ is complete and %s/ waits beside it; %s "
+                 "finishes it." % (layout1.BACKUP, layout1.STAGING, printed.MIGRATE))
+        return out.finish("Run %s, then %s again." % (printed.MIGRATE, printed.START))
     if found is None:
         out.line("This project has no idea store yet (.scratch/_brainstorming/).")
         return out.finish("Answer the user's message; when they bring an idea, capture it with brainstorm new, "
@@ -199,8 +200,8 @@ def start(root: str, values: dict[str, Any]) -> int:
         return out.finish(migrate.plan_next(root))
     if found in ("lost", "damaged"):
         out.line("The idea store's .layout marker is %s." % ("missing" if found == "lost" else "empty"))
-        return out.finish("Run brainstorm migrate --write: it checks the store and writes the marker back. Then "
-                          "run brainstorm start again.")
+        return out.finish("Run %s: it checks the store and writes the marker back. Then run %s again."
+                          % (printed.MIGRATE, printed.START))
     require_layout(root)
     for line in recover_quietly(root):
         out.line(line)
@@ -247,15 +248,15 @@ def migrate_cmd(root: str, values: dict[str, Any]) -> int:
     if what == "dry":
         return out.finish(migrate.plan_next(root))
     if what in ("dry-half", "dry-repair"):
-        return out.finish("If the user agrees, run brainstorm migrate --write.")
+        return out.finish("If the user agrees, run %s." % printed.MIGRATE)
     if what == "noop":
         tells = told(lines)
-        return out.finish("Relay the Tell line%s above to the user, then run brainstorm start."
-                          % ("s" if tells > 1 else "") if tells else "Run brainstorm start.")
+        return out.finish("Relay the Tell line%s above to the user, then run %s."
+                          % ("s" if tells > 1 else "", printed.START) if tells else "Run %s." % printed.START)
     named, offer = parts_named(Store(root))
     for line in named:
         out.line(line)
     tells = told(lines)
     relay = "" if not tells else ", relaying the Tell line above" if tells == 1 else ", relaying the Tell lines above"
-    return out.finish("Tell the user the migration is done%s, then answer their message, running brainstorm start "
-                      "first if it needs the store's overview." % relay + offer)
+    return out.finish("Tell the user the migration is done%s, then answer their message, running %s first if it "
+                      "needs the store's overview." % (relay, printed.START) + offer)

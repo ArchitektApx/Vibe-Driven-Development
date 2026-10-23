@@ -19,7 +19,7 @@ from typing import List, Tuple
 
 from .. import textfile
 from ..out import Failure
-from . import journal, layout1, layout2
+from . import journal, layout1, layout2, printed
 from .ideafile import STATUSES, real_date, today
 from .lock import Lock
 from .store import LAYOUT, LAYOUT_FILE, STORE, Store, layout
@@ -55,7 +55,7 @@ def plan_next(root: str) -> str:
     """The Next: of start and of a dry run on an older store: the ask of the
     steps that need the user, once, or the migration straight away."""
     asks = [step.ask(root) for step in path(layout(root) or "") if step.NEEDS_USER]
-    return " ".join(asks) if asks else "Run brainstorm migrate --write, then answer the user's message."
+    return " ".join(asks) if asks else "Run %s, then answer the user's message." % printed.MIGRATE
 
 
 def require_layout(root: str) -> None:
@@ -71,12 +71,12 @@ def require_layout(root: str) -> None:
         raise Failure("The idea store is still in the 0.15 layout (index.md). Nothing was written." if found == "1"
                       else "The idea store is in layout %s; this copy of the VDD tool reads layout %s. Nothing was "
                       "written." % (found, LAYOUT),
-                      "Run brainstorm start." if needs_user(found)
-                      else "Run brainstorm migrate --write, then the same command again.")
+                      "Run %s." % printed.START if needs_user(found)
+                      else "Run %s, then the same command again." % printed.MIGRATE)
     if found in ("damaged", "lost"):
         raise Failure("The idea store's .layout marker is %s. Nothing was written."
                       % ("empty" if found == "damaged" else "missing"),
-                      "Run brainstorm migrate --write: it checks the store and writes the marker back.")
+                      "Run %s: it checks the store and writes the marker back." % printed.MIGRATE)
     raise Failure(
         "The idea store has layout %s, which this copy of the VDD tool does not know (it knows %s): a newer VDD "
         "wrote it. Nothing was read or written." % (found, LAYOUT),

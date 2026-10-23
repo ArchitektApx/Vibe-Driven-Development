@@ -11,7 +11,7 @@ import re
 from typing import Any
 
 from ..out import Failure
-from . import dupes
+from . import dupes, printed
 from .ideafile import (CLOSED, DEPTH_MAX, HISTORY, KIND_RE, KINDS, METRICS, ORDER, RESERVED, SLUG_PATTERN,
                        STATUSES, TLDR_MAX, Idea, is_open_step, squash, today, usable_slug)
 from .printed import Result, quoted, step_line
@@ -59,7 +59,7 @@ def refuse_slug(store: Store, slug: str | None, option: str) -> None:
     if slug in store.ideas:
         raise Failure("%s %s is taken: an idea named %s exists (%s). Nothing was written."
                       % (option, slug, slug, store.ideas[slug].status),
-                      "Run brainstorm show --idea %s, or pick another slug." % slug)
+                      "Run %s, or pick another slug." % printed.command("show", idea=slug))
     gone = removed_entry(store.root, slug)
     if gone:
         raise Failure("%s named an idea cleanup removed on %s (removed.md keeps its line); other ideas and "
@@ -200,7 +200,8 @@ def note(store: Store, values: dict[str, Any]) -> Result:
         name = section_name(idea, values["section"])
         if name in (HISTORY, "Decision"):
             raise Failure("The tool writes %s itself. Nothing was written." % name,
-                          "For a decision use brainstorm set --decision; History needs nothing from you.")
+                          "For a decision use %s; History needs nothing from you."
+                          % printed.command("set", decision=True))
         texts = [t for t in values["text"] if t.strip()]
         if name == "Related Ideas":
             texts = [relation_line(store, idea.slug, t) for t in texts]

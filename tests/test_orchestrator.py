@@ -6,7 +6,7 @@ import re
 import subprocess
 import unittest
 
-from vddtest import PLAN_SIGNED, PLAN_SIGNED_2, CODE_SIGNED_2, REPO, LoopRepoTest, SceneTest
+from vddtest import PLAN_SIGNED, PLAN_SIGNED_2, CODE_SIGNED_2, REPO, LoopRepoTest, SceneTest, tool_command
 
 P1 = "VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/."
 P2 = "VDD Planner: .scratch/demo/ ready, round 2. Read spec.md and issues/."
@@ -247,16 +247,33 @@ class ReturnTest(OrchestratorTest):
         self.assertEqual(first.code, 0, first)
         index = first.lines.index("Resume message:")
         self.assertEqual(first.lines[index + 1],
-                         "Round 1 is not finished: `coder check --slug demo --write` has not passed. Run it, fix "
-                         "what it reports until it passes, then end your turn with the line it prints.")
+                         "Round 1 is not finished: `%s coder check --slug demo --write` has not passed. Run it, fix "
+                         "what it reports until it passes, then end your turn with the line it prints."
+                         % tool_command())
         second = self.back("Coder")
         self.assertEqual(second.code, 0, second)
         self.assertNotIn("Spawning", second.text)
         self.assertNotIn("Resume message:", second.lines)
+        self.assertIn("Coder round 1 ended without `coder check --slug demo --write` a second time.", second.lines)
         tell = second.tells()[0]
         for word in ("resume", "respawn", "stop"):
             self.assertIn(word, tell)
         self.assertEqual(self.state().count("return Coder 1 miss"), 2)
+
+    def test_a_review_round_with_no_check_resumes_with_the_tool_s_check(self):
+        """Prevents a resume message naming review check without the tool's
+        path, which a hosted Role cannot run as written."""
+        self.live("spawn Coder 1 session 1", "code 1 start a", "code 1 end b", "return Coder 1 ok",
+                  "spawn Code-Reviewer 1 session 1")
+        result = self.back("Code-Reviewer")
+        self.assertEqual(result.code, 0, result)
+        index = result.lines.index("Resume message:")
+        self.assertEqual(result.lines[index + 1],
+                         "Round 1 is not finished: `%s review check --role Code-Reviewer --slug demo --write` has "
+                         "not passed. Run it, fix what it reports until it passes, then end your turn with the line "
+                         "it prints." % tool_command())
+        self.assertIn("Code-Reviewer round 1 ended without `review check --role Code-Reviewer --slug demo --write`: "
+                      "the round is not finished.", result.lines)
 
     def test_a_return_line_argument_is_refused(self):
         """The tool never reads the return's text, so return takes no --line."""

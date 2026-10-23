@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import re
 
-from .. import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, places
+from .. import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate
 from ..out import Failure
 
 
@@ -175,17 +175,23 @@ class Flow:
 
     # --- the lines printed ---
 
-    def command(self, text: str) -> str:
-        return "%s %s" % (places.command(), text)
+    def command(self, name: str, **options: catalog.Value) -> str:
+        """An orchestrator command of this loop, options in the order given."""
+        return catalog.line("orchestrator", name, None, **options)
+
+    def start_command(self) -> str:
+        return self.command("start", slug=self.slug, harness=self.harness.name)
 
     def return_command(self, role: str) -> str:
-        return self.command("orchestrator return --role %s --slug %s --harness %s" % (role, self.slug,
-                                                                                      self.harness.name))
+        return self.command("return", role=role, slug=self.slug, harness=self.harness.name)
 
     def ring_command(self) -> str:
         return doorbells.ring_command("Orchestrator", self.harness, self.slug)
 
-    def check_command(self, role: str) -> str:
+    def check_command(self, role: str, bare: bool = False) -> str:
+        """The check that ends a hosted Role's round, with the tool's path
+        unless bare."""
+        build = catalog.bare if bare else catalog.line
         if role == "Coder":
-            return "coder check --slug %s --write" % self.slug
-        return "review check --role %s --slug %s --write" % (role, self.slug)
+            return build("coder", "check", slug=self.slug, write=True)
+        return build("review", "check", role=role, slug=self.slug, write=True)
