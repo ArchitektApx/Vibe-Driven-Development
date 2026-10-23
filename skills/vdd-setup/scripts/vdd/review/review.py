@@ -11,16 +11,14 @@ outcome in the state file and prints the Doorbell line.
 from __future__ import annotations
 
 import os
-from typing import Any, Iterable
+from typing import Iterable
 
-from .. import args, doorbells, gitcmd, loopfile, loopstate, places, textfile, workfile
+from .. import catalog, doorbells, gitcmd, loopfile, loopstate, textfile, workfile
 from ..loopstate import recap
 from ..out import Failure, Output
 from .frame import start
 from .lint import lint, not_carried
-from .rounds import CHECKS, LABELS, REVIEWERS, STATUS_LINE, TITLES, Round, require_round, round_available, status_line
-
-SUBCOMMANDS = ("start", "check")
+from .rounds import CHECKS, LABELS, STATUS_LINE, TITLES, Round, require_round, round_available, status_line
 
 HELP = [
     "review start --role <Plan-Reviewer|Code-Reviewer> --slug <slug> --write",
@@ -51,29 +49,18 @@ HELP = [
     "--slug names the loop; pass it on every call. Run every command from the repository root.",
 ]
 
-SPEC = {"role": args.VALUE, "slug": args.VALUE, "write": args.FLAG}
-ADD_SPEC = {"slug": args.VALUE, "from": args.VALUE, "write": args.FLAG}
-
-
-def usage() -> str:
-    return "%s review --help" % places.command()
-
-
 def run(argv: list[str]) -> int:
-    specs: dict[str, dict[str, str]] = dict.fromkeys(SUBCOMMANDS, SPEC)
-    specs["add"] = ADD_SPEC
-    return args.run_group(argv, "review", specs, HELP,
-                          "Run the review command your skill or the last Next: line names.", dispatch)
+    return catalog.run("review", argv, HELP, "Run the review command your skill or the last Next: line names.",
+                       dispatch)
 
 
-def dispatch(sub: str, values: dict[str, Any]) -> int:
+def dispatch(ctx: catalog.Context) -> int:
+    sub, values = ctx.command, ctx.values
     if sub == "add":
         from . import add
-        args.require(values, ["slug", "from"], usage())
         return add.run(loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"]), values["from"],
                        values["write"])
     role = values["role"]
-    args.choice(role, REVIEWERS, "--role takes Plan-Reviewer or Code-Reviewer.", "Run %s for the usage." % usage())
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     state = loopstate.open_loop(loop, "review %s" % sub)
     round_ = Round(loop, state, role)

@@ -13,16 +13,15 @@ import json
 import os
 import re
 import shutil
-from typing import TYPE_CHECKING, Any, Iterable
+from typing import TYPE_CHECKING, Iterable
 
-from . import args, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, places, preflight, textfile, workfile
+from . import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, places, preflight, textfile, workfile
 from .gitcmd import Refused
 from .out import Failure, Output, refused
 
 if TYPE_CHECKING:
     from .harness import Harness
 
-SUBCOMMANDS = ("check", "open")
 BODY_NAME = "pr-body.md"
 TEMPLATE_DIRS = ("", ".github", "docs")
 TEMPLATE_NAMES = ("PULL_REQUEST_TEMPLATE.md", "pull_request_template.md")
@@ -61,21 +60,13 @@ HELP = [
     "Run every command from the repository root.",
 ]
 
-SPEC = {"slug": args.VALUE, "harness": args.VALUE, "path": args.VALUE, "write": args.FLAG}
-
-
-def usage() -> str:
-    return "%s pr --help" % places.command()
-
-
 def run(argv: list[str]) -> int:
-    return args.run_group(argv, "pr", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
-                          "Run the pr command your skill or the last Next: line names.", dispatch)
+    return catalog.run("pr", argv, HELP, "Run the pr command your skill or the last Next: line names.", dispatch)
 
 
-def dispatch(sub: str, values: dict[str, Any]) -> int:
-    args.require(values, ["slug", "harness"], usage())
-    harness = harnesses.from_option(values, usage())
+def dispatch(ctx: catalog.Context) -> int:
+    sub, values = ctx.command, ctx.values
+    harness = harnesses.from_option(values, ctx.usage)
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     state = loopstate.open_loop(loop, "pr %s" % sub)
     loopstate.require_code_sign_off(state)
@@ -358,12 +349,6 @@ def close(loop: loopfile.Loop, state: loopstate.State, out: Output) -> None:
 
 
 def open_pr(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wanted: str, write: bool) -> int:
-    if wanted not in (OPEN, PUSH_ONLY, EXISTING):
-        raise Failure(
-            "--path takes open, push-only or existing: the path pr check printed.",
-            "Run %s pr check --slug %s --harness %s, and copy the path from its Path: line." % (
-                places.command(), loop.slug, harness.name),
-        )
     if doorbells.Place(loop.root, loop.slug, loop, state).position().fold_owed:
         raise Failure(
             "The fold's outcome is not recorded for the code Sign-off: the branch is pushed only after the Sign-off "

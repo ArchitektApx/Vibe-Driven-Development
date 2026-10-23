@@ -12,15 +12,14 @@ outward step itself, so the user can pause the Loop before any of them.
 
 from __future__ import annotations
 
-from typing import Any, NoReturn
+from typing import NoReturn
 
-from .. import args, doorbells, loopstate
+from .. import catalog, doorbells, loopstate
 from ..out import TELL, Failure, Output
-from .flow import HOSTED, Flow, usage
+from .flow import Flow
 from .respawn import policies_line, respawn, respawn_question, step, tokens
 from .spawn import resume, spawn
 
-SUBCOMMANDS = ("start", "return", "respawn", "tokens")
 USER_REASON = "for the user's findings"
 
 HELP = [
@@ -52,34 +51,20 @@ HELP = [
     "print. --slug names the loop; pass it on every call. Run every command from the repository root.",
 ]
 
-COMMON = {"slug": args.VALUE, "harness": args.VALUE}
-
-SPECS = {
-    "start": dict(COMMON),
-    "return": dict(COMMON, role=args.VALUE),
-    "respawn": dict(COMMON, role=args.VALUE, policy=args.VALUE, once=args.FLAG, write=args.FLAG),
-    "tokens": dict(COMMON, role=args.VALUE, tokens=args.VALUE),
-}
-
-
 def run(argv: list[str]) -> int:
-    return args.run_group(argv, "orchestrator", SPECS, HELP,
-                          "Run the orchestrator command your skill or the last Next: line names.", dispatch)
+    return catalog.run("orchestrator", argv, HELP,
+                       "Run the orchestrator command your skill or the last Next: line names.", dispatch)
 
 
-def dispatch(sub: str, values: dict[str, Any]) -> int:
-    flow = Flow.find(values, "orchestrator %s" % sub)
-    if sub == "start":
+def dispatch(ctx: catalog.Context) -> int:
+    flow = Flow.find(ctx)
+    if ctx.command == "start":
         return start(flow)
-    if sub == "respawn":
-        return respawn(flow, values)
-    if sub == "tokens":
-        return tokens(flow, values)
-    args.require(values, ["role", "harness"], usage())
-    role = values["role"]
-    args.choice(role, HOSTED + ("Planner",), "--role takes Planner, Plan-Reviewer, Coder or Code-Reviewer.",
-                "Run %s for the usage." % usage())
-    return returned(flow, role)
+    if ctx.command == "respawn":
+        return respawn(flow, ctx)
+    if ctx.command == "tokens":
+        return tokens(flow, ctx.values)
+    return returned(flow, ctx.values["role"])
 
 
 def planner_wait(flow: Flow) -> str:

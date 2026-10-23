@@ -6,11 +6,9 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .. import args, gitcmd, harness as harnesses, loopfile, loopstate, places, textfile
+from .. import catalog, gitcmd, harness as harnesses, loopfile, loopstate, textfile
 from ..harness import Harness
 from ..out import Failure, Output, or_list, refused
-
-SUBCOMMANDS = ("new", "aside", "show", "set", "fold", "close", "reopen")
 
 HELP = [
     "loop new --slug <slug> --harness <h> [--base <branch>] [--branch <branch>] [--minors <a>] [--pr <a>]",
@@ -57,44 +55,23 @@ HELP = [
     "Run every command from the repository root.",
 ]
 
-SPEC = {
-    "slug": args.VALUE,
-    "harness": args.VALUE,
-    "base": args.VALUE,
-    "branch": args.VALUE,
-    "minors": args.VALUE,
-    "pr": args.VALUE,
-    "harness-line": args.VALUE,
-    "role": args.VALUE,
-    "leftover": args.VALUE,
-    "write": args.FLAG,
-    # Named only to refuse them: a running loop's identity never changes.
-    "feature": args.VALUE,
-    "base-branch": args.VALUE,
-    "feature-branch": args.VALUE,
-}
-
 # Option -> Loop file line, for the answers new writes and set changes.
 ANSWERS = (("minors", "Minors"), ("pr", "PR"))
 SETTABLE = ANSWERS + (("harness-line", "Harness"),)
 
 
-def usage() -> str:
-    return "%s loop --help" % places.command()
-
-
 def run(argv: list[str]) -> int:
-    return args.run_group(argv, "loop", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
-                          "Run the loop command your skill or the last Next: line names.", dispatch)
+    return catalog.run("loop", argv, HELP, "Run the loop command your skill or the last Next: line names.", dispatch)
 
 
-def dispatch(sub: str, values: dict[str, Any]) -> int:
+def dispatch(ctx: catalog.Context) -> int:
+    sub, values = ctx.command, ctx.values
     if sub == "new":
         from .new import new
-        harness = harnesses.from_option(values, usage())
-        return new(gitcmd.project_root(os.getcwd()), values, harness)
+        harness = harnesses.from_option(values, ctx.usage)
+        return new(gitcmd.project_root(os.getcwd()), ctx, harness)
     if values["harness"] is not None:
-        harnesses.from_option(values, usage())
+        harnesses.from_option(values, ctx.usage)
     root = gitcmd.project_root(os.getcwd())
     if sub == "aside":
         return aside(root, values)
@@ -103,10 +80,9 @@ def dispatch(sub: str, values: dict[str, Any]) -> int:
     if sub in ("close", "reopen"):
         return close_or_reopen(root, values, sub)
     if sub == "fold":
-        args.require(values, ["slug", "harness"], usage())
         from .fold import fold
-        return fold.run(loopfile.find(root, values["slug"]), harnesses.from_option(values, usage()), values["write"])
-    return set_lines(root, values)
+        return fold.run(loopfile.find(root, values["slug"]), harnesses.from_option(values, ctx.usage), values["write"])
+    return set_lines(root, values, ctx.usage)
 
 
 def check_answers(values: dict[str, Any], options: tuple[tuple[str, str], ...]) -> None:
@@ -122,7 +98,6 @@ def check_answers(values: dict[str, Any], options: tuple[tuple[str, str], ...]) 
 
 def aside(root: str, values: dict[str, Any]) -> int:
     loopfile.refuse_root(root)
-    args.require(values, ["slug"], usage())
     slug = values["slug"]
     loopfile.check_slug(slug)
     leftover, state = loopfile.look(root, slug)
@@ -161,9 +136,6 @@ def aside(root: str, values: dict[str, Any]) -> int:
 def show(root: str, values: dict[str, Any]) -> int:
     loop = loopfile.find(root, values["slug"])
     role = values["role"]
-    if role is not None:
-        args.choice(role, loopfile.ROLES, "--role takes one of: %s." % ", ".join(loopfile.ROLES),
-                    "Run the command again with your Role's name.")
     state = loop.load_state()
     if role == "PR-Author":
         state.refuse_v1(loop.slug, "loop show --role PR-Author")
@@ -192,7 +164,7 @@ def show(root: str, values: dict[str, Any]) -> int:
     )
 
 
-def set_lines(root: str, values: dict[str, Any]) -> int:
+def set_lines(root: str, values: dict[str, Any], usage: str) -> int:
     if any(values[option] is not None for option in ("feature", "base-branch", "feature-branch", "base", "branch")):
         raise Failure(
             "loop set never changes the Feature:, Base branch: or Feature branch: line: they name the loop and "
@@ -203,7 +175,7 @@ def set_lines(root: str, values: dict[str, Any]) -> int:
     if not changes:
         raise Failure(
             "Nothing to set: name --minors, --pr or --harness-line.",
-            "Run %s for this command's usage." % usage(),
+            "Run %s for this command's usage." % usage,
         )
     check_answers(values, SETTABLE)
     loop = loopfile.find(root, values["slug"])

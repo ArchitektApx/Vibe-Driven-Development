@@ -14,48 +14,15 @@ import os
 import re
 from typing import Any, Callable, Dict, List, Tuple
 
-from .. import args, gitcmd, places, textfile
+from .. import catalog, gitcmd, textfile
 from ..out import TELL, Failure, Output
 from . import cleanup, journal, layout1, migrate, moves, reads, restructure
 from .lock import Lock
 from .migrate import require_layout
 from .store import LAYOUT, LAYOUT_FILE, Store, layout, store_dir
 
-V, W, L = args.VALUE, args.FLAG, args.LIST
-METRIC_OPTIONS = {"importance": V, "size": V, "fog": V}
 # The first sentence of the overview's Next: step.
 ANSWER = "Answer the user's message from this overview; read or run nothing else unless it needs more."
-
-# One option table per command: an option another command takes is refused
-# on this one, never silently ignored.
-SPECS: dict[str, dict[str, str]] = {
-    "start": {"page": V},
-    "show": {"idea": V},
-    "find": {"text": L},
-    "check": {},
-    "new": dict({"slug": V, "title": V, "tldr": V, "parent": V, "summary": V, "relate": L, "despite": L, "write": W},
-                **METRIC_OPTIONS),
-    "note": {"idea": V, "section": V, "text": L, "tick": V, "write": W},
-    "set": dict({"idea": L, "status": V, "decision": V, "reopen-when": V, "tldr": V, "title": V, "write": W},
-                **METRIC_OPTIONS),
-    "move": {"set": L, "write": W},
-    "split": {"idea": V, "part": L, "write": W},
-    "merge": {"idea": V, "into": V, "reason": V, "reopen-when": V, "write": W},
-    "rename": {"idea": V, "to": V, "write": W},
-    "cleanup": {"status": L, "idea": L, "older": V, "write": W},
-    "migrate": {"event": L, "write": W},
-}
-REQUIRED = {
-    "show": ["idea"],
-    "find": ["text"],
-    "new": ["slug", "title", "tldr"],
-    "note": ["idea"],
-    "set": ["idea"],
-    "move": ["set"],
-    "split": ["idea", "part"],
-    "merge": ["idea", "into", "reason", "reopen-when"],
-    "rename": ["idea", "to"],
-}
 
 HELP = [
     "brainstorm start [--page <n>]",
@@ -116,16 +83,12 @@ Read = Callable[[Store, Dict[str, Any], Output], int]
 READS: dict[str, Read] = {"show": reads.show, "find": reads.find, "check": reads.check}
 
 
-def usage() -> str:
-    return "%s brainstorm --help" % places.command()
-
-
 def run(argv: list[str]) -> int:
-    return args.run_group(argv, "brainstorm", SPECS, HELP, "Run the brainstorm command your skill names.", dispatch)
+    return catalog.run("brainstorm", argv, HELP, "Run the brainstorm command your skill names.", dispatch)
 
 
-def dispatch(command: str, values: dict[str, Any]) -> int:
-    args.require(values, REQUIRED.get(command, []), usage())
+def dispatch(ctx: catalog.Context) -> int:
+    command, values = ctx.command, ctx.values
     root = gitcmd.project_root(os.getcwd())
     if command == "start":
         return start(root, values)

@@ -7,7 +7,7 @@ from __future__ import annotations
 import abc
 from typing import TYPE_CHECKING, Any
 
-from ..args import refuse_missing
+from ..catalog.refusals import missing
 from ..out import Failure
 
 if TYPE_CHECKING:
@@ -137,7 +137,7 @@ def from_option(values: dict[str, Any], usage: str) -> Harness:
     missing or unknown one, naming usage."""
     given = values.get("harness")
     if given is None:
-        refuse_missing(["harness"], usage)
+        raise missing(["harness"], usage)
     key = folded(given)
     for found in every():
         if key in (found.name, folded(found.label)):

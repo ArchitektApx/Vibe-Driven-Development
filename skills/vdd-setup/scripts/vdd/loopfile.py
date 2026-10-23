@@ -18,7 +18,7 @@ import os
 import re
 from typing import Iterable
 
-from . import args, armed, gitcmd, harness as harnesses, loopstate, textfile
+from . import armed, catalog, gitcmd, harness as harnesses, loopstate, textfile
 from .harness import Harness
 from .out import TELL, Failure, notice
 
@@ -92,7 +92,7 @@ def tracker_dir(root: str, slug: str) -> str:
 
 
 def check_slug(slug: str) -> None:
-    args.check_slug(slug, SLUG_PATTERN, "a Feature slug", "a slug", "hyphens")
+    catalog.check_slug(slug, SLUG_PATTERN, "a Feature slug", "a slug", "hyphens")
 
 
 def has_root_file(root: str) -> bool:

@@ -8,6 +8,47 @@ import unittest
 
 from vddtest import ENTRY, SCRIPTS, Sandbox, ToolTest
 
+# Every command and the options it takes, as its unknown-option refusal lists
+# them. An option another command of the group reads is refused here.
+TAKES = {
+    ("loop", "new"): "base branch harness leftover minors pr slug write",
+    ("loop", "aside"): "harness slug write",
+    ("loop", "show"): "harness role slug",
+    ("loop", "set"): "base base-branch branch feature feature-branch harness harness-line minors pr slug write",
+    ("loop", "fold"): "harness slug write",
+    ("loop", "close"): "harness slug write",
+    ("loop", "reopen"): "harness slug write",
+    ("doorbell", "ring"): "harness role slug write",
+    ("doorbell", "wait"): "harness role slug",
+    ("doorbell", "take"): "harness pasted resumed role slug",
+    ("pr", "check"): "harness slug",
+    ("pr", "open"): "harness path slug write",
+    ("coder", "start"): "slug write",
+    ("coder", "check"): "slug write",
+    ("review", "start"): "role slug write",
+    ("review", "check"): "role slug write",
+    ("review", "add"): "from slug write",
+    ("wayfinder", "start"): "effort skill-dir",
+    ("orchestrator", "start"): "harness slug",
+    ("orchestrator", "return"): "harness role slug",
+    ("orchestrator", "respawn"): "harness once policy role slug write",
+    ("orchestrator", "tokens"): "harness role slug tokens",
+    ("brainstorm", "start"): "page",
+    ("brainstorm", "show"): "idea",
+    ("brainstorm", "find"): "text",
+    ("brainstorm", "check"): "",
+    ("brainstorm", "new"): "despite fog importance parent relate size slug summary title tldr write",
+    ("brainstorm", "note"): "idea section text tick write",
+    ("brainstorm", "set"): "decision fog idea importance reopen-when size status title tldr write",
+    ("brainstorm", "move"): "set write",
+    ("brainstorm", "split"): "idea part write",
+    ("brainstorm", "merge"): "idea into reason reopen-when write",
+    ("brainstorm", "rename"): "idea to write",
+    ("brainstorm", "cleanup"): "idea older status write",
+    ("brainstorm", "migrate"): "event write",
+    ("setup",): "glossary-named harness listed user-answer write",
+}
+
 
 class EntryTest(ToolTest):
     def test_help_ends_with_next_and_exits_zero(self):
@@ -76,8 +117,7 @@ class EntryTest(ToolTest):
         self.assertNotEqual(result.code, 0, result)
         self.assertContract(result)
         self.assertIn("Unknown option: --rol", result.lines)
-        self.assertTrue(any(l.startswith("This command takes: --base,") and ", --role," in l for l in result.lines),
-                        result)
+        self.assertIn("This command takes: --harness, --role, --slug.", result.lines)
         self.assertIn("Closest: --role.", result.lines)
         self.assertNext(result, "again with --role")
         self.assertNotIn("rerun Setup", result.text)
@@ -88,10 +128,61 @@ class EntryTest(ToolTest):
         result = self.box.run("loop", "show", "--fresh-coder")
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("Unknown option: --fresh-coder", result.lines)
-        self.assertIn("This command takes: --base, --base-branch, --branch, --feature, --feature-branch, "
-                      "--harness, --harness-line, --leftover, --minors, --pr, --role, --slug, --write.", result.lines)
+        self.assertIn("This command takes: --harness, --role, --slug.", result.lines)
         self.assertNotIn("Closest", result.text)
         self.assertNext(result, "tell the user to rerun Setup")
+
+    def test_each_command_takes_only_its_own_options(self):
+        """Every command of a group took every option of the group and
+        dropped the ones it does not read without a word: `loop new
+        --harness-line Codex` wrote the Loop file's Harness: line from
+        --harness. Each command now lists exactly its own options."""
+        for command, takes in TAKES.items():
+            with self.subTest(command=" ".join(command)):
+                result = self.box.run(*command, "--no-such-option-here")
+                self.assertNotEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertEqual(result.lines[0], "Unknown option: --no-such-option-here", result)
+                expected = ("This command takes: %s." % ", ".join("--" + o for o in takes.split()) if takes
+                            else "This command takes no options.")
+                self.assertEqual(result.lines[1], expected, result)
+
+    def groups(self):
+        """The groups the top-level help lists."""
+        lines = self.box.run("--help").lines
+        listed = lines[lines.index("Command groups:") + 1:-1]
+        return [line.split()[0] for line in listed if line.startswith("  ")]
+
+    def test_every_group_in_the_list_reaches_its_own_help(self):
+        """cli.load ended in an else that ran Setup, so a group added to the
+        list without its import branch printed Setup's help as its own."""
+        groups = self.groups()
+        self.assertIn("setup", groups)
+        self.assertIn("codex-stop", groups)
+        for group in groups:
+            with self.subTest(group=group):
+                result = self.box.run(group, "--help")
+                self.assertEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertTrue(any(line.startswith((group + " ", group + ":")) for line in result.lines[:-1]),
+                                result)
+
+    def test_a_group_without_an_import_branch_is_a_named_error(self):
+        """A group in the list that cli.load has no branch for fails at its
+        first run, naming the group, instead of running another group."""
+        copy = os.path.join(self.box.root, "copy")
+        shutil.copytree(SCRIPTS, copy, ignore=shutil.ignore_patterns("__pycache__"))
+        specs = os.path.join(copy, "vdd", "catalog", "specs.py")
+        with open(specs, encoding="utf-8") as handle:
+            text = handle.read()
+        anchor = "GROUPS = {\n"
+        self.assertIn(anchor, text)
+        with open(specs, "w", encoding="utf-8") as handle:
+            handle.write(text.replace(anchor, anchor + '    "zz-new": "A group with no branch.",\n', 1))
+        result = self.box.run("zz-new", "--help", entry=os.path.join(copy, "vdd.py"))
+        self.assertNotEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("NoGroupBranch: cli.load has no branch for the group zz-new", result.lines[0])
 
     def test_output_is_utf8_with_lf_whatever_the_console(self):
         """Printed through sys.stdout.buffer as UTF-8 with LF, every CR

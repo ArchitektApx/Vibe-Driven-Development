@@ -12,15 +12,13 @@ from __future__ import annotations
 import os
 import re
 import textwrap
-from typing import Any
 
-from .. import args, doorbells, fixes, gitcmd, loopfile, loopstate, places, textfile, workfile
+from .. import catalog, doorbells, fixes, gitcmd, loopfile, loopstate, places, textfile, workfile
 from ..loopstate import recap
 from ..out import Failure, Output
 from .branch import decide_branch, dirty, git, head, new_untracked, start_gone, to_branch, untracked
 from .lint import lint
 
-SUBCOMMANDS = ("start", "check")
 TICKET_FILE = re.compile(r"^([0-9]+)-.+\.md$")
 SNAPSHOT = "coder-untracked-%d"
 
@@ -44,19 +42,12 @@ HELP = [
     "--slug names the loop; pass it on every call. Run every command from the repository root.",
 ]
 
-SPEC = {"slug": args.VALUE, "write": args.FLAG}
-
-
-def usage() -> str:
-    return "%s coder --help" % places.command()
-
-
 def run(argv: list[str]) -> int:
-    return args.run_group(argv, "coder", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
-                          "Run the coder command your skill or the last Next: line names.", dispatch)
+    return catalog.run("coder", argv, HELP, "Run the coder command your skill or the last Next: line names.", dispatch)
 
 
-def dispatch(sub: str, values: dict[str, Any]) -> int:
+def dispatch(ctx: catalog.Context) -> int:
+    sub, values = ctx.command, ctx.values
     loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
     state = loopstate.open_loop(loop, "coder %s" % sub)
     round_ = Round(loop, state)

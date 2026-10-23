@@ -9,12 +9,10 @@ alone.
 from __future__ import annotations
 
 import os
-from typing import Any
 
-from . import args, gitcmd, harness as harnesses, places, stores
+from . import catalog, gitcmd, harness as harnesses, stores
 from .out import Failure, Output
 
-SUBCOMMANDS = ("start",)
 TEMPLATES = ("overview-template.md", "handoff-template.md")
 # A Feature slug, with dots allowed between words: an effort is often named
 # for a release, as beta-0.16.0-work is.
@@ -30,8 +28,6 @@ HELP = [
     "",
     "Run every command from the repository root.",
 ]
-
-SPEC = {"effort": args.VALUE, "skill-dir": args.VALUE}
 
 BRIEFING = [
     "Briefing for the wayfinding of <effort>:",
@@ -54,18 +50,12 @@ BRIEFING = [
 ]
 
 
-def usage() -> str:
-    return "%s wayfinder --help" % places.command()
-
-
 def run(argv: list[str]) -> int:
-    return args.run_group(argv, "wayfinder", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
-                          "Run the wayfinder command your skill names.", dispatch)
+    return catalog.run("wayfinder", argv, HELP, "Run the wayfinder command your skill names.", dispatch)
 
 
-def dispatch(sub: str, values: dict[str, Any]) -> int:
-    args.require(values, ["effort", "skill-dir"], usage())
-    return start(values["effort"], values["skill-dir"])
+def dispatch(ctx: catalog.Context) -> int:
+    return start(ctx.values["effort"], ctx.values["skill-dir"])
 
 
 def templates(skill_dir: str) -> list[str]:
@@ -115,7 +105,7 @@ def briefing(effort: str, overview: str, handoff: str) -> list[str]:
 
 
 def check_effort(effort: str) -> None:
-    args.check_slug(effort, EFFORT_PATTERN, "an effort slug", "an effort slug", "hyphens or dots")
+    catalog.check_slug(effort, EFFORT_PATTERN, "an effort slug", "an effort slug", "hyphens or dots")
 
 
 def start(effort: str, skill_dir: str) -> int:

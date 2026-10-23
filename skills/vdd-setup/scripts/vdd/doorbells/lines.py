@@ -7,11 +7,12 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from ..catalog.specs import DOORBELL_ROLES as ROLES  # noqa: F401 - the Roles a Doorbell is addressed to
+
 if TYPE_CHECKING:
     from ..loopstate import Review
 
 
-ROLES = ("Planner", "Orchestrator")
 OTHER = {"Planner": "Orchestrator", "Orchestrator": "Planner"}
 
 ADDRESS = re.compile(r"^([0-9]{2}:[0-9]{2}:[0-9]{2}) to: (Planner|Orchestrator) (.*)$")

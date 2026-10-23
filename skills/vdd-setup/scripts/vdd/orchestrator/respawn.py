@@ -6,9 +6,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .. import args, loopstate
+from .. import catalog, loopstate
 from ..out import Failure, Output
-from .flow import HOSTED, Flow, usage
+from .flow import Flow
 from .spawn import handoff, resume, spawn
 
 POLICY = re.compile(r"^(every round|never|over ([1-9][0-9]*)(k?))$")
@@ -81,11 +81,13 @@ def respawn_question(flow: Flow) -> str:
             "place of resuming the one before? Answers, in this order: " + " ".join(parts))
 
 
-def respawn(flow: Flow, values: dict[str, Any]) -> int:
+def respawn(flow: Flow, ctx: catalog.Context) -> int:
+    values = ctx.values
     role = values["role"]
-    args.choice(role, HOSTED, "--role takes Plan-Reviewer, Coder or Code-Reviewer.", "Run %s for the usage." % usage())
+    ctx.require_one_of("policy", "once")
+    # With one of them given, this holds only when both are.
     if (values["policy"] is None) == (not values["once"]):
-        raise Failure("Give --policy or --once, not both and not neither.", "Run %s for the usage." % usage())
+        raise Failure("Give --policy or --once, not both.", "Run %s for the usage." % ctx.usage)
     out = Output()
     if values["once"]:
         if not values["write"]:
@@ -129,9 +131,7 @@ def respawn(flow: Flow, values: dict[str, Any]) -> int:
 
 
 def tokens(flow: Flow, values: dict[str, Any]) -> int:
-    args.require(values, ["role", "tokens"], usage())
     role = values["role"]
-    args.choice(role, HOSTED, "--role takes Plan-Reviewer, Coder or Code-Reviewer.", "Run %s for the usage." % usage())
     if not flow.harness.reports_subagent_tokens():
         raise Failure(
             "%s reports no subagent token count, so there is none to record." % flow.harness_label,

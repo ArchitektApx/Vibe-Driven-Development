@@ -6,16 +6,9 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any
 
-from .. import args, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, places
+from .. import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, places
 from ..out import Failure
-
-HOSTED = ("Plan-Reviewer", "Coder", "Code-Reviewer")
-
-
-def usage() -> str:
-    return "%s orchestrator --help" % places.command()
 
 
 # The spawn ledger's lines, as loopstate's builders write them.
@@ -43,12 +36,13 @@ class Flow:
     file and the Harness the Loop file names."""
 
     @classmethod
-    def find(cls, values: dict[str, Any], command: str) -> Flow:
+    def find(cls, ctx: catalog.Context) -> Flow:
+        values = ctx.values
         loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
-        state = loopstate.open_loop(loop, command)
+        state = loopstate.open_loop(loop, ctx.label)
         flow = cls(loop, state)
         if values["harness"] is not None:
-            given = harnesses.from_option(values, usage())
+            given = harnesses.from_option(values, ctx.usage)
             if given is not flow.harness:
                 raise Failure(
                     "--harness %s does not match the Loop file's Harness: %s." % (given.name, flow.harness_label),

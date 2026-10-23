@@ -226,6 +226,19 @@ class CodexHookTest(ToolTest):
 
     # --- new cases ---
 
+    def test_an_unknown_option_is_no_refusal(self):
+        """codex-stop is not parsed by the command catalog: a catalog
+        refusal exits non-zero, which Codex reads as a block and repeats
+        (ADR 0008). An option it does not know changes nothing, silent or
+        blocking."""
+        self.loop()
+        self.assertSilent(self.box.run("codex-stop", "--no-such-option", stdin=stop_input(ID)))
+        self.armed(ID)
+        self.ring("Orchestrator", P1)
+        result = self.box.run("codex-stop", "--no-such-option", stdin=stop_input(ID), env=self.box.env(
+            VDD_WAIT_POLL_SECONDS="0.05", VDD_WAIT_TIMEOUT_SECONDS="0.5"))
+        self.assertIn("doorbell take --role Orchestrator", self.assertBlock(result))
+
     def test_garbage_on_stdin_exits_zero_silently(self):
         self.loop()
         self.armed(ID)

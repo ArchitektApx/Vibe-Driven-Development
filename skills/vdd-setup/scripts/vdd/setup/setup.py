@@ -1,18 +1,17 @@
-"""The setup command: its help, parsing, the command lines it names and the
-finish. The checks are in checks.py and fill one report (report.py)."""
+"""The setup command: its help, the command lines it names and the finish;
+the catalog parses its options. The checks are in checks.py and fill one
+report (report.py)."""
 
 from __future__ import annotations
 
 import os
 from typing import Any
 
-from .. import args, gitcmd, harness as harnesses, places
+from .. import catalog, gitcmd, harness as harnesses, places
 from ..harness import Harness
-from ..out import Failure, Output, escalate
+from ..out import Failure, escalate
 from . import borrowed, checks
 from .report import Report
-
-USAGE_NAME = "setup --help"
 
 HELP = [
     "setup --harness <h> --listed <names> --glossary-named <yes|no|absent> [--user-answer <answer>] [--write]",
@@ -39,33 +38,16 @@ HELP = [
     "--write                  Make the planned changes.",
 ]
 
-SPEC = {
-    "harness": args.VALUE,
-    "listed": args.VALUE,
-    "glossary-named": args.VALUE,
-    "user-answer": args.VALUE,
-    "write": args.FLAG,
-}
-
-def usage() -> str:
-    return "%s %s" % (places.command(), USAGE_NAME)
-
 
 def run(argv: list[str]) -> int:
-    values = args.parse(argv, SPEC, usage())
-    if values["help"]:
-        out = Output()
-        for line in HELP:
-            out.line(line)
-        return out.finish("Run %s setup with the options above, without --write first." % places.command())
-    harness = harnesses.from_option(values, usage())
-    args.require(values, ["listed", "glossary-named"], usage())
-    args.choice(values["glossary-named"], ("yes", "no", "absent"), "--glossary-named takes yes, no or absent.",
-                "Run %s for this command's usage." % usage())
+    return catalog.run("setup", argv, HELP, "Run %s setup with the options above, without --write first."
+                       % places.command(), setup)
+
+
+def setup(ctx: catalog.Context) -> int:
+    values = ctx.values
+    harness = harnesses.from_option(values, ctx.usage)
     answer = values["user-answer"]
-    if answer is not None:
-        args.choice(answer, ("resolves", "does-not-resolve"), "--user-answer takes resolves or does-not-resolve.",
-                    "Run %s for this command's usage." % usage())
     cwd = os.getcwd()
     require_root(harness, values, cwd)
     report = Report(values["write"])

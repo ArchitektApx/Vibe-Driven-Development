@@ -1,9 +1,10 @@
 """Refusal tables: one table per command group, one row per refusal.
 
 A row names a case, a staged scene, the argv, a fragment of the refusal's
-first line and a fragment of its Next: line. Every row asserts a non-zero
-exit, the tool's contract (UTF-8, LF, a Next: line last), the first-line
-fragment and the Next: fragment. A row marked POSIX stubs git or gh with an
+first line (or a tuple of fragments, one per line from the first) and a
+fragment of its Next: line. Every row asserts a non-zero exit, the tool's
+contract (UTF-8, LF, a Next: line last), the line fragments and the Next:
+fragment. A row marked POSIX stubs git or gh with an
 sh script, or leans on a POSIX permission, and skips on native Windows.
 
 Unreachable from vdd.py, so no row: orchestrator.py's four RuntimeError
@@ -223,13 +224,23 @@ class Refusals(Staged):
         self.assertNotEqual(result.code, 0, "%s: exit 0\n%r" % (label, result))
         self.assertNotIn(b"\r", result.data, label)
         self.assertTrue(result.last.startswith("Next: "), "%s: the last line is no Next: line\n%r" % (label, result))
-        self.assertIn(first, result.lines[0], "%s: first line\n%r" % (label, result))
+        for number, fragment in enumerate(first if isinstance(first, tuple) else (first,)):
+            self.assertIn(fragment, result.lines[number], "%s: line %d\n%r" % (label, number + 1, result))
         self.assertIn(following, result.last, "%s: Next: line\n%r" % (label, result))
 
 
 R = Refusals
 CHECK = ("coder", "check", *SLUG, "--write")
 START = ("coder", "start", *SLUG, "--write")
+USAGE = "--help for this command's usage."
+AGAIN = "Run the command again"
+
+
+def unknown(option, takes):
+    """The first two lines of the refusal of an option the command does not
+    take: the option, and the command's own options."""
+    return ("Unknown option: --%s" % option, "This command takes: %s." % ", ".join("--" + o for o in takes))
+
 
 # (group, case, scene, argv, first-line fragment, Next: fragment, env, POSIX only). A scene may return the
 # environment it needs; env adds to it.
@@ -243,6 +254,22 @@ TABLES = {
          False),
         ("newer-state-version", R.newer_state, ("loop", "show", *SLUG), "format version 9", "rerun Setup", None,
          False),
+        ("show-option-of-new", R.plan, ("loop", "show", *SLUG, *CC, "--minors", "leave"),
+         unknown("minors", ("harness", "role", "slug")), AGAIN, None, False),
+        ("close-option-of-set", R.plan, ("loop", "close", *SLUG, "--feature", "y"),
+         unknown("feature", ("harness", "slug", "write")), AGAIN, None, False),
+        ("new-option-of-set", R.repo, ("loop", "new", *SLUG, *CC, "--minors", "fix", "--pr", "no", "--harness-line",
+                                       "Codex"),
+         unknown("harness-line", ("base", "branch", "harness", "leftover", "minors", "pr", "slug", "write")), AGAIN,
+         None, False),
+        ("new-missing", R.repo, ("loop", "new", *CC), "Missing: --slug", "loop " + USAGE, None, False),
+        ("new-write-missing-answers", R.repo, ("loop", "new", *SLUG, *CC, "--write"), "Missing: --minors, --pr",
+         "loop " + USAGE, None, False),
+        ("show-role-not-a-choice", R.plan, ("loop", "show", *SLUG, "--role", "Nobody"),
+         "--role takes Planner, Plan-Reviewer, Coder, Code-Reviewer, Orchestrator or PR-Author, not Nobody.",
+         "loop " + USAGE, None, False),
+        ("new-leftover-not-a-choice", R.repo, ("loop", "new", *SLUG, *CC, "--leftover", "keep"),
+         "--leftover takes continue, not keep.", "loop " + USAGE, None, False),
     ],
     "doorbell": [
         ("version-1-ring", R.version_one, ("doorbell", "ring", "--role", "Planner", *CC, *SLUG, "--write"),
@@ -251,6 +278,16 @@ TABLES = {
         ("closed-loop-ring", lambda t: (t.plan(), t.stage("loop closed")),
          ("doorbell", "ring", "--role", "Planner", *CC, *SLUG, "--write"), "is closed", "ask the Orchestrator to reopen it", None,
          False),
+        ("ring-option-of-take", R.plan, ("doorbell", "ring", "--role", "Planner", *CC, *SLUG, "--pasted", "z"),
+         unknown("pasted", ("harness", "role", "slug", "write")), AGAIN, None, False),
+        ("take-option-of-ring", R.plan, ("doorbell", "take", "--role", "Planner", *CC, *SLUG, "--write"),
+         unknown("write", ("harness", "pasted", "resumed", "role", "slug")), AGAIN, None, False),
+        ("wait-option-of-ring", R.plan, ("doorbell", "wait", "--role", "Planner", *CC, *SLUG, "--write"),
+         unknown("write", ("harness", "role", "slug")), AGAIN, None, False),
+        ("ring-missing", R.plan, ("doorbell", "ring", *SLUG, "--write"), "Missing: --role, --harness",
+         "doorbell " + USAGE, None, False),
+        ("ring-role-not-a-choice", R.plan, ("doorbell", "ring", "--role", "Coder", *CC, *SLUG, "--write"),
+         "--role takes Planner or Orchestrator, not Coder.", "doorbell " + USAGE, None, False),
     ],
     "coder": [
         ("version-1-start", R.version_one, START, V1, NEXT_V1, None, False),
@@ -273,6 +310,8 @@ TABLES = {
         ("check-off-the-feature-branch", R.off_the_feature_branch, CHECK, "The checked-out branch is main",
          "coder check --slug demo --write again", None, False),
         ("check-fixes-deleted", R.fixes_deleted, CHECK, "FIXES.md does not exist", "FIXES.md is gone", None, False),
+        ("start-option-of-review", R.signed, START + ("--role", "Coder"), unknown("role", ("slug", "write")), AGAIN,
+         None, False),
     ],
     "review": [
         ("version-1-plan-start", R.version_one, ("review", "start", "--role", "Plan-Reviewer", *SLUG, "--write"), V1,
@@ -304,6 +343,14 @@ TABLES = {
         ("add-moved-ref-closed", R.moved_ref_closed, ("review", "add", *SLUG, "--from", "findings.md", "--write"),
          "Code round 1 was folded but its fold is not recorded", "loop reopen --slug demo --write, then ", None,
          False),
+        ("add-option-of-start", R.code_signed, ("review", "add", *SLUG, "--from", "findings.md", "--role", "Coder"),
+         unknown("role", ("from", "slug", "write")), AGAIN, None, False),
+        ("start-missing", R.plan, ("review", "start", *SLUG, "--write"), "Missing: --role", "review " + USAGE, None,
+         False),
+        ("add-missing", R.code_signed, ("review", "add", *SLUG, "--write"), "Missing: --from", "review " + USAGE,
+         None, False),
+        ("start-role-not-a-choice", R.plan, ("review", "start", "--role", "Coder", *SLUG, "--write"),
+         "--role takes Plan-Reviewer or Code-Reviewer, not Coder.", "review " + USAGE, None, False),
     ],
     "orchestrator": [
         ("version-1-start", R.version_one, ("orchestrator", "start", *SLUG, *CC), V1, NEXT_V1, None, False),
@@ -314,7 +361,14 @@ TABLES = {
         ("respawn-both", R.plan, ("orchestrator", "respawn", "--role", "Coder", "--policy", "never", "--once",
                                   *SLUG, "--write"), "Give --policy or --once", "usage", None, False),
         ("respawn-neither", R.plan, ("orchestrator", "respawn", "--role", "Coder", *SLUG, "--write"),
-         "Give --policy or --once", "usage", None, False),
+         "Missing: --policy or --once", "orchestrator " + USAGE, None, False),
+        ("start-option-of-return", R.plan, ("orchestrator", "start", *SLUG, *CC, "--role", "Coder"),
+         unknown("role", ("harness", "slug")), AGAIN, None, False),
+        ("tokens-missing", R.coder_out, ("orchestrator", "tokens", "--role", "Coder", *SLUG), "Missing: --tokens",
+         "orchestrator " + USAGE, None, False),
+        ("return-role-not-a-choice", R.plan, ("orchestrator", "return", "--role", "PR-Author", *SLUG, *CC),
+         "--role takes Planner, Plan-Reviewer, Coder or Code-Reviewer, not PR-Author.", "orchestrator " + USAGE,
+         None, False),
         ("tokens-not-a-number", R.coder_out, ("orchestrator", "tokens", "--role", "Coder", "--tokens", "52k",
                                               *SLUG), "--tokens takes a whole number", "again with the number",
          None, False),
@@ -329,7 +383,11 @@ TABLES = {
         ("close-fails", R.close_fails, ("pr", "open", "--path", "push-only", *SLUG, *CC, "--write"),
          "Pushed demo to origin.", "could not be closed", None, True),
         ("bad-path", R.folded, ("pr", "open", "--path", "pushed", *SLUG, *CC, "--write"),
-         "--path takes open, push-only or existing", "Path: line", None, False),
+         "--path takes open, push-only or existing, not pushed.", "pr " + USAGE, None, False),
+        ("check-option-of-open", R.code_signed, ("pr", "check", *SLUG, *CC, "--path", "open"),
+         unknown("path", ("harness", "slug")), AGAIN, None, False),
+        ("open-missing", R.folded, ("pr", "open", *SLUG, "--write"), "Missing: --harness, --path", "pr " + USAGE,
+         None, False),
         ("preflight-refused-at-open", R.ls_remote_refused, ("pr", "open", "--path", "push-only", *SLUG, *CC,
                                                             "--write"),
          "A sandbox refused", "outside the sandbox", None, True),
@@ -337,14 +395,27 @@ TABLES = {
     "wayfinder": [
         ("no-templates", R.repo, ("wayfinder", "start", "--effort", "demo", "--skill-dir", "nowhere"),
          "has no references/overview-template.md", "invoke vdd-setup", None, False),
+        ("start-missing", R.repo, ("wayfinder", "start", "--effort", "demo"), "Missing: --skill-dir",
+         "wayfinder " + USAGE, None, False),
+        ("start-option-of-loop", R.repo, ("wayfinder", "start", "--effort", "demo", "--skill-dir", "x", *SLUG),
+         unknown("slug", ("effort", "skill-dir")), AGAIN, None, False),
     ],
     "setup": [
         ("unknown-harness", R.repo, ("setup", "--harness", "emacs", "--listed", "none", "--glossary-named", "yes"),
          "Unknown Harness: emacs", "Run again with --harness set to one of", None, False),
+        ("missing", R.repo, ("setup", *CC), "Missing: --listed, --glossary-named", "setup " + USAGE, None, False),
+        ("glossary-named-not-a-choice", R.repo, ("setup", *CC, "--listed", "none", "--glossary-named", "maybe"),
+         "--glossary-named takes yes, no or absent, not maybe.", "setup " + USAGE, None, False),
+        ("option-of-loop", R.repo, ("setup", *CC, "--listed", "none", "--glossary-named", "yes", *SLUG),
+         unknown("slug", ("glossary-named", "harness", "listed", "user-answer", "write")), AGAIN, None, False),
     ],
     "brainstorm": [
         ("unknown-idea", R.store, ("brainstorm", "show", "--idea", "main-ide"), "No idea named main-ide",
          "with the slug as the user meant it", None, False),
+        ("show-missing", R.store, ("brainstorm", "show"), "Missing: --idea", "brainstorm " + USAGE, None, False),
+        ("set-option-of-new", R.store, ("brainstorm", "set", "--idea", "x", "--parent", "y", "--write"),
+         unknown("parent", ("decision", "fog", "idea", "importance", "reopen-when", "size", "status", "title", "tldr",
+                            "write")), AGAIN, None, False),
     ],
 }
 

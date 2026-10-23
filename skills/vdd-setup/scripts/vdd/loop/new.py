@@ -6,20 +6,20 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .. import args, gitcmd, loopfile, loopstate, places, preflight, textfile, workfile
+from .. import catalog, gitcmd, loopfile, loopstate, places, preflight, textfile, workfile
 from ..harness import Harness
 from ..out import Failure, Output
-from .loop import ANSWERS, check_answers, usage
+from .loop import ANSWERS, check_answers
 
 
 def quoted(value: str) -> str:
     return '"%s"' % value if " " in value else value
 
 
-def new(root: str, values: dict[str, Any], harness: Harness) -> int:
+def new(root: str, ctx: catalog.Context, harness: Harness) -> int:
+    values = ctx.values
     loopfile.refuse_root(root)
     slug = values["slug"]
-    args.require(values, ["slug"], usage())
     loopfile.check_slug(slug)
     check_answers(values, ANSWERS)
     out = Output()
@@ -70,7 +70,7 @@ def new(root: str, values: dict[str, Any], harness: Harness) -> int:
         "Harness": harness.label,
     }
     if values["write"]:
-        args.require(values, [option for option, _ in ANSWERS], usage())
+        ctx.require(*(option for option, _ in ANSWERS))
         for option, name in ANSWERS:
             fields[name] = values[option]
         return write_new(root, slug, fields, state, out, continuing)
@@ -172,8 +172,6 @@ def check_leftover(slug: str, leftover: str | None, answer: str | None) -> bool:
     its kind does not allow."""
     if answer is None:
         return False
-    if answer != "continue":
-        raise Failure("--leftover takes continue.", "Run %s for this command's usage." % usage())
     if leftover is None:
         raise Failure(
             "There is no .scratch/%s/ to continue. Nothing was written." % slug,

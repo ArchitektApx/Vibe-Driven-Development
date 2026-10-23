@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import signal
 from types import FrameType
-from typing import Any, NoReturn
+from typing import NoReturn
 
-from . import args, doorbells, harness as harnesses, places, textfile
+from . import catalog, doorbells, harness as harnesses, places, textfile
 from .harness import Harness
 from .out import Failure, Output, or_list
 
@@ -49,29 +49,15 @@ HELP = [
     "branch is checked out, else the only open loop. Run every command from the repository root.",
 ]
 
-SPEC = {
-    "role": args.VALUE,
-    "harness": args.VALUE,
-    "write": args.FLAG,
-    "pasted": args.VALUE,
-    "resumed": args.FLAG,
-    "slug": args.VALUE,
-}
-
-
-def usage() -> str:
-    return "%s doorbell --help" % places.command()
-
 
 def run(argv: list[str]) -> int:
-    return args.run_group(argv, "doorbell", dict.fromkeys(("ring", "wait", "take"), SPEC), HELP,
-                          "Run the command your skill or the last Next: line names.", dispatch)
+    return catalog.run("doorbell", argv, HELP, "Run the command your skill or the last Next: line names.", dispatch)
 
 
-def dispatch(sub: str, values: dict[str, Any]) -> int:
-    harness = harnesses.from_option(values, usage())
+def dispatch(ctx: catalog.Context) -> int:
+    sub, values = ctx.command, ctx.values
+    harness = harnesses.from_option(values, ctx.usage)
     role = values["role"]
-    args.choice(role, doorbells.ROLES, "--role takes Planner or Orchestrator.", "Run %s for the usage." % usage())
     place = doorbells.Place.find(values["slug"])
     if sub == "ring":
         return ring(place, role, harness, values["write"])
