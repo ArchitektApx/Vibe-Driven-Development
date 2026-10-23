@@ -248,12 +248,10 @@ def apply_branch(round_: Round, decision: str, out: Output) -> None:
     if not call.ok:
         error = call.err.strip()
         if call.refused:
-            raise Failure(
-                "git could not switch to %s: %s" % (round_.branch, error),
-                "A sandbox refused git. Rerun %s outside the sandbox, the way your Harness grants that; when "
-                "that is denied too, tell the user git could not check out the feature branch %s, and stop."
-                % (round_.command("start"), round_.branch),
-            )
+            raise gitcmd.sandbox_refusal(
+                call, round_.command("start"),
+                "tell the user git could not check out the feature branch %s, and stop." % round_.branch,
+                ["git could not switch to %s." % round_.branch])
         raise Failure(
             "git could not switch to %s: %s" % (round_.branch, error),
             "Tell the user git could not check out the feature branch %s, and stop." % round_.branch,

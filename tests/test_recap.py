@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import stat
+import time
 import unittest
 
 from scenes import CC, FINDINGS, PLAN_REVIEW_1, SLUG, Staged
@@ -407,6 +408,44 @@ class Unreadable(RecapTest):
         self.assertIn("format version 2", result.lines[0])
         self.assertTrue(result.last.startswith("Next: "), result)
         self.assertEqual(dict((name, self.read(name)) for name in names), before)
+
+
+class GitTimeout(RecapTest):
+    @unittest.skipIf(os.name == "nt", "a sleeping gpg.program is a POSIX script")
+    def test_a_signing_call_that_hangs_skips_the_fold(self):
+        """Prevents a fold waiting for ever on a signing call, as on a
+        pinentry dialog a hidden Session never sees: the call ends after the
+        timeout, and the fold skips naming the call and the seconds."""
+        argv = self.fold()
+        signed = self.sha()
+        gpg = self.box.stub("gpg-sleeps", "sleep 30\n")
+        self.git("config", "commit.gpgSign", "true")
+        self.git("config", "gpg.program", gpg)
+        started = time.monotonic()
+        result = self.box.run(*argv, env=self.env({"VDD_GIT_TIMEOUT_SECONDS": "2"}))
+        self.assertLess(time.monotonic() - started, 25, result)
+        self.assertEqual(result.code, 0, result)
+        skip = [line for line in result.lines if line.startswith("Not folded: ")]
+        self.assertEqual(len(skip), 1, result)
+        self.assertEqual(skip[0], "Not folded: signing a folded commit failed: git commit-tree -S timed out after 2 "
+                                  "seconds.")
+        self.assertEqual(self.sha("demo"), signed)
+
+    @unittest.skipIf(os.name == "nt", "a git wrapper on PATH is a POSIX script")
+    def test_a_fold_call_that_hangs_is_named_once(self):
+        """Prevents the Skip reason naming a timed-out call twice, once
+        before its error line and once in it."""
+        argv = self.fold()
+        signed = self.sha()
+        real = shutil.which("git")
+        self.box.stub("git", 'if [ "$1" = commit-tree ]; then exec sleep 30; fi\nexec \'%s\' "$@"\n' % real)
+        result = self.box.run(*argv, env=self.env({"PATH": self.box.bin + os.pathsep + os.environ.get("PATH", ""),
+                                                   "VDD_GIT_TIMEOUT_SECONDS": "1"}))
+        self.assertEqual(result.code, 0, result)
+        skip = [line for line in result.lines if line.startswith("Not folded: ")]
+        self.assertEqual(len(skip), 1, result)
+        self.assertRegex(skip[0], r"^Not folded: a git error: git commit-tree [0-9a-f]+ timed out after 1 seconds\.$")
+        self.assertEqual(self.sha("demo"), signed)
 
 
 if __name__ == "__main__":

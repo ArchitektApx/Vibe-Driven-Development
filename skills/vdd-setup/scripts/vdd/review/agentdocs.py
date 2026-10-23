@@ -17,7 +17,7 @@ import posixpath
 import re
 from typing import Container
 
-from .. import gitcmd
+from .. import gitcmd, textfile
 
 LINK = re.compile(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
@@ -64,23 +64,44 @@ def targets(path: str, text: str) -> list[str]:
 
 def listed(root: str, base: str, tip: str) -> list[str] | None:
     """The Agent documents in base...tip, sorted, or None when git cannot
-    read the range."""
-    call = gitcmd.git(root, "diff", "--name-only", "%s...%s" % (base, tip))
+    read the range. Refuses a call that timed out."""
+    call = gitcmd.answered(gitcmd.git(root, "diff", "--name-only", "%s...%s" % (base, tip)))
     if not call.ok:
         return None
     changed = set(line.strip() for line in call.out.split("\n") if line.strip())
-    call = gitcmd.git(root, "ls-tree", "-r", "--name-only", tip)
+    call = gitcmd.answered(gitcmd.git(root, "ls-tree", "-r", "--name-only", tip))
     if not call.ok:
         return None
     tree = set(line.strip() for line in call.out.split("\n") if line.strip())
     found = set(path for path in changed if direct(path, tree))
-    for path in sorted(tree):
-        if not direct(path, tree):
-            continue
-        call = gitcmd.git(root, "show", "%s:%s" % (tip, path))
-        if not call.ok:
-            continue
-        for target in targets(path, call.out):
+    for path, text in read_all(root, tip, [path for path in sorted(tree) if direct(path, tree)]).items():
+        for target in targets(path, text):
             if target in changed and target.endswith(".md"):
                 found.add(target)
     return sorted(found)
+
+
+def read_all(root: str, tip: str, paths: list[str]) -> dict[str, str]:
+    """path -> its text at tip, for every path git can read, in one batch
+    call however many there are. A missing one is left out."""
+    if not paths:
+        return {}
+    request = "".join("%s:%s\n" % (tip, path) for path in paths).encode("utf-8")
+    call = gitcmd.answered(gitcmd.git(root, "cat-file", "--batch", data=request))
+    if not call.ok:
+        return {}
+    texts: dict[str, str] = {}
+    data = call.data
+    at = 0
+    for path in paths:
+        end = data.find(b"\n", at)
+        if end < 0:
+            break
+        header = data[at:end].split(b" ")
+        at = end + 1
+        if len(header) != 3 or not header[2].isdigit():
+            continue  # "<name> missing" or "ambiguous": nothing follows
+        size = int(header[2])
+        texts[path] = textfile.decode(data[at:at + size])
+        at += size + 1
+    return texts

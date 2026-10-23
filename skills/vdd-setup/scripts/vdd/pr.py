@@ -88,20 +88,12 @@ def gh(root: str, *argv: str) -> gitcmd.Call:
     return gitcmd.run(root, ["gh"] + list(argv), timeout=TIMEOUT_SECONDS)
 
 
-def call_text(call: gitcmd.Call) -> str:
-    return " ".join(call.argv[:3])
-
-
 def refusal(
     call: gitcmd.Call, command: str, otherwise: str, what: str = "Nothing was pushed or written; the loop stays open.",
 ) -> Failure:
     """The Failure for a call a sandbox refused inside the tool; what says
     what happened before it."""
-    return Failure(
-        ["A sandbox refused %s inside the tool: %s" % (call_text(call), call.first_error()), what],
-        "Rerun %s outside the sandbox, the way your Harness grants that; when that is refused too, %s" % (
-            command, otherwise),
-    )
+    return gitcmd.sandbox_refusal(call, command, otherwise, [what])
 
 
 def check_command(loop: loopfile.Loop, harness: Harness) -> str:
@@ -284,12 +276,12 @@ def check(loop: loopfile.Loop, harness: Harness) -> int:
         try:
             print_history(out, history(root))
         except Refused as error:
-            raise refusal(error.call, command, "tell the user %s was refused, and stop." % call_text(error.call))
+            raise refusal(error.call, command, "tell the user %s was refused, and stop." % gitcmd.call_text(error.call))
     try:
         path = path_of(loop)
     except Refused as error:
         raise refusal(error.call, command,
-                      "tell the user %s was refused, and stop." % call_text(error.call))
+                      "tell the user %s was refused, and stop." % gitcmd.call_text(error.call))
     print_path(out, path)
     if path.name == NO_PR:
         return out.finish(signoff.pr_step(loop))
@@ -384,7 +376,7 @@ def open_pr(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wante
     try:
         path = path_of(loop)
     except Refused as error:
-        raise refusal(error.call, command, "tell the user %s was refused, and stop." % call_text(error.call))
+        raise refusal(error.call, command, "tell the user %s was refused, and stop." % gitcmd.call_text(error.call))
     out = Output()
     if path.name != wanted:
         out.line("The path is no longer %s: %s. Nothing was pushed." % (wanted, changed(path, wanted)))

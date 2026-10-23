@@ -61,10 +61,6 @@ def quote_path_off() -> dict[str, str]:
 QUOTE_PATH = quote_path_off()
 
 
-def command_text(call: gitcmd.Call) -> str:
-    return " ".join(["git"] + call.argv[1:3])
-
-
 class Repo:
     """git in the repository root, every call checked."""
 
@@ -476,12 +472,7 @@ def run(loop: Loop, harness: Harness, write: bool) -> int:
     except Skip as skip:
         return skipped(loop, state, out, signed, skip.reason, write, harness)
     except gitcmd.Refused as error:
-        raise Failure(
-            ["A sandbox refused %s inside the tool: %s" % (command_text(error.call), error.call.first_error()),
-             "Nothing was folded or written; %s stays at the signed commit %s." % (branch, signed[:7])],
-            "Rerun %s outside the sandbox, the way your Harness grants that; when that is refused too, tell the "
-            "user %s was refused, and stop." % (fold_command(loop, harness, write), command_text(error.call)),
-        )
+        raise refused_inside(loop, harness, write, error.call, branch, signed)
     before, chain, tip, lines = result
     if not write:
         out.line("Would fold %s: %d commits into %d." % (branch, before, len(chain)))
@@ -502,16 +493,17 @@ def run(loop: Loop, harness: Harness, write: bool) -> int:
             repo.call("update-ref", "-m", "vdd loop fold", "refs/heads/" + branch, tip, signed)
         except GitFailed as error:
             return skipped(loop, state, out, signed, "a git error: %s: %s" % (
-                command_text(error.call), error.call.first_error()), write, harness)
+                gitcmd.call_text(error.call), error.call.first_error()), write, harness)
         except gitcmd.Refused as error:
-            raise Failure(
-                ["A sandbox refused %s inside the tool: %s" % (command_text(error.call), error.call.first_error()),
-                 "Nothing was folded or written; %s stays at the signed commit %s." % (branch, signed[:7])],
-                "Rerun %s outside the sandbox, the way your Harness grants that; when that is refused too, tell "
-                "the user %s was refused, and stop." % (fold_command(loop, harness, write), command_text(error.call)),
-            )
+            raise refused_inside(loop, harness, write, error.call, branch, signed)
     recap.commit(loop, state, store, [loopstate.folded_line(tip, signed)])
     return folded(loop, out, branch, signed, record)
+
+
+def refused_inside(loop: Loop, harness: Harness, write: bool, call: gitcmd.Call, branch: str, signed: str) -> Failure:
+    return gitcmd.sandbox_refusal(
+        call, fold_command(loop, harness, write), "tell the user %s was refused, and stop." % gitcmd.call_text(call),
+        ["Nothing was folded or written; %s stays at the signed commit %s." % (branch, signed[:7])])
 
 
 def moved_record(loop: Loop, repo: Repo, branch: str, signed: str) -> recap.Record | None:
@@ -550,7 +542,7 @@ def fold(
     try:
         return checked_fold(loop, state, repo, signed, index_path, write)
     except GitFailed as error:
-        raise Skip("a git error: %s: %s" % (command_text(error.call), error.call.first_error()))
+        raise Skip("a git error: %s: %s" % (gitcmd.call_text(error.call), error.call.first_error()))
 
 
 def checked_fold(
