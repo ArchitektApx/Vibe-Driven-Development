@@ -322,7 +322,9 @@ def set_cmd(store: Store, values: dict[str, Any]) -> Result:
             changed.append((slug, was, idea.status))
     lines += change_lines(store, slugs, changed, fields, status)
     nxt = "Tell the user in a line or two what changed."
-    if status == "decided":
+    if not changed:
+        nxt = "Tell the user nothing changed."
+    elif status == "decided":
         nxt = ("Tell the user it is decided, and give them the line to start the Role they chose in a fresh Session: "
                "vdd-start-loop for one loop or vdd-wayfinder for more, as their Harness types it, with the path "
                "above as what to plan.")
@@ -401,6 +403,6 @@ def change_lines(store: Store, slugs: list[str], changed: list[tuple[str, str, s
                     lines.append("Open ideas that name %s and were last updated before today (check whether this "
                                  "landing changes them): %s." % (slug, ", ".join(
                                      "%s (%s)" % (s, store.ideas[s].get("last-updated")) for s in stale)))
-        if idea.status == "decided" and status == "decided":
+        if idea.status == "decided" and status == "decided" and slug in changed_slugs:
             lines.append("Decided idea for the next Role: %s" % rel(store.root, idea.path))
     return lines

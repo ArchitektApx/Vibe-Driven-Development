@@ -335,6 +335,28 @@ class SetStatus(BrainstormTest):
         self.assertIn("part-one is done already; nothing changed.", result.text)
         self.assertEqual(self.ideas_tree(), before)
 
+    def test_a_set_that_changes_nothing_says_so(self):
+        """Prevents the Brainstormer reporting a change the tool did not
+        make (T11): Next: says nothing changed only when no named idea
+        changed."""
+        self.ok("set", "--idea", "part-one", "--status", "discussed", "--write")
+        result = self.ok("set", "--idea", "part-one", "--status", "discussed", "--write")
+        self.assertIn("part-one is discussed already; nothing changed.", result.lines)
+        self.assertEqual(result.last, "Next: Tell the user nothing changed.")
+        result = self.ok("set", "--idea", "part-one", "--idea", "part-two", "--status", "discussed", "--write")
+        self.assertIn("part-one is discussed already; nothing changed.", result.lines)
+        self.assertIn("part-two: idea -> discussed.", result.lines)
+        self.assertEqual(result.last, "Next: Tell the user in a line or two what changed.")
+
+    def test_a_repeated_decided_offers_no_second_handoff(self):
+        """Prevents the next-Role offer made twice for one decision (T11):
+        a repeated decided prints no path line and says nothing changed."""
+        self.ok("set", "--idea", "main-idea", "--status", "decided", "--decision", "one loop", "--write")
+        result = self.ok("set", "--idea", "main-idea", "--status", "decided", "--decision", "one loop", "--write")
+        self.assertIn("main-idea is decided already; nothing changed.", result.lines)
+        self.assertNotIn("Decided idea for the next Role:", result.text)
+        self.assertEqual(result.last, "Next: Tell the user nothing changed.")
+
     def test_a_repeated_close_with_another_field_adds_no_decision(self):
         """Prevents a second close paragraph when a done idea is set done
         again with another field (red team M15)."""
