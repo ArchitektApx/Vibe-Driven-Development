@@ -7,10 +7,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .. import gitcmd
-from ..out import Failure, Output
+from ..out import Failure
 
 if TYPE_CHECKING:
-    from .coder import Round
+    from .rounds import Round
 
 
 def git(root: str, *argv: str) -> gitcmd.Call:
@@ -73,25 +73,30 @@ def decide_branch(round_: Round) -> str | None:
     return "switch" if branch_exists(root, round_.branch) else "create"
 
 
-def to_branch(round_: Round, out: Output, write: bool = True) -> bool:
-    """Put the Coder on the feature branch, or refuse naming both branches.
-    Without write, switch nothing and return whether a switch is owed."""
-    decision = decide_branch(round_)
+def tip_after(round_: Round, decision: str | None) -> str:
+    """The sha HEAD holds once the switch decision applied, read before it:
+    the feature branch's tip on a switch, HEAD itself otherwise."""
+    if decision != "switch":
+        return head(round_.loop.root)
+    return git(round_.loop.root, "rev-parse", "refs/heads/" + round_.branch).out.strip()
+
+
+def would_branch(round_: Round, decision: str) -> str:
+    """The dry run's line for a switch decide_branch owes."""
+    if decision == "switch":
+        return "Would switch to the feature branch %s." % round_.branch
+    return "Would create the feature branch %s from %s and switch to it." % (round_.branch, round_.base)
+
+
+def on_branch(round_: Round) -> str:
+    return "On the feature branch %s." % round_.branch
+
+
+def apply_branch(round_: Round, decision: str | None) -> list[str]:
+    """Switch to the feature branch as decide_branch decided; the line that
+    says where the Coder now is."""
     if decision is None:
-        out.line("On the feature branch %s." % round_.branch)
-        return False
-    if not write:
-        if decision == "switch":
-            out.line("Would switch to the feature branch %s." % round_.branch)
-        else:
-            out.line("Would create the feature branch %s from %s and switch to it." % (round_.branch, round_.base))
-        return True
-    apply_branch(round_, decision, out)
-    return False
-
-
-def apply_branch(round_: Round, decision: str, out: Output) -> None:
-    """Switch to the feature branch as decide_branch decided."""
+        return [on_branch(round_)]
     root = round_.loop.root
     if decision == "switch":
         call = git(root, "checkout", "-q", round_.branch)
@@ -110,7 +115,7 @@ def apply_branch(round_: Round, decision: str, out: Output) -> None:
             "git could not switch to %s: %s" % (round_.branch, error),
             "Tell the user git could not check out the feature branch %s, and stop." % round_.branch,
         )
-    out.done(verb)
+    return [verb]
 
 
 def new_untracked(round_: Round) -> list[str]:

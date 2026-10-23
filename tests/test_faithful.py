@@ -202,9 +202,9 @@ class LoopRefusals(Faithful):
 SHORT = re.compile(r"\b[0-9a-f]{7}\b")
 
 
-class LoopPlans(Staged):
-    """A loop write command's dry run writes nothing, and its lines name
-    exactly the change its --write makes."""
+class Plans(Staged):
+    """Runs a write command as a dry run and with --write, and names what
+    each changed."""
 
     def tree(self):
         """Every file of the project outside .git, and every git ref."""
@@ -232,6 +232,11 @@ class LoopPlans(Staged):
 
     def body(self, result):
         return result.lines[:-1]
+
+
+class LoopPlans(Plans):
+    """A loop write command's dry run writes nothing, and its lines name
+    exactly the change its --write makes."""
 
     def test_set(self):
         """Prevents loop set's dry run naming other lines than --write sets."""
@@ -322,6 +327,76 @@ class LoopPlans(Staged):
             ". demo would stay")[0])
         self.assertEqual(changed, [".scratch/demo/RECAP.md", ".scratch/demo/loop-state", ".scratch/demo/recap.json"])
         self.assertIn("fold skipped ", self.state())
+
+
+class RoundPlans(Plans):
+    """A Coder's or a reviewer's round command: its dry run writes nothing,
+    and its lines name the change its --write makes."""
+
+    def test_coder_start(self):
+        """Prevents coder start's dry run naming another branch or frame than
+        --write creates and writes."""
+        self.signed()
+        dry, written, changed = self.plan_and_write("coder", "start", *SLUG)
+        self.assertEqual(self.body(dry), ["Would start code round 1 on demo and write the frame of "
+                                          ".scratch/demo/FIXES.md."])
+        self.assertEqual(self.body(written)[:2], ["Created the feature branch demo from main and switched to it.",
+                                                  "Wrote the frame of .scratch/demo/FIXES.md."])
+        self.assertEqual(changed, [".scratch/demo/FIXES.md", ".scratch/demo/coder-untracked-1",
+                                   ".scratch/demo/loop-state", "ref:refs/heads/demo"])
+        self.assertEqual(self.git("branch", "--show-current"), "demo")
+
+    def test_coder_check(self):
+        """Prevents coder check's dry run passing a round --write records
+        differently, or hiding a file it writes."""
+        self.coder_started()
+        dry, written, changed = self.plan_and_write("coder", "check", *SLUG)
+        self.assertEqual(self.body(dry), ["FIXES.md passes: round 1."])
+        self.assertEqual(self.body(written)[0], "FIXES.md: round 1 checked and written.")
+        self.assertIn("VDD Coder: FIXES.md written, round 1. Read it.", written.lines)
+        self.assertEqual(changed, [".scratch/demo/FIXES.md", ".scratch/demo/RECAP.md", ".scratch/demo/loop-state",
+                                   ".scratch/demo/recap.json"])
+        self.assertIn("code 1 end ", self.state())
+
+    def test_review_start(self):
+        """Prevents review start's dry run naming another frame than --write
+        writes."""
+        self.plan()
+        self.run_ok("doorbell", "ring", "--role", "Planner", *CC, *SLUG, "--write")
+        dry, written, changed = self.plan_and_write("review", "start", "--role", "Plan-Reviewer", *SLUG)
+        self.assertEqual(self.body(dry), ["Would write the frame of .scratch/demo/PLAN-REVIEW.md for round 1."])
+        self.assertEqual(self.body(written)[0], "Wrote the frame of .scratch/demo/PLAN-REVIEW.md.")
+        self.assertEqual(changed, [".scratch/demo/PLAN-REVIEW.md", ".scratch/demo/carried-plan.md",
+                                   ".scratch/demo/loop-state"])
+
+    def test_review_check(self):
+        """Prevents review check's dry run giving another outcome than --write
+        records, or hiding a file it writes."""
+        self.plan_review_written()
+        dry, written, changed = self.plan_and_write("review", "check", "--role", "Plan-Reviewer", *SLUG)
+        self.assertEqual(self.body(dry), ["PLAN-REVIEW.md passes: round 1, 2 new findings, 0 closed.",
+                                          "Open: 0 blocker, 1 major, 1 minor."])
+        self.assertEqual(self.body(written)[:2], ["PLAN-REVIEW.md: round 1 checked and written.",
+                                                  "Open: 0 blocker, 1 major, 1 minor."])
+        self.assertEqual(changed, [".scratch/demo/PLAN-REVIEW.md", ".scratch/demo/RECAP.md",
+                                   ".scratch/demo/loop-state", ".scratch/demo/recap.json"])
+        self.assertIn("plan 1 reviewed open 1,2 ", self.state())
+
+    def test_review_add(self):
+        """Prevents review add's dry run naming other findings or files than
+        --write adds and writes."""
+        self.folded()
+        self.box.write("findings.md", FINDINGS)
+        dry, written, changed = self.plan_and_write("review", "add", *SLUG, "--from", "findings.md")
+        self.assertEqual(self.body(dry)[:3], ["Would add 2 findings after round 1's Sign-off:",
+                                              "### 1. major (open): docs/a.md:3", "### 2. minor (open): src/b.py:9"])
+        self.assertEqual(self.body(dry)[-1], "Would rewrite .scratch/demo/CODEREVIEW.md, record the findings in "
+                                             ".scratch/demo/loop-state and write .scratch/demo/RECAP.md.")
+        self.assertEqual(self.body(written)[:2], ["Wrote .scratch/demo/CODEREVIEW.md.",
+                                                  "Wrote .scratch/demo/RECAP.md."])
+        self.assertEqual(changed, [".scratch/demo/CODEREVIEW.md", ".scratch/demo/RECAP.md",
+                                   ".scratch/demo/loop-state", ".scratch/demo/recap.json"])
+        self.assertIn("code 1 user open 1,2 ", self.state())
 
 
 class LeftOut(Staged):

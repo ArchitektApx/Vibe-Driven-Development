@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Callable
 from .. import fixes, workfile
 
 if TYPE_CHECKING:
-    from .coder import Round
+    from .rounds import Round
 
 ANSWERS = ("fixed", "pushback")
 

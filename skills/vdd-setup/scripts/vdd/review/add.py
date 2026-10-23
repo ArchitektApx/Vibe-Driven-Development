@@ -16,7 +16,7 @@ from typing import Callable
 
 from .. import catalog, gitcmd, loopfile, loopstate, runner, textfile, workfile
 from ..loopstate import recap, records
-from ..out import Failure, Output, and_list
+from ..out import Failure, and_list
 from . import rounds
 
 NAME = "CODEREVIEW.md"
@@ -200,7 +200,11 @@ def not_carried(loop: loopfile.Loop, entry: Entry) -> str | None:
 
 # --- the command ---
 
-def run(loop: loopfile.Loop, source: str, write: bool) -> int:
+def plan(loop: loopfile.Loop, source: str) -> runner.Plan:
+    """The user's findings added as a plan: CODEREVIEW.md rewritten as the
+    user's open review before the commit point, since the user line it
+    records names its headings; a rerun before the commit point numbers the
+    same findings the same way and writes the same file."""
     state = loop.load_state()
     state.refuse_v1(loop.slug, "review add")
     refuse_moved_fold(state, loop, source)
@@ -211,7 +215,7 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
     # whose commit point passed: a rerun adds it no second time.
     findings = [f for f in every if not any(same(block, f) for block in kept)]
     if not findings:
-        return already_added(loop, state, entry, source, write)
+        return already_added(loop, state, entry, source)
     carried = not_carried(loop, entry)
     number = entry.first
     blocks: list[list[str]] = [block.text_lines() for block in kept]
@@ -234,37 +238,28 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
     reopening = state.status == loopstate.CLOSED
     user = loopstate.user_line(entry.round, numbers, counts, number, len(numbers))
     store = records.Records.load(loop)
-    out = Output()
-    if not write:
-        out.line("Would add %d finding%s after round %d's Sign-off%s:" % (
-            len(findings), "" if len(findings) == 1 else "s", entry.round,
-            ", joining the open entry of findings %s" % workfile.join_numbers(entry.joined.raised())
-            if entry.joined else ""))
-        for head in headings:
-            out.line(head)
-        out.line(status)
-        out.line("Would rewrite %s, record the findings in %s/%s and write %s/%s." % (
-            review_path, loop.tracker, loopstate.STATE_NAME, loop.tracker, recap.NAME))
-        if reopening:
-            out.line("Would reopen the closed loop %s." % loop.slug)
-        if carried:
-            out.line(carried)
-        return out.finish("Run %s" % command(loop, source))
-    # CODEREVIEW.md first: the committed user line names headings that must
-    # already be in it. A rerun before the commit point numbers the same
-    # findings the same way and writes the same file.
-    textfile.write_or_refuse(os.path.join(loop.dir, NAME), "\n".join(lines) + "\n", review_path,
-                             "Otherwise tell the user CODEREVIEW.md cannot be written, and stop.")
-    runner.apply(runner.record_step(store, state, [], [user], reopen_loop=reopening))
-    out.line("Wrote %s." % review_path)
-    out.line("Wrote %s/%s." % (loop.tracker, recap.NAME))
-    out.line("Recorded in %s/%s: %s" % (loop.tracker, loopstate.STATE_NAME, user))
+    dry = ["Would add %d finding%s after round %d's Sign-off%s:" % (
+        len(findings), "" if len(findings) == 1 else "s", entry.round,
+        ", joining the open entry of findings %s" % workfile.join_numbers(entry.joined.raised())
+        if entry.joined else "")]
+    dry += headings
+    dry.append(status)
+    dry.append("Would rewrite %s, record the findings in %s/%s and write %s/%s." % (
+        review_path, loop.tracker, loopstate.STATE_NAME, loop.tracker, recap.NAME))
+    done = ["Wrote %s." % review_path, "Wrote %s/%s." % (loop.tracker, recap.NAME),
+            "Recorded in %s/%s: %s" % (loop.tracker, loopstate.STATE_NAME, user)]
     if reopening:
-        out.line("Reopened the loop %s." % loop.slug)
-    out.line("Findings %s open: %d blocker, %d major, %d minor." % ((workfile.join_numbers(numbers),) + counts))
+        dry.append("Would reopen the closed loop %s." % loop.slug)
+        done.append("Reopened the loop %s." % loop.slug)
+    done.append("Findings %s open: %d blocker, %d major, %d minor." % ((workfile.join_numbers(numbers),) + counts))
     if carried:
-        out.line(carried)
-    return out.finish(CARRY_ON)
+        dry.append(carried)
+        done.append(carried)
+    effects: list[runner.Effect] = [runner.WriteFile(
+        os.path.join(loop.dir, NAME), "\n".join(lines) + "\n", review_path,
+        "Otherwise tell the user CODEREVIEW.md cannot be written, and stop.", dry, done)]
+    effects += runner.record_step(store, state, [], [user], reopen_loop=reopening)
+    return runner.Plan(effects, CARRY_ON, dry_next="Run %s" % command(loop, source))
 
 
 def same(block: workfile.Block, finding: Finding) -> bool:
@@ -277,21 +272,21 @@ def same(block: workfile.Block, finding: Finding) -> bool:
             and [line.rstrip() for line in body] == body_lines(finding.body))
 
 
-def already_added(loop: loopfile.Loop, state: loopstate.State, entry: Entry, source: str, write: bool) -> int:
+def already_added(loop: loopfile.Loop, state: loopstate.State, entry: Entry, source: str) -> runner.Plan:
     """Every finding of source is in the open entry: a rerun after the commit
     point, which writes RECAP.md again where a failure left it behind."""
     joined = entry.joined
     if joined is None:
         raise RuntimeError("already_added without an open entry.")
     store = records.Records.load(loop)
-    out = Output()
     numbers = workfile.join_numbers(joined.raised())
-    wrote = write and recap.render_recap(loop, state, store)
-    out.line("The findings of %s are already added after round %d's Sign-off, as findings %s. %s" % (
-        source, entry.round, numbers,
-        "Wrote %s/%s again." % (loop.tracker, recap.NAME) if wrote else "Nothing was written."))
-    out.line("Findings %s open: %d blocker, %d major, %d minor." % ((numbers,) + tuple(joined.counts)))
-    return out.finish(CARRY_ON)
+    added = "The findings of %s are already added after round %d's Sign-off, as findings %s. " % (
+        source, entry.round, numbers)
+    still = "Findings %s open: %d blocker, %d major, %d minor." % ((numbers,) + tuple(joined.counts))
+    recap_ = runner.RenderRecap(store, state, dry=[added + "Nothing was written.", still],
+                                done=[added + "Wrote %s/%s again." % (loop.tracker, recap.NAME), still],
+                                unchanged=[added + "Nothing was written.", still])
+    return runner.Plan([recap_], CARRY_ON, dry_next=CARRY_ON)
 
 
 CARRY_ON = ("Tell the Orchestrator the loop has your findings; it carries on with %s."
