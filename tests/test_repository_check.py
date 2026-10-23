@@ -90,8 +90,10 @@ class RepositoryCheck(unittest.TestCase):
         self.repo_git("add", "--", path)
 
     def read(self, path):
+        """The file as text with LF line ends, so an edit matches on a Windows
+        checkout, whose core.autocrlf wrote the copied files with CRLF."""
         with open(os.path.join(self.repo, path), "rb") as handle:
-            return handle.read().decode("utf-8")
+            return handle.read().decode("utf-8").replace("\r\n", "\n")
 
     def edit(self, path, old, new):
         text = self.read(path)

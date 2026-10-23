@@ -43,7 +43,7 @@ class RunnerTest(ToolTest):
         env = self.box.env(TMPDIR=temp, TEMP=temp, TMP=temp, VDD_TEST_PYCACHE=None)
         proc = subprocess.run([sys.executable, "-B", RUNNER, "-s", start], env=env, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, timeout=300)
-        out = proc.stdout.decode("utf-8", "replace")
+        out = proc.stdout.decode("utf-8", "replace").replace("\r\n", "\n")
         self.assertNotEqual(proc.returncode, 0, out)
         self.assertIn("FAILED CLASS: test_fail.Failing", out)
         self.assertIn("THE FAILURE'S OWN MESSAGE", out)
@@ -61,7 +61,7 @@ class RunnerTest(ToolTest):
         env = self.box.env(TMPDIR=temp, TEMP=temp, TMP=temp, VDD_TEST_PYCACHE=None)
         proc = subprocess.run([sys.executable, "-B", RUNNER, "-s", start], env=env, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, timeout=300)
-        out = proc.stdout.decode("utf-8", "replace")
+        out = proc.stdout.decode("utf-8", "replace").replace("\r\n", "\n")
         self.assertEqual(proc.returncode, 0, out)
         self.assertTrue(out.endswith("OK\n"), out)
         self.assertNotIn("PASSING CLASS OUTPUT", out)
