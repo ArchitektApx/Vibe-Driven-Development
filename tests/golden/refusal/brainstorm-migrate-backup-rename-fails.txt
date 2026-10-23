@@ -1,0 +1,4 @@
+$ vdd brainstorm migrate --write
+exit 1
+The old store could not be renamed to the backup (Not a directory); it is untouched and nothing was written.
+Next: If a sandbox refused it and your tools offer a way to rerun the command outside the sandbox, rerun it once that way. Otherwise tell the user a file in .scratch/_brainstorming/ is held open (an editor?), ask them to close it, and run the command again.

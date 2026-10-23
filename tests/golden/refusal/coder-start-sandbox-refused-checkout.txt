@@ -1,0 +1,5 @@
+$ vdd coder start --slug demo --write
+exit 1
+A sandbox refused git checkout demo inside the tool: fatal: Operation not permitted
+git could not switch to demo.
+Next: Rerun <python> "<repo>/skills/vdd-setup/scripts/vdd.py" coder start --slug demo --write outside the sandbox, the way your Harness grants that; when that is refused too, tell the user git could not check out the feature branch demo, and stop.
