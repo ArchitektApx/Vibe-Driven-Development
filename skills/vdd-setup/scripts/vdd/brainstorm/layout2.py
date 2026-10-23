@@ -22,7 +22,7 @@ from ..out import TELL
 from . import journal
 from .ideafile import Idea, is_idea_name, real_date
 from .lock import Lock
-from .store import LAYOUT_FILE, read_once, set_file_day, state_dir, store_dir
+from .store import LAYOUT_FILE, layout, read_once, set_file_day, state_dir, store_dir
 
 FROM, TO = "2", "3"
 NEEDS_USER = False
@@ -57,11 +57,16 @@ def plan_lines(root: str) -> list[str]:
 
 
 def run(root: str, events_raw: list[str], write: bool) -> Result:
-    """The step's lines and what happened: "dry" or "updated"."""
+    """The step's lines and what happened: "dry", "updated", or "moved"
+    when another Session took the store past layout 2 while this one
+    waited for the lock."""
     if not write:
         return plan_lines(root), "dry", [LAYOUT_FILE + " (3)"] + ([".state/" + LEDGER + " (removed)"]
                                                      if os.path.isfile(ledger_path(root)) else [])
     with Lock(root, on_take=journal.recover) as lock:
+        if layout(root) != FROM:
+            return lock.lines, "moved", []
+        had_ledger = os.path.isfile(ledger_path(root))
         ledger = read_ledger(root)
         base = store_dir(root)
         for name in sorted(os.listdir(base)):

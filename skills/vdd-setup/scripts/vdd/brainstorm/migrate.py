@@ -169,6 +169,7 @@ def migrate(root: str, events_raw: list[str], write: bool) -> Result:
         step_lines, what, step_would = got
         if what == "moved":
             # Another Session moved the store on while this one waited.
+            lines += step_lines
             continue
         lines += step_lines
         whats.append(what)
