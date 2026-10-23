@@ -18,16 +18,16 @@ TEMPLATES = ("overview-template.md", "handoff-template.md")
 # for a release, as beta-0.16.0-work is.
 EFFORT_PATTERN = "[a-z0-9]+([.-][a-z0-9]+)*"
 
-HELP = [
-    "wayfinder start --effort <slug> --skill-dir <dir>",
-    "  The Wayfinder's first call. Checks the effort slug, reports whether .scratch/<effort>/map.md exists and",
-    "  where Matt Pocock's wayfinder skill is installed, and prints the briefing for wayfinder with the effort",
-    "  and the absolute paths of both templates filled in. --skill-dir is the Wayfinder skill's base",
-    "  directory, the one your Harness reported when the skill loaded; it refuses when a template is missing",
-    "  there. It writes nothing.",
-    "",
-    "Run every command from the repository root.",
-]
+HELP = catalog.Help({
+    "start": [
+        "wayfinder start --effort <slug> --skill-dir <dir>",
+        "  The Wayfinder's first call. Checks the effort slug, reports whether .scratch/<effort>/map.md exists and",
+        "  where Matt Pocock's wayfinder skill is installed, and prints the briefing for wayfinder with the effort",
+        "  and the absolute paths of both templates filled in. --skill-dir is the Wayfinder skill's base",
+        "  directory, the one your Harness reported when the skill loaded; it refuses when a template is missing",
+        "  there. It writes nothing.",
+    ],
+})
 
 BRIEFING = [
     "Briefing for the wayfinding of <effort>:",

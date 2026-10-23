@@ -38,27 +38,29 @@ EXISTING = "existing"
 MANUAL = "manual"
 NO_PR = "no"
 
-HELP = [
-    "pr check --slug <slug> --harness <h>",
-    "  The PR-Author's first call after Sign-off. Reads only, and refuses until the code Loop is signed off.",
-    "  Prints the PR template (the first of PULL_REQUEST_TEMPLATE.md or pull_request_template.md at the",
-    "  repository root, in .github/ or in docs/) or that there is none; with none, the merged-PR history:",
-    "  each title, each body's headings, whether the bodies link issues and the newest body whole, or no",
-    "  history, or could not read. Unless PR: manual or no, it runs the preflight (can push, can open a PR)",
-    "  and the existing-PR check, and prints the path: open, push-only, neither or existing.",
-    "",
-    "pr open --path <open|push-only|existing> --slug <slug> --harness <h> --write",
-    "  After the user confirmed the title and body in .scratch/<slug>/pr-body.md (the title, a blank line, the",
-    "  body). --path is the path pr check printed. Refuses before the fold's outcome is recorded and on a",
-    "  malformed pr-body.md. Runs the preflight and the existing-PR check again and pushes nothing when they",
-    "  give another path. Pushes with git push -u <remote> <feature branch>; on the open path runs gh pr",
-    "  create with the title as an argument and the body on standard input, and on the existing path only",
-    "  pushes; closes the loop. A failed push leaves the loop open; a refused call asks for a rerun outside",
-    "  the sandbox.",
-    "",
-    "--slug names the loop; pass it on every call. --harness names the Harness this Session runs in.",
-    "Run every command from the repository root.",
-]
+HELP = catalog.Help({
+    "check": [
+        "pr check --slug <slug> --harness <h>",
+        "  The PR-Author's first call after Sign-off. Reads only, and refuses until the code Loop is signed off.",
+        "  Prints the PR template (the first of PULL_REQUEST_TEMPLATE.md or pull_request_template.md at the",
+        "  repository root, in .github/ or in docs/) or that there is none; with none, the merged-PR history:",
+        "  each title, each body's headings, whether the bodies link issues and the newest body whole, or no",
+        "  history, or could not read. Unless PR: manual or no, it runs the preflight (can push, can open a PR)",
+        "  and the existing-PR check, and prints the path: open, push-only, neither or existing.",
+    ],
+    "open": [
+        "pr open --path <open|push-only|existing> --slug <slug> --harness <h> --write",
+        "  After the user confirmed the title and body in .scratch/<slug>/pr-body.md (the title, a blank line, the",
+        "  body). --path is the path pr check printed. Refuses before the fold's outcome is recorded and on a",
+        "  malformed pr-body.md. Runs the preflight and the existing-PR check again and pushes nothing when they",
+        "  give another path. Pushes with git push -u <remote> <feature branch>; on the open path runs gh pr",
+        "  create with the title as an argument and the body on standard input, and on the existing path only",
+        "  pushes; closes the loop. A failed push leaves the loop open; a refused call asks for a rerun outside",
+        "  the sandbox.",
+    ]},
+    [
+        "--slug names the loop; pass it on every call. --harness names the Harness this Session runs in.",
+    ])
 
 def run(argv: list[str]) -> int:
     return catalog.run("pr", argv, HELP, "Run the pr command your skill or the last Next: line names.", dispatch)

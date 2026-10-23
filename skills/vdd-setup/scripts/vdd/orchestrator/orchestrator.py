@@ -22,34 +22,45 @@ from .spawn import resume, spawn
 
 USER_REASON = "for the user's findings"
 
-HELP = [
-    "orchestrator start --slug <slug> [--harness <h>]",
-    "  Run on every start of the Orchestrator's Session, a restart included. Records a new session, names the",
-    "  Harness and its Harness file, says where each Loop stands, and prints the one next step: a spawn, the",
-    "  ring to the Planner, the wait for the Planner's Doorbell, the fold at a code Sign-off, or the PR",
-    "  step. Every spawn after a restart is fresh. After the user's findings it spawns the Coder fresh for",
-    "  the next round, with no ring.",
-    "",
-    "orchestrator return --role <Planner|Plan-Reviewer|Coder|Code-Reviewer> --slug <slug> --harness <h>",
-    "  Run after every hosted Role's return whose last line does not start with QUESTION: or BLOCKED:, and",
-    "  with --role Planner once doorbell take printed the Planner's Doorbell. It takes no return line and no",
-    "  token count: the round's outcome is the one its check --write recorded. It prints the next step, a",
-    "  spawn with its Read and Write lists, a resume with its message, the ring, the wait or the fold; a",
-    "  second return for a round already acted on, and a round with no check --write, each say what to do.",
-    "",
-    "orchestrator respawn --role <Plan-Reviewer|Coder|Code-Reviewer> (--policy \"<p>\" | --once) --slug <slug> --write",
-    "  On the user's word: --policy sets the Role's Respawn policy, \"every round\", never or \"over <n>k\"",
-    "  (Claude Code only, from the Coder's subagent_tokens); --once makes the Role's next spawn fresh, and",
-    "  after a BLOCKED prints that fresh spawn for the unfinished round at once. The reviewers start at never;",
-    "  the Coder's policy is asked at Model approval.",
-    "",
-    "orchestrator tokens --role <Role> --tokens <n> --slug <slug>",
-    "  Claude Code only, when a Next: line asks for it: record the Role's subagent_tokens from its latest",
-    "  completion notice and print the step that waited for the count.",
-    "",
-    "start, return and tokens ring, spawn and resume nothing, and take no --write: you take each step they",
-    "print. --slug names the loop; pass it on every call. Run every command from the repository root.",
-]
+HELP = catalog.Help({
+    "start": [
+        "orchestrator start --slug <slug> [--harness <h>]",
+        "  Run on every start of the Orchestrator's Session, a restart included. Records a new session, names the",
+        "  Harness and its Harness file, says where each Loop stands, and prints the one next step: a spawn, the",
+        "  ring to the Planner, the wait for the Planner's Doorbell, the fold at a code Sign-off, or the PR",
+        "  step. Every spawn after a restart is fresh. After the user's findings it spawns the Coder fresh for",
+        "  the next round, with no ring.",
+    ],
+    "return": [
+        "orchestrator return --role <Planner|Plan-Reviewer|Coder|Code-Reviewer> --slug <slug> --harness <h>",
+        "  Run after every hosted Role's return whose last line does not start with QUESTION: or BLOCKED:, and",
+        "  with --role Planner once doorbell take printed the Planner's Doorbell. It takes no return line and no",
+        "  token count: the round's outcome is the one its check --write recorded. It prints the next step, a",
+        "  spawn with its Read and Write lists, a resume with its message, the ring, the wait or the fold; a",
+        "  second return for a round already acted on, and a round with no check --write, each say what to do.",
+    ],
+    "respawn": [
+        "orchestrator respawn --role <Plan-Reviewer|Coder|Code-Reviewer> (--policy \"<p>\" | --once) --slug <slug>",
+        "    [--harness <h>] --write",
+        "  On the user's word: --policy sets the Role's Respawn policy, \"every round\", never or \"over <n>k\"",
+        "  (%s only, from the Coder's subagent_tokens); --once makes the Role's next spawn fresh, and"
+        % counting(),
+        "  after a BLOCKED prints that fresh spawn for the unfinished round at once. The reviewers start at never;",
+        "  the Coder's policy is asked at Model approval.",
+    ],
+    "tokens": [
+        "orchestrator tokens --role <Role> --tokens <n> --slug <slug> [--harness <h>]",
+        "  %s only, when a Next: line asks for it: record the Role's subagent_tokens from its latest"
+        % counting(),
+        "  completion notice and print the step that waited for the count.",
+    ]},
+    [
+        catalog.Only(("start", "return", "tokens"),
+                     "start, return and tokens ring, spawn and resume nothing, and take no --write: you take each step "
+                     "they",
+                     "print. --slug names the loop; pass it on every call."),
+        catalog.Only(("respawn",), "--slug names the loop; pass it on every call.", group=False),
+    ])
 
 def run(argv: list[str]) -> int:
     return catalog.run("orchestrator", argv, HELP,

@@ -40,7 +40,7 @@ HELP = [
 
 
 def run(argv: list[str]) -> int:
-    return catalog.run("setup", argv, HELP, "Run %s with the options above, without --write first."
+    return catalog.run("setup", argv, catalog.Help({"": HELP}), "Run %s with the options above, without --write first."
                        % catalog.line("setup"), setup)
 
 

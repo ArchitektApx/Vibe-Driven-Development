@@ -262,6 +262,14 @@ ROWS = [
     ("brainstorm", "migrate", "dry-run", S.legacy_store, ("brainstorm", "migrate",), None, None, 0),
     ("brainstorm", "migrate", "write", S.legacy_store, ("brainstorm", "migrate", "--write"), None, None, 0),
 
+    # The helps: the tool's, every group's, and two commands' own.
+    ("help", "top", "all", S.repo, ("--help",), None, None, 0),
+    *[("help", group, "group", S.repo, (group, "--help"), None, None, 0)
+      for group in ("brainstorm", "coder", "doorbell", "loop", "orchestrator", "pr", "review", "setup",
+                    "wayfinder")],
+    ("help", "loop-new", "command", S.repo, ("loop", "new", "--help"), None, None, 0),
+    ("help", "brainstorm-set", "command", S.repo, ("brainstorm", "set", "--help"), None, None, 0),
+
     # Two refusals whose wording the owner settled without a model run.
     ("refusal", "coder-start", "sandbox-refused-checkout", S.signed, ("coder", "start", *SLUG, "--write"),
      checkout_refused, None, 1),

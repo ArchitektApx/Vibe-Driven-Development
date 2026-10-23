@@ -3,7 +3,7 @@ command's options, and the command context its handler receives."""
 
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any, Callable, Sequence
 
 from . import help as helps
 from .builder import line
@@ -37,33 +37,31 @@ class Context:
             raise missing(names, self.usage, either=True)
 
 
-def usage(group: str) -> str:
-    """The --help command a refusal in group names."""
-    return line(group, help=True)
-
-
 def run(
     group: str,
     argv: Sequence[str],
-    help_lines: Iterable[str],
+    text: helps.Help,
     help_next: str,
     handle: Callable[[Context], int],
 ) -> int:
-    """Run argv in group: its help, or the command it names with its options
-    parsed and checked. handle(context) runs the command and returns its exit
-    code. In a group that is one command, argv is that command's options."""
-    named = usage(group)
+    """Run argv in group: its help, a command's help, or the command it names
+    with its options parsed and checked. handle(context) runs the command and
+    returns its exit code. In a group that is one command, argv is that
+    command's options and its help is the group's."""
     single = SINGLE.get(group)
     if single is not None:
         command, rest = single, argv
     else:
         if not argv or argv[0] in ("-h", "--help", "help"):
-            return helps.group(help_lines, help_next)
+            return helps.show(text.whole(), help_next)
         commands = COMMANDS[group]
         if argv[0] not in commands:
-            unknown_command("%s %s" % (group, argv[0]), named)
+            unknown_command("%s %s" % (group, argv[0]), line(group, help=True))
         command, rest = commands[argv[0]], argv[1:]
+    named = line(group, command.name, help=True)
     values = parse(rest, command, named)
     if values["help"]:
-        return helps.group(help_lines, help_next)
+        if single is not None:
+            return helps.show(text.whole(), help_next)
+        return helps.command(text, group, command.name)
     return handle(Context(command, values, named))

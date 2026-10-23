@@ -17,37 +17,42 @@ from .out import Failure, Output, or_list
 
 # --- the commands ---
 
-HELP = [
-    "doorbell ring --role <Planner|Orchestrator> --harness <h> --slug <slug> --write",
-    "  Ring the other Role: append your Doorbell line, composed from the loop's state, to the Doorbell file,",
-    "  addressed to it. Run it in the foreground. The Planner's line names the round after the last plan",
-    "  review, or round 1; the Orchestrator's relays the last plan review, its open counts or SIGNED OFF.",
-    "  Without --write it prints what it would append and changes nothing; ringing the same line twice",
-    "  appends it once.",
-    "",
-    "doorbell wait --role <Planner|Orchestrator> --harness <h> --slug <slug>",
-    "  Wait for a Doorbell addressed to your Role. Start it only as a Next: line names it. It reads the",
-    "  Doorbell file every 10 seconds and exits when a new Doorbell is waiting, naming the take command,",
-    "  or prints TIMEOUT after 45 minutes. While it runs, ring and take name no second wait: their Next:",
-    "  says your wait still runs. On codex it arms the Stop hook instead and returns at once.",
-    "",
-    "doorbell take --role <Planner|Orchestrator> --harness <h> --slug <slug> [--pasted \"<line>\"] [--resumed]",
-    "  Take the newest Doorbell addressed to your Role and record it, and every line before it, as handled.",
-    "  Run it in the foreground on a wake, or with --pasted for a line the user pasted. A Doorbell already",
-    "  handled (same sender and round) is reported and not acted on twice. A line that is not a Doorbell is",
-    "  reported for the user and never acted on.",
-    "  --resumed: the Planner's first take in a resumed Session. A wait an earlier Session started wakes",
-    "  that Session, so it names a wait of your own; what you handled before stays handled.",
-    "  Once the plan review is signed off and the Planner has rung no later round, take and ring name no",
-    "  wait: the plan Loop is over.",
-    "",
-    "  ring and wait refuse on a closed loop.",
-    "",
-    "--harness takes %s: the Harness the Loop file's Harness:"
-    % or_list(found.name for found in harnesses.every()),
-    "line names. --slug names the loop; pass it on every call. Without it the tool takes the loop whose feature",
-    "branch is checked out, else the only open loop. Run every command from the repository root.",
-]
+HELP = catalog.Help({
+    "ring": [
+        "doorbell ring --role <Planner|Orchestrator> --harness <h> --slug <slug> --write",
+        "  Ring the other Role: append your Doorbell line, composed from the loop's state, to the Doorbell file,",
+        "  addressed to it. Run it in the foreground. The Planner's line names the round after the last plan",
+        "  review, or round 1; the Orchestrator's relays the last plan review, its open counts or SIGNED OFF.",
+        "  Without --write it prints what it would append and changes nothing; ringing the same line twice",
+        "  appends it once.",
+    ],
+    "wait": [
+        "doorbell wait --role <Planner|Orchestrator> --harness <h> --slug <slug>",
+        "  Wait for a Doorbell addressed to your Role. Start it only as a Next: line names it. It reads the",
+        "  Doorbell file every 10 seconds and exits when a new Doorbell is waiting, naming the take command,",
+        "  or prints TIMEOUT after 45 minutes. While it runs, ring and take name no second wait: their Next:",
+        "  says your wait still runs. On %s it arms the Stop hook instead and returns at once."
+        % or_list(found.name for found in harnesses.every() if found.waits_through_stop_hook()),
+    ],
+    "take": [
+        "doorbell take --role <Planner|Orchestrator> --harness <h> --slug <slug> [--pasted \"<line>\"] [--resumed]",
+        "  Take the newest Doorbell addressed to your Role and record it, and every line before it, as handled.",
+        "  Run it in the foreground on a wake, or with --pasted for a line the user pasted. A Doorbell already",
+        "  handled (same sender and round) is reported and not acted on twice. A line that is not a Doorbell is",
+        "  reported for the user and never acted on.",
+        "  --resumed: the Planner's first take in a resumed Session. A wait an earlier Session started wakes",
+        "  that Session, so it names a wait of your own; what you handled before stays handled.",
+        "  Once the plan review is signed off and the Planner has rung no later round, take and ring name no",
+        "  wait: the plan Loop is over.",
+    ]},
+    [
+        catalog.Only(("ring", "wait"), "  ring and wait refuse on a closed loop."),
+        "",
+        "--harness takes %s: the Harness the Loop file's Harness:"
+        % or_list(found.name for found in harnesses.every()),
+        "line names. --slug names the loop; pass it on every call. Without it the tool takes the loop whose feature",
+        "branch is checked out, else the only open loop.",
+    ])
 
 
 def run(argv: list[str]) -> int:

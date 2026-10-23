@@ -22,25 +22,28 @@ from .lint import lint
 TICKET_FILE = re.compile(r"^([0-9]+)-.+\.md$")
 SNAPSHOT = "coder-untracked-%d"
 
-HELP = [
-    "coder start --slug <slug> --write",
-    "  The Coder's first call each round. Refuses unless the plan Loop is signed off (round 1) or the last",
-    "  code round's review left findings open (a later round). On the base branch it switches to the feature",
-    "  branch, creating it from the base when it does not exist; on the feature branch it stays; on any other",
-    "  branch it refuses. It records and prints \"Round <n> starts at <sha>.\", records the untracked files",
-    "  already there and writes the round's frame of FIXES.md: one entry per Ticket in round 1, one per open",
-    "  finding later. A second start in a round already started writes nothing and prints the same again.",
-    "",
-    "coder check --slug <slug> [--write]",
-    "  Lint FIXES.md against its frame, and refuse uncommitted changes to tracked files, a file left untracked",
-    "  since coder start, and a round whose recorded start is gone from the branch's history (an earlier",
-    "  commit amended, rebased or reset): every refusal names the line or file and the fix and writes",
-    "  nothing. With --write on a passing round it removes the guidance comment, records the branch tip as",
-    "  the round's end, copies round 1's Ticket entries to .scratch/<slug>/RECAP.md and prints the Doorbell",
-    "  line to end your turn with.",
-    "",
-    "--slug names the loop; pass it on every call. Run every command from the repository root.",
-]
+HELP = catalog.Help({
+    "start": [
+        "coder start --slug <slug> --write",
+        "  The Coder's first call each round. Refuses unless the plan Loop is signed off (round 1) or the last",
+        "  code round's review left findings open (a later round). On the base branch it switches to the feature",
+        "  branch, creating it from the base when it does not exist; on the feature branch it stays; on any other",
+        "  branch it refuses. It records and prints \"Round <n> starts at <sha>.\", records the untracked files",
+        "  already there and writes the round's frame of FIXES.md: one entry per Ticket in round 1, one per open",
+        "  finding later. A second start in a round already started writes nothing and prints the same again.",
+    ],
+    "check": [
+        "coder check --slug <slug> [--write]",
+        "  Lint FIXES.md against its frame, and refuse uncommitted changes to tracked files, a file left untracked",
+        "  since coder start, and a round whose recorded start is gone from the branch's history (an earlier",
+        "  commit amended, rebased or reset): every refusal names the line or file and the fix and writes",
+        "  nothing. With --write on a passing round it removes the guidance comment, records the branch tip as",
+        "  the round's end, copies round 1's Ticket entries to .scratch/<slug>/RECAP.md and prints the Doorbell",
+        "  line to end your turn with.",
+    ]},
+    [
+        "--slug names the loop; pass it on every call.",
+    ])
 
 def run(argv: list[str]) -> int:
     return catalog.run("coder", argv, HELP, "Run the coder command your skill or the last Next: line names.", dispatch)

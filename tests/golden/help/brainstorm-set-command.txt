@@ -1,0 +1,10 @@
+$ vdd brainstorm set --help
+exit 0
+brainstorm set --idea <slug> [--idea ...] [--status <s>] [--decision <text>] [--reopen-when <text>]
+    [--importance|--size|--fog <m>] [--tldr <text>] [--title <text>]
+  Status idea, discussed, shaped, decided, in-progress, done or dropped. done, dropped and decided need
+  --decision, dropped also --reopen-when; dropping an idea drops its open parts at every level; an open
+  status on a closed idea reopens it.
+
+Every write needs --write; without it the command is a dry run.
+Next: Run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" brainstorm set with the options above.
