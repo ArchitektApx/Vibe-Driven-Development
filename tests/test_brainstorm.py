@@ -38,12 +38,16 @@ class BrainstormTest(ToolTest):
         return os.path.exists(self.box.path(S + rel))
 
     def tree(self, base=None):
-        """Every file under base, the store by default, with its bytes."""
+        """Every file under base, the store by default, with its bytes; the
+        lock files left out, as every command that takes one writes its pid
+        there."""
         base = base or self.box.path(S)
         out = {}
         for root, dirs, files in os.walk(base):
             for name in files:
                 path = os.path.join(root, name)
+                if name in ("lock", "_brainstorming.lock"):
+                    continue
                 with open(path, "rb") as handle:
                     out[os.path.relpath(path, base).replace(os.sep, "/")] = handle.read()
         return out

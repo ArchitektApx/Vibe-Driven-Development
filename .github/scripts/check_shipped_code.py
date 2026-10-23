@@ -17,19 +17,18 @@ import sys
 # standard library modules it imports today and its own package. A new import
 # is a visible edit here, in the same PR as the code that needs it.
 ALLOWED_MODULES = {
-    "__future__", "abc", "base64", "binascii", "ctypes", "datetime", "difflib",
-    "glob", "hashlib", "json", "os", "posixpath", "re", "shutil", "signal",
-    "subprocess", "sys", "textwrap", "time", "types", "typing",
+    "__future__", "abc", "base64", "binascii", "datetime", "difflib", "errno",
+    "fcntl", "glob", "hashlib", "json", "msvcrt", "os", "posixpath", "re",
+    "shutil", "signal", "subprocess", "sys", "textwrap", "time", "types",
+    "typing",
     "vdd",
 }
 
 # Modules allowed in the named files alone: subprocess runs a program, so it
-# lives in the git module; ctypes calls foreign code, so it lives in the
-# store lock. A submodule counts as its top-level module unless a restriction
-# names the submodule.
+# lives in the git module. A submodule counts as its top-level module unless a
+# restriction names the submodule.
 RESTRICTED_MODULES = {
     "subprocess": ("skills/vdd-setup/scripts/vdd/gitcmd.py",),
-    "ctypes": ("skills/vdd-setup/scripts/vdd/brainstorm/lock.py",),
 }
 
 # Modules that open a network connection, or serve or fetch over one, and

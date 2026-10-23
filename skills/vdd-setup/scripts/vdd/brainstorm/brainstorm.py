@@ -158,7 +158,7 @@ def recover_quietly(root: str) -> list[str]:
     if not journal.pending(root):
         return []
     with Lock(root, wait=False, on_take=journal.recover) as lock:
-        return lock.recovered
+        return lock.lines
 
 
 def write(root: str, command: str, values: dict[str, Any]) -> int:
@@ -181,8 +181,8 @@ def write(root: str, command: str, values: dict[str, Any]) -> int:
         lines, nxt, label = handler(store, values)
         stamped = list(store.stamped)
         lines += loop_lines(store)
-        journal.save(store, label, lock)
-    for line in lock.recovered:
+        journal.save(store, label)
+    for line in lock.lines:
         out.line(line)
     for line in lines:
         out.line(line)

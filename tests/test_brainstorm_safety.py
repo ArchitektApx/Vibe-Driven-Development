@@ -14,107 +14,193 @@ from test_brainstorm import S, TODAY, BrainstormTest
 from vddtest import ENTRY, WINDOWS, b64
 
 
+# Takes the store lock as the tool does, writes its pid, says "locked" and
+# holds it for argv[2] seconds; the kernel releases it when the process ends.
+LOCKER = """
+import os, sys, time
+path, hold = sys.argv[1], float(sys.argv[2])
+fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
+if sys.platform == "win32":
+    import msvcrt
+    os.lseek(fd, 1 << 20, 0)
+    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+else:
+    import fcntl
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+os.ftruncate(fd, 0)
+os.lseek(fd, 0, 0)
+os.write(fd, str(os.getpid()).encode("ascii"))
+sys.stdout.write("locked\\n")
+sys.stdout.flush()
+time.sleep(hold)
+"""
+
+
+# Runs the VDD tool (argv[1]) with an audit hook: the first time it raises
+# the audit event argv[2] on a path that contains argv[3], the file at that
+# path is copied to argv[4]. The tool's own arguments follow.
+AUDITED = """
+import os, runpy, shutil, sys
+entry, event, needle, out = sys.argv[1:5]
+del sys.argv[1:5]
+sys.argv[0] = entry
+done = []
+def hook(name, args):
+    if done or name != event or not args or not isinstance(args[0], str) or needle not in args[0]:
+        return
+    done.append(1)
+    shutil.copyfile(args[0], out + ".part")
+    os.replace(out + ".part", out)
+sys.addaudithook(hook)
+sys.path.insert(0, os.path.dirname(entry))
+runpy.run_path(entry, run_name="__main__")
+"""
+
+
+def audited(test, event, needle, out, *args):
+    """The tool started on args, copying the file it first raises event on
+    whose path contains needle to out."""
+    return subprocess.Popen([sys.executable, "-c", AUDITED, ENTRY, event, needle, out, "brainstorm"] + list(args),
+                            cwd=test.box.proj, env=test.box.env(VDD_TODAY=TODAY), stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+
+
+def hold(test, seconds, rel=S + ".state/lock"):
+    """A child process holding the lock at rel for seconds."""
+    path = test.box.path(rel)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    child = subprocess.Popen([sys.executable, "-c", LOCKER, path, str(seconds)], stdout=subprocess.PIPE)
+    test.addCleanup(child.wait)
+    test.addCleanup(lambda: child.poll() is None and child.kill())
+    out = child.stdout
+    if out is None:
+        raise AssertionError("the locker has no standard output")
+    test.assertEqual(out.readline().strip(), b"locked")
+    out.close()
+    return child
+
+
 class LockTest(BrainstormTest):
     def setUp(self):
         BrainstormTest.setUp(self)
         self.new("main-idea", "Main idea", "The whole thing.")
         self.new("part-one", "Part one", "The first half.", "--parent", "main-idea")
 
-    def lock(self, text, age=None):
-        path = self.box.write(S + ".state/lock", text)
-        if age is not None:
-            then = time.time() - age
-            os.utime(path, (then, then))
-        return path
+    def hold(self, seconds, rel=S + ".state/lock"):
+        return hold(self, seconds, rel)
 
-    def set_size(self):
-        return self.bs("set", "--idea", "part-one", "--size", "large", "--write")
+    def set_size(self, size="large"):
+        return self.bs("set", "--idea", "part-one", "--size", size, "--write")
 
-    def test_a_dead_writers_lock_is_taken_over_at_once(self):
-        """Prevents the false 'another Session is writing' after a killed
-        write (red team M9, U13): a fresh lock whose process is gone is taken
-        over without waiting, and the write lands."""
-        dead = subprocess.Popen([sys.executable, "-c", "pass"])
-        dead.wait()
-        self.lock("%d 0123abcd" % dead.pid)
-        result = self.set_size()
-        self.assertEqual(result.code, 0, result)
-        self.assertNotIn("Another Session", result.text)
-        self.assertIn("size: large", self.read("part-one.md"))
-        self.assertFalse(self.exists(".state/lock"))
-
-    def test_a_live_writers_lock_is_never_taken_over_however_old(self):
-        """Prevents a stalled live writer losing the lock to age (red team M1,
-        a laptop put to sleep mid-write): its lock refuses, names the running
-        process, and keeps refusing past 30 s."""
-        path = self.lock("%d" % os.getpid(), age=3600)
-        before = self.ideas_tree()
-        result = self.set_size()
-        self.assertEqual(result.code, 1, result)
-        self.assertIn("Another Session is writing to the idea store right now: process %d, still running"
-                      % os.getpid(), result.text)
-        self.assertIn("they can delete that file", result.last)
-        self.assertEqual(self.ideas_tree(), before)
-        self.assertTrue(os.path.exists(path))
-
-    def test_another_machines_lock_falls_back_to_age(self):
-        """Prevents judging another machine's pid (a shared folder) by this
-        machine's processes, and a refusal that claims a Session is writing
-        (spec story 51): refused while young as 'cannot be checked from
-        here', taken over past 30 s."""
-        self.lock("%d tok elsewhere-host" % os.getpid())
-        result = self.set_size()
-        self.assertEqual(result.code, 1, result)
-        self.assertIn("cannot be checked from here", result.text)
-        self.assertNotIn("still running", result.text)
-        self.assertNotIn("Another Session", result.text)
-        self.lock("%d tok elsewhere-host" % os.getpid(), age=31)
-        result = self.set_size()
-        self.assertEqual(result.code, 0, result)
-        self.assertFalse(self.exists(".state/lock"))
-
-    def test_an_empty_lock_is_taken_over_after_the_short_wait(self):
-        """Prevents a lock left empty by a run killed between creating it and
-        writing its pid from refusing every write."""
-        self.lock("")
+    def test_a_held_lock_is_waited_for_and_the_write_lands(self):
+        """Prevents a second writer refused for a holder that needs a moment
+        (T1, 9 of 20 parallel writes refused): a lock freed within 5 s makes
+        the write wait, then land."""
+        self.hold(1.5)
         started = time.monotonic()
         result = self.set_size()
         self.assertEqual(result.code, 0, result)
-        self.assertLess(time.monotonic() - started, 20)
-        self.assertFalse(self.exists(".state/lock"))
+        self.assertGreater(time.monotonic() - started, 1.0)
+        self.assertIn("size: large", self.read("part-one.md"))
 
-    def test_a_writer_whose_lock_was_taken_over_writes_nothing_more(self):
-        """Prevents a stalled writer overwriting the Session that took its
-        lock (red team M1, spec story 52): with the pause seam the test
-        rewrites the lock's token mid-run; the writer stops, says another
-        Session took over, and leaves the store and the new lock as they
-        are."""
+    def test_a_lock_held_past_the_wait_is_refused_with_its_pid(self):
+        """Prevents an endless wait, and a refusal that tells the user to
+        delete a file that would not help: past 5 s the write refuses, names
+        the holder's pid, and writes nothing."""
+        child = self.hold(30)
         before = self.ideas_tree()
-        env = self.box.env(VDD_TODAY=TODAY, VDD_SAVE_PAUSE_SECONDS="4")
-        proc = subprocess.Popen([sys.executable, ENTRY, "brainstorm", "set", "--idea", "part-one", "--status",
-                                 "done", "--decision", "x", "--write"], cwd=self.box.proj, env=env,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        lock = self.box.path(S + ".state/lock")
-        deadline = time.monotonic() + 30
-        while not os.path.exists(lock) and time.monotonic() < deadline:
-            time.sleep(0.05)
-        self.assertTrue(os.path.exists(lock))
-        token = "%d other-token %s" % (os.getpid(), "elsewhere-host")
-        with open(lock, "w") as handle:
-            handle.write(token)
-        out = self.box.finish(proc, timeout=60).text
-        self.assertNotEqual(proc.returncode, 0, out)
-        self.assertIn("another Session took over", out)
-        self.assertTrue(out.rstrip("\n").split("\n")[-1].startswith("Next: "), out)
+        result = self.set_size()
+        self.assertEqual(result.code, 1, result)
+        self.assertIn("Another Session is writing to the idea store right now (process %d). Nothing was written."
+                      % child.pid, result.lines)
+        self.assertEqual(result.last, "Next: Run the same command again. If it refuses again, tell the user another "
+                                      "VDD command (process %d) is writing to the idea store, and stop." % child.pid)
         self.assertEqual(self.ideas_tree(), before)
-        self.assertEqual(self.read(".state/lock"), token)
 
-    def test_no_lock_is_left_behind(self):
-        """Prevents a lock leaked by a command that held it to the end,
-        refused or not."""
+    def test_a_killed_holders_lock_is_taken_at_once(self):
+        """Prevents a crash blocking the next command (red team M9, U13): the
+        kernel frees a dead holder's lock, so the write lands without a
+        wait, though the file still names the dead pid."""
+        child = self.hold(60)
+        child.kill()
+        child.wait()
+        self.assertTrue(self.read(".state/lock").strip().isdigit())
+        started = time.monotonic()
+        result = self.set_size()
+        self.assertEqual(result.code, 0, result)
+        # A run that waited out the 5 s takes at least that long.
+        self.assertLess(time.monotonic() - started, 5)
+        self.assertIn("size: large", self.read("part-one.md"))
+
+    def test_parallel_writes_all_land(self):
+        """Prevents a lost or refused update among parallel subagents (T1's
+        parallel.py): 4 writes at once, 5 rounds, every one lands."""
+        for n in range(4):
+            self.new("idea-%d" % n)
+        env = self.box.env(VDD_TODAY=TODAY)
+        for round_n in range(5):
+            procs = [subprocess.Popen([sys.executable, ENTRY, "brainstorm", "note", "--idea", "idea-%d" % n,
+                                       "--section", "Evidence", "--text", "round %d" % round_n, "--write"],
+                                      cwd=self.box.proj, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                     for n in range(4)]
+            for proc in procs:
+                result = self.box.finish(proc)
+                self.assertEqual(result.code, 0, result)
+        for n in range(4):
+            text = self.read("idea-%d.md" % n)
+            for round_n in range(5):
+                self.assertIn("round %d" % round_n, text)
+
+    def test_the_lock_file_stays(self):
+        """Prevents a release or a takeover deleting the lock file, which
+        would let two writers hold a lock each (story 5)."""
+        self.assertTrue(self.exists(".state/lock"))
         self.assertEqual(self.set_size().code, 0)
+        self.assertTrue(self.exists(".state/lock"))
         self.assertEqual(self.bs("set", "--idea", "part-one", "--status", "done", "--write").code, 1)
-        self.assertFalse(self.exists(".state/lock"))
+        self.assertTrue(self.exists(".state/lock"))
+
+    @unittest.skipUnless(sys.platform == "darwin",
+                         "no trigger for the lock call's failure on Linux or Windows: flock works on a FIFO on Linux, "
+                         "and Windows has no FIFOs")
+    def test_a_lock_call_the_filesystem_refuses_goes_ahead_without_it(self):
+        """Prevents a lone writer blocked where the lock call is not
+        supported: a FIFO at .state/lock makes flock fail with ENOTSUP on
+        macOS; the write lands and says it went ahead without the lock."""
+        path = self.box.path(S + ".state/lock")
+        os.remove(path)
+        os.mkfifo(path)
+        result = self.set_size()
+        self.assertEqual(result.code, 0, result)
+        found = [line for line in result.lines if line.startswith("The idea store's lock is not supported here (")]
+        self.assertEqual(len(found), 1, result)
+        self.assertTrue(found[0].endswith("); this command went ahead without it."), result)
+        self.assertIn("size: large", self.read("part-one.md"))
+
+    def test_a_lock_file_that_cannot_be_opened_refuses_naming_it(self):
+        """Prevents a real fault hidden behind the fallback: a folder at
+        .state/lock refuses the write, naming the file."""
+        path = self.box.path(S + ".state/lock")
+        os.remove(path)
+        os.mkdir(path)
+        before = self.ideas_tree()
+        result = self.set_size()
+        self.assertEqual(result.code, 1, result)
+        self.assertContract(result)
+        self.assertIn("The idea store's lock file .scratch/_brainstorming/.state/lock could not be opened", result.text)
+        self.assertEqual(self.ideas_tree(), before)
+
+    def test_a_held_migration_lock_refuses_as_migrating(self):
+        """Prevents two migrations at once, and a wait without end: the
+        migration lock waits as every store lock does, then refuses naming
+        the migration."""
+        os.remove(self.box.path(S + ".layout"))
+        child = self.hold(30, ".scratch/_brainstorming.lock")
+        result = self.bs("migrate", "--write")
+        self.assertEqual(result.code, 1, result)
+        self.assertIn("Another Session is migrating the idea store right now (process %d). Nothing was written."
+                      % child.pid, result.lines)
+        self.assertFalse(self.exists(".layout"))
 
 
 class JournalTest(BrainstormTest):
@@ -185,7 +271,7 @@ class JournalTest(BrainstormTest):
                 self.assertIn("An interrupted write (set part-one) was finished.", result.text)
                 self.assertEqual(self.store_tree(), after)
                 self.assertEqual(self.journal_left(), [])
-                self.assertFalse(self.exists(".state/lock"))
+                self.assertTrue(self.exists(".state/lock"))
 
     def test_a_file_edited_since_is_left_and_the_rest_rolled_back(self):
         """Prevents the roll-forward overwriting an edit made after the crash
@@ -271,7 +357,7 @@ class JournalTest(BrainstormTest):
                 self.assertEqual(os.listdir(os.path.join(outside, "dir")), [])
                 self.assertEqual(self.store_tree(), before)
                 self.assertFalse(os.path.exists(os.path.join(self.box.root, "outside.md")))
-                self.assertFalse(self.exists(".state/lock"))
+                self.assertTrue(self.exists(".state/lock"))
                 self.assertEqual([n for n in self.journal_left() if n.endswith(".json")], [])
                 for name in self.journal_left():
                     os.remove(self.box.path(S + ".state/journal", name))
@@ -302,15 +388,19 @@ class JournalTest(BrainstormTest):
         result = self.ok("start")
         self.assertIn("a folder move is not in the form this tool writes", result.text)
         self.assertIn("It names main-idea.md, part-one.md, which may be half written", result.text)
-        self.assertFalse(self.exists(".state/lock"))
+        self.assertTrue(self.exists(".state/lock"))
         self.assertEqual(self.bs("set", "--idea", "part-one", "--size", "large", "--write").code, 0)
 
     def test_a_live_writers_journal_is_left_to_it(self):
         """Prevents a read settling a move another Session is writing right
-        now: with the lock held by a live process, start leaves the journal."""
+        now, and a read slowed by a writer: with the lock held by a live
+        process, start reads at once and leaves the journal."""
         self.stage_close(done=1)
-        self.box.write(S + ".state/lock", "%d" % os.getpid())
+        hold(self, 30)
+        started = time.monotonic()
         result = self.ok("start")
+        # A run that waited out the 5 s takes at least that long.
+        self.assertLess(time.monotonic() - started, 5)
         self.assertNotIn("interrupted write", result.text)
         self.assertEqual(len(self.journal_left()), 1)
 
@@ -330,7 +420,7 @@ class JournalTest(BrainstormTest):
         self.assertContract(result)
         self.assertEqual(self.journal_left(), [])
         self.assertEqual(self.store_tree(), before)
-        self.assertFalse(self.exists(".state/lock"))
+        self.assertTrue(self.exists(".state/lock"))
 
     def test_leftover_temp_files_are_swept(self):
         """Prevents temp files a killed write left piling up (red team F14)."""
@@ -340,3 +430,22 @@ class JournalTest(BrainstormTest):
         self.assertFalse(self.exists("part-one.md.vdd-new-999"))
         self.assertFalse(self.exists(".state/ledger.json.vdd-new-999"))
 
+
+    def test_a_beta_journal_with_a_pid_settles_and_a_new_one_has_none(self):
+        """Prevents an upgrade setting aside a pending write an earlier 0.16
+        beta journaled with its pid (story 38), and a field nobody reads
+        written again (story 39): the journal a rename writes, copied just
+        before the tool removes it, holds no pid."""
+        after, _ = self.stage_close(done=1)
+        with open(self.box.path(self.JOURNAL)) as handle:
+            self.assertIn("pid", json.load(handle))
+        self.assertIn("An interrupted write (set part-one) was finished.", self.ok("start").text)
+        self.assertEqual(self.store_tree(), after)
+        out = self.box.path("journal-copy.json")
+        proc = audited(self, "os.remove", os.path.join(".state", "journal") + os.sep, out,
+                       "rename", "--idea", "part-one", "--to", "half-one", "--write")
+        self.assertEqual(self.box.finish(proc).code, 0)
+        with open(out) as handle:
+            seen = json.load(handle)
+        self.assertEqual(seen["label"], "rename part-one to half-one")
+        self.assertEqual(sorted(seen), ["dirs", "label", "ops"])

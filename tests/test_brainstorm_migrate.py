@@ -270,7 +270,8 @@ class Interrupted(MigrateTest):
         self.assertEqual(sum(1 for o in outs if "Migrated 5 ideas" in o), 1, outs)
         self.assertEqual(sum(1 for o in outs if "already in layout 2" in o), 1, outs)
         self.assertEqual(self.read("research/main-idea/notes.md"), "notes\r\n")
-        self.assertEqual(sorted(os.listdir(self.box.path(".scratch"))), ["_brainstorming", "_brainstorming.pre-0.16"])
+        self.assertEqual(sorted(os.listdir(self.box.path(".scratch"))),
+                         ["_brainstorming", "_brainstorming.lock", "_brainstorming.pre-0.16"])
 
 
 class Marker(MigrateTest):

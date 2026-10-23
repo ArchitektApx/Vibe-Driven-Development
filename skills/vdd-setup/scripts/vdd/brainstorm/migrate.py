@@ -32,8 +32,6 @@ STAGING = STORE + ".migrating"
 # The migration's own lock, beside the store: the store itself is renamed
 # away during a migration, its .state/lock with it.
 LOCK = STORE + ".lock"
-# How long a second migrate --write waits for a live migration.
-LOCK_WAIT_SECONDS = 30
 LINK = re.compile(r"\[([^\]]*)\]\(([^)\s]+)\)")
 FM_KINDS = (("depends-on", "depends on"), ("benefits-from", "benefits from"), ("related", "related"))
 RESTRUCTURE = re.compile(r"\b(split|splits|folded|fold|folds|renamed|absorb\w*|"
@@ -335,9 +333,9 @@ def repair_marker(root: str, write: bool) -> Result:
     with Lock(root, on_take=journal.recover) as lock:
         store = Store(root)
         lines, _, _ = repair_lines(root, store, what, True)
-        journal.save(store, "migrate marker repair", lock)
+        journal.save(store, "migrate marker repair")
         textfile.write(os.path.join(store.dir, LAYOUT_FILE), (LAYOUT + "\n").encode("ascii"))
-    lines = lock.recovered + lines
+    lines = lock.lines + lines
     lines.append("The .layout marker was %s; it now reads %s." % (what, LAYOUT))
     return lines, "repaired", []
 
@@ -381,8 +379,9 @@ def migrate(root: str, events_raw: list[str], write: bool) -> Result:
     if not write:
         return run(root, events_raw, False)
     os.makedirs(os.path.join(root, ".scratch"), exist_ok=True)
-    with Lock(root, path=os.path.join(root, LOCK), wait_seconds=LOCK_WAIT_SECONDS, doing="migrating the idea store"):
-        return run(root, events_raw, True)
+    with Lock(root, path=os.path.join(root, LOCK), doing="migrating the idea store") as lock:
+        lines, what, would = run(root, events_raw, True)
+    return lock.lines + lines, what, would
 
 
 def run(root: str, events_raw: list[str], write: bool) -> Result:
