@@ -48,7 +48,14 @@ def read_bytes(path: str) -> bytes:
 
     def read_once() -> bytes:
         with open(path, "rb") as handle:
-            return handle.read()
+            try:
+                return handle.read()
+            except OSError as error:
+                # A read Windows refuses for another process's lock names no
+                # file; the refusal names this one.
+                if error.filename is None:
+                    error.filename = path
+                raise
 
     return retried(read_once)
 
