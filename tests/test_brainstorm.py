@@ -958,11 +958,9 @@ class Families(BrainstormTest):
         29), or listing a step the survivor holds open twice (finding 26)."""
         self.new("survivor", "Survivor", "Takes it all.")
         self.ok("note", "--idea", "t3code-support", "--section", "Next Steps", "--text", "Count the cost.", "--write")
-        path = self.box.path(S + "t3code-support.md")
-        with open(path, encoding="utf-8") as handle:
-            text = handle.read()
-        with open(path, "w", encoding="utf-8") as handle:
-            handle.write(text.replace("- [ ] Count the cost.", "- [ ] Count the cost.\n-  [ ] Odd spacing step."))
+        text = self.box.read(S + "t3code-support.md")
+        self.box.write(S + "t3code-support.md",
+                       text.replace("- [ ] Count the cost.", "- [ ] Count the cost.\n-  [ ] Odd spacing step."))
         result = self.ok("merge", "--idea", "t3code-support", "--into", "survivor", "--reason", "one idea",
                          "--reopen-when", "they differ again", "--write")
         self.assertIn("t3code-support is merged into survivor and dropped; 2 open steps moved over.", result.text)
