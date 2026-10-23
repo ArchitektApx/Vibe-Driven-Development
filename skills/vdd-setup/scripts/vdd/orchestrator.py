@@ -16,7 +16,7 @@ import os
 import re
 from typing import Any, NoReturn
 
-from . import args, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, places, signoff
+from . import args, doorbells, gitcmd, loopfile, loopstate, places, signoff, workfile
 from .out import TELL, Failure, Output
 
 SUBCOMMANDS = ("start", "return", "respawn", "tokens")
@@ -127,9 +127,8 @@ class Flow:
         self.loop = loop
         self.state = state
         self.slug = loop.slug
-        self.harness = harnesses.known(loopfile.harness_slug(loop.setting("Harness")[0]))
-        # The Loop file's own value: Generic's Harness module has no label.
-        self.harness_label = loop.setting("Harness")[0]
+        self.harness = loop.harness
+        self.harness_label = loop.harness_label
         self.place = doorbells.Place(loop.root, loop.slug, loop, state)
         self.last_session = 0
         self.spawns: list[Spawned] = []
@@ -245,7 +244,7 @@ class Flow:
         return self.state.review(kind, number) is not None
 
     def path(self, name: str) -> str:
-        return "%s/%s" % (self.loop.tracker, name)
+        return self.loop.path(name)
 
     # --- the lines printed ---
 
@@ -268,16 +267,8 @@ class Flow:
 def lists(flow: Flow, role: str, number: int) -> tuple[list[str], list[str]]:
     """The Read and Write lists of a Role's round, every path under the
     tracker directory."""
-    if role == "Plan-Reviewer":
-        read = (["PLAN-REVIEW.md"] if number > 1 else []) + ["spec.md", "issues/"]
-        write = ["PLAN-REVIEW.md"]
-    elif role == "Coder":
-        read = (["CODEREVIEW.md"] if number > 1 else []) + ["spec.md", "issues/"]
-        write = ["FIXES.md", "issues/ (the ticked checkboxes)"]
-    else:
-        read = ["CODEREVIEW.md", "spec.md", "issues/"] if number > 1 else ["spec.md", "issues/", "FIXES.md"]
-        write = ["CODEREVIEW.md"]
-    return [flow.path(name) for name in read], [flow.path(name) for name in write]
+    files = workfile.WORKING_FILES[role]
+    return [flow.path(name) for name in files.read(number)], [flow.path(name) for name in files.write]
 
 
 def handoff(flow: Flow, role: str, number: int) -> str:

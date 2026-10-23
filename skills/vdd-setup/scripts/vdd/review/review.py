@@ -134,23 +134,19 @@ class Round:
             places.command(), sub, self.role, self.loop.slug, " --write" if write else "")
 
     def minors(self) -> str:
-        return self.loop.setting("Minors")[0]
+        return self.loop.minors
 
     def path(self, name: str) -> str:
-        return "%s/%s" % (self.loop.tracker, name)
+        return self.loop.path(name)
 
     def read_list(self) -> list[str]:
-        names = [self.name] if self.number > 1 else []
-        names += ["spec.md", "issues/"]
-        if self.kind == "code" and self.number == 1:
-            names.append("FIXES.md")
-        return [self.path(name) for name in names]
+        return [self.path(name) for name in workfile.WORKING_FILES[self.role].read(self.number)]
 
     def base(self) -> str:
-        return self.loop.setting("Base branch")[0]
+        return self.loop.base
 
     def branch(self) -> str:
-        return self.loop.setting("Feature branch")[0]
+        return self.loop.branch
 
     def fixed_point(self) -> str:
         """code-review's fixed point: the base branch in round 1, and in a

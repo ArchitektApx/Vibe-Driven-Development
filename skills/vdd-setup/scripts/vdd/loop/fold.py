@@ -448,7 +448,7 @@ def run(loop: Loop, harness: Harness, write: bool) -> int:
     state = loopstate.open_loop(loop, "loop fold")
     _, signed = signed_commit(state)
     out = Output()
-    branch, _ = loop.setting("Feature branch")
+    branch = loop.branch
     recorded = state.fold_record()
     owed = doorbells.Place(loop.root, loop.slug, loop, state).position().fold_owed
     if recorded is not None and not owed:
@@ -556,8 +556,8 @@ def fold(
 def checked_fold(
     loop: Loop, state: loopstate.State, repo: Repo, signed: str, index_path: str, write: bool,
 ) -> tuple[int, list[str], str, list[str]]:
-    base_branch, _ = loop.setting("Base branch")
-    branch, _ = loop.setting("Feature branch")
+    base_branch = loop.base
+    branch = loop.branch
     ref = "refs/heads/" + branch
     at = repo.call("rev-parse", "--verify", "--quiet", ref, ok=(0, 1)).out.strip()
     if at != signed:
@@ -640,7 +640,7 @@ def chain_of(state: loopstate.State, repo: Repo, base: str, signed: str) -> tupl
 def skipped(
     loop: Loop, state: loopstate.State, out: Output, signed: str, reason: str, write: bool, harness: Harness,
 ) -> int:
-    branch, _ = loop.setting("Feature branch")
+    branch = loop.branch
     if not write:
         out.line("Would skip the fold: %s. %s would stay at the signed commit %s." % (reason, branch, signed[:7]))
         return out.finish("Run %s" % fold_command(loop, harness))
@@ -649,7 +649,7 @@ def skipped(
         [loopstate.skipped_line(signed, reason)])
     out.line("Not folded: %s." % reason)
     out.line("%s stays at the signed commit %s. Recorded in %s/%s." % (branch, signed[:7], loop.tracker, recap.NAME))
-    pr, _ = loop.setting("PR")
+    pr = loop.pr
     after = "The branch stays local." if pr == "no" else "The loop goes on to the PR."
     out.tell("Not folded: %s stays exactly as the Code-Reviewer signed it off (%s), because %s. %s" % (
         branch, signed[:7], reason, after))

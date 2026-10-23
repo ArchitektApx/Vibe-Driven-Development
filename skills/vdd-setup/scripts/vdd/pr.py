@@ -224,13 +224,13 @@ def existing_pr(root: str, branch: str) -> str | None:
 
 def path_of(loop: loopfile.Loop) -> Path:
     """The Path for the loop's PR: line, or Refused."""
-    pr, _ = loop.setting("PR")
+    pr = loop.pr
     if pr == "manual":
         return Path(MANUAL)
     if pr == "no":
         return Path(NO_PR)
-    base, _ = loop.setting("Base branch")
-    branch, _ = loop.setting("Feature branch")
+    base = loop.base
+    branch = loop.branch
     remote, found = preflight.checks(loop.root, base)
     for check in found:
         if check.refused is not None:
@@ -273,8 +273,8 @@ def print_path(out: Output, path: Path) -> None:
 def check(loop: loopfile.Loop, harness: Harness) -> int:
     root = loop.root
     out = Output()
-    for name in ("Base branch", "Feature branch", "PR"):
-        out.line("%s: %s" % (name, loop.setting(name)[0]))
+    for name, value in (("Base branch", loop.base), ("Feature branch", loop.branch), ("PR", loop.pr)):
+        out.line("%s: %s" % (name, value))
     found = template(root)
     command = check_command(loop, harness)
     if found:
@@ -392,8 +392,8 @@ def open_pr(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wante
         return out.finish(
             "Relay the line above, then run %s pr check --slug %s --harness %s and go on with the path it prints."
             % (places.command(), loop.slug, harness.name), 1)
-    branch, _ = loop.setting("Feature branch")
-    base, _ = loop.setting("Base branch")
+    branch = loop.branch
+    base = loop.base
     if not write:
         what = {OPEN: " and open the PR into %s" % base, EXISTING: ", to the PR %s" % path.url}.get(wanted, "")
         out.line("Would push %s to %s%s, then close the loop." % (branch, path.remote, what))

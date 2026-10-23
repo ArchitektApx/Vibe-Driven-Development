@@ -6,7 +6,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .. import args, gitcmd, loopfile, loopstate, places, preflight, signoff, textfile
+from .. import args, gitcmd, loopfile, loopstate, places, preflight, signoff, textfile, workfile
 from ..harness import Harness
 from ..out import Failure, Output, refused
 
@@ -291,13 +291,12 @@ def work_left(root: str, slug: str) -> str:
     """The line naming what of a loop's work a leftover tracker directory
     holds, from what is on disk."""
     directory = loopfile.tracker_dir(root, slug)
-    found = [name for name in ("spec.md",) if os.path.isfile(os.path.join(directory, name))]
-    issues = os.path.join(directory, "issues")
+    found = [name for name in (workfile.SPEC,) if os.path.isfile(os.path.join(directory, name))]
+    issues = os.path.join(directory, workfile.ISSUES)
     tickets = [name for name in os.listdir(issues) if name.endswith(".md")] if os.path.isdir(issues) else []
     if tickets:
-        found.append("%d Ticket%s in issues/" % (len(tickets), "" if len(tickets) == 1 else "s"))
-    found += [name for name in ("PLAN-REVIEW.md", "FIXES.md", "CODEREVIEW.md")
-              if os.path.isfile(os.path.join(directory, name))]
+        found.append("%d Ticket%s in %s" % (len(tickets), "" if len(tickets) == 1 else "s", workfile.ISSUES))
+    found += [name for name in workfile.own_files() if os.path.isfile(os.path.join(directory, name))]
     if not found:
         return "It holds no Spec, Tickets or review files. Nothing was written."
     return "It holds %s. Nothing was written." % ", ".join(found)

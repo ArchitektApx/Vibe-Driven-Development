@@ -111,8 +111,8 @@ def fold_text(state: State) -> str:
 
 
 def render(loop: Loop, state: State, sections: dict[str, list[str]]) -> str:
-    base, _ = loop.setting("Base branch")
-    branch, _ = loop.setting("Feature branch")
+    base = loop.base
+    branch = loop.branch
     plan = state.reviewer_reviews("plan")
     code = state.reviewer_reviews("code")
     users = state.user_entries()

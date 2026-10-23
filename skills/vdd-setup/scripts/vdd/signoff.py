@@ -47,8 +47,8 @@ def require_code_sign_off(state: loopstate.State) -> None:
 
 def pr_step(loop: Loop) -> str:
     """The Next: line after the fold or a skip: the PR step."""
-    pr, _ = loop.setting("PR")
-    branch, _ = loop.setting("Feature branch")
+    pr = loop.pr
+    branch = loop.branch
     if pr == "no":
         return ("Run %s loop close --slug %s --write, then print \"Loop signed off. `PR: no`: `%s` stays local, "
                 "nothing pushed.\" and stop." % (places.command(), loop.slug, branch))

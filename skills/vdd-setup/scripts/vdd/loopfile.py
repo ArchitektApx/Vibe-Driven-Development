@@ -18,7 +18,8 @@ import os
 import re
 from typing import Iterable
 
-from . import args, armed, gitcmd, loopstate, textfile
+from . import args, armed, gitcmd, harness as harnesses, loopstate, textfile
+from .harness import Harness
 from .out import TELL, Failure, notice
 
 SLUG_PATTERN = "[a-z0-9]+(-[a-z0-9]+)*"
@@ -235,8 +236,41 @@ class Loop:
             return DEFAULTS[name], "malformed"
         return value, None
 
+    # --- the settings: a setting with a default falls back to it; Base
+    # branch and Feature branch have none, as check() refuses them missing ---
+
+    @property
+    def base(self) -> str:
+        return self.setting("Base branch")[0]
+
+    @property
+    def branch(self) -> str:
+        return self.setting("Feature branch")[0]
+
+    @property
+    def pr(self) -> str:
+        return self.setting("PR")[0]
+
+    @property
+    def minors(self) -> str:
+        return self.setting("Minors")[0]
+
+    @property
+    def harness_label(self) -> str:
+        """The Harness: line's own value: Generic's Harness module has no
+        label."""
+        return self.setting("Harness")[0]
+
+    @property
+    def harness(self) -> Harness:
+        return harnesses.known(harness_slug(self.harness_label))
+
     def harness_file(self) -> str:
-        return "harness-%s.md" % harness_slug(self.setting("Harness")[0])
+        return "harness-%s.md" % harness_slug(self.harness_label)
+
+    def path(self, name: str) -> str:
+        """A path under the tracker directory, as the tool prints it."""
+        return "%s/%s" % (self.tracker, name)
 
     def load_state(self) -> loopstate.State:
         """The loop's state file, read once: by the lookup that found the

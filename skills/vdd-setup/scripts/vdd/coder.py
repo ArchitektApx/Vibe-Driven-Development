@@ -112,8 +112,8 @@ class Round:
     def __init__(self, loop: loopfile.Loop, state: loopstate.State) -> None:
         self.loop = loop
         self.state = state
-        self.base = loop.setting("Base branch")[0]
-        self.branch = loop.setting("Feature branch")[0]
+        self.base = loop.base
+        self.branch = loop.branch
         self.file = os.path.join(loop.dir, fixes.NAME)
         self.relative = "%s/%s" % (loop.tracker, fixes.NAME)
         newest = state.code_round()
@@ -139,11 +139,10 @@ class Round:
         return [line for line in text.split("\n") if line]
 
     def path(self, name: str) -> str:
-        return "%s/%s" % (self.loop.tracker, name)
+        return self.loop.path(name)
 
     def read_list(self) -> list[str]:
-        names = (["CODEREVIEW.md"] if self.number > 1 else []) + ["spec.md", "issues/"]
-        return [self.path(name) for name in names]
+        return [self.path(name) for name in workfile.WORKING_FILES["Coder"].read(self.number)]
 
 
 def tickets(loop: loopfile.Loop) -> list[tuple[str, str]]:
