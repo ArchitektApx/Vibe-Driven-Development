@@ -118,7 +118,9 @@ def finish(report: Report, harness: Harness, values: dict[str, Any], write: bool
         return " ".join(steps)
     return (
         "Give the user a short status report: what passed, what Setup changed, and what the user "
-        "still has to do, relaying every Tell the user verbatim line above unchanged. Setup is done."
+        "still has to do, relaying every Tell the user verbatim line above unchanged. Setup is done. If another "
+        "skill invoked Setup, go on with that skill's next step in this same turn; otherwise end your turn with "
+        "the report."
     )
 
 
