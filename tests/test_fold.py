@@ -763,8 +763,9 @@ class SandboxAndSigningTest(FoldTest):
         self.folded(signed, self.fold())
 
     def test_a_signing_failure_inside_the_codex_sandbox_asks_for_the_rerun(self):
-        """Prevents the same final skip on Codex, whose sandbox names itself
-        in CODEX_SANDBOX."""
+        """Prevents a fold whose signing Codex's sandbox blocked being
+        recorded as skipped for good, so the rerun outside the sandbox
+        folds nothing."""
         signed = self.signed_loop()
         self.gpg(self.NO_KEY)
         result = self.box.run("loop", "fold", "--slug", "demo", "--harness", "codex", "--write",
@@ -773,6 +774,19 @@ class SandboxAndSigningTest(FoldTest):
         self.assertNext(result, "loop fold --slug demo --harness codex --escalation-refused --write")
         self.assertEqual(self.sha("demo"), signed)
         self.assertNotIn("fold ", self.state())
+
+    def test_a_signing_failure_with_only_codex_network_disabled_is_a_skip(self):
+        """Prevents an approved rerun outside Codex's sandbox, where Codex
+        still marks the network as cut, from asking for the same rerun again
+        instead of skipping a fold whose signing is broken."""
+        signed = self.signed_loop()
+        self.gpg(self.NO_KEY)
+        result = self.box.run("loop", "fold", "--slug", "demo", "--harness", "codex", "--write",
+                              env=self.box.env(CODEX_SANDBOX_NETWORK_DISABLED="1"))
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(self.sha("demo"), signed)
+        self.assertIn("signing a folded commit failed", result.tells()[0])
+        self.assertIn("fold skipped ", self.state())
 
     def test_a_refused_rerun_outside_the_sandbox_skips_the_fold(self):
         """Prevents a loop stuck at its fold when the user refuses the rerun

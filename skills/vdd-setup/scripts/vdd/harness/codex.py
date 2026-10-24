@@ -83,9 +83,10 @@ class Codex(Harness):
         return True
 
     def runs_sandboxed(self) -> bool:
-        # Codex names its sandbox in CODEX_SANDBOX (seatbelt on macOS), and
-        # sets CODEX_SANDBOX_NETWORK_DISABLED when that sandbox cuts the network.
-        return bool(os.environ.get("CODEX_SANDBOX")) or os.environ.get("CODEX_SANDBOX_NETWORK_DISABLED") == "1"
+        # Codex sets CODEX_SANDBOX (seatbelt) only on a command it runs in its
+        # macOS sandbox. CODEX_SANDBOX_NETWORK_DISABLED follows the network
+        # policy, also outside the sandbox, so it is not read.
+        return bool(os.environ.get("CODEX_SANDBOX"))
 
     def waits_through_stop_hook(self) -> bool:
         return True
