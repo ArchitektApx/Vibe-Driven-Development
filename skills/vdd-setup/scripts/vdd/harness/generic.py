@@ -5,6 +5,7 @@ names skills bare."""
 from __future__ import annotations
 
 from . import Harness, every, known
+from ..out import RELAY_HELD
 from ..stores import PLUGIN_CACHE, Root, Store, cli_add, cli_update, union
 
 
@@ -69,6 +70,14 @@ class Generic(Harness):
             "If your tools can run a command in the background and wake you when it exits, run this that "
             "way, then end your turn: %s Otherwise ask the user to paste the next Doorbell here, and run "
             "with it: %s" % (wait_command, paste_command)
+        )
+
+    def relayed_wait_next(self, wait_command: str, paste_command: str) -> str:
+        return (
+            "If your tools can run a command in the background and wake you when it exits, run this that way "
+            "before you write anything to the user: %s Then end your turn with a reply that %s. Otherwise "
+            "relay every Tell the user verbatim line above unchanged, then ask the user to paste the next "
+            "Doorbell here, and run with it: %s" % (wait_command, RELAY_HELD, paste_command)
         )
 
 

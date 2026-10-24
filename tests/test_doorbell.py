@@ -149,7 +149,7 @@ class DoorbellTest(LoopRepoTest):
             "cursor": "background shell",
             "copilot-cli": "async or detach mode, never sync",
             "codex": "arms the Stop hook",
-            "generic": "Otherwise ask the user to paste",
+            "generic": "ask the user to paste the next Doorbell here",
         }
         for number, (harness, words) in enumerate(cases.items(), 1):
             with self.subTest(harness=harness):
@@ -173,7 +173,7 @@ class DoorbellTest(LoopRepoTest):
         to start the Orchestrator. After a Tell that hands the user a step,
         the wait comes first and the reply that ends the turn holds the
         Tells; other rings keep the relay first."""
-        relay_last = "the reply that ends your turn comes after it and holds every Tell the user verbatim line above"
+        relay_last = "holds every Tell the user verbatim line above, unchanged"
         for harness in ("claude-code", "codex", "cursor", "copilot-cli", "generic"):
             with self.subTest(harness=harness, ring="Planner round 1"):
                 if os.path.exists(self.box.path(".scratch", "x", "doorbells")):
@@ -189,6 +189,21 @@ class DoorbellTest(LoopRepoTest):
                 result = self.ring("Orchestrator", line, harness=harness)
                 self.assertEqual(result.last.startswith("Next: Relay every Tell"), first, result.last)
                 self.assertEqual(relay_last in result.last, not first, result.last)
+
+    def test_the_generic_ring_relays_in_each_branch_of_its_wait(self):
+        """Prevents a Session blocked in the foreground: the generic Harness
+        offers a branch with no background wait, and a relay sentence after
+        both branches told a Role on that branch to start the wait before
+        asking the user for the paste. Each branch words its own relay."""
+        result = self.ring("Planner", P1, harness="generic")
+        background, otherwise = result.last.split(" Otherwise ")
+        self.assertIn("run this that way before you write anything to the user", background)
+        self.assertIn("doorbell wait --role Planner --harness generic", background)
+        self.assertIn("Then end your turn with a reply that holds every Tell", background)
+        self.assertNotIn("wait", otherwise)
+        self.assertLess(otherwise.index("relay every Tell the user verbatim line above unchanged"),
+                        otherwise.index("ask the user to paste"))
+        self.assertIn("doorbell take --role Planner --pasted", otherwise)
 
     def test_relaying_the_sign_off_waits_for_nothing(self):
         self.ring("Planner", P1)

@@ -28,3 +28,7 @@ def paste_command(role: str, harness: Harness, slug: str, entry: str | None = No
 
 def wait_next(role: str, harness: Harness, slug: str, entry: str | None = None) -> str:
     return harness.wait_next(wait_command(role, harness, slug, entry), paste_command(role, harness, slug, entry))
+
+
+def relayed_wait_next(role: str, harness: Harness, slug: str) -> str:
+    return harness.relayed_wait_next(wait_command(role, harness, slug), paste_command(role, harness, slug))

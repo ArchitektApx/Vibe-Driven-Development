@@ -20,8 +20,10 @@ RELAY = "Relay every Tell the user verbatim line above unchanged; only after doi
 # The relay of a Tell that hands the user a step only they can take, on an
 # output whose step starts a wait and ends the turn: a relay asked for before
 # the wait is dropped by a model that writes its text at the end of a turn.
+# A step that holds RELAY_HELD words its own relay of the Tell lines.
+RELAY_HELD = "holds every Tell the user verbatim line above, unchanged"
 RELAY_LAST = ("Start the wait before you write anything to the user; the reply that ends your turn comes after "
-              "it and holds every Tell the user verbatim line above, unchanged.")
+              "it and %s." % RELAY_HELD)
 ESCALATE = (
     "If a sandbox refused it and your tools offer a way to rerun the command outside the sandbox, "
     "rerun it once that way."
@@ -101,10 +103,10 @@ class Output:
 
     def finish(self, next_step: str, code: int = 0) -> int:
         """Print the lines and the Next: line, which opens with RELAY when
-        a Tell line printed, unless it ends with RELAY_LAST: no command words
-        its own relay step."""
+        a Tell line printed, unless the step words its own relay, as one
+        that holds RELAY_HELD does."""
         told = any(line.startswith(TELL_START) for line in NOTICES + self.lines)
-        if told and not next_step.endswith(RELAY_LAST):
+        if told and RELAY_HELD not in next_step:
             next_step = RELAY + lower_first(next_step)
         self.lines.append("Next: " + one_line(next_step))
         write(NOTICES + self.lines)

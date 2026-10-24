@@ -8,7 +8,7 @@ import abc
 from typing import TYPE_CHECKING, Any
 
 from ..catalog.refusals import missing
-from ..out import Failure
+from ..out import Failure, relay_last
 
 if TYPE_CHECKING:
     from ..stores import Root, Store
@@ -97,6 +97,13 @@ class Harness(abc.ABC):
     def wait_next(self, wait_command: str, paste_command: str) -> str:
         """The Next: step that waits for the other Role's Doorbell: how to run
         wait_command on this Harness, or hand relay through paste_command."""
+
+    def relayed_wait_next(self, wait_command: str, paste_command: str) -> str:
+        """wait_next after Tell lines that hand the user a step: the wait
+        starts before the reply that ends the turn, and that reply holds the
+        Tells. A Harness whose wait_next offers a branch with no wait words
+        the relay into each branch."""
+        return relay_last(self.wait_next(wait_command, paste_command))
 
 
 def every() -> tuple[Harness, ...]:

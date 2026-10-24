@@ -12,7 +12,7 @@ from typing import NoReturn
 
 from . import catalog, doorbells, harness as harnesses, runner, textfile
 from .harness import Harness
-from .out import TELL, Failure, Output, one_line, or_list, relay_last
+from .out import TELL, Failure, Output, one_line, or_list
 
 
 # --- the commands ---
@@ -163,7 +163,7 @@ def after_ring(place: doorbells.Place, role: str, harness: Harness, doorbell: do
         return doorbells.signed_off_next(role)
     step = doorbells.wait_or_hold(place, role, harness)
     if hands_user_a_step(role, harness, doorbell) and step == doorbells.wait_next(role, harness, place.slug):
-        return relay_last(step)
+        return doorbells.relayed_wait_next(role, harness, place.slug)
     return step
 
 
