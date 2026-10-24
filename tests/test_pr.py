@@ -538,6 +538,12 @@ class OpenTest(PRTest):
         result = self.pr_open()
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("no blank second line", result.text)
+        for text, problem in (("\n\n" + self.BODY, "has no title on its first line"),
+                              (self.TITLE + "\n\n", "has no body after the blank line")):
+            self.body(text)
+            result = self.pr_open()
+            self.assertNotEqual(result.code, 0, result)
+            self.assertIn(".scratch/demo/pr-body.md %s. Nothing was pushed." % problem, result.lines)
         self.assertEqual(self.pushed(), "")
         self.assertEqual(self.created(), [])
 

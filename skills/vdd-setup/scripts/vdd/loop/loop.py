@@ -232,7 +232,7 @@ def shown_body(loop: loopfile.Loop) -> list[runner.Effect]:
     if loop.pr == "no":
         return []
     found = prbody.read(loop)
-    if found.problem:
+    if found.problem is not None:
         return []
     tells = ["Open the PR yourself with this title and body, also in %s:" % prbody.relative(loop),
              "Title: %s" % found.title, ""] + found.body.rstrip("\n").split("\n")

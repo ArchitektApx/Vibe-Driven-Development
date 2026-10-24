@@ -26,6 +26,14 @@ if TYPE_CHECKING:
 
 PUSH_TIMEOUT_SECONDS = 600
 
+# pr open's refusal for each reason pr-body.md cannot be read, after its path.
+BODY_PROBLEMS = {
+    prbody.MISSING: "does not exist",
+    prbody.NO_TITLE: "has no title on its first line",
+    prbody.NO_BLANK_LINE: "has no blank second line between the title and the body",
+    prbody.NO_BODY: "has no body after the blank line",
+}
+
 HELP = catalog.Help({
     "check": [
         "pr check --slug <slug> --harness <h>",
@@ -237,9 +245,9 @@ def open_plan(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wan
             % loopstate.fold_command(loop, harness),
         )
     found = prbody.read(loop)
-    if found.problem:
+    if found.problem is not None:
         raise Failure(
-            "%s. Nothing was pushed." % found.problem,
+            "%s %s. Nothing was pushed." % (prbody.relative(loop), BODY_PROBLEMS[found.problem]),
             "Write %s with your file tool: the title as the first line, a blank line, then the body, as the user "
             "confirmed them. Then run the same command again." % prbody.relative(loop),
         )
