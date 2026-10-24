@@ -98,8 +98,7 @@ def finish(report: Report, harness: Harness, values: dict[str, Any], write: bool
     """The Next: step, from what the checks found and, on a write, what
     landed."""
     if report.git_too_old:
-        return ("Relay the Tell the user verbatim line about git above, and stop: no loop can start until git is "
-                "2.40 or newer.")
+        return "Stop: no loop can start until git is 2.40 or newer."
     if report.failed:
         return escalate("Otherwise tell the user which change did not land and what it was for, and stop.")
     if report.user_answer_needed:
@@ -118,7 +117,7 @@ def finish(report: Report, harness: Harness, values: dict[str, Any], write: bool
         return " ".join(steps)
     return (
         "Give the user a short status report: what passed, what Setup changed, and what the user "
-        "still has to do, relaying every Tell the user verbatim line above unchanged. Setup is done. If another "
+        "still has to do. Setup is done. If another "
         "skill invoked Setup, go on with that skill's next step in this same turn; otherwise end your turn with "
         "the report."
     )

@@ -3,7 +3,8 @@
 Plain text, one fact per line, written to standard output as UTF-8 bytes with
 LF line ends and every CR removed, whatever the console's code page. The last
 line is "Next: <command or action>". A line the user must see is
-'Tell the user verbatim: "<text>"'. The exit code is zero or not; the reason
+'Tell the user verbatim: "<text>"', and the Next: line after one opens with
+the step that relays it. The exit code is zero or not; the reason
 is always in the text.
 """
 
@@ -14,6 +15,8 @@ import sys
 from typing import Iterable
 
 TELL = 'Tell the user verbatim: "%s"'
+TELL_START = TELL.split('"')[0]
+RELAY = "Relay every Tell the user verbatim line above unchanged; only after doing that, "
 ESCALATE = (
     "If a sandbox refused it and your tools offer a way to rerun the command outside the sandbox, "
     "rerun it once that way."
@@ -25,6 +28,14 @@ def one_line(text: str) -> str:
     characters go."""
     text = text.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
     return "".join(c for c in text if c == "\t" or ord(c) >= 32 and ord(c) != 127)
+
+
+def lower_first(text: str) -> str:
+    """text with its first letter lowercased, unless its first word is an
+    acronym such as PR."""
+    if len(text) > 1 and text[0].isupper() and not text[1].isupper():
+        return text[0].lower() + text[1:]
+    return text
 
 
 def and_list(items: Iterable[str]) -> str:
@@ -84,6 +95,10 @@ class Output:
         return failure
 
     def finish(self, next_step: str, code: int = 0) -> int:
+        """Print the lines and the Next: line, which opens with RELAY when
+        a Tell line printed: no command words its own relay step."""
+        if any(line.startswith(TELL_START) for line in NOTICES + self.lines):
+            next_step = RELAY + lower_first(next_step)
         self.lines.append("Next: " + one_line(next_step))
         write(NOTICES + self.lines)
         del NOTICES[:]

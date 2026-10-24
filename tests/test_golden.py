@@ -395,6 +395,24 @@ class GoldenFileTest(unittest.TestCase):
             return
         self.assertEqual(sorted(found - named), [])
 
+    def test_every_output_with_a_tell_asks_for_the_relay_first(self):
+        """Prevents an output that prints a line for the user and then a
+        Next: naming a tool call: the Role makes the call, ends its turn,
+        and the user never reads the line."""
+        told = 0
+        for group in sorted(os.listdir(GOLDEN)):
+            for name in sorted(os.listdir(os.path.join(GOLDEN, group))):
+                if not name.endswith(".txt"):
+                    continue
+                with open(os.path.join(GOLDEN, group, name), "rb") as handle:
+                    lines = handle.read().decode("utf-8").replace("\r\n", "\n").splitlines()
+                if not any(line.startswith("Tell the user verbatim: ") for line in lines):
+                    continue
+                told += 1
+                with self.subTest(golden="%s/%s" % (group, name)):
+                    self.assertTrue(lines[-1].startswith("Next: Relay "), lines[-1])
+        self.assertGreater(told, 10)
+
 
 if __name__ == "__main__":
     unittest.main()

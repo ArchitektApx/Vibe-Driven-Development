@@ -134,9 +134,9 @@ def signed_off_next(role: str) -> str:
     """The Next: step of a ring or take once the plan Loop is over: the
     Orchestrator goes on hosting the code Loop, the Planner's work is done."""
     if role == "Orchestrator":
-        return ("Nothing to wait for: the plan Loop is over. Go on with the step the Next: line that named this "
+        return ("Run no wait: the plan Loop is over. Go on with the step the Next: line that named this "
                 "command gives after it.")
-    return "Nothing to wait for: the plan Loop is over, and the code Loop goes on without the Planner. End your turn."
+    return "Run no wait: the plan Loop is over, and the code Loop goes on without the Planner. End your turn."
 
 
 def wait_or_hold(place: Place, role: str, harness: Harness) -> str:
@@ -146,8 +146,8 @@ def wait_or_hold(place: Place, role: str, harness: Harness) -> str:
         return signed_off_next(role)
     if not harness.waits_through_stop_hook() and wait_runs(place, role):
         return (
-            "Your wait for the %s's Doorbell still runs and wakes you when one arrives: end your turn, "
-            "and start no other wait." % OTHER[role]
+            "End your turn and start no other wait: your wait for the %s's Doorbell still runs and wakes you "
+            "when one arrives." % OTHER[role]
         )
     return wait_next(role, harness, place.slug)
 

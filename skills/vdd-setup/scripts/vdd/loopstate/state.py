@@ -163,7 +163,7 @@ class State:
                     % (slug, catalog.bare("loop", "aside", slug=slug, write=True))
                 ),
             ],
-            "Relay the Tell the user verbatim line above unchanged, and stop.",
+            "Stop.",
         )
 
     # --- reading ---

@@ -147,8 +147,7 @@ def aside(root: str, values: dict[str, Any]) -> runner.Plan:
         effects += runner.close(state, done=["Closed the loop %s." % slug], refuse=refuse)
     effects.append(runner.Step(move, dry=["Would move .scratch/%s/ to .scratch/%s/%s." % (
         slug, target, ", closing its open loop first" if closing else "")], after=True))
-    return runner.Plan(effects, "Relay every Tell the user verbatim line above unchanged; only after doing that, run "
-                       "the %s command that reported the leftover again: .scratch/%s/ is free now."
+    return runner.Plan(effects, "Run the %s command that reported the leftover again: .scratch/%s/ is free now."
                        % (catalog.bare("loop", "new"), slug))
 
 
@@ -224,8 +223,7 @@ def after_state(slug: str, target: str, told: bool = False) -> str:
     printed Tell the user verbatim lines."""
     if target == loopstate.CLOSED:
         if told:
-            return ("Relay every Tell the user verbatim line above unchanged; only after doing that, run nothing "
-                    "more for the loop %s, which is closed, and end your turn." % slug)
+            return "Run nothing more for the loop %s, which is closed, and end your turn." % slug
         return "The loop %s is closed: run nothing more for it; finish the step you were on, then end your turn." % slug
     return "Go on as the user directs, passing --slug %s." % slug
 

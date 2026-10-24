@@ -101,7 +101,7 @@ class Loop:
                 why = "%s has no Format: line, so this copy of the VDD tool does not read it." % self.relative
             raise Failure(
                 [why, TELL % ("The Loop file %s is not one this copy of VDD reads: rerun Setup." % self.relative)],
-                "Relay the Tell the user verbatim line above unchanged: rerun Setup. Then stop.",
+                "Stop.",
             )
         for name in IDENTITY:
             if not self.fields.get(name):

@@ -257,7 +257,7 @@ def open_plan(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wan
     if path.name != wanted:
         raise Failure(["The path is no longer %s: %s. Nothing was pushed." % (wanted, changed(path, wanted)),
                        told("Nothing was pushed: %s." % changed(path, wanted))],
-                      "Relay the line above, then run %s and go on with the path it prints."
+                      "Run %s and go on with the path it prints."
                       % check_command(loop, harness))
     branch, base, remote = loop.branch, loop.base, path.remote
     pr_body = prbody.relative(loop)
@@ -270,7 +270,7 @@ def open_plan(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wan
             raise Failure(["git push -u %s %s failed: %s" % (remote, branch, pushed.first_error()),
                            "No PR was opened; the loop stays open, and %s stays." % pr_body,
                            told("The push of %s failed: %s" % (branch, pushed.first_error()))],
-                          "Relay the line above and wait for the user to fix it; when they say it is fixed, run %s"
+                          "Wait for the user to fix it; when they say it is fixed, run %s"
                           % command)
         return ["Pushed %s to %s." % (branch, remote)]
 
@@ -305,4 +305,4 @@ def open_plan(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wan
                        "Otherwise tell the user the loop could not be closed, and stop.")
 
     effects += runner.close(state, done=[runner.closed_line(loop.slug)], refuse=refuse)
-    return runner.Plan(effects, "Relay the line above and stop.", dry_next="Run %s" % command)
+    return runner.Plan(effects, "Stop.", dry_next="Run %s" % command)

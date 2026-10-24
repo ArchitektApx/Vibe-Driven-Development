@@ -26,7 +26,7 @@ from scenes import CC, CODEX_ID, FINDINGS, SLUG, Staged
 from vddtest import PLAN_SIGNED, WINDOWS
 
 V1 = "has state file version 1, which this VDD no longer reads."
-NEXT_V1 = "Relay the Tell the user verbatim line above unchanged, and stop."
+NEXT_V1 = "Relay every Tell the user verbatim line above unchanged; only after doing that, stop."
 GH_REFUSED = "failed to read configuration: open ~/.config/gh/hosts.yml: operation not permitted"
 
 

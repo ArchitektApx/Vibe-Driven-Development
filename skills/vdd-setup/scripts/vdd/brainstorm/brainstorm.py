@@ -15,7 +15,7 @@ import re
 from typing import Any, Callable, Dict
 
 from .. import catalog, gitcmd
-from ..out import TELL, Failure, Output
+from ..out import Failure, Output
 from . import cleanup, layout1, migrate, moves, printed, reads, restructure, runner
 from .migrate import require_layout
 from .runner import Move
@@ -193,11 +193,6 @@ def parts_named(store: Store) -> tuple[list[str], str]:
             " Offer once to file the parts named above under their parents (brainstorm move).")
 
 
-def told(lines: list[str]) -> int:
-    """How many of lines are Tell lines."""
-    return sum(1 for line in lines if line.startswith(TELL.split('"')[0]))
-
-
 def migrate_cmd(root: str, values: dict[str, Any]) -> int:
     lines, what, would = migrate.migrate(root, values["event"], values["write"])
     out = Output()
@@ -210,13 +205,9 @@ def migrate_cmd(root: str, values: dict[str, Any]) -> int:
     if what in ("dry-half", "dry-repair"):
         return out.finish("If the user agrees, run %s." % printed.MIGRATE)
     if what == "noop":
-        tells = told(lines)
-        return out.finish("Relay the Tell line%s above to the user, then run %s."
-                          % ("s" if tells > 1 else "", printed.START) if tells else "Run %s." % printed.START)
+        return out.finish("Run %s." % printed.START)
     named, offer = parts_named(Store(root))
     for line in named:
         out.line(line)
-    tells = told(lines)
-    relay = "" if not tells else ", relaying the Tell line above" if tells == 1 else ", relaying the Tell lines above"
-    return out.finish("Tell the user the migration is done%s, then answer their message, running %s first if it "
-                      "needs the store's overview." % (relay, printed.START) + offer)
+    return out.finish("Tell the user the migration is done, then answer their message, running %s first if it "
+                      "needs the store's overview." % printed.START + offer)

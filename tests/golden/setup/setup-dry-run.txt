@@ -9,4 +9,4 @@ git version: <version> Passed.
 Git repository: passed.
 .gitignore: covers .scratch/. Passed.
 Planned change: install the VDD tool (vdd.py and vdd/) in <shared>
-Next: Show the user the planned changes above; showing them is the consent step. Then run: <python> "<repo>/skills/vdd-setup/scripts/vdd.py" setup --harness claude-code --listed writing-for-agents --glossary-named yes --write
+Next: Relay every Tell the user verbatim line above unchanged; only after doing that, show the user the planned changes above; showing them is the consent step. Then run: <python> "<repo>/skills/vdd-setup/scripts/vdd.py" setup --harness claude-code --listed writing-for-agents --glossary-named yes --write

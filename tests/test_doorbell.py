@@ -170,7 +170,7 @@ class DoorbellTest(LoopRepoTest):
         self.ring("Planner", P1)
         self.take("Orchestrator")
         result = self.ring("Orchestrator", R2_SIGNED)
-        self.assertNext(result, "Nothing to wait for")
+        self.assertNext(result, "no wait: the plan Loop is over")
 
     # --- take ---
 
@@ -485,7 +485,7 @@ class DoorbellTest(LoopRepoTest):
         self.assertIsNone(proc.poll())
         return proc
 
-    HOLD = "still runs and wakes you when one arrives: end your turn, and start no other wait."
+    HOLD = "start no other wait: your wait for the"
 
     def test_a_second_wake_while_a_wait_runs_names_no_second_wait(self):
         """Cursor may wake twice for one wait. On the second wake take finds
@@ -597,11 +597,11 @@ class DoorbellTest(LoopRepoTest):
                     self.assertEqual(result.code, 0, result)
                     self.assertContract(result)
                     self.assertNotIn("Doorbell: ", result.text)
-                    self.assertNext(result, "Nothing to wait for: the plan Loop is over")
+                    self.assertNext(result, "no wait: the plan Loop is over")
                     self.assertNotIn("doorbell wait", result.last)
         result = self.take("Orchestrator", "--pasted", P2, harness="codex")
         self.assertIn("Already handled", result.text)
-        self.assertNext(result, "Nothing to wait for")
+        self.assertNext(result, "no wait: the plan Loop is over")
         self.ring("Planner", "VDD Planner: .scratch/x/ ready, round 3. Read spec.md and issues/.")
         self.assertNext(self.take("Planner"), "doorbell wait --role Planner")
 

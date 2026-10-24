@@ -139,7 +139,7 @@ def after_ring(place: doorbells.Place, role: str, harness: Harness, doorbell: do
     after the plan Sign-off opens a plan round again."""
     _, new = doorbells.pending(place.entries(role), place.load_state(role))
     if new:
-        return "A Doorbell for you is already waiting. Run: %s" % doorbells.take_command(role, harness, place.slug)
+        return "Take the Doorbell already waiting for you: run %s" % doorbells.take_command(role, harness, place.slug)
     if role == "Orchestrator" and doorbell.signed_off:
         return doorbells.signed_off_next(role)
     return doorbells.wait_or_hold(place, role, harness)
@@ -230,7 +230,8 @@ def after_nothing(place: doorbells.Place, role: str, harness: Harness, entries: 
                   state: doorbells.State) -> str:
     _, new = doorbells.pending(entries, state)
     if new:
-        return "A Doorbell for you is waiting in the Doorbell file. Run: %s" % doorbells.take_command(role, harness, place.slug)
+        return ("Take the Doorbell waiting for you in the Doorbell file: run %s"
+                % doorbells.take_command(role, harness, place.slug))
     return doorbells.wait_or_hold(place, role, harness)
 
 

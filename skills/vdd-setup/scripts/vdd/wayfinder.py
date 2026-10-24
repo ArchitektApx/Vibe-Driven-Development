@@ -131,7 +131,7 @@ def start(effort: str, skill_dir: str) -> int:
     for line in briefing(effort, overview, handoff):
         out.line(line)
     if found is None:
-        return out.finish("Relay the Tell the user verbatim line above and stop.")
+        return out.finish("Stop.")
     if has_map:
         return out.finish(
             "Read the ## Notes of %s. If any of the three points in the briefing above is missing there, print the "

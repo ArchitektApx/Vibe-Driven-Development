@@ -457,7 +457,7 @@ class FoldCommandTest(FoldTest):
         self.assertEqual(subjects, [T01_SUBJECT, T02_SUBJECT])
         self.assertIn("Folded demo: 4 commits into 2. The tree equals the signed tree; RECAP.md lists the commits.",
                       result.tells())
-        self.assertNext(result, "Invoke the vdd-create-pr skill in your own Session")
+        self.assertNext(result, "only after doing that, invoke the vdd-create-pr skill in your own Session")
 
     def test_the_recap_lists_the_commits_between_findings_and_not_carried(self):
         self.round_one({CSV: DOC_T02})

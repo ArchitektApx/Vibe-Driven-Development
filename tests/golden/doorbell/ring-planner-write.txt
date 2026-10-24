@@ -4,4 +4,4 @@ Rung: the Doorbell file now holds it, addressed to the Orchestrator.
 Tell the user verbatim: "Start the Orchestrator now: run claude in a terminal in this repository, then /vdd:vdd-orchestrator demo in that Session."
 Tell the user verbatim: "It picks up the Doorbell below from the Doorbell file; paste it in only if it does not start the review."
 Tell the user verbatim: "VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/."
-Next: Run this in the background with run_in_background set and a timeout of at least 2760000 ms, then end your turn: <python> "<repo>/skills/vdd-setup/scripts/vdd.py" doorbell wait --role Planner --harness claude-code --slug demo
+Next: Relay every Tell the user verbatim line above unchanged; only after doing that, run this in the background with run_in_background set and a timeout of at least 2760000 ms, then end your turn: <python> "<repo>/skills/vdd-setup/scripts/vdd.py" doorbell wait --role Planner --harness claude-code --slug demo

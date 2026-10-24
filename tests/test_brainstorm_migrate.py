@@ -248,7 +248,7 @@ class Interrupted(MigrateTest):
         result = self.ok("migrate", "--write")
         self.assertIn("The interrupted migration is finished", result.text)
         self.assertTrue(any("0.15 VDD plugin" in t for t in result.tells()), result)
-        self.assertNext(result, "relaying the Tell line above")
+        self.assertTrue(result.last.startswith("Next: Relay every Tell the user verbatim line above unchanged; "), result)
         self.assertNotIn("Backup of the 0.15 store", result.text)
         self.assertEqual(self.read(".layout"), "3\n")
         self.assertTrue(self.exists("main-idea.md"))
@@ -462,7 +462,7 @@ class LayoutTwo(BrainstormTest):
         before = self.stage()
         result = self.ok("migrate", "--write")
         self.assertEqual(result.tells(), [DONE])
-        self.assertEqual(result.last, ShortEnd.NEXT)
+        self.assertEqual(result.last, ShortEnd.TOLD)
         self.assertLayoutThree(before)
 
     def test_a_layout_two_store_without_a_ledger_only_gets_its_marker(self):
@@ -473,7 +473,7 @@ class LayoutTwo(BrainstormTest):
         result = self.ok("migrate", "--write")
         self.assertNotIn(PLAN, result.lines)
         self.assertEqual(result.tells(), [])
-        self.assertEqual(result.last, ShortEnd.NEXT.replace(", relaying the Tell line above", ""))
+        self.assertEqual(result.last, ShortEnd.NEXT)
         self.assertLayoutThree(before, one="2026-10-15")
 
     def test_an_idea_the_ledger_does_not_name_keeps_its_date(self):
@@ -507,7 +507,7 @@ class LayoutTwo(BrainstormTest):
         result = self.ok("migrate", "--write")
         self.assertIn("The .layout marker was missing; it now reads 2.", result.lines)
         self.assertEqual(result.tells(), [DONE])
-        self.assertEqual(result.last, ShortEnd.NEXT)
+        self.assertEqual(result.last, ShortEnd.TOLD)
         self.assertLayoutThree(before)
 
     def test_a_lost_marker_without_a_ledger_is_repaired_to_three(self):
@@ -518,7 +518,7 @@ class LayoutTwo(BrainstormTest):
         self.assertIn("The .layout marker was missing; it now reads 3.", result.lines)
         self.assertNotIn(PLAN, result.lines)
         self.assertEqual(result.tells(), [])
-        self.assertEqual(result.last, ShortEnd.NEXT.replace(", relaying the Tell line above", ""))
+        self.assertEqual(result.last, ShortEnd.NEXT)
         self.assertLayoutThree(before, one="2026-10-15")
 
 
@@ -540,7 +540,7 @@ class LayoutOneToThree(MigrateTest):
         self.assertTrue(result.lines[0].startswith("Migrated 5 ideas from the 0.15 layout: "), result)
         self.assertNotIn("layout 2", result.text)
         self.assertEqual(len(result.tells()), 1, result)
-        self.assertEqual(result.last, ShortEnd.NEXT + ShortEnd.OFFER)
+        self.assertEqual(result.last, ShortEnd.TOLD + ShortEnd.OFFER)
         self.assertEqual(self.read(".layout"), "3\n")
         self.assertFalse(self.exists(".state/ledger.json"))
         result = self.ok("show", "--idea", "part-two")
@@ -565,15 +565,16 @@ class ShortEnd(MigrateTest):
     """Prevents a migrate --write that ends without the lines the next
     step uses."""
 
-    NEXT = ("Next: Tell the user the migration is done, relaying the Tell line above, then answer their message, "
+    NEXT = ("Next: Tell the user the migration is done, then answer their message, "
             "running brainstorm start first if it needs the store's overview.")
+    TOLD = NEXT.replace("Next: Tell", "Next: Relay every Tell the user verbatim line above unchanged; only after doing that, tell")
     OFFER = " Offer once to file the parts named above under their parents (brainstorm move)."
     UNDO = "Tell the user verbatim: \"To undo the migration: delete .scratch/_brainstorming/"
     DONE = ("Tell the user verbatim: \"The idea store was updated to layout 3: each idea's date now comes from its "
             "file; no idea's text changed.\"")
     NAMED = "Named as a part in their tldr but not filed under that parent: part-one (main-idea), part-two (main-idea)."
 
-    def assertShort(self, result, *lines, next_line=NEXT):
+    def assertShort(self, result, *lines, next_line=TOLD):
         """result holds lines in order, the parts named and the Next:, and
         no overview or backup line."""
         found = [next(i for i, x in enumerate(result.lines) if x.startswith(line)) for line in lines]
@@ -602,7 +603,7 @@ class ShortEnd(MigrateTest):
         self.migrated()
         os.remove(self.box.path(S + ".layout"))
         self.assertShort(self.ok("migrate", "--write"), "The .layout marker was missing; it now reads 3.",
-                         next_line=self.NEXT.replace(", relaying the Tell line above", ""))
+                         next_line=self.NEXT)
         os.remove(self.box.path(S + ".layout"))
         self.box.write(S + ".state/ledger.json", "{}")
         self.assertShort(self.ok("migrate", "--write"), "The .layout marker was missing; it now reads 2.", self.DONE)

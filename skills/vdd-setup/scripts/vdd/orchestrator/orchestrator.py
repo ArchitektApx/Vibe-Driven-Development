@@ -251,7 +251,7 @@ def returned(flow: Flow, role: str) -> runner.Plan:
                  "to start a fresh %s for round %d, or stop." % (role, number, role, number))
         return flow.plan(
             out,
-            "Relay the line above and end your turn; the user decides. On resume, resume the same %s with the "
+            "End your turn; the user decides. On resume, resume the same %s with the "
             "user's words as the message. On respawn, run %s. On stop, stop." % (
                 role, flow.command("respawn", role=role, once=True, slug=flow.slug, write=True))
         )
@@ -294,7 +294,7 @@ def planner_returned(flow: Flow) -> runner.Plan:
                 TELL % ("The plan Loop is signed off and the code Loop is running, so the Planner's plan round %d "
                         "is not reviewed. The code Loop goes on with the Spec as it was signed off." % flow.rung()),
             ],
-            "Relay the Tell the user verbatim line above unchanged, then go on with the step you were on before "
+            "Go on with the step you were on before "
             "the Planner's Doorbell. Spawn no Plan-Reviewer.",
         )
     if flow.rung() < number:

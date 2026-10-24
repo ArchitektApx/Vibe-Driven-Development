@@ -167,8 +167,8 @@ class PlanRing(Scenes):
             "Plan-Reviewer reviews it.",
             'Tell the user verbatim: "The plan Loop is signed off and the code Loop is running, so the Planner\'s '
             'plan round 2 is not reviewed. The code Loop goes on with the Spec as it was signed off."',
-            "Next: Relay the Tell the user verbatim line above unchanged, then go on with the step you were on "
-            "before the Planner's Doorbell. Spawn no Plan-Reviewer.",
+            "Next: Relay every Tell the user verbatim line above unchanged; only after doing that, go on with the "
+            "step you were on before the Planner's Doorbell. Spawn no Plan-Reviewer.",
         ])
         self.assertNotIn("spawn Plan-Reviewer", self.state())
 

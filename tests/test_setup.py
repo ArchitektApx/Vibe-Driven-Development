@@ -524,7 +524,7 @@ class SetupTest(ToolTest):
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("Not changed: the Shared copy of the VDD tool", result.text)
         self.assertNext(result, "outside the sandbox, rerun it once that way.", "did not land and what it was for, and stop.")
-        self.assertTrue(result.last.startswith("Next: If a sandbox refused it"), result)
+        self.assertTrue(result.last.startswith("Next: Relay every Tell the user verbatim line above unchanged; only after doing that, if a sandbox refused it"), result)
 
     @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
     def test_an_unreadable_gitignore_ends_on_the_escalation_not_a_traceback(self):
@@ -929,7 +929,8 @@ class GitVersionTest(ToolTest):
         self.assertContract(result)
         self.assertIn("Git repository: git rev-parse timed out after 1 seconds.", result.lines)
         self.assertIn("git did not answer in time: find what holds it, then rerun Setup.", result.tells())
-        self.assertNext(result, "Show the user the planned changes above", "setup --harness claude-code", "--write")
+        self.assertNext(result, "only after doing that, show the user the planned changes above",
+                        "setup --harness claude-code", "--write")
 
     def test_a_version_check_that_hangs_says_git_did_not_answer(self):
         """Prevents a git that hangs on --version read as a git with no
@@ -940,7 +941,8 @@ class GitVersionTest(ToolTest):
         self.assertContract(result)
         self.assertIn("git version: git --version timed out after 1 seconds. Failed.", result.lines)
         self.assertIn("git did not answer in time: find what holds it, then rerun Setup.", result.tells())
-        self.assertNext(result, "Show the user the planned changes above", "setup --harness claude-code", "--write")
+        self.assertNext(result, "only after doing that, show the user the planned changes above",
+                        "setup --harness claude-code", "--write")
 
     def test_2_40_and_vendor_suffixed_versions_pass(self):
         """Prevents a vendor suffix (Apple's, Git for Windows') read as part

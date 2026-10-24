@@ -44,7 +44,7 @@ def refuse_root(root: str) -> None:
                 "No command reads it.",
                 TELL % ROOT_FIX,
             ],
-            "Relay the Tell the user verbatim line above unchanged, and stop.",
+            "Stop.",
         )
 
 
