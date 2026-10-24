@@ -101,8 +101,9 @@ class EntryTest(ToolTest):
         self.assertNotIn("Unknown option", result.text)
 
     def test_a_value_option_given_twice_is_refused_and_writes_nothing(self):
-        """Red team F10, D12: a value option given twice kept the last value,
-        so a command meant for one slug ran on the other without a word."""
+        """Prevents a value option given twice running on the wrong value: it
+        kept the last value, so a command meant for one slug ran on the other
+        without a word."""
         self.box.init_git()
         result = self.box.run("loop", "new", "--slug", "a", "--slug", "b", "--harness", "claude-code", "--write")
         self.assertNotEqual(result.code, 0, result)

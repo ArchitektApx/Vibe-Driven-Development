@@ -149,8 +149,8 @@ class CheckTest(PRTest):
         self.assertLess(result.lines.index("| last words"), result.lines.index("End of the newest body."))
 
     def test_no_history_could_not_read_and_a_refusal_are_told_apart(self):
-        """Ticket 56: any non-zero exit, a sandbox refusal included, read as
-        no PR history, and one run dropped a real history."""
+        """Prevents a real PR history dropped: any non-zero exit, a sandbox
+        refusal included, was read as no PR history."""
         self.set_pr("manual")
         self.plan(merged=[0, "[]", ""])
         self.assertIn("History: none (no merged PR).", self.pr_check().lines)
@@ -167,8 +167,15 @@ class CheckTest(PRTest):
         self.assertNext(result, "Rerun", "pr check --slug demo --harness claude-code", "outside the sandbox",
                         "tell the user gh pr list was refused, and stop.")
 
+    def test_a_silent_gh_failure_names_its_whole_subcommand(self):
+        """A gh call that failed and printed nothing was named "gh pr",
+        which does not say whether gh pr list, view or create failed."""
+        self.set_pr("manual")
+        self.plan(merged=[1, "", ""])
+        self.assertIn("History: could not read: gh pr list exited 1 and printed nothing", self.pr_check().lines)
+
     def test_a_network_a_sandbox_blocks_is_a_refusal(self):
-        """Acceptance, Codex: its sandbox blocks the network, gh pr list and
+        """Codex: its sandbox blocks the network, gh pr list and
         git ls-remote failed with a connection error, and pr check read them
         as no history and the path neither, so the loop closed with no PR."""
         self.remote()
@@ -639,7 +646,7 @@ class OpenTest(PRTest):
         self.assertIn("gh pr create failed after the push: GraphQL: Base branch not found", result.lines)
 
     def test_a_title_written_as_a_heading_reaches_gh_as_plain_text(self):
-        """Acceptance, Codex on Windows: the PR-Author wrote the title line of
+        """Codex on Windows: the PR-Author wrote the title line of
         pr-body.md as a Markdown heading, and its "# " would have opened the
         PR under that title."""
         self.body("# " + self.TITLE + "\n\n" + self.BODY)

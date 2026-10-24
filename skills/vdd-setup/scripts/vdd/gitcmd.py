@@ -5,7 +5,8 @@ version() reads the leading "git version X.Y" of git --version, a vendor
 suffix such as "(Apple Git-157)" or ".windows.2" ignored: Setup and the fold
 read it the same way. is_refusal() tells a sandbox refusal from any other
 failure, by a marker on stderr after a non-zero exit only (a call that exits
-0 is judged by its exit code alone, 9e820de).
+0 is judged by its exit code alone: git ls-remote has printed "fatal: failed
+to store" on a call that succeeded).
 """
 
 from __future__ import annotations
@@ -96,7 +97,7 @@ class Call:
                 return reason(lines)
         if self.code is None:
             return "%s could not run" % self.argv[0]
-        return "%s exited %d and printed nothing" % (" ".join(self.argv[:2]), self.code)
+        return "%s exited %d and printed nothing" % (name_of(self.argv), self.code)
 
 
 def reason(lines: list[str]) -> str:

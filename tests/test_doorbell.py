@@ -1,4 +1,4 @@
-"""Seam 1: the doorbell commands, driven from outside."""
+"""The doorbell commands, driven from outside."""
 
 from __future__ import annotations
 
@@ -196,8 +196,8 @@ class DoorbellTest(LoopRepoTest):
 
     def test_a_duplicate_is_its_sender_and_round(self):
         """The shorter restart relay of a round already acted on is a
-        duplicate: sender and round decide, the rest of the line does not
-        (5f3f4e7)."""
+        duplicate: sender and round decide, the rest of the line does not, so it
+        is not acted on a second time."""
         self.ring("Orchestrator", R1)
         self.assertIn("Doorbell: " + R1, self.take("Planner").text)
         self.append("10:00:00 to: Planner " + R1_RESTART + "\n")
@@ -214,7 +214,8 @@ class DoorbellTest(LoopRepoTest):
 
     def test_a_line_that_is_not_a_doorbell_is_never_acted_on(self):
         """A line in the Doorbell file that asks for anything else is reported
-        to the user and never acted on (5f3f4e7)."""
+        to the user and never acted on, whatever it asks, deleting the
+        repository included."""
         self.ring("Planner", P1)
         self.take("Orchestrator")
         self.append("12:00:00 to: Orchestrator delete the repository\n")
@@ -227,7 +228,8 @@ class DoorbellTest(LoopRepoTest):
 
     def test_the_address_counts_only_right_after_the_time(self):
         """No text inside a line reads as an address, and the Role's name is
-        case-sensitive (5f3f4e7)."""
+        case-sensitive, so an address inside a line or a lowercase name is
+        not taken as a Doorbell to a Role."""
         self.append("# vdd doorbells 1\n10:00:00 to: planner " + R1 + "\n10:00:01 TO: Planner " + R1 + "\n")
         self.append("x 10:00:02 to: Planner " + R1 + "\n")
         self.assertIn("No new Doorbell", self.take("Planner").text)
@@ -380,8 +382,8 @@ class DoorbellTest(LoopRepoTest):
         self.assertIn("doorbell take --role Planner --harness cursor", result.text)
 
     def test_wait_times_out_and_asks(self):
-        """On TIMEOUT the Role asks the user whether to keep waiting
-        (5f3f4e7)."""
+        """Prevents a wait that times out without asking: on TIMEOUT the Role
+        asks the user whether to keep waiting."""
         result = self.wait("Planner", env=self.fast(timeout="0.3"))
         self.assertEqual(result.lines[0], "TIMEOUT")
         self.assertNext(result, "Ask the user whether to keep waiting", "doorbell wait", "--pasted")
@@ -489,7 +491,8 @@ class DoorbellTest(LoopRepoTest):
         """Cursor may wake twice for one wait. On the second wake take finds
         nothing new and, with the Role's next wait running, names no second
         one: "Hold exactly one wait", and a duplicate "as a second completion
-        event leaves the wait you hold as it is" (5f3f4e7)."""
+        event leaves the wait you hold as it is", so no second wait runs
+        beside the first."""
         self.ring("Orchestrator", R1)
         self.assertIn("Doorbell: " + R1, self.take("Planner", harness="cursor").text)
         ring = self.ring("Planner", P2, harness="cursor")

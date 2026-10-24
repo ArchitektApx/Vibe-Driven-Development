@@ -450,7 +450,8 @@ class WriteAccessTest(RepositoryCheck):
     VERIFY = ".github/workflows/verify.yml"
     RELEASE = ".github/workflows/release.yml"
 
-    # T60's five mutations of verify.yml.
+    # Five mutations of verify.yml, each of which would let PR-head content
+    # run with write access or secrets.
 
     def test_pull_request_target_fails(self):
         """Prevents verify.yml running PR-head content with write access and

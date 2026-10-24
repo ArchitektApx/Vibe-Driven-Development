@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from .. import catalog
 from ..out import Failure
 from . import dupes, printed
 from .ideafile import (CLOSED, DEPTH_MAX, HISTORY, KIND_RE, KINDS, METRICS, ORDER, RESERVED, SLUG_PATTERN,
@@ -24,14 +25,14 @@ WORD = {"done": "Done", "dropped": "Dropped", "decided": "Decided", "shaped": "S
 
 
 def norm_value(value: str | None, allowed: tuple[str, ...], name: str) -> str:
-    """value as one of allowed, "in progress" read as in-progress; a
-    Failure naming the values otherwise."""
+    """value as one of allowed, "in progress" read as in-progress; the
+    catalog's choice refusal otherwise."""
     v = "-".join((value or "").strip().lower().split())
     if v == "inprogress":
         v = "in-progress"
     if v not in allowed:
-        raise Failure("--%s %s is not one of: %s. Nothing was written." % (name, value, ", ".join(allowed)),
-                      "Run the command again with one of those values.")
+        raise catalog.not_a_choice(name, value or "", allowed,
+                                   step="Nothing was written. Run the command again with one of those values.")
     return v
 
 
@@ -49,7 +50,7 @@ def metrics_of(values: dict[str, Any], default: str | None) -> dict[str, str]:
 
 def refuse_slug(store: Store, slug: str | None, option: str) -> None:
     """Refuse a slug that is not kebab-case, is reserved, names an idea, or
-    names one cleanup removed (M5): relation lines and research of the
+    names one cleanup removed: relation lines and research of the
     removed idea still name it, and would attach to the new one."""
     if not usable_slug(slug):
         raise Failure("%s %s is not a usable idea slug: a slug matches %s and is not %s. Nothing was written."
@@ -300,7 +301,7 @@ def set_cmd(store: Store, values: dict[str, Any]) -> Result:
         idea = store.ideas[slug]
         was = idea.status
         if status == was and not fields and not values["tldr"] and not values["title"]:
-            # A repeated status writes nothing (U14), whatever else it carries.
+            # A repeated status writes nothing, whatever else it carries.
             lines.append("%s is %s already; nothing changed." % (slug, was))
             continue
         for key, val in fields.items():
@@ -315,7 +316,7 @@ def set_cmd(store: Store, values: dict[str, Any]) -> Result:
         else:
             if status == was and was in CLOSED and (values["decision"] or values["reopen-when"]):
                 # A repeated close with another field: the idea closed once,
-                # so its Decision gets no second paragraph (M15).
+                # so its Decision gets no second paragraph.
                 lines.append("%s is %s already; its Decision stays as written." % (slug, was))
             elif values["decision"] or values["reopen-when"]:
                 write_decision(idea, idea.status, values["decision"], values["reopen-when"], True)

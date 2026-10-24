@@ -58,7 +58,8 @@ def layout(root: str) -> str | None:
     "lost" for a store of layout 2 or later without its marker, "1" for a
     0.15 store, None for no store. A store without a marker is lost, not
     0.15, when its idea files have History, or when .state/ or removed.md
-    sit beside a stale index.md (M7)."""
+    sit beside a stale index.md: migrating it again as 0.15 would
+    damage it."""
     base = store_dir(root)
     try:
         names = os.listdir(base)

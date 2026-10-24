@@ -1,4 +1,4 @@
-"""Seam 1 for codex-stop, and seam 3: the hook strings as they ship.
+"""codex-stop driven from outside, and the hook strings as they ship.
 
 The cases of the 0.15 fixture suites (vdd-codex-stop.test.sh and .ps1) live
 on here, numbered as they were where they still apply. The hook finds its
@@ -182,7 +182,7 @@ class CodexHookTest(ToolTest):
         it reads back unchanged through json.loads: the reason names the Shared
         copy's path, and a quote, a backslash, a tab or a non-ASCII letter in
         it must not break the block decision Codex parses. The 0.15 hook
-        dropped control characters and escaped the reason too (e89c906)."""
+        dropped control characters and escaped the reason too."""
         data = os.path.join(self.box.root, 'da"t\\a\té')
         os.makedirs(data)
         self.loop()
@@ -204,7 +204,7 @@ class CodexHookTest(ToolTest):
     def test_10_12_a_malformed_armed_file_is_claimed_and_no_block(self):
         """The claim takes a malformed armed file too, so it cannot fire on a
         later turn end: the 0.15 hook deleted the armed file before it waited,
-        whatever it held (e89c906)."""
+        whatever it held."""
         self.loop()
         self.ring("Orchestrator", P1)
         for text in ("vdd codex-armed 1\nCoder 0\n", "vdd codex-armed 1\nOrchestrator x\n",
@@ -247,8 +247,7 @@ class CodexHookTest(ToolTest):
 
     def test_the_session_id_filter(self):
         """session_id becomes part of a file name, so only [0-9A-Za-z_-]+ is
-        accepted and ../ never reaches the disk, as in the 0.15 hook
-        (e89c906)."""
+        accepted and ../ never reaches the disk, as in the 0.15 hook."""
         self.loop()
         self.box.write(os.path.join(".scratch", "codex-armed-x"), "vdd codex-armed 1\nOrchestrator 0\n")
         self.ring("Orchestrator", P1)
@@ -260,7 +259,7 @@ class CodexHookTest(ToolTest):
     def test_a_right_double_quote_in_the_last_message(self):
         """Stdin decoded in the Windows code page broke on a U+201D in
         last_assistant_message; it is read as bytes and decoded UTF-8, as the
-        0.15 hook on native Windows read it (0a606c2)."""
+        0.15 hook on native Windows read it."""
         self.loop()
         self.armed(ID)
         self.ring("Orchestrator", P1)
@@ -326,7 +325,7 @@ class CodexHookTest(ToolTest):
     def test_two_turn_ends_racing_claim_the_arm_once(self):
         """Two turn ends can race for the same armed file; only one of them
         creates the claim marker, so only one of them waits. The 0.15 hook deleted the armed
-        file before it waited (e89c906), which left a window between its read
+        file before it waited, which left a window between its read
         and its delete."""
         self.loop()
         self.armed(ID)
@@ -425,7 +424,7 @@ class CodexHookTest(ToolTest):
 
 
 class HookStringTest(ToolTest):
-    """Seam 3: the hook strings read from .codex-plugin/plugin.json, run where
+    """The hook strings read from .codex-plugin/plugin.json, run where
     Codex runs them, ${PLUGIN_ROOT} replaced as Codex replaces it."""
 
     def setUp(self):

@@ -394,7 +394,7 @@ TABLES = {
         ("version-1-check", R.version_one, ("pr", "check", *SLUG, *CC), V1, NEXT_V1, None, False),
         ("gh-refuses-the-existing-pr-check", R.gh_refuses_head, ("pr", "check", *SLUG, *CC), "A sandbox refused",
          "outside the sandbox", None, True),
-        # The push is done, so it prints first (T7).
+        # The push is done, so it prints first.
         ("close-fails", R.close_fails, ("pr", "open", "--path", "push-only", *SLUG, *CC, "--write"),
          "Pushed demo to origin.", "could not be closed", None, True),
         ("bad-path", R.folded, ("pr", "open", "--path", "pushed", *SLUG, *CC, "--write"),

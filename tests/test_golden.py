@@ -273,7 +273,7 @@ ROWS = [
     ("help", "loop-new", "command", S.repo, ("loop", "new", "--help"), None, None, 0),
     ("help", "brainstorm-set", "command", S.repo, ("brainstorm", "set", "--help"), None, None, 0),
 
-    # Two refusals whose wording the owner settled without a model run.
+    # Two refusals whose exact wording is held here.
     ("refusal", "coder-start", "sandbox-refused-checkout", S.signed, ("coder", "start", *SLUG, "--write"),
      checkout_refused, None, 1),
     ("refusal", "brainstorm-migrate", "backup-rename-fails", legacy_store_backup_blocked,

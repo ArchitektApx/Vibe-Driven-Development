@@ -333,7 +333,7 @@ class CheckTest(CodeReviewTest):
 
 
 class ChecksValuesTest(CodeReviewTest):
-    """Ticket 90, findings 4 and 5 of loop 04's acceptance: a round-2
+    """Prevents a skip recorded as ran: a round-2
     Code-Reviewer that rightly reviewed a small fix by hand was refused twice
     and settled on ran. not needed, <reason> records a skip as a skip."""
 
@@ -398,7 +398,7 @@ class ChecksValuesTest(CodeReviewTest):
 
 
 class OwnDiffTest(CodeReviewTest):
-    """Ticket 90, finding 5 of loop 04's acceptance: the tool listed round
+    """Prevents a later round reviewed on the whole branch: the tool listed round
     1's Agent document again in round 2, because it read the whole branch
     while its own text says "this round's diff". A later round is reviewed
     from the previous round's recorded end."""
@@ -412,8 +412,8 @@ class OwnDiffTest(CodeReviewTest):
         self.round_one_with_a_skill()
         result = self.review("start")
         self.assertEqual(result.code, 0, result)
-        self.assertIn("Review range: main...demo, with main as code-review's fixed point and Step 2's diff.",
-                      result.lines)
+        self.assertIn("Review range: main...demo, with main as code-review's fixed point and the diff you check "
+                      "against the Tickets.", result.lines)
         self.assertIn("Agent documents in the range: skills/x/SKILL.md", result.lines)
 
     def test_a_later_round_reviews_from_the_previous_round_s_end(self):

@@ -99,7 +99,7 @@ class NewTest(LoopTest):
         self.assertNext(result, "--slug demo")
 
     def test_write_prints_the_summary_as_tell_lines_and_relays_them_in_next(self):
-        """A7: in all 7 Claude Code Start-Loops since 2026-10-17 the model
+        """On Claude Code the Start-Loop's model, run after run,
         wrote the closing summary into its thinking and never showed the user
         the Tell lines. The tool now prints the summary's facts itself, and
         the Next: line names relaying them."""
@@ -717,8 +717,9 @@ class LeftoverTest(LoopTest):
 
 class AsideTest(LoopTest):
     def test_aside_takes_the_lowest_free_n_and_deletes_nothing(self):
-        """The leftover-tracker reference: "Delete nothing on any of the
-        three answers", and the move takes the lowest n from 2 that is free."""
+        """Prevents a move aside that deletes a file of the leftover loop, or
+        takes an n already used: the move deletes nothing and takes the
+        lowest n from 2 that is free."""
         self.box.write(os.path.join(".scratch", "demo", "spec.md"), "first\n")
         result = self.loop("aside", "--slug", "demo", "--write")
         self.assertEqual(result.code, 0, result)
@@ -894,7 +895,7 @@ class StubbedPreflightTest(LoopTest):
         return self.box.env(PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""))
 
     def test_the_push_check_judges_the_exit_code_only(self):
-        """9e820de: git ls-remote printed fatal: failed to store on a call
+        """git ls-remote printed fatal: failed to store on a call
         that exited 0, and a check that read stderr reported a working remote
         as broken. The stub stays: a remote cannot make that fault."""
         self.box.git("remote", "add", "origin", "https://github.com/example/repo.git")

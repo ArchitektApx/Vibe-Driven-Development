@@ -15,7 +15,7 @@ from .out import Failure, Output
 
 TEMPLATES = ("overview-template.md", "handoff-template.md")
 # A Feature slug, with dots allowed between words: an effort is often named
-# for a release, as beta-0.16.0-work is.
+# for a release, as release-2.1-work is.
 EFFORT_PATTERN = "[a-z0-9]+([.-][a-z0-9]+)*"
 
 HELP = catalog.Help({

@@ -165,9 +165,9 @@ class WayfinderTest(ToolTest):
         self.assertIn("Not an effort slug: two words", result.text)
 
     def test_an_effort_named_with_a_version_finds_its_map(self):
-        """Acceptance: the Feature-slug check refused beta-0.16.0-work, an
-        effort whose map the Wayfinder on beta still opened. A slug that
-        could leave .scratch/ stays refused."""
+        """Prevents an effort named with a version, with dots between its
+        words, refused although an older Wayfinder opened its map. A slug
+        that could leave .scratch/ stays refused."""
         self.install(".agents", "skills")
         self.box.write(os.path.join(".scratch", "beta-0.16.0-work", "map.md"), "# Map\n")
         result = self.start(effort="beta-0.16.0-work")

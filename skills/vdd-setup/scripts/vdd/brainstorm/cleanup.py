@@ -36,7 +36,7 @@ def gist(idea: Idea) -> str:
 
 def older_days(value: str | None) -> int | None:
     """--older as days, None when not given. An empty value is refused, never
-    read as any age (M3)."""
+    read as any age, so a missing age cannot remove every closed idea."""
     if value is None:
         return None
     if not value.strip():
@@ -52,7 +52,9 @@ def older_days(value: str | None) -> int | None:
 
 
 def age_of(closed: str) -> int | None:
-    """Days since closed, None for a date that does not exist (M12)."""
+    """Days since closed, None for a date that does not exist,
+    such as February 30, which would otherwise end the command with a
+    traceback."""
     try:
         return (datetime.date.fromisoformat(today()) - datetime.date.fromisoformat(closed)).days
     except ValueError:

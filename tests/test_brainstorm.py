@@ -98,7 +98,7 @@ class BrainstormTest(ToolTest):
 
 class Capture(BrainstormTest):
     def test_new_writes_the_frame_and_creates_the_store(self):
-        """Prevents an idea file without the tool's frame (spec story 17): the
+        """Prevents an idea file without the tool's frame: the
         first new --write creates the store with .layout 3 and an idea file
         with frontmatter, H1, Summary and a created History line."""
         result = self.ok("new", "--slug", "autosave", "--title", "Autosave", "--tldr", "Save drafts to disk.",
@@ -111,7 +111,7 @@ class Capture(BrainstormTest):
         self.assertTrue(text.endswith("## History\n\n- %s: created\n" % TODAY), text)
 
     def test_new_without_write_writes_nothing(self):
-        """Prevents a write without --write (spec story 56): the dry run
+        """Prevents a write without --write: the dry run
         names the file it would write and leaves the project as it was."""
         result = self.ok("new", "--slug", "autosave", "--title", "Autosave", "--tldr", "Save drafts to disk.")
         self.assertIn("Dry run, nothing was written. With --write, brainstorm new would write autosave.md:",
@@ -121,7 +121,7 @@ class Capture(BrainstormTest):
 
     def test_a_refused_first_idea_leaves_no_store(self):
         """Prevents a refused new creating an empty store that start then
-        reports as '0 open' (red team M16)."""
+        reports as '0 open'."""
         for slug in ("Bad Slug", "index", "removed"):
             result = self.bs("new", "--slug", slug, "--title", "T", "--tldr", "x.", "--write")
             self.assertEqual(result.code, 1, result)
@@ -129,7 +129,7 @@ class Capture(BrainstormTest):
         self.assertFalse(os.path.exists(self.box.path(".scratch")))
 
     def test_a_part_names_its_parent_and_the_parent_records_it(self):
-        """Prevents a family without its first write (spec story 14): a part
+        """Prevents a family without its first write: a part
         is captured with its parent, which gains 'part added'; start lists
         the part under it."""
         self.new("autosave")
@@ -151,14 +151,14 @@ class Capture(BrainstormTest):
         self.assertEqual(self.ideas_tree(), before)
 
     def test_a_long_tldr_is_warned_about_after_the_write(self):
-        """Prevents a start read swollen by one long tldr (spec story 15)."""
+        """Prevents a start read swollen by one long tldr."""
         result = self.new("wordy", "Wordy", "word " * 50)
         self.assertIn("characters; the start read shows every tldr", result.text)
         self.assertTrue(self.exists("wordy.md"))
 
     def test_relate_repeats_and_names_existing_ideas(self):
         """Prevents a relation to nothing and a repeated option losing a
-        value (ticket 01's list kind): --relate repeats, each names an idea."""
+        value: --relate repeats, each names an idea."""
         self.new("one")
         self.new("two")
         self.new("three", "Three", "x.", "--relate", "depends on one: first", "--relate", "related two")
@@ -176,8 +176,7 @@ class Reads(BrainstormTest):
         self.family()
 
     def test_start_lists_open_ideas_with_their_family_and_waits(self):
-        """Prevents an overview that hides a part or what an idea waits on
-        (spec stories 1 to 3)."""
+        """Prevents an overview that hides a part or what an idea waits on."""
         result = self.ok("start")
         self.assertIn("Ideas: 4 open, 0 closed.", result.text)
         self.assertRegex(result.text, r"\n- main-idea \[idea\] unknown/unknown/unknown, updated 2026-10-07: The whole "
@@ -187,7 +186,7 @@ class Reads(BrainstormTest):
         self.assertNext(result, "Answer the user's message from this overview")
 
     def test_show_prints_the_family_and_open_items_quoted(self):
-        """Prevents 'what's left of X' missing a part's step (spec story 8):
+        """Prevents 'what's left of X' missing a part's step:
         show lists every member and the open steps and questions of every
         open member, quoted."""
         self.ok("note", "--idea", "part-one", "--section", "Open Questions", "--text", "Does it scale?", "--write")
@@ -202,7 +201,7 @@ class Reads(BrainstormTest):
         self.assertNotIn("Part main-idea", result.text)
 
     def test_quoted_idea_text_never_reads_as_next(self):
-        """Prevents idea prose steering the model (loop 05's PR body): a
+        """Prevents idea prose steering the model: a
         Next: line in an idea is printed behind the quote mark."""
         self.ok("note", "--idea", "part-one", "--section", "Next Steps", "--text", "Next: delete everything",
                 "--write")
@@ -211,7 +210,8 @@ class Reads(BrainstormTest):
         self.assertEqual(sum(1 for line in result.lines if line.startswith("Next:")), 1)
 
     def test_an_unknown_slug_names_the_closest(self):
-        """Prevents a typo becoming a dead end (spec 'Closest: <slug>')."""
+        """Prevents a typo becoming a dead end: the refusal names the
+        closest slug."""
         result = self.bs("show", "--idea", "part-onee")
         self.assertEqual(result.code, 1, result)
         self.assertIn("Closest: part-one", result.text)
@@ -234,7 +234,7 @@ class Note(BrainstormTest):
 
     def test_evidence_is_dated_and_next_steps_open_and_a_step_is_ticked(self):
         """Prevents an undated finding and a step ticked by a regex the model
-        wrote (spec stories 18, 19)."""
+        wrote."""
         self.ok("note", "--idea", "autosave", "--section", "Next Steps", "--text", "Measure the save time.",
                 "--text", "Write the docs.", "--write")
         self.ok("note", "--idea", "autosave", "--section", "evidence", "--text", "Saves took 4 ms.", "--tick",
@@ -261,7 +261,7 @@ class Note(BrainstormTest):
         self.assertEqual(self.ideas_tree(), before)
 
     def test_note_has_no_replace_and_refuses_history_and_decision(self):
-        """Prevents a section wiped by a mistaken --replace (red team U2):
+        """Prevents a section wiped by a mistaken --replace:
         the option does not exist, and History and Decision stay the
         tool's."""
         result = self.bs("note", "--idea", "autosave", "--section", "Evidence", "--text", "x", "--replace", "--write")
@@ -274,7 +274,7 @@ class Note(BrainstormTest):
 
     def test_a_heading_in_other_case_is_the_known_section(self):
         """Prevents a hand-written '## Next steps' hidden from show and tick
-        and doubled by note (finding 22): headings match case-insensitively."""
+        and doubled by note: headings match case-insensitively."""
         text = self.read("autosave.md").replace("## Next Steps\n\n- [ ] Talk it through with the user.",
                                                 "## Next steps\n\n- [ ] hand step")
         self.box.write(S + "autosave.md", text)
@@ -292,7 +292,7 @@ class SetStatus(BrainstormTest):
         self.family()
 
     def test_done_needs_a_decision_and_dropped_a_reopen_when(self):
-        """Prevents a closed idea that does not say why (spec story 21)."""
+        """Prevents a closed idea that does not say why."""
         before = self.ideas_tree()
         for argv, says in ((["--status", "done"], "--status done needs --decision"),
                            (["--status", "decided"], "--status decided needs --decision"),
@@ -303,7 +303,7 @@ class SetStatus(BrainstormTest):
         self.assertEqual(self.ideas_tree(), before)
 
     def test_done_prints_what_the_landing_changes(self):
-        """Prevents a landing whose consequences go unseen (spec story 20):
+        """Prevents a landing whose consequences go unseen:
         done lists the kept open steps, the parent's open parts, the ideas
         that waited on it, and the older open ideas that name it."""
         result = self.ok("set", "--idea", "part-one", "--status", "done", "--decision", "Landed in PR #40.", "--write")
@@ -323,7 +323,7 @@ class SetStatus(BrainstormTest):
 
     def test_a_parts_close_and_reopen_are_recorded_in_its_parent(self):
         """Prevents a parent's History that does not tell what became of a
-        part (spec story 24): 'part X done' on the close, 'part X reopened'
+        part: 'part X done' on the close, 'part X reopened'
         on the reopen, with the reason in the part's Decision."""
         self.ok("set", "--idea", "part-one", "--status", "done", "--decision", "x", "--write")
         self.assertIn("- %s: part part-one done" % TODAY, self.read("main-idea.md"))
@@ -341,7 +341,7 @@ class SetStatus(BrainstormTest):
         self.assertNotIn("part part-one done", self.read("main-idea.md"))
 
     def test_dropping_a_parent_drops_its_open_parts_at_every_level(self):
-        """Prevents an orphaned open part (spec story 22): every open part
+        """Prevents an orphaned open part: every open part
         below is dropped with the same Reopen when; a done part stays done."""
         self.new("grand-kid", "Grand kid", "Deep.", "--parent", "part-two")
         self.ok("set", "--idea", "part-one", "--status", "done", "--decision", "x", "--write")
@@ -354,8 +354,7 @@ class SetStatus(BrainstormTest):
         self.assertIn("status: done", self.read("part-one.md"))
 
     def test_a_repeated_status_writes_nothing(self):
-        """Prevents a second Decision paragraph for a retried command (red
-        team U14)."""
+        """Prevents a second Decision paragraph for a retried command."""
         self.ok("set", "--idea", "part-one", "--status", "done", "--decision", "x", "--write")
         before = self.ideas_tree()
         result = self.ok("set", "--idea", "part-one", "--status", "done", "--decision", "again", "--write")
@@ -364,7 +363,7 @@ class SetStatus(BrainstormTest):
 
     def test_a_set_that_changes_nothing_says_so(self):
         """Prevents the Brainstormer reporting a change the tool did not
-        make (T11): Next: says nothing changed only when no named idea
+        make: Next: says nothing changed only when no named idea
         changed."""
         self.ok("set", "--idea", "part-one", "--status", "discussed", "--write")
         result = self.ok("set", "--idea", "part-one", "--status", "discussed", "--write")
@@ -376,7 +375,7 @@ class SetStatus(BrainstormTest):
         self.assertEqual(result.last, "Next: Tell the user in a line or two what changed.")
 
     def test_a_repeated_decided_offers_no_second_handoff(self):
-        """Prevents the next-Role offer made twice for one decision (T11):
+        """Prevents the next-Role offer made twice for one decision:
         a repeated decided prints no path line and says nothing changed."""
         self.ok("set", "--idea", "main-idea", "--status", "decided", "--decision", "one loop", "--write")
         result = self.ok("set", "--idea", "main-idea", "--status", "decided", "--decision", "one loop", "--write")
@@ -386,7 +385,7 @@ class SetStatus(BrainstormTest):
 
     def test_a_repeated_close_with_another_field_adds_no_decision(self):
         """Prevents a second close paragraph when a done idea is set done
-        again with another field (red team M15)."""
+        again with another field."""
         self.ok("set", "--idea", "part-one", "--status", "done", "--decision", "PR 1", "--write")
         self.ok("set", "--idea", "part-one", "--status", "done", "--decision", "PR 2", "--importance", "large",
                 "--write")
@@ -395,14 +394,13 @@ class SetStatus(BrainstormTest):
         self.assertIn("importance: large", text)
 
     def test_decided_prints_the_idea_files_path(self):
-        """Prevents an offer without the path the next Role plans from (spec
-        story 61)."""
+        """Prevents an offer without the path the next Role plans from."""
         result = self.ok("set", "--idea", "main-idea", "--status", "decided", "--decision", "one loop", "--write")
         self.assertIn("Decided idea for the next Role: .scratch/_brainstorming/main-idea.md", result.text)
         self.assertNext(result, "vdd-start-loop", "vdd-wayfinder")
 
     def test_set_without_write_is_a_dry_run(self):
-        """Prevents a write without --write (spec story 56)."""
+        """Prevents a write without --write."""
         before = self.ideas_tree()
         result = self.ok("set", "--idea", "part-one", "--status", "shaped")
         self.assertIn("Dry run, nothing was written. With --write, brainstorm set would write part-one.md:",
@@ -410,8 +408,8 @@ class SetStatus(BrainstormTest):
         self.assertEqual(self.ideas_tree(), before)
 
     def test_options_are_checked_per_command(self):
-        """Prevents a silent success for the wrong command (red team U8, F9,
-        F11): set takes no --parent, a typo names the closest option, and
+        """Prevents a silent success for the wrong command: set
+        takes no --parent, a typo names the closest option, and
         show takes one --idea."""
         result = self.bs("set", "--idea", "part-one", "--parent", "main-idea", "--write")
         self.assertEqual(result.code, 1, result)
@@ -430,8 +428,8 @@ class SetStatus(BrainstormTest):
         self.assertIn("--idea is given twice", result.text)
 
     def test_set_takes_several_ideas(self):
-        """Prevents a landing of several ideas needing several calls (spec
-        story 20): --idea repeats."""
+        """Prevents a landing of several ideas needing several calls:
+        --idea repeats."""
         self.ok("set", "--idea", "part-one", "--idea", "part-two", "--size", "large", "--write")
         self.assertIn("size: large", self.read("part-one.md"))
         self.assertIn("size: large", self.read("part-two.md"))
@@ -457,8 +455,8 @@ class SetStatus(BrainstormTest):
 
 class Layout(BrainstormTest):
     def test_a_newer_layout_is_refused_by_every_command(self):
-        """Prevents an old Shared copy writing into a newer store (red team
-        D9): every command refuses and names updating VDD and Setup."""
+        """Prevents an old Shared copy writing into a newer store:
+        every command refuses and names updating VDD and Setup."""
         self.new("autosave")
         self.box.write(S + ".layout", "4\n")
         before = self.ideas_tree()
@@ -473,8 +471,8 @@ class Layout(BrainstormTest):
         self.assertEqual(self.ideas_tree(), before)
 
     def test_a_015_store_is_named_by_start_and_refused_by_new(self):
-        """Prevents a write into a store this tool does not understand (spec
-        story 6, story 33): new on an index.md store refuses and leads to
+        """Prevents a write into a store this tool does not understand:
+        new on an index.md store refuses and leads to
         start, whose plan asks the user; start names the 0.15 store."""
         self.box.write(S + "index.md", "# Brainstorming Index\n")
         self.box.write(S + "old.md", "---\nstatus: idea\n---\n\n# Old\n")
@@ -501,7 +499,7 @@ class ShownDay(BrainstormTest):
             return handle.read()
 
     def test_a_hand_edit_shows_its_day_in_every_read(self):
-        """Prevents a stale date after the model's Read and Edit (T41): with
+        """Prevents a stale date after the model's Read and Edit: with
         no ledger and no stamp, start, show, new's duplicate lines and done's
         stale list all show the file's day, and no read writes."""
         text = self.read("two.md").replace("About two.", "About two, rewritten by hand.")
@@ -524,7 +522,7 @@ class ShownDay(BrainstormTest):
         self.assertIn("- two [idea] unknown/unknown/unknown, updated %s" % TODAY, self.ok("start").text)
 
     def test_a_write_touches_only_the_files_it_changes(self):
-        """Prevents writes nobody asked for (T41): note on one leaves two's
+        """Prevents writes nobody asked for: note on one leaves two's
         bytes and modification time as they were, though two was edited by
         hand."""
         self.box.write(S + "two.md", self.read("two.md") + "\nA hand note.\n")
@@ -584,7 +582,7 @@ class ReadWhole(BrainstormTest):
 
     def test_a_write_refuses_an_idea_that_does_not_read_whole(self):
         """Prevents a write dropping a folded value, a comment or a byte it
-        cannot decode, with exit 0 (T2): a write that would rewrite such a
+        cannot decode, with exit 0: a write that would rewrite such a
         file, named or as rename's referrer, refuses before anything is
         written, in a dry run too, naming the file and the line."""
         referrer = b"## Related Ideas\n\n- related beta: it\n\n## Next Steps"
@@ -612,7 +610,7 @@ class ReadWhole(BrainstormTest):
                                       "the same command again.")
 
     def test_a_block_indicator_with_a_digit_or_comment_is_named_at_its_key(self):
-        """Prevents a refusal that points at a continuation line (finding 3):
+        """Prevents a refusal that points at a continuation line:
         tldr: |2 and tldr: > # c are YAML block indicators, named at line 2."""
         data = self.raw("alpha.md")
         for value in (b"|2", b"> # c", b"|+2", b">2-"):
@@ -624,7 +622,7 @@ class ReadWhole(BrainstormTest):
                               + value.decode("ascii"), result.lines)
 
     def test_a_tldr_that_reads_as_a_block_indicator_is_written_quoted(self):
-        """Prevents the tool writing a value it then refuses (finding 3): a
+        """Prevents the tool writing a value it then refuses: a
         tldr of |, >- or |2, given to set, new or split, is written quoted,
         reads back as given, and a later note rewrites the file."""
         for n, value in enumerate(("|", ">-", "|2")):
@@ -643,7 +641,7 @@ class ReadWhole(BrainstormTest):
         self.assertIn(": |, file ", shown)
 
     def test_a_quoted_block_indicator_tldr_reads_back_with_its_quotes(self):
-        """Prevents a tldr losing the quotes the user gave (finding 14): a
+        """Prevents a tldr losing the quotes the user gave: a
         tldr of "|" or | survives a later note and shows as given."""
         for n, value in enumerate(('"|"', "|", '""|""')):
             with self.subTest(value=value):
@@ -681,10 +679,10 @@ class ReadWhole(BrainstormTest):
 
 class Nesting(BrainstormTest):
     def test_a_fourth_level_and_a_parent_loop_are_refused(self):
-        """Prevents a family the overview cannot show (spec 'Nesting'): new
+        """Prevents a family the overview cannot show: new
         refuses a fourth level; a hand-made parent loop leaves reads
         finishing, start listing each idea once, and a write to its members
-        going through with the move that breaks it named (finding 23), while
+        going through with the move that breaks it named, while
         a write that deepens it is refused."""
         self.new("a")
         self.new("b", "B", "x.", "--parent", "a")
@@ -717,8 +715,7 @@ class Duplicates(BrainstormTest):
         self.new("autosave", "Autosave", "Save drafts to disk.")
 
     def test_a_dry_run_lists_a_likely_match_and_writes_nothing(self):
-        """Prevents a second idea about the same thing going unasked (spec
-        story 12): the dry run lists the match with its status and shared
+        """Prevents a second idea about the same thing going unasked: the dry run lists the match with its status and shared
         words, writes nothing and exits 0."""
         before = self.ideas_tree()
         result = self.ok("new", "--slug", "disk-autosave", "--title", "Autosave to disk", "--tldr",
@@ -729,7 +726,7 @@ class Duplicates(BrainstormTest):
         self.assertEqual(self.ideas_tree(), before)
 
     def test_a_closed_match_shows_its_reopen_when_and_despite_leaves_it_out(self):
-        """Prevents a dropped idea coming back unnoticed (red team U6): a
+        """Prevents a dropped idea coming back unnoticed: a
         closed match shows its Reopen when; --despite leaves it out."""
         self.ok("set", "--idea", "autosave", "--status", "dropped", "--decision", "too slow", "--reopen-when",
                 "disks get faster", "--write")
@@ -742,8 +739,7 @@ class Duplicates(BrainstormTest):
         self.assertIn("No idea in the store, open, closed or removed, looks like this one.", result.text)
 
     def test_write_captures_despite_a_match_and_never_refuses(self):
-        """Prevents a capture refused for similarity (red team M6, spec story
-        13): --write captures, lists the match again and asks only if not
+        """Prevents a capture refused for similarity: --write captures, lists the match again and asks only if not
         asked yet."""
         result = self.ok("new", "--slug", "disk-autosave", "--title", "Autosave to disk", "--tldr",
                          "Write drafts to disk.", "--write")
@@ -763,7 +759,7 @@ class Duplicates(BrainstormTest):
         self.assertNotIn("autosave [idea", result.text)
 
     def test_one_word_titles_and_other_scripts_are_matched(self):
-        """Prevents the misses of red team M6: a one-word title, and an exact
+        """Prevents a duplicate check that misses a one-word title, and an exact
         duplicate written in Cyrillic or Japanese."""
         for slug, title, tldr in (
                 ("concurrency", "Concurrency", "Two loops at once."),
@@ -787,7 +783,7 @@ class FindAndCheck(BrainstormTest):
                 "--reopen-when", "a Doorbell goes by name again", "--write")
 
     def test_find_quotes_the_matching_lines_closed_ideas_included(self):
-        """Prevents a false 'we never talked about it' (spec story 10): find
+        """Prevents a false 'we never talked about it': find
         searches open and closed ideas and quotes the lines."""
         result = self.ok("find", "--text", "drafts")
         self.assertIn("autosave [idea]: Save drafts to disk.", result.text)
@@ -798,8 +794,7 @@ class FindAndCheck(BrainstormTest):
         self.assertIn("No idea, open, closed or removed, holds 'zebra'.", result.text)
 
     def test_check_reports_each_problem_and_none_on_a_clean_store(self):
-        """Prevents problems in the store going unseen (spec story 11, red
-        team F8): a broken link, relations naming no idea, a missing parent,
+        """Prevents problems in the store going unseen: a broken link, relations naming no idea, a missing parent,
         a leftover index.md and a file without History are each reported."""
         self.assertIn("No problems.", self.ok("check").text)
         self.ok("note", "--idea", "autosave", "--section", "Summary", "--text", "See [notes](research/autosave/x.md).",
@@ -831,7 +826,7 @@ class Families(BrainstormTest):
                        "--part", "t3-names | Names \\| labels | Name sessions.", "--write")
 
     def test_split_creates_the_parts_under_the_idea(self):
-        """Prevents a large idea that cannot become a family (spec story 28):
+        """Prevents a large idea that cannot become a family:
         split creates each part under the idea, which records 'split into'
         for each, and start lists them under it."""
         result = self.split()
@@ -856,10 +851,9 @@ class Families(BrainstormTest):
         self.assertEqual(self.ideas_tree(), before)
 
     def test_move_out_and_back_records_history_on_all_three(self):
-        """Prevents a re-parent that leaves no trace (spec story 32): the
+        """Prevents a re-parent that leaves no trace: the
         part, its old parent and its new one each record the move; a
-        relation between part and parent is the user's and stays (finding
-        14)."""
+        relation between part and parent is the user's and stays."""
         self.split()
         self.ok("move", "--set", "t3-names=top", "--write", today="2026-10-21")
         self.assertNotIn("parent:", self.read("t3-names.md"))
@@ -880,8 +874,8 @@ class Families(BrainstormTest):
         self.assertIn("- enables t3-names: part 3.", self.read("t3code-support.md"))
 
     def test_a_move_to_a_fourth_level_or_into_a_loop_is_refused(self):
-        """Prevents a family deeper than three levels or a parent loop (spec
-        story 32): move and split refuse and write nothing."""
+        """Prevents a family deeper than three levels or a parent loop:
+        move and split refuse and write nothing."""
         self.split()
         self.new("leaf", "Leaf", "Deepest.", "--parent", "t3-threads")
         self.new("other-root", "Other root", "Elsewhere.")
@@ -916,8 +910,8 @@ class Families(BrainstormTest):
         self.assertEqual(self.ideas_tree(), before)
 
     def test_merge_is_refused_while_an_open_part_is_left(self):
-        """Prevents an open part stranded under a dropped idea (spec story
-        30): the refusal names each open part at any level and the move that
+        """Prevents an open part stranded under a dropped idea: the
+        refusal names each open part at any level and the move that
         files it; with only closed parts the merge goes and they stay."""
         self.split()
         self.new("leaf", "Leaf", "Deepest.", "--parent", "t3-threads")
@@ -938,7 +932,7 @@ class Families(BrainstormTest):
 
     def test_merge_into_a_closed_idea_or_its_own_part_is_refused(self):
         """Prevents open steps moving into a closed idea and a merge that
-        loops the family (red team D1, U1, D15)."""
+        loops the family."""
         self.split()
         self.new("closed-one", "Closed one", "Gone.")
         self.ok("set", "--idea", "closed-one", "--status", "done", "--decision", "x", "--write")
@@ -954,8 +948,8 @@ class Families(BrainstormTest):
 
     def test_merge_moves_open_steps_and_records_both_sides(self):
         """Prevents a merge recorded on one side only, losing a step, or
-        leaving the moved steps open in the dropped idea too (spec story
-        29), or listing a step the survivor holds open twice (finding 26)."""
+        leaving the moved steps open in the dropped idea too, or
+        listing a step the survivor holds open twice."""
         self.new("survivor", "Survivor", "Takes it all.")
         self.ok("note", "--idea", "t3code-support", "--section", "Next Steps", "--text", "Count the cost.", "--write")
         text = self.box.read(S + "t3code-support.md")
@@ -991,11 +985,11 @@ class Rename(BrainstormTest):
                 "[notes](research/t3code-support/notes.md).", "--write")
 
     def test_rename_rewrites_references_and_never_prose_or_history(self):
-        """Prevents prose rewritten by a word-like slug (red team F6, D8, U5,
-        spec story 33): the relation lead, the parent field, the link target,
+        """Prevents prose rewritten by a word-like slug: the
+        relation lead, the parent field, the link target,
         the research path and the code span follow; the prose word, the
         relation's reason and every History line stay; the prose line is
-        listed (story 34). A code span in another idea's tldr follows too."""
+        listed. A code span in another idea's tldr follows too."""
         self.new("extension", "Extension", "Extends `t3code-support` a little.")
         self.new("echo", "Echo", "Wraps t3code-support plainly.", "--summary", "Wraps t3code-support plainly.")
         history = self.read("t3code-support.md").split("## History")[1]
@@ -1028,7 +1022,7 @@ class Rename(BrainstormTest):
         self.assertEqual(self.tree(), before)
 
     def test_a_rename_killed_after_its_research_moved_is_finished(self):
-        """Prevents research stranded by a half rename (red team F5): a
+        """Prevents research stranded by a half rename: a
         journal left after the folder move is rolled forward by the next
         command, so the research folder and the idea file agree."""
         before = self.tree()
@@ -1053,7 +1047,7 @@ class Rename(BrainstormTest):
 
     @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "POSIX permissions")
     def test_a_refused_research_move_writes_nothing(self):
-        """Prevents research stranded by a half rename (red team F5): the
+        """Prevents research stranded by a half rename: the
         folder moves first, and when it cannot, nothing is written."""
         before = self.ideas_tree()
         research = self.box.path(S + "research")
@@ -1085,8 +1079,8 @@ class Cleanup(BrainstormTest):
         self.box.write(S + "research/gone-early/notes.md", "measured\n")
 
     def test_a_dry_run_lists_and_write_removes_with_a_record(self):
-        """Prevents a cleanup the user did not see (spec stories 35, 36, 38,
-        40): without --write it lists only the old enough idea and writes
+        """Prevents a cleanup the user did not see:
+        without --write it lists only the old enough idea and writes
         nothing; with it the file goes, removed.md keeps its line, and its
         research folder stays and is named."""
         before = self.tree()
@@ -1106,8 +1100,8 @@ class Cleanup(BrainstormTest):
         self.assertIn("No problems.", self.ok("check").text)
 
     def test_never_everything_and_an_empty_or_vague_age_is_refused(self):
-        """Prevents a vague request wiping the store (spec story 39, red team
-        M3): no --status or --idea is refused, and an empty --older is never
+        """Prevents a vague request wiping the store: no
+        --status or --idea is refused, and an empty --older is never
         read as any age."""
         before = self.tree()
         result = self.bs("cleanup", "--older", "6w", "--write")
@@ -1123,7 +1117,7 @@ class Cleanup(BrainstormTest):
         self.assertEqual(self.tree(), before)
 
     def test_refusals_name_their_reason_and_write_nothing(self):
-        """Prevents a removal that breaks the store (spec story 37): with
+        """Prevents a removal that breaks the store: with
         --idea an open idea, a closed idea with an open part and a closed
         idea an open idea waits on refuse the whole command; with --status
         they are kept and the rest go."""
@@ -1165,7 +1159,7 @@ class Cleanup(BrainstormTest):
 
     def test_an_impossible_close_date_and_a_missing_one_keep_the_idea(self):
         """Prevents a traceback with no Next: line from a hand-typed History
-        date (red team M12), and an idea of unknown age removed by age."""
+        date, and an idea of unknown age removed by age."""
         text = self.read("done-early.md").replace("2026-07-03: status done", "2026-02-30: status done")
         self.box.write(S + "done-early.md", text)
         text = self.read("gone-early.md").replace("2026-08-02: status dropped", "2026-08-02: closed by hand")
@@ -1176,8 +1170,7 @@ class Cleanup(BrainstormTest):
         self.assertIn("Kept gone-early: its History has no line for when it closed.", result.text)
 
     def test_a_named_idea_of_another_status_is_named(self):
-        """Prevents a quiet success for an --idea the --status filter skipped
-        (red team M18)."""
+        """Prevents a quiet success for an --idea the --status filter skipped."""
         result = self.bs("cleanup", "--status", "done", "--idea", "gone-early", "--write")
         self.assertEqual(result.code, 1, result)
         self.assertIn("gone-early: it is dropped, not done.", result.text)
@@ -1185,7 +1178,7 @@ class Cleanup(BrainstormTest):
 
     def test_a_removed_idea_is_still_found_and_its_slug_never_reused(self):
         """Prevents a removed idea coming back unnoticed or its identity
-        reused (spec stories 9, 10, 12, 16, red team M5): show prints its
+        reused: show prints its
         removed.md line, find finds it, the duplicate check lists it, check
         counts it as known, and new, split and rename refuse its slug."""
         self.ok("note", "--idea", "main-idea", "--section", "Related Ideas", "--text", "related gone-early", "--write")
@@ -1220,8 +1213,8 @@ class Paging(BrainstormTest):
     LONG = "A tldr long enough to fill the start read quickly with words that say little. " * 3
 
     def test_a_large_store_is_paged_within_the_budget(self):
-        """Prevents a start read that grows without bound (red team F13, D16,
-        U11): about 130 open ideas give a page under the budget with the page
+        """Prevents a start read that grows without bound:
+        about 130 open ideas give a page under the budget with the page
         line naming what it leaves out, and --page 2 lists the next
         families."""
         self.new("anchor")
@@ -1246,7 +1239,7 @@ class Paging(BrainstormTest):
 
     def test_one_family_over_the_budget_still_fills_page_one(self):
         """Prevents an empty page 1 when a single family alone is over the
-        budget (red team M13): the family is cut down until the page holds
+        budget: the family is cut down until the page holds
         its top idea and the line naming what it leaves out."""
         self.new("big-family", "Big family", "One idea with many parts.")
         for n in range(60):
@@ -1262,7 +1255,7 @@ class Paging(BrainstormTest):
 
     def test_parts_a_big_family_leaves_out_are_counted_apart_from_the_next_pages(self):
         """Prevents a page line that promises the next page lists parts no
-        page lists (finding 24): the ideas left out of page 1 are the ones
+        page lists: the ideas left out of page 1 are the ones
         the other pages list, and the big family's withheld parts point to
         show --idea."""
         self.new("big-family", "Big family", "One idea with many parts.", today="2026-10-01")

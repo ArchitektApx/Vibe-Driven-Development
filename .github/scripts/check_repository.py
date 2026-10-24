@@ -399,7 +399,7 @@ def check_user_invoked_pairs(repo: Repo) -> List[str]:
 
 def check_start_sentence(repo: Repo) -> List[str]:
     """The hosted skills refuse to run unless their prompt says the start
-    sentence, and the Spawn prompt is the one that says it (ticket 76): an
+    sentence, and the Spawn prompt is the one that says it: an
     edit to either side makes every spawn refuse."""
     problems = []
     if "You are the <Role> in a Vibe Driven Development loop. " + START_SENTENCE not in (repo.text(ORCHESTRATOR) or ""):

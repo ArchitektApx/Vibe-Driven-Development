@@ -323,7 +323,7 @@ def run(root: str, events_raw: list[str], write: bool) -> Result:
     "migrated", or "moved" when another Session took the store past
     layout 1 meanwhile. A write holds the migration lock from the first look
     at the store to the last rename, so a second migration waits for it and
-    then finds the store migrated (M2)."""
+    then finds the store migrated instead of migrating it a second time."""
     if not write:
         return step(root, events_raw, False)
     os.makedirs(os.path.join(root, ".scratch"), exist_ok=True)

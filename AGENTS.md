@@ -44,8 +44,9 @@ temporary prefix they remove, so a run leaves no `__pycache__` behind. A test
 drives the tool from outside, as a Role or a user sees it. The one exception
 is the Harness contract test, `tests/test_harness_contract.py`, which imports
 the package to check that every Harness module implements the whole
-interface. A test that replaces a guardrail says in its docstring which
-failure it prevents.
+interface. A guardrail test's docstring states the failure it prevents in
+plain words, without loop, Ticket or finding numbers or a commit sha; the
+commit that adds the test keeps the history.
 
 ## Code layout
 

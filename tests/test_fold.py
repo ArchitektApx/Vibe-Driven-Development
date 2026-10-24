@@ -3,8 +3,8 @@ the code Sign-off.
 
 Every fold case holds: the folded tree equals the signed tree, the base
 branch and every commit before the loop keep their shas, and the fold does
-not stop. Each case adds its own placement. The cases port ticket 71's
-scripted fold cases, every one but c10, which is coder check's."""
+not stop. Each case adds its own placement. A round that amends, rebases or resets an
+earlier round's commit is coder check's case, not the fold's."""
 
 import os
 import shutil
@@ -170,10 +170,10 @@ class FoldTest(SceneTest):
 
 
 class FoldCaseTest(FoldTest):
-    """Ticket 71's fold cases. They replace the guardrails of the Coder's
-    per-round fold: 0c8a25a (find the owning commit, leave no fixup! commit)
-    and 0a606c2 (PowerShell's sequence editor), now the tree check and these
-    placements."""
+    """The fold cases. They replace the guardrails of the Coder's old
+    per-round fold, which had to find the owning commit, leave no fixup!
+    commit and survive PowerShell's sequence editor: now the tree check and
+    these placements."""
 
     def test_c01_a_fix_to_lines_a_later_ticket_changed_stays_on_top(self):
         self.round_one({CSV: DOC_T02})
@@ -636,8 +636,9 @@ class SkipTest(FoldTest):
         self.skipped(signed, self.fold(), "demo was pushed to origin")
 
     def test_a_remote_branch_of_the_same_name_outside_the_loop_folds(self):
-        """The acceptance run's origin held an older, unrelated branch of the
-        loop's name, and the fold skipped as if the loop had been pushed."""
+        """Prevents a skipped fold when origin holds an older, unrelated
+        branch of the loop's name: the fold skipped as if the loop had been
+        pushed."""
         signed = self.signed_loop()
         self.git("remote", "add", "origin", "https://example.invalid/demo.git")
         stray = self.out("commit-tree", "%s^{tree}" % self.out("merge-base", "main", signed), "-m", "unrelated")
@@ -661,7 +662,7 @@ class SkipTest(FoldTest):
 
     @unittest.skipIf(WINDOWS, "a stubbed git is a POSIX sh script, as in PreflightTest")
     def test_a_tree_that_would_differ(self):
-        """Replaces 0c8a25a's guardrail: the fold never moves the branch to a
+        """Replaces the per-round fold's guardrail: the fold never moves the branch to a
         tree other than the one the Code-Reviewer signed off."""
         signed = self.signed_loop()
         real = shutil.which("git")
@@ -693,7 +694,7 @@ class SandboxAndSigningTest(FoldTest):
         self.assertNotIn("fold ", self.state())
 
     def test_a_refused_object_write_in_german_gets_the_rerun_line(self):
-        """Acceptance, Codex on Windows: its sandbox refused the fold's object
+        """Codex on Windows: its sandbox refused the fold's object
         write with git's "insufficient permission", which git translates; on
         a German system that refusal read as a git error and the fold
         skipped."""
@@ -771,8 +772,8 @@ FOLDED_AFTER = "(folded after round 2)"
 
 class SecondFoldTest(FoldTest):
     """A loop reopened by the user's findings folds again at its next Sign-off
-    (loop 06 left its grading fixes on top as commits because the fold ran
-    once, and the reopened round's review range showed the whole loop)."""
+    (a fold that ran once left the reopened round's fixes on top as
+    commits, and that round's review range showed the whole loop)."""
 
     def folded_once(self):
         """Round 1, a round-2 fix signed off, folded, and the user's finding

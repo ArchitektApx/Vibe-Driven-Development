@@ -87,7 +87,8 @@ class Block:
         self.lines = lines
         self.shown = shown
         self.recent = recent
-        # Parts M13 leaves out of every page: show --idea lists them.
+        # Parts of a family over budget, left out of every page: show --idea
+        # lists them, so no part is out of reach.
         self.withheld = withheld
 
     @property
@@ -98,7 +99,7 @@ class Block:
 def family_block(store: Store, top: str, note: str, waits: dict[str, list[str]], tldr_max: int | None,
                  budget: int) -> Block:
     """The lines of one family, tldrs cut at tldr_max. A family over budget
-    on its own is cut further (M13): its parts' tldrs go first, then its
+    on its own is cut further, so the page stays in budget: its parts' tldrs go first, then its
     deepest parts are listed by slug only, and last its tail is left out
     behind a line naming how many parts it leaves out."""
     members = family_members(store, top)

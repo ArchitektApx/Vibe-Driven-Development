@@ -133,7 +133,7 @@ def start_gone(round_: Round) -> str | None:
     """The refusal for a round whose recorded start is no longer in HEAD's
     history, or None. The fold after the code Sign-off reads every round's
     recorded end; an amend, rebase or reset of an earlier round's commit
-    loses it (ticket 71)."""
+    loses it."""
     start = round_.state.code_mark("start", round_.number)
     if not start:
         return None

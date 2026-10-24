@@ -8,6 +8,7 @@ real machine.
 
 import atexit
 import base64
+import itertools
 import json
 import os
 import re
@@ -115,7 +116,7 @@ GIT_IDENTITY = ("-c", "commit.gpgsign=false", "-c", "user.name=VDD Test", "-c", 
 
 # No git the suite starts, the tool's included, runs maintenance or gc after a
 # commit: git detaches it into the background, and a scene copied while it
-# runs loses a lock file mid-copy (macOS CI, 2026-10-23).
+# runs loses a lock file mid-copy (seen on macOS CI).
 os.environ.update({
     "GIT_CONFIG_COUNT": "2",
     "GIT_CONFIG_KEY_0": "maintenance.auto",
@@ -335,6 +336,42 @@ def next_lines(result):
     return lines
 
 
+def help_run(box, command):
+    """Run command with --help added; the process, with every placeholder
+    value a choice refusal names replaced by that option's first choice, as
+    the Role fills a placeholder with one of the values it takes."""
+    argv = list(command[1])
+    while True:
+        proc = subprocess.run([sys.executable, command[0]] + argv + ["--help"], cwd=box.proj,
+                              stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              env=box.env(), timeout=120)
+        first = proc.stdout.decode("utf-8", "replace").split("\n")[0]
+        refused = re.match(r"^--([a-z-]+) takes (.*), not %s\.$" % DUMMY, first)
+        option = "--%s" % refused.group(1) if refused else None
+        at = [i + 1 for i, word in enumerate(argv[:-1]) if word == option and argv[i + 1] == DUMMY]
+        if proc.returncode == 0 or not at:
+            return proc
+        argv[at[0]] = re.split(r", | or ", refused.group(2))[0].strip('"')
+
+
+def usage_required(text, words):
+    """The value options the usage of the command words names outside any
+    [...] or (...) in its help text: the options a line that runs it must
+    carry. Empty when the help prints no usage for exactly those words."""
+    lines = text.split("\n")
+    for index, line in enumerate(lines):
+        if line.split(" --")[0].split() != list(words):
+            continue
+        usage = [line] + [more for more in itertools.takewhile(lambda more: more.startswith("    "),
+                                                               lines[index + 1:])]
+        flat, depth = [], 0
+        for char in " ".join(usage):
+            depth += (char in "[(") - (char in "])")
+            flat.append(char if depth == 0 else " ")
+        return set(re.findall(r"(--[a-z-]+) [<\"']", "".join(flat)))
+    return set()
+
+
 def check_next(box, result, test="a test"):
     """Run each tool command result's Next:, Tell and resume lines name with
     --help; raise AssertionError naming the command and the test when one
@@ -544,7 +581,7 @@ class Sandbox:
         if WINDOWS:
             # Git for Windows' cmd directory: its git.exe sets up the PATH the
             # sh.exe a local ls-remote starts needs. A bare ucrt64\bin or
-            # mingw64\bin git.exe alone crashes there (CI, 2026-10-23).
+            # mingw64\bin git.exe alone crashes there (seen on Windows CI).
             path = os.path.dirname(real)
             root = path
             while os.path.dirname(root) != root and not os.path.isfile(os.path.join(root, "cmd", "git.exe")):

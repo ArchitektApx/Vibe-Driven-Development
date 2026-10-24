@@ -26,14 +26,14 @@ def guard(root: str, command: str, values: dict[str, Any]) -> None:
     --write creates the store, once the command checks out."""
     if migrate.STEPS["1"].half(root):
         # Between the migration's two renames there is no store: a new one
-        # here would leave two half stores (F2).
+        # here would leave two half stores.
         raise Failure("A migration was interrupted after the backup; the idea store is not in place yet. Nothing was "
                       "written.", "Run %s, then %s." % (printed.MIGRATE, printed.START))
     found = layout(root)
     if command == "new" and found is None:
         if values["write"]:
             # The first idea creates the store, but only once the command
-            # checks out: a refused new leaves no store behind (M16).
+            # checks out: a refused new leaves no store behind.
             moves.new(Store(root), values)
             os.makedirs(store_dir(root), exist_ok=True)
             textfile.write(os.path.join(store_dir(root), LAYOUT_FILE), (LAYOUT + "\n").encode("ascii"))

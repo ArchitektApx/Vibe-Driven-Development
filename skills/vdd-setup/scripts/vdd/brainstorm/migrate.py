@@ -87,8 +87,8 @@ def require_layout(root: str) -> None:
 def repair_marker(root: str, write: bool) -> Result:
     """A layout-2 store whose .layout is missing or empty: every idea file
     needs a known status and a created History line. A file with a known
-    status but no History, as a 0.15 skill on another Harness writes it
-    (M7), is named and gets its created line; a file with no known status
+    status but no History, as a 0.15 skill on another Harness writes it,
+    is named and gets its created line; a file with no known status
     fails the repair."""
     found = layout(root)
     what = "missing" if found == "lost" else "empty"

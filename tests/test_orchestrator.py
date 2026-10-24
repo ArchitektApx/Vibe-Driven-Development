@@ -372,7 +372,7 @@ class UserFindingsTest(OrchestratorTest):
                    "return Code-Reviewer 2 ok", "fold skipped c the branch moved after Sign-off", USER_2)
 
     def test_start_spawns_a_fresh_coder_for_the_users_findings_and_rings_nothing(self):
-        """Loop 05's hand reopen sent the Orchestrator to ring the plan Loop
+        """A reopen by hand sent the Orchestrator to ring the plan Loop
         first (Already rung, a stale paste for the Planner) and labelled both
         fresh spawns after a restart, though nothing restarted."""
         self.earlier_session()

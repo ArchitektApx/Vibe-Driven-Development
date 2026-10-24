@@ -1,4 +1,4 @@
-"""Seam 1: the setup command, driven from outside."""
+"""The setup command, driven from outside."""
 
 import json
 import os
@@ -61,8 +61,9 @@ class SetupTest(ToolTest):
         self.assertEqual(os.listdir(self.box.data), [])
 
     def test_writing_for_agents_listed_with_no_hit_is_resolvable_in_one_line(self):
-        """Resolvable with no search hit passes: the collection resolves from a
-        store Setup does not search, and gets no repair (180854c)."""
+        """Prevents a repair offered to a collection that resolves from a store
+        Setup does not search: Resolvable with no search hit passes and gets
+        no repair."""
         for listed in ("writing-for-agents", "mattpocock-skills:writing-for-agents"):
             with self.subTest(listed=listed):
                 result = self.setup(listed=listed, glossary="yes")
@@ -148,7 +149,7 @@ class SetupTest(ToolTest):
     def test_temp_git_clone_in_the_claude_cache_never_counts(self):
         """Claude Code stages a marketplace clone as cache/temp_git_*, laid out
         as the collection's own repository; the cache root stops at
-        */mattpocock-skills so that copy is not Present (180854c)."""
+        */mattpocock-skills so that copy is not counted as an installed one."""
         self.skills_in(self.store(".claude", "plugins", "cache", "temp_git_123", "skills", "engineering"))
         result = self.setup()
         self.assertIn("Not Present: " + ", ".join(SKILLS), result.text)
@@ -156,7 +157,7 @@ class SetupTest(ToolTest):
     def test_a_symlinked_skills_cli_install_counts(self):
         """A global skills-CLI install for Claude Code writes the real copy to
         ~/.agents/skills and a symlink at ~/.claude/skills; the search follows
-        it (180854c, find -L)."""
+        it, so such an install does not read as Not Present."""
         self.skills_in(self.store(".agents", "skills"))
         os.makedirs(os.path.join(self.box.home, ".claude", "skills"))
         for name in SKILLS:
@@ -182,7 +183,8 @@ class SetupTest(ToolTest):
 
     def test_claude_config_dir_moves_the_user_store_and_the_cache(self):
         """CLAUDE_CONFIG_DIR and CLAUDE_CODE_PLUGIN_CACHE_DIR move what Claude
-        Code reads, and the search moves with them (180854c)."""
+        Code reads, and the search moves with them, so skills installed there
+        do not read as Not Present."""
         self.skills_in(os.path.join("cfg", "skills"))
         env = self.box.env(CLAUDE_CONFIG_DIR=os.path.join(self.box.root, "cfg"))
         result = self.setup("claude-code", "writing-for-agents", "yes", env=env)
@@ -198,16 +200,16 @@ class SetupTest(ToolTest):
         self.assertTrue(any("mattpocock-skills@mk" in t for t in result.tells()), result)
 
     def test_copilot_home_unset_reads_the_agents_store(self):
-        """Copilot CLI reads ~/.agents/skills only while COPILOT_HOME is unset
-        (180854c)."""
+        """Copilot CLI reads ~/.agents/skills only while COPILOT_HOME is unset,
+        so the search neither misses that store nor counts it when set."""
         self.skills_in(self.store(".agents", "skills"))
         result = self.setup("copilot-cli", "writing-for-agents", "yes")
         self.assertIn("all 11 Present and Resolvable", result.text)
 
     def test_copilot_home_set_skips_the_agents_store_and_adds_it_by_hand(self):
-        """With COPILOT_HOME set, ~/.agents/skills is not read, and the -g
-        install route adds copilot skill add with the path expanded (180854c,
-        5638eda)."""
+        """Prevents ~/.agents/skills counted while COPILOT_HOME is set, and a
+        -g install route without the expanded path: it is not read, and the
+        route adds copilot skill add with the path expanded."""
         self.skills_in(self.store(".agents", "skills"))
         env = self.box.env(COPILOT_HOME=os.path.join(self.box.root, "copilot"))
         result = self.setup("copilot-cli", "", "absent", env=env)
@@ -274,7 +276,8 @@ class SetupTest(ToolTest):
 
     def test_old_collection_from_the_description_gives_one_update_route(self):
         """A collection from before the glossary rename gets the update route
-        for its store, in place of any install route (a483e69)."""
+        for its store, in place of any install route, which it does not
+        need."""
         self.skills_in(self.store(".claude", "skills"))
         result = self.setup("claude-code", "writing-for-agents", "no")
         self.assertTrue(any(t.startswith("Warning: your copy of Matt Pocock's collection") for t in result.tells()))
@@ -328,8 +331,7 @@ class SetupTest(ToolTest):
 
     def test_outside_a_repository_the_shared_copy_is_still_installed(self):
         """Prevents a Brainstormer left without its tool by a failed git
-        check (ticket 97's decision: Setup installs the tool before its git
-        gate): --write outside a repository installs the Shared copy."""
+        check, since Setup installs the tool before its git gate: --write outside a repository installs the Shared copy."""
         plain = os.path.join(self.box.root, "plain")
         os.makedirs(plain)
         result = self.setup("claude-code", "none", "absent", "--write", cwd=plain)
@@ -473,7 +475,8 @@ class SetupTest(ToolTest):
 
     def test_gitignore_removes_only_whole_retired_lines(self):
         """A line goes only when the whole line, trimmed, is a retired entry:
-        docs/PLAN.md and !PLAN.md are the user's own (6106fb6)."""
+        docs/PLAN.md and !PLAN.md are the user's own, and Setup must not
+        delete them with the retired ones."""
         self.box.write(".gitignore", "PLAN.md\ndocs/PLAN.md\n!PLAN.md\n  FIXES.md  \n")
         result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
         self.assertIn("Changed: .gitignore removes PLAN.md", result.text)
@@ -895,8 +898,8 @@ class GitVersionTest(ToolTest):
 
     def test_git_older_than_2_40_still_installs_the_shared_copy(self):
         """Prevents a Brainstormer left without its tool by a git too old for
-        the loop (ticket 97's decision: Setup installs the tool before its
-        git gate): --write with git 2.39 fails Setup and installs the Shared
+        the loop, since Setup installs the tool before its git gate:
+        --write with git 2.39 fails Setup and installs the Shared
         copy."""
         real = shutil.which("git")
         self.box.stub("git", "if [ \"$1\" = --version ]; then echo 'git version 2.39.5'; exit 0; fi\nexec '%s' \"$@\"\n"

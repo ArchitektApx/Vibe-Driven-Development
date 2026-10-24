@@ -63,7 +63,7 @@ class Scenes(Staged):
         self.review_file("a.txt:1")
 
     def user_findings(self):
-        """T4: the user's findings after the round-1 Sign-off."""
+        """The user's findings after the round-1 Sign-off."""
         self.code_signed(policies=NEVER)
         self.stage(USER_1)
         self.review_file("docs/a.md:3")
@@ -128,7 +128,7 @@ class Positions(Scenes):
         self.row(Scenes.code_open, "coder", ["Spawning Coder, <model>, round 2."])
 
     def test_the_user_s_findings(self):
-        """T4: prevents review check answering the user's counts as the
+        """Prevents review check answering the user's counts as the
         Code-Reviewer's own Doorbell."""
         self.row(Scenes.user_findings, "coder", ["Spawning Coder, <model>, round 2, for the user's findings."])
         check = self.box.run("review", "check", "--role", "Code-Reviewer", *SLUG, "--write", env=self.env())

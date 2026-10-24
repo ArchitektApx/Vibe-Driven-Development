@@ -1,6 +1,7 @@
 """brainstorm migrate, driven from outside on a small 0.15 fixture store:
 the plan, the Log's events, links to slugs, the interrupted states, the
-migration lock, and the repair of a lost layout marker with M7."""
+migration lock, and the repair of a store whose layout marker was lost, so
+it is repaired and not migrated again as a 0.15 store."""
 
 import datetime
 import hashlib
@@ -100,12 +101,11 @@ class MigrateTest(BrainstormTest):
 
 class Plan(MigrateTest):
     def test_start_prints_the_plan_with_a_fold_as_a_merge_and_writes_nothing(self):
-        """Prevents a read that migrates and a Log fold left out (spec stories
-        41, 43, 44): start on a 0.15 store prints the plan, the Log's
+        """Prevents a read that migrates and a Log fold left out: start on a 0.15 store prints the plan, the Log's
         restructure sentences with the fold shown as its merge event and
         the sentences that need the user, a fold whose ideas the Log does not
-        name among them (finding 12), and writes nothing; its Next: asks only
-        about restructures of ideas (finding 21)."""
+        name among them, and writes nothing; its Next: asks only
+        about restructures of ideas."""
         before = self.all_files()
         result = self.ok("start")
         self.assertIn("0.15 layout: index.md and 5 idea files", result.text)
@@ -132,8 +132,8 @@ class Plan(MigrateTest):
         self.assertEqual(self.all_files(), before)
 
     def test_a_capitalised_fold_is_read_and_a_fold_of_unknown_ideas_needs_the_user(self):
-        """Prevents a Log fold lost or mangled (spec 'migrate': a Log 'X
-        folded into Y' becomes the merge event): a capitalised slug is read
+        """Prevents a Log fold lost or mangled, as a Log 'X folded into
+        Y' becomes the merge event: a capitalised slug is read
         whole and lowercased, and a fold naming no idea of the store is put to
         the user, never printed as an event."""
         self.box.write(S + "index.md", INDEX + "- 2026-10-04: Tidied up. Old-Name-Thing folded into part-two.\n"
@@ -145,10 +145,10 @@ class Plan(MigrateTest):
         self.assertIn("Alpha folded into beta", result.text.split("Needs the user")[1])
 
     def test_an_event_with_an_unknown_slug_or_a_bad_date_is_refused(self):
-        """Prevents an invented or misspelt event reaching History (spec
-        'migrate'), and a History the frontmatter contradicts: a move, a date
-        after today and an idea on both sides are refused too (findings 19,
-        20); the whole migration is refused, nothing written."""
+        """Prevents an invented or misspelt event reaching History, and a
+        History the frontmatter contradicts: a move, a date
+        after today and an idea on both sides are refused too; the
+        whole migration is refused, nothing written."""
         before = self.all_files()
         for event, says in (("2026-10-07 main-idea split into part-nine", "no idea named part-nine"),
                             ("2026-02-30 main-idea split into part-one", "2026-02-30 is no date"),
@@ -171,11 +171,11 @@ class Plan(MigrateTest):
 
 class Migrate(MigrateTest):
     def test_migrate_keeps_a_byte_copy_and_converts_every_idea_in_place(self):
-        """Prevents a lossy migration (spec stories 42, 43, 45): the backup is
+        """Prevents a lossy migration: the backup is
         the old store byte for byte with index.md; every idea keeps its file,
         with History seeded and the events carried; research moves unchanged;
         no parent is inferred; the undo Tell line and the parts named follow,
-        and no overview (story 35)."""
+        and no overview."""
         before = self.tree()
         result = self.migrated()
         self.assertEqual(self.tree(self.box.path(BACKUP)), before)
@@ -202,11 +202,11 @@ class Migrate(MigrateTest):
                       "(main-idea).", result.text)
 
     def test_links_to_ideas_become_slugs_next_steps_included(self):
-        """Prevents a link that means nothing in the flat store of slugs (spec
-        story 45): a link to an idea becomes its slug, bare on a relation
+        """Prevents a link that means nothing in the flat store of slugs: a
+        link to an idea becomes its slug, bare on a relation
         line and a code span elsewhere; a research link keeps its target; a
         frontmatter relation whose pair a prose line names, under any kind, is
-        not written again (finding 17)."""
+        not written again."""
         self.migrated()
         main = self.read("main-idea.md")
         self.assertIn("- enables part-one: part 1.", main)
@@ -220,19 +220,17 @@ class Migrate(MigrateTest):
 
 class Interrupted(MigrateTest):
     def test_a_leftover_staging_is_rebuilt(self):
-        """Prevents a half-written staging from a killed run being swapped in
-        (spec story 46): staging only is deleted and built again."""
+        """Prevents a half-written staging from a killed run being swapped in:
+        staging only is deleted and built again."""
         self.box.write(STAGING + "/junk.md", "junk")
         self.migrated()
         self.assertFalse(self.exists("junk.md"))
         self.assertFalse(os.path.exists(self.box.path(STAGING)))
 
     def test_backup_and_staging_without_a_store_are_finished_by_a_rerun(self):
-        """Prevents a dead end after a crash between the two renames (red
-        team F2, U12): start names it, a dry run writes nothing, new refuses,
+        """Prevents a dead end after a crash between the two renames: start names it, a dry run writes nothing, new refuses,
         and migrate --write does the second rename, never deletes the
-        finished staging, and tells the undo the crash kept from the user
-        (finding 18)."""
+        finished staging, and tells the undo the crash kept from the user."""
         self.migrated()
         store = self.box.path(S.rstrip("/"))
         os.rename(store, self.box.path(STAGING))
@@ -263,7 +261,7 @@ class Interrupted(MigrateTest):
 
     def test_two_migrations_at_once_run_one_after_the_other(self):
         """Prevents two Sessions migrating together from losing research
-        files and reporting success (red team M2): the second waits for the
+        files and reporting success: the second waits for the
         migration lock and then finds the store migrated."""
         env = self.box.env(VDD_TODAY=TODAY)
         argv = [sys.executable, ENTRY, "brainstorm", "migrate"] + list(self.EVENTS) + ["--write"]
@@ -285,8 +283,8 @@ class Marker(MigrateTest):
         self.migrated()
 
     def test_a_lost_marker_is_named_and_written_back(self):
-        """Prevents a layout-2 store without .layout taken for a 0.15 store
-        (red team D4, spec story 47): start names it, every other command
+        """Prevents a layout-2 store without .layout taken for a 0.15 store:
+        start names it, every other command
         refuses, the dry run writes nothing, and migrate --write writes the
         marker and nothing else."""
         os.remove(self.box.path(S + ".layout"))
@@ -309,7 +307,7 @@ class Marker(MigrateTest):
 
     def test_a_lost_marker_beside_a_stale_index_is_repaired_not_remigrated(self):
         """Prevents a migrated store read as 0.15 because a stale skill wrote
-        index.md (red team M7): .state/ marks it as this tool's."""
+        index.md: .state/ marks it as this tool's."""
         os.remove(self.box.path(S + ".layout"))
         self.box.write(S + "index.md", "# Brainstorming Index\n")
         result = self.ok("start")
@@ -317,8 +315,8 @@ class Marker(MigrateTest):
         self.assertNotIn("0.15 layout", result.text)
 
     def test_a_file_without_history_is_seeded_and_an_unknown_status_refuses(self):
-        """Prevents a mixed install failing the repair (red team M7, spec
-        story 48): an idea file a 0.15 skill wrote without History is named
+        """Prevents a mixed install failing the repair: an
+        idea file a 0.15 skill wrote without History is named
         and gets its created line, dated from its created field before its
         last-updated; a file with no
         known status still fails the repair, named."""
@@ -340,8 +338,7 @@ class Marker(MigrateTest):
         self.assertIn("## History\n\n- 2026-10-02: created\n", self.read("late-idea.md"))
 
     def test_a_newer_marker_is_never_stamped_back(self):
-        """Prevents an old Shared copy writing 3 over a newer store's marker
-        (red team D9)."""
+        """Prevents an old Shared copy writing 3 over a newer store's marker."""
         self.box.write(S + ".layout", "4\n")
         result = self.bs("migrate", "--write")
         self.assertEqual(result.code, 1, result)
@@ -350,8 +347,8 @@ class Marker(MigrateTest):
 
     def test_a_dry_run_repair_reads_only_and_the_write_prints_its_recovery(self):
         """Prevents a dry run that takes the lock, settles a journal and
-        creates .state/ (finding 16), and a repair whose recovery goes
-        unsaid (finding 15)."""
+        creates .state/, and a repair whose recovery goes
+        unsaid."""
         os.remove(self.box.path(S + ".layout"))
         shutil.rmtree(self.box.path(S + ".state"))
         before = self.all_files()
@@ -420,7 +417,7 @@ class LayoutTwo(BrainstormTest):
         self.assertEqual(self.shown("two"), two)
 
     def test_start_runs_the_migration_without_asking(self):
-        """Prevents a question whose answer changes nothing (story 26):
+        """Prevents a question whose answer changes nothing:
         start on a layout 2 store prints the plan line and sends the Role
         straight to migrate --write."""
         self.stage()
@@ -445,12 +442,12 @@ class LayoutTwo(BrainstormTest):
         self.assertDryPlan(ledger=True)
 
     def test_a_dry_run_on_layout_two_without_a_ledger_says_no_ledger_move(self):
-        """Prevents a plan line about a ledger that is not there (finding
-        2): without one the dry run names only the marker."""
+        """Prevents a plan line about a ledger that is not there:
+        without one the dry run names only the marker."""
         self.assertDryPlan(ledger=False)
 
     def test_another_command_on_layout_two_is_refused(self):
-        """Prevents an old layout read as the current one (story 33): note
+        """Prevents an old layout read as the current one: note
         writes nothing and leads to migrate --write."""
         before = self.stage()
         result = self.bs("note", "--idea", "one", "--section", "Evidence", "--text", "x", "--write")
@@ -459,7 +456,7 @@ class LayoutTwo(BrainstormTest):
         self.assertEqual({k: v for k, v in self.ideas_tree().items() if k != ".layout"}, before)
 
     def test_the_ledger_moves_into_the_file_days(self):
-        """Prevents a shown date moving when the ledger goes (story 27): the
+        """Prevents a shown date moving when the ledger goes: the
         idea that matches the ledger shows its last-updated, the hand-edited
         one its edit's day; no idea's bytes change and the ledger is gone."""
         before = self.stage()
@@ -469,8 +466,8 @@ class LayoutTwo(BrainstormTest):
         self.assertLayoutThree(before)
 
     def test_a_layout_two_store_without_a_ledger_only_gets_its_marker(self):
-        """Prevents a store with nothing to carry stuck at layout 2 (story
-        28, and a step killed after the ledger's delete, story 30): file
+        """Prevents a store with nothing to carry stuck at layout 2, and a
+        step killed after the ledger's delete: file
         days stay as they are."""
         before = self.stage(ledger=False)
         result = self.ok("migrate", "--write")
@@ -481,7 +478,7 @@ class LayoutTwo(BrainstormTest):
 
     def test_an_idea_the_ledger_does_not_name_keeps_its_date(self):
         """Prevents a shown date moving for an idea written by hand into a
-        layout 2 store (finding 4, story 27): beta showed its last-updated,
+        layout 2 store: beta showed its last-updated,
         and so does layout 3."""
         self.new("three", "Three", "The third idea.", today="2026-09-27")
         before = self.stage()
@@ -492,7 +489,7 @@ class LayoutTwo(BrainstormTest):
         self.assertEqual(self.shown("three"), "2026-09-27")
 
     def test_a_step_killed_before_the_ledger_went_is_finished_by_a_rerun(self):
-        """Prevents a half-carried migration (story 30): with one file day
+        """Prevents a half-carried migration: with one file day
         already set and the ledger still there, a rerun carries the rest."""
         before = self.stage()
         self.set_day("one.md", "2026-10-07")
@@ -500,7 +497,7 @@ class LayoutTwo(BrainstormTest):
         self.assertLayoutThree(before)
 
     def test_a_lost_marker_with_a_ledger_is_repaired_to_two_and_carried_on(self):
-        """Prevents a repair that drops the ledger's dates (story 34): the
+        """Prevents a repair that drops the ledger's dates: the
         marker goes back as 2, and the same run carries on to layout 3."""
         before = self.stage(marker=False)
         result = self.ok("migrate")
@@ -527,10 +524,9 @@ class LayoutTwo(BrainstormTest):
 
 class LayoutOneToThree(MigrateTest):
     def test_one_migrate_takes_a_015_store_to_layout_three_with_its_dates(self):
-        """Prevents a migration done step by step, and dates lost on the way
-        (stories 24, 31): start asks once, with no word of a ledger the 0.15
-        store never had (finding 2) and no word of layout 2 in its plan or the
-        dry run (finding 15); one migrate --write reaches layout 3,
+        """Prevents a migration done step by step, and dates lost on the way:
+        start asks once, with no word of a ledger the 0.15 store never had
+        and no word of layout 2 in its plan or the dry run; one migrate --write reaches layout 3,
         says so once, and every idea shows its 0.15 date."""
         result = self.ok("start")
         self.assertNotIn(PLAN, result.lines)
@@ -553,8 +549,8 @@ class LayoutOneToThree(MigrateTest):
         self.assertEqual(datetime.date.fromtimestamp(stamp).isoformat(), "2026-10-07")
 
     def test_a_stop_after_the_first_step_is_taken_on_from_layout_two(self):
-        """Prevents a stopped migration that needs special recovery (story
-        29): a store the first step left at layout 2 gets start's plan of the
+        """Prevents a stopped migration that needs special recovery: a
+        store the first step left at layout 2 gets start's plan of the
         remaining step only, and migrate --write finishes it."""
         self.migrated()
         self.box.write(S + ".layout", "2\n")
@@ -566,7 +562,8 @@ class LayoutOneToThree(MigrateTest):
 
 
 class ShortEnd(MigrateTest):
-    """migrate --write ends with what the next step uses (story 35)."""
+    """Prevents a migrate --write that ends without the lines the next
+    step uses."""
 
     NEXT = ("Next: Tell the user the migration is done, relaying the Tell line above, then answer their message, "
             "running brainstorm start first if it needs the store's overview.")
