@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Container, Mapping, Sequence
+from typing import Any, Container, Sequence
 
 from ..out import Failure
 from .refusals import missing, not_a_choice, unexpected_argument, unknown_option
-from .specs import FLAG, LIST, Command, Option
+from .specs import FLAG, LIST, Command
 
 # A quote and an option name inside a value: what Windows PowerShell 5.1
 # makes of a value ending in a backslash followed by more options.
@@ -27,6 +27,7 @@ def parse(argv: Sequence[str], command: Command, usage: str) -> dict[str, Any]:
         for name, option in spec.items()
     }
     values["help"] = False
+    bare: list[str] = []
     i = 0
     while i < len(argv):
         arg = argv[i]
@@ -35,7 +36,9 @@ def parse(argv: Sequence[str], command: Command, usage: str) -> dict[str, Any]:
             i += 1
             continue
         if not arg.startswith("--"):
-            raise unexpected_argument(arg, usage, "slug" in spec and lone(argv, spec))
+            bare.append(arg)
+            i += 1
+            continue
         name, eq, value = arg[2:].partition("=")
         option = spec.get(name)
         if option is None:
@@ -81,6 +84,10 @@ def parse(argv: Sequence[str], command: Command, usage: str) -> dict[str, Any]:
             else:
                 values[name] = value
         i += 1
+    if bare:
+        # --slug <arg> is the one right retry only for a lone bare argument
+        # on a command that takes --slug and was given none.
+        raise unexpected_argument(bare[0], usage, "slug" in spec and len(bare) == 1 and values["slug"] is None)
     check(values, command, usage, required=not values["help"])
     return values
 
@@ -103,24 +110,6 @@ def check(values: dict[str, Any], command: Command, usage: str, required: bool =
         for value in values[name] if option.kind == LIST else [values[name]]:
             if value not in option.choices:
                 raise not_a_choice(name, value, option.choices, usage)
-
-
-def lone(argv: Sequence[str], spec: Mapping[str, Option]) -> bool:
-    """Whether argv holds exactly one bare argument and no --slug. The word
-    after a value option is its value, not a bare argument."""
-    bare = 0
-    i = 0
-    while i < len(argv):
-        arg = argv[i]
-        name, eq, _ = arg[2:].partition("=")
-        if not arg.startswith("-"):
-            bare += 1
-        elif name == "slug":
-            return False
-        elif arg.startswith("--") and not eq and name in spec and spec[name].kind != FLAG:
-            i += 1
-        i += 1
-    return bare == 1
 
 
 def mangled(value: str, spec: Container[str]) -> str | None:

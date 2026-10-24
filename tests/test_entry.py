@@ -139,14 +139,17 @@ class EntryTest(ToolTest):
     def test_a_bare_argument_that_is_no_slug_retry_names_the_usage(self):
         """Prevents a slug retry named where it is wrong: with two bare
         arguments, a --slug already given, or a command that takes no --slug,
-        --slug <arg> is not the one right retry."""
-        for argv in (("coder", "start", "csv-quote", "other"), ("coder", "start", "--slug", "x", "csv-quote"),
-                     ("brainstorm", "check", "csv-quote")):
+        --slug <arg> is not the one right retry. A word with one dash is a
+        bare argument too."""
+        for argv, word in ((("coder", "start", "csv-quote", "other"), "csv-quote"),
+                           (("coder", "start", "--slug", "x", "csv-quote"), "csv-quote"),
+                           (("brainstorm", "check", "csv-quote"), "csv-quote"),
+                           (("coder", "start", "-x", "csv-quote"), "-x")):
             with self.subTest(argv=" ".join(argv)):
                 result = self.box.run(*argv)
                 self.assertNotEqual(result.code, 0, result)
                 self.assertContract(result)
-                self.assertIn("Unexpected argument: csv-quote", result.lines)
+                self.assertIn("Unexpected argument: %s" % word, result.lines)
                 self.assertNotIn("Closest", result.text)
                 self.assertNext(result, "--help for this command's usage")
 
