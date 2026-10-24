@@ -7,6 +7,6 @@ Minors: fix
 Base branch: main
 Harness file: harness-claude-code.md
 Fixed point: <sha>, code round 1's recorded end.
-Review range: <sha>...demo, this round's own diff: code-review's fixed point is <sha>, and Step 2 reads the diff over this range. The verification runs on the whole branch.
+Review range: <sha>...demo, this round's own diff: code-review's fixed point is <sha>, and the diff you check against the Tickets is this range. The verification runs on the whole branch.
 Agent documents in the range: none, so the writing-for-agents line is filled.
 Next: Review, write your findings into .scratch/demo/CODEREVIEW.md under the headings it has, then run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" review check --role Code-Reviewer --slug demo --write. Pass --slug demo on every VDD tool call from here on.
