@@ -12,7 +12,7 @@ from typing import NoReturn
 
 from . import catalog, doorbells, harness as harnesses, runner, textfile
 from .harness import Harness
-from .out import TELL, Failure, Output, one_line, or_list
+from .out import TELL, Failure, Output, one_line, or_list, relay_last
 
 
 # --- the commands ---
@@ -154,13 +154,24 @@ def append(place: doorbells.Place, to: str, line: str) -> list[str]:
 
 def after_ring(place: doorbells.Place, role: str, harness: Harness, doorbell: doorbells.Doorbell) -> str:
     """The Next: step once the ring is in the Doorbell file: the Orchestrator's
-    relay of the plan Sign-off names no wait."""
+    relay of the plan Sign-off names no wait, and a wait after Tells that hand
+    the user a step comes before their relay."""
     _, new = doorbells.pending(place.entries(role), place.load_state(role))
     if new:
         return "Take the Doorbell already waiting for you: run %s" % doorbells.take_command(role, harness, place.slug)
     if role == "Orchestrator" and doorbell.signed_off:
         return doorbells.signed_off_next(role)
-    return doorbells.wait_or_hold(place, role, harness)
+    step = doorbells.wait_or_hold(place, role, harness)
+    if hands_user_a_step(role, harness, doorbell) and step == doorbells.wait_next(role, harness, place.slug):
+        return relay_last(step)
+    return step
+
+
+def hands_user_a_step(role: str, harness: Harness, doorbell: doorbells.Doorbell) -> bool:
+    """Whether the ring's Tells hand the user a step only they can take: start
+    the Orchestrator, or paste the Doorbell into a Session that does not pick
+    it up."""
+    return (role == "Planner" and doorbell.round == 1) or not harness.picks_up_doorbell()
 
 
 def take(place: doorbells.Place, role: str, harness: Harness, pasted: str | None,

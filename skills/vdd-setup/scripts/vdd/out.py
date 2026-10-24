@@ -4,7 +4,7 @@ Plain text, one fact per line, written to standard output as UTF-8 bytes with
 LF line ends and every CR removed, whatever the console's code page. The last
 line is "Next: <command or action>". A line the user must see is
 'Tell the user verbatim: "<text>"', and the Next: line after one opens with
-the step that relays it. The exit code is zero or not; the reason
+the step that relays it, or, when that step starts a wait, ends with it. The exit code is zero or not; the reason
 is always in the text.
 """
 
@@ -17,6 +17,11 @@ from typing import Iterable
 TELL = 'Tell the user verbatim: "%s"'
 TELL_START = TELL.split('"')[0]
 RELAY = "Relay every Tell the user verbatim line above unchanged; only after doing that, "
+# The relay of a Tell that hands the user a step only they can take, on an
+# output whose step starts a wait and ends the turn: a relay asked for before
+# the wait is dropped by a model that writes its text at the end of a turn.
+RELAY_LAST = ("Start the wait before you write anything to the user; the reply that ends your turn comes after "
+              "it and holds every Tell the user verbatim line above, unchanged.")
 ESCALATE = (
     "If a sandbox refused it and your tools offer a way to rerun the command outside the sandbox, "
     "rerun it once that way."
@@ -96,8 +101,10 @@ class Output:
 
     def finish(self, next_step: str, code: int = 0) -> int:
         """Print the lines and the Next: line, which opens with RELAY when
-        a Tell line printed: no command words its own relay step."""
-        if any(line.startswith(TELL_START) for line in NOTICES + self.lines):
+        a Tell line printed, unless it ends with RELAY_LAST: no command words
+        its own relay step."""
+        told = any(line.startswith(TELL_START) for line in NOTICES + self.lines)
+        if told and not next_step.endswith(RELAY_LAST):
             next_step = RELAY + lower_first(next_step)
         self.lines.append("Next: " + one_line(next_step))
         write(NOTICES + self.lines)
@@ -118,6 +125,12 @@ class Failure(Exception):
         for text in self.lines:
             out.line(text)
         return out.finish(self.next_step, 1)
+
+
+def relay_last(wait_step: str) -> str:
+    """wait_step, a step that starts a wait and ends the turn, with the relay
+    of the Tell lines after it, in the reply that ends the turn."""
+    return "%s %s" % (wait_step, RELAY_LAST)
 
 
 def escalate(otherwise: str) -> str:

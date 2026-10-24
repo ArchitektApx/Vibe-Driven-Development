@@ -166,6 +166,30 @@ class DoorbellTest(LoopRepoTest):
         result = self.ring("Orchestrator", "VDD Plan-Reviewer: PLAN-REVIEW.md written, round 2: 0 blocker, 1 major, 0 minor. Read it.")
         self.assertNext(result, "doorbell take --role Orchestrator")
 
+    def test_a_ring_that_hands_the_user_a_step_starts_the_wait_before_the_relay(self):
+        """Prevents a launch line the user never reads: a model that writes
+        its text at the end of a turn ran the wait a relay-first Next: named
+        and ended its turn on its own summary, so the user never learned how
+        to start the Orchestrator. After a Tell that hands the user a step,
+        the wait comes first and the reply that ends the turn holds the
+        Tells; other rings keep the relay first."""
+        relay_last = "the reply that ends your turn comes after it and holds every Tell the user verbatim line above"
+        for harness in ("claude-code", "codex", "cursor", "copilot-cli", "generic"):
+            with self.subTest(harness=harness, ring="Planner round 1"):
+                if os.path.exists(self.box.path(".scratch", "x", "doorbells")):
+                    os.remove(self.box.path(".scratch", "x", "doorbells"))
+                result = self.ring("Planner", P1, harness=harness)
+                self.assertFalse(result.last.startswith("Next: Relay"), result.last)
+                self.assertNext(result, "doorbell wait --role Planner --harness " + harness, relay_last)
+                self.assertLess(result.last.index("doorbell wait"), result.last.index(relay_last))
+        self.take("Orchestrator")
+        for number, (harness, first) in enumerate((("claude-code", True), ("generic", False)), 1):
+            with self.subTest(harness=harness, ring="Orchestrator"):
+                line = "VDD Plan-Reviewer: PLAN-REVIEW.md written, round %d: 0 blocker, 1 major, 0 minor. Read it." % number
+                result = self.ring("Orchestrator", line, harness=harness)
+                self.assertEqual(result.last.startswith("Next: Relay every Tell"), first, result.last)
+                self.assertEqual(relay_last in result.last, not first, result.last)
+
     def test_relaying_the_sign_off_waits_for_nothing(self):
         self.ring("Planner", P1)
         self.take("Orchestrator")
