@@ -5,7 +5,8 @@ doorbell ring --role <Planner|Orchestrator> --harness <h> --slug <slug> --write
   line, composed from the loop's state, to the Doorbell file, addressed to it. Run it in the foreground.
   The Planner's line names the round after the last plan review, or round 1; the Orchestrator's relays
   the last plan review, its open counts or SIGNED OFF. Without --write it prints what it would append
-  and changes nothing; ringing the same line twice appends it once.
+  and changes nothing; ringing the same line twice appends it once. A Planner ring is refused once the
+  plan review is signed off: the Spec stays as signed off.
 
 doorbell wait --role <Planner|Orchestrator> --harness <h> --slug <slug>
   Wait for a Doorbell addressed to your Role. Start it only as a Next: line names it. It reads the
@@ -20,8 +21,8 @@ doorbell take --role <Planner|Orchestrator> --harness <h> --slug <slug> [--paste
   reported for the user and never acted on.
   --resumed: the Planner's first take in a resumed Session. A wait an earlier Session started wakes
   that Session, so it names a wait of your own; what you handled before stays handled.
-  Once the plan review is signed off and the Planner has rung no later round, take and ring name no
-  wait: the plan Loop is over.
+  Once the plan review is signed off, take and ring name no wait: the plan Loop is over. The Planner's
+  take of the Sign-off says its work is done.
 
   ring and wait refuse on a closed loop.
 
