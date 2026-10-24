@@ -584,8 +584,7 @@ class DoorbellTest(LoopRepoTest):
 
     def test_after_the_sign_off_take_names_no_wait(self):
         """Once the plan review is signed off, a take with nothing new names no
-        wait for either Role, as the Sign-off ring already did; a Planner round
-        rung after the Sign-off opens the wait again."""
+        wait for either Role, as the Sign-off ring already did."""
         self.ring("Planner", P1)
         self.ring("Planner", P2)
         self.take("Orchestrator")
@@ -602,8 +601,50 @@ class DoorbellTest(LoopRepoTest):
         result = self.take("Orchestrator", "--pasted", P2, harness="codex")
         self.assertIn("Already handled", result.text)
         self.assertNext(result, "no wait: the plan Loop is over")
-        self.ring("Planner", "VDD Planner: .scratch/x/ ready, round 3. Read spec.md and issues/.")
-        self.assertNext(self.take("Planner"), "doorbell wait --role Planner")
+
+    def test_the_planner_s_take_of_the_sign_off_ends_its_work(self):
+        """Prevents a Planner that takes the plan Sign-off from editing the
+        Spec or the Tickets the Coder already builds from, and ringing a
+        round no one reviews."""
+        self.ring("Planner", P1)
+        self.take("Orchestrator")
+        self.ring("Orchestrator", R2_SIGNED)
+        for pasted in (False, True):
+            with self.subTest(pasted=pasted):
+                if pasted:
+                    os.remove(self.box.path(".scratch", "x", "doorbell-state-planner"))
+                result = self.take("Planner", *(["--pasted", R2_SIGNED] if pasted else []))
+                self.assertEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertIn("Doorbell: " + R2_SIGNED, result.text)
+                self.assertNext(result, "your work as the Planner is done",
+                                "change nothing more in the Spec or the Tickets", "ring nothing", "End your turn.")
+                self.assertNotIn("continue your Role", result.last)
+
+    def test_another_doorbell_for_the_planner_still_says_continue(self):
+        self.ring("Orchestrator", R1)
+        self.assertNext(self.take("Planner"), "Read the Working file this Doorbell names and continue your Role.")
+
+    def test_a_planner_ring_after_the_sign_off_is_refused(self):
+        """Prevents the Planner opening a plan round after the plan
+        Sign-off, while the code Loop builds from the Spec as it was signed
+        off."""
+        self.ring("Planner", P1)
+        self.take("Orchestrator")
+        self.signed_off(1)
+        before = self.doorbells()
+        for write in (False, True):
+            with self.subTest(write=write):
+                result = self.db("ring", "--role", "Planner", *(["--write"] if write else []))
+                self.assertEqual(result.code, 1, result)
+                self.assertContract(result)
+                self.assertIn("The plan Loop signed off in round 1, so the Planner rings no further round. "
+                              "Nothing was written.", result.lines)
+                self.assertNotIn("Tell the user verbatim", result.text)
+                self.assertNotIn("round 2", result.text)
+                self.assertNext(result, "the Spec stays as signed off", "change nothing more in the Spec or the "
+                                "Tickets", "review add --slug x --from <file>", "once the code Loop signs off")
+                self.assertEqual(self.doorbells(), before)
 
     def test_an_unsigned_review_still_names_the_wait(self):
         """A PLAN-REVIEW.md that opens SIGNED OFF is not the Sign-off; only the

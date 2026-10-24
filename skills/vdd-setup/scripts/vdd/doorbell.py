@@ -24,7 +24,8 @@ HELP = catalog.Help({
         "  line, composed from the loop's state, to the Doorbell file, addressed to it. Run it in the foreground.",
         "  The Planner's line names the round after the last plan review, or round 1; the Orchestrator's relays",
         "  the last plan review, its open counts or SIGNED OFF. Without --write it prints what it would append",
-        "  and changes nothing; ringing the same line twice appends it once.",
+        "  and changes nothing; ringing the same line twice appends it once. A Planner ring is refused once the",
+        "  plan review is signed off: the Spec stays as signed off.",
     ],
     "wait": [
         "doorbell wait --role <Planner|Orchestrator> --harness <h> --slug <slug>",
@@ -42,8 +43,8 @@ HELP = catalog.Help({
         "  reported for the user and never acted on.",
         "  --resumed: the Planner's first take in a resumed Session. A wait an earlier Session started wakes",
         "  that Session, so it names a wait of your own; what you handled before stays handled.",
-        "  Once the plan review is signed off and the Planner has rung no later round, take and ring name no",
-        "  wait: the plan Loop is over.",
+        "  Once the plan review is signed off, take and ring name no wait: the plan Loop is over. The Planner's",
+        "  take of the Sign-off says its work is done.",
     ]},
     [
         catalog.Only(("ring", "wait"), "  ring and wait refuse on a closed loop."),
@@ -96,6 +97,8 @@ def composed(place: doorbells.Place, role: str) -> str:
 def ring(place: doorbells.Place, role: str, harness: Harness) -> runner.Plan:
     to = doorbells.OTHER[role]
     place.require_open("a ring")
+    if role == "Planner":
+        refuse_after_sign_off(place)
     line = composed(place, role)
     doorbell = doorbells.parse(line, to, place.tracker)
     if doorbell is None:
@@ -123,6 +126,21 @@ def ring(place: doorbells.Place, role: str, harness: Harness) -> runner.Plan:
                        lambda: after_ring(place, role, harness, doorbell))
 
 
+def refuse_after_sign_off(place: doorbells.Place) -> None:
+    """Refuse a Planner ring once the plan review is signed off: the code
+    Loop builds from the Spec and the Tickets as they were signed off."""
+    last = place.state.last_review("plan")
+    if last is None or not last.signed_off:
+        return
+    raise Failure(
+        "The plan Loop signed off in round %d, so the Planner rings no further round. Nothing was written."
+        % last.round,
+        "The plan Loop is over and the Spec stays as signed off: change nothing more in the Spec or the Tickets, "
+        "ring nothing, and end your turn. Tell the user that a change they still want goes in as a finding with "
+        "%s once the code Loop signs off." % catalog.line("review", "add", slug=place.slug, from_="<file>"),
+    )
+
+
 def append(place: doorbells.Place, to: str, line: str) -> list[str]:
     try:
         place.append(to, line)
@@ -135,8 +153,8 @@ def append(place: doorbells.Place, to: str, line: str) -> list[str]:
 
 
 def after_ring(place: doorbells.Place, role: str, harness: Harness, doorbell: doorbells.Doorbell) -> str:
-    """The Next: step once the ring is in the Doorbell file: a Planner ring
-    after the plan Sign-off opens a plan round again."""
+    """The Next: step once the ring is in the Doorbell file: the Orchestrator's
+    relay of the plan Sign-off names no wait."""
     _, new = doorbells.pending(place.entries(role), place.load_state(role))
     if new:
         return "Take the Doorbell already waiting for you: run %s" % doorbells.take_command(role, harness, place.slug)
@@ -172,7 +190,7 @@ def take(place: doorbells.Place, role: str, harness: Harness, pasted: str | None
         lines.append("No new Doorbell for the %s." % role)
         return taken(effects, lines, lambda: doorbells.wait_or_hold(place, role, harness))
     lines.append("Doorbell: %s" % new[-1].text)
-    return taken(effects, lines, act_next(place, role, harness))
+    return taken(effects, lines, act_next(place, role, harness, new[-1].doorbell))
 
 
 def take_pasted(place: doorbells.Place, role: str, harness: Harness, entries: list[doorbells.Entry],
@@ -190,7 +208,7 @@ def take_pasted(place: doorbells.Place, role: str, harness: Harness, entries: li
         if index >= state.count and entry.doorbell and entry.doorbell.key() == doorbell.key():
             state.count = index + 1
     effects.append(saved(place, role, state))
-    return taken(effects, ["Doorbell: %s" % line], act_next(place, role, harness))
+    return taken(effects, ["Doorbell: %s" % line], act_next(place, role, harness, doorbell))
 
 
 def taken(effects: list[runner.Effect], lines: list[str], next_step: runner.Next) -> runner.Plan:
@@ -218,11 +236,15 @@ def cleared(place: doorbells.Place, role: str) -> list[str]:
     return []
 
 
-def act_next(place: doorbells.Place, role: str, harness: Harness) -> str:
+def act_next(place: doorbells.Place, role: str, harness: Harness, doorbell: doorbells.Doorbell | None) -> str:
     """The step after a Doorbell take printed: the Orchestrator runs
-    orchestrator return for the Planner's Doorbell."""
+    orchestrator return for the Planner's Doorbell; the plan Sign-off ends
+    the Planner's work."""
     if role == "Orchestrator":
         return "Run %s" % catalog.line("orchestrator", "return", role="Planner", slug=place.slug, harness=harness.name)
+    if doorbell is not None and doorbell.signed_off:
+        return ("The plan Loop is signed off and your work as the Planner is done: change nothing more in the Spec "
+                "or the Tickets, ring nothing and run no wait. End your turn.")
     return "Read the Working file this Doorbell names and continue your Role."
 
 
