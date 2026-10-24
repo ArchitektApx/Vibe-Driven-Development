@@ -790,6 +790,38 @@ class CloseTest(LoopTest):
         self.assertEqual(self.file(name="loop-state"), "vdd loop-state 2\nloop open\nloop closed\nloop open\n")
         self.assertIn("State: open", self.loop("show", "--slug", "demo").lines)
 
+    def test_close_tells_the_user_the_pr_title_and_body(self):
+        """A PR-Author told to print the title and body before loop close
+        left them out or put them after the call, so a user left to open the
+        PR had none; loop close now prints them as lines to relay."""
+        self.box.write(os.path.join(".scratch", "demo", "pr-body.md"),
+                       "# feat: a title\n\nThe change.\n\n## Why\nBecause.\n")
+        self.assertIn("Would print the PR title and body in .scratch/demo/pr-body.md for the user.",
+                      self.loop("close", "--slug", "demo").lines)
+        result = self.loop("close", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        tell = 'Tell the user verbatim: "%s"'
+        expected = [tell % text for text in (
+            "Open the PR yourself with this title and body, also in .scratch/demo/pr-body.md:",
+            "Title: feat: a title", "", "The change.", "", "## Why", "Because.")]
+        start = result.lines.index(expected[0])
+        self.assertEqual(result.lines[start:start + len(expected)], expected)
+
+    def test_close_on_pr_no_or_without_a_body_tells_none(self):
+        """Prevents a body shown where no PR is wanted, or a malformed
+        pr-body.md shown as a body."""
+        self.box.write(os.path.join(".scratch", "demo", "pr-body.md"), "no blank line\nafter the title\n")
+        result = self.loop("close", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertNotIn("Tell the user", result.text)
+        self.loop("reopen", "--slug", "demo", "--write")
+        self.loop("set", "--slug", "demo", "--pr", "no", "--write")
+        self.box.write(os.path.join(".scratch", "demo", "pr-body.md"), "a title\n\nThe change.\n")
+        result = self.loop("close", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertNotIn("Tell the user", result.text)
+
     def test_close_without_write_and_twice_change_nothing(self):
         before = self.file(name="loop-state")
         self.assertNext(self.loop("close", "--slug", "demo"), "--write")

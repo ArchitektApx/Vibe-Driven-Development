@@ -7,8 +7,8 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .. import catalog, gitcmd, harness as harnesses, loopfile, loopstate, runner, textfile
-from ..out import TELL, Failure, Output, or_list, refused
+from .. import catalog, gitcmd, harness as harnesses, loopfile, loopstate, prbody, runner, textfile
+from ..out import TELL, Failure, Output, one_line, or_list, refused
 
 HELP = catalog.Help({
     "new": [
@@ -48,7 +48,8 @@ HELP = catalog.Help({
     "close": [
         "loop close [--slug <slug>] --write",
         "  Close the loop: it stays on disk as the record, a ring or a wait on it is refused, and its Codex armed",
-        "  files are deleted. The PR-Author and the Orchestrator run it at the end of the Workflow.",
+        "  files are deleted. The PR-Author and the Orchestrator run it at the end of the Workflow. Unless PR: no,",
+        "  it prints the title and body in pr-body.md for the user to open the PR from.",
     ],
     "reopen": [
         "loop reopen [--slug <slug>] --write",
@@ -224,6 +225,21 @@ def after_state(slug: str, target: str) -> str:
     return "Go on as the user directs, passing --slug %s." % slug
 
 
+def shown_body(loop: loopfile.Loop) -> list[runner.Effect]:
+    """The PR title and body as lines for the user, unless PR: no or
+    pr-body.md cannot be read as one: a loop closed without a PR leaves the
+    user to open it from them."""
+    if loop.pr == "no":
+        return []
+    found = prbody.read(loop)
+    if found.problem:
+        return []
+    tells = ["Open the PR yourself with this title and body, also in %s:" % prbody.relative(loop),
+             "Title: %s" % found.title, ""] + found.body.rstrip("\n").split("\n")
+    return [runner.Effect(["Would print the PR title and body in %s for the user." % prbody.relative(loop)],
+                          [TELL % one_line(tell) for tell in tells])]
+
+
 def close_or_reopen(root: str, values: dict[str, Any], sub: str) -> runner.Plan:
     loop = loopfile.find(root, values["slug"])
     target = loopstate.CLOSED if sub == "close" else loopstate.OPEN
@@ -240,7 +256,7 @@ def close_or_reopen(root: str, values: dict[str, Any], sub: str) -> runner.Plan:
 
     dry = ["Would mark the loop %s %s." % (loop.slug, target)]
     if target == loopstate.CLOSED:
-        effects = runner.close(state, dry, [runner.closed_line(loop.slug)], refuse)
+        effects = runner.close(state, dry, [runner.closed_line(loop.slug)], refuse) + shown_body(loop)
     else:
         effects = [runner.reopen(state, dry, ["Reopened: the loop %s is open again." % loop.slug], refuse)]
     return runner.Plan(effects, after_state(loop.slug, target))

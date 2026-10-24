@@ -26,7 +26,7 @@ slug, ask the user for the slug.
 
 `pr open` closes the loop itself once it has pushed. When it refuses a call or the push fails, it leaves the loop
 open for the rerun its `Next:` line names: do not close it. Every other ending is the same:
-print the body, close the loop and stop, pushing nothing.
+close the loop and stop, pushing nothing.
 
 ## 3. Check, then assemble the title and body
 

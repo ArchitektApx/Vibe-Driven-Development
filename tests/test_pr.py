@@ -278,7 +278,7 @@ class CheckTest(PRTest):
 TOOL = tool_command()
 PR = "https://github.com/example/repo/pull/7"
 CLOSE = TOOL + " loop close --slug demo --write"
-LEAVE = "print the title and body, run %s and stop; push nothing" % CLOSE
+LEAVE = "run %s and stop; push nothing" % CLOSE
 
 
 def open_line(path):
@@ -308,9 +308,10 @@ class EndingTest(PRTest):
         return result.last
 
     def assert_leaves(self, last):
-        """An ending that runs no pr open prints the title and body before
-        loop close."""
+        """An ending that runs no pr open closes the loop, which prints the
+        title and body, and leaves no print step to the Role."""
         self.assertIn(LEAVE, last)
+        self.assertNotIn("print the title and body", last)
 
     def test_yes_open_and_existing(self):
         """Prevents a push without the user's one confirmation on PR: yes."""
@@ -355,8 +356,8 @@ class EndingTest(PRTest):
             self.assertNotIn("whether to open the PR or leave it", last)
 
     def test_manual_prints_and_closes(self):
-        """Prevents a PR: manual ending that closes the loop without printing
-        the title and body, or reads more than the merged history."""
+        """Prevents a PR: manual ending that pushes or opens a PR, or reads
+        more than the merged history."""
         self.set_pr("manual")
         last = self.pr_check().last
         self.assert_leaves(last)
@@ -427,7 +428,7 @@ class NoGhTest(PRScene):
         result = self.pr_check()
         self.assertNotIn("Preflight", result.text)
         self.assertIn("Path: manual (PR: manual, no preflight)", result.lines)
-        self.assertNext(result, ".scratch/demo/pr-body.md", "print the title and body, run ",
+        self.assertNext(result, ".scratch/demo/pr-body.md", "as your skill says, then run ",
                         "loop close --slug demo --write and stop; push nothing")
 
     def test_pr_no_ends_on_the_fold_s_pr_step(self):

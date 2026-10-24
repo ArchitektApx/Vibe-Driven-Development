@@ -17,7 +17,7 @@ The Role that hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subage
 _Avoid_: dispatcher, controller, coordinator
 
 **PR-Author**:
-Runs in the Orchestrator's session on Sign-off and is the only Role that pushes. Reads the Loop file's `PR:` line and opens the PR, pushes the branch for the user to open it, or prints the assembled title and body for the user. On `PR: no` it does not run.
+Runs in the Orchestrator's session on Sign-off and is the only Role that pushes. Reads the Loop file's `PR:` line and opens the PR, pushes the branch for the user to open it, or closes the loop, which prints the assembled title and body for the user. On `PR: no` it does not run.
 _Avoid_: extra session, autopilot, bot
 
 **Brainstormer**:

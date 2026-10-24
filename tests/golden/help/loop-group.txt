@@ -31,7 +31,8 @@ loop fold --slug <slug> --harness <h> [--write]
 
 loop close [--slug <slug>] --write
   Close the loop: it stays on disk as the record, a ring or a wait on it is refused, and its Codex armed
-  files are deleted. The PR-Author and the Orchestrator run it at the end of the Workflow.
+  files are deleted. The PR-Author and the Orchestrator run it at the end of the Workflow. Unless PR: no,
+  it prints the title and body in pr-body.md for the user to open the PR from.
 
 loop reopen [--slug <slug>] --write
   Reopen a closed loop, on the user's request.

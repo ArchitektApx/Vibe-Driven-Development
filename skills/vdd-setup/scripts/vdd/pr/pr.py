@@ -15,10 +15,10 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
-from .. import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, runner, textfile
+from .. import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, prbody, runner, textfile
 from ..gitcmd import Refused
 from ..out import TELL, Failure, Output, one_line, refused
-from . import body, conventions
+from . import conventions
 from .path import EXISTING, MANUAL, NEITHER, NO_PR, OPEN, PUSH_ONLY, TIMEOUT_SECONDS, Path, path_of
 
 if TYPE_CHECKING:
@@ -176,9 +176,9 @@ def ending(loop: loopfile.Loop, harness: Harness, path: Path) -> str:
     """The one PR-Author ending for the loop's PR: line and the path."""
     if path.name == NO_PR:
         return loopstate.pr_step(loop)
-    pr_body = "%s/%s" % (loop.tracker, body.NAME)
+    pr_body = prbody.relative(loop)
     assemble = "Write the title and body to %s as your skill says" % pr_body
-    leave = ("print the title and body, run %s and stop; push nothing"
+    leave = ("run %s and stop; push nothing"
              % catalog.line("loop", "close", slug=loop.slug, write=True))
     if path.name == MANUAL:
         return "%s, then %s." % (assemble, leave)
@@ -236,7 +236,14 @@ def open_plan(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wan
             "Stop, and tell the user the fold has not run; the Orchestrator runs %s at the code Sign-off."
             % loopstate.fold_command(loop, harness),
         )
-    title, text = body.read_body(loop)
+    found = prbody.read(loop)
+    if found.problem:
+        raise Failure(
+            "%s. Nothing was pushed." % found.problem,
+            "Write %s with your file tool: the title as the first line, a blank line, then the body, as the user "
+            "confirmed them. Then run the same command again." % prbody.relative(loop),
+        )
+    title, text = found.title, found.body
     command = open_command(loop, harness, wanted)
     path = paths(loop, command)
     if path.name != wanted:
@@ -245,7 +252,7 @@ def open_plan(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wan
                       "Relay the line above, then run %s and go on with the path it prints."
                       % check_command(loop, harness))
     branch, base, remote = loop.branch, loop.base, path.remote
-    pr_body = "%s/%s" % (loop.tracker, body.NAME)
+    pr_body = prbody.relative(loop)
 
     def push() -> list[str]:
         pushed = gitcmd.run(loop.root, ["git", "push", "-u", remote, branch], timeout=PUSH_TIMEOUT_SECONDS)

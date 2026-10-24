@@ -187,9 +187,10 @@ and it offers to hand a decided idea to the next Role.
   you; on `PR: yes` you confirm the title and body once before anything is
   pushed. When VDD can push but cannot open a PR, it asks once whether to
   push the branch so you can open the PR yourself. When it can do neither,
-  it names the check that failed and asks nothing. Except on `PR: no`, the
-  title and body are printed before the loop closes whenever no PR is
-  opened; on `PR: no` VDD prints no body and makes no `gh` call.
+  it names the check that failed and asks nothing. Except on `PR: no`, VDD
+  prints the title and body as it closes the loop whenever no PR is opened,
+  so you have them to open the PR from; on `PR: no` VDD prints no body and
+  makes no `gh` call.
 - **Each step is shown once.** A dry run shows exactly what the real run
   will do, and the real run names what it did without repeating it. After
   your yes, Setup reports only what it changed and the check of each change.
