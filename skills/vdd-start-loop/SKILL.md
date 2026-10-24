@@ -39,7 +39,7 @@ the tool proposes.
 
 ## 4. Check, ask, write
 
-Run `loop new` with the slug and the Harness, first as a check that writes
+Run `loop new --slug <slug> --harness <h>`, first as a check that writes
 nothing, and do what its `Next:` line says: put each `Question` line it
 prints to the user, one at a time, ask nothing it does not print, and run
 the command it names with the answers. A refused slug, a leftover

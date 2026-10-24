@@ -20,7 +20,7 @@ Every command shows its usage and options with `--help`. Every run ends with a `
 
 ## Starting the review
 
-Run `review start` for your Role first, with the slug your Spawn prompt's
+Run `review start --slug <slug>` for your Role first, with the slug your Spawn prompt's
 `Loop:` line names. It prints the files to read, the `Minors:` line, the review range and
 its fixed point, the Agent documents in it and the Harness file: read the file of that name this skill's
 Harnesses index links, now, once. Take the Harness from the tool only, and do not choose it again from what this

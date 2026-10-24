@@ -23,7 +23,7 @@ Every command shows its usage and options with `--help`. Pass the Harness as the
 
 ## The Loop file
 
-Run `loop show` for your Role first, with the slug Start-Loop's output named in this Session. It prints the lines you act on and the Harness file: read the file of that name this skill's Harnesses index links, now, once. Take the Harness from the Loop file only, and do not choose it again from what this Session shows.
+Run `loop show --slug <slug>` for your Role first, with the slug Start-Loop's output named in this Session. It prints the lines you act on and the Harness file: read the file of that name this skill's Harnesses index links, now, once. Take the Harness from the Loop file only, and do not choose it again from what this Session shows.
 
 ## Borrowed skills
 

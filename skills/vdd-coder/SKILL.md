@@ -20,8 +20,8 @@ Every command shows its usage and options with `--help`. Every run ends with a `
 
 ## Starting the round
 
-Run `coder start` first, with the slug your Spawn prompt's `Loop:` line
-names. It writes this round's `FIXES.md` frame.
+Run `coder start --slug <slug>` first, with the slug your Spawn prompt's
+`Loop:` line names. It writes this round's `FIXES.md` frame.
 
 ## Working the Tickets
 

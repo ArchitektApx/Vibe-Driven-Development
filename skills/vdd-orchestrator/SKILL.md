@@ -24,7 +24,7 @@ Every command shows its usage and options with `--help`. Every run ends with a `
 ## Starting
 
 Your launch line names the loop's slug after the skill name, or the user gives it to you. Run
-`orchestrator start` first, with the slug, on every start of this session, a restart included; with no slug in
+`orchestrator start --slug <slug>` first, on every start of this session, a restart included; with no slug in
 hand, run it without one and pass the slug it names from then on. Take the Harness from the tool only, and do
 not choose it again from what this Session shows.
 
