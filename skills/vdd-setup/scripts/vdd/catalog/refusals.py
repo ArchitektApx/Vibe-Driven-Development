@@ -72,11 +72,12 @@ def shown(text: str) -> str:
     return '"%s"' % text if not text or " " in text else text
 
 
-def not_a_choice(name: str, given: str, choices: Sequence[str], usage: str) -> Failure:
-    """The Failure for a value of --name outside its choices."""
+def not_a_choice(name: str, given: str, choices: Sequence[str], usage: str = "", step: str = "") -> Failure:
+    """The Failure for a value of --name outside its choices. Its Next: is
+    step when the caller gives one, else the command's usage."""
     return Failure(
         "--%s takes %s, not %s." % (name, or_list(shown(choice) for choice in choices), shown(given)),
-        "Run %s for this command's usage." % usage,
+        step or "Run %s for this command's usage." % usage,
     )
 
 

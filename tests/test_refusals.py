@@ -437,6 +437,13 @@ TABLES = {
         ("set-option-of-new", R.store, ("brainstorm", "set", "--idea", "x", "--parent", "y", "--write"),
          unknown("parent", ("decision", "fog", "idea", "importance", "reopen-when", "size", "status", "title", "tldr",
                             "write")), AGAIN, None, False),
+        ("new-importance-not-a-choice", R.store, ("brainstorm", "new", "--slug", "x", "--title", "X", "--tldr", "X.",
+                                                  "--importance", "huge"),
+         "--importance takes ", "Nothing was written. Run the command again with one of those values.", None, False),
+        ("set-status-not-a-choice", R.store, ("brainstorm", "set", "--idea", "old", "--status", "gone"),
+         "--status takes ", "Nothing was written.", None, False),
+        ("cleanup-status-not-a-choice", R.store, ("brainstorm", "cleanup", "--status", "idea"),
+         "--status takes ", "Nothing was written.", None, False),
     ],
 }
 
