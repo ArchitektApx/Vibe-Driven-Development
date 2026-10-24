@@ -66,6 +66,35 @@ class EntryTest(ToolTest):
         self.assertContract(result)
         self.assertIn("rerun Setup", result.text)
 
+    def test_an_unknown_command_names_the_commands_and_the_closest(self):
+        """Prevents a guessed command sending the user to Setup: a Role that
+        guessed `loop take` was told its copy was out of date and to rerun
+        Setup, which changes nothing. The refusal lists the group's commands
+        and the closest one, and keeps Setup for a command the skill writes."""
+        cases = (
+            (("loop", "take"), "loop aside, loop close, loop fold, loop new, loop reopen, loop set, loop show",
+             "Closest: doorbell take."),
+            (("doorbell", "tak"), "doorbell ring, doorbell take, doorbell wait", "Closest: doorbell take."),
+            (("lop",), "brainstorm, coder, codex-stop, doorbell, loop,", "Closest: loop."),
+            (("loop", "frobnicate"), "loop aside, loop close,", None),
+        )
+        for argv, commands, closest in cases:
+            with self.subTest(argv=argv):
+                result = self.box.run(*argv)
+                self.assertNotEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertIn("The commands here: %s" % commands, result.text)
+                if closest:
+                    self.assertIn(closest, result.lines)
+                    self.assertNext(result, "Run %s if that is the command your step needs"
+                                    % closest[len("Closest: "):-1])
+                else:
+                    self.assertNotIn("Closest", result.text)
+                    self.assertNext(result, "Run the command above that your step needs")
+                self.assertNext(result, " ".join(argv[:-1] + ("--help",)).strip(),
+                                "Only if your skill writes %s word for word" % " ".join(argv), "rerun Setup")
+                self.assertNotIn("Tell the user this copy", result.last)
+
     def test_an_option_before_its_command_names_the_order_not_setup(self):
         """A model that read "pass --slug on every call" as a global option
         ran `vdd.py --slug <slug> loop show`; told its copy was out of date,

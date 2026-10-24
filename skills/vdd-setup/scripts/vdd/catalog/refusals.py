@@ -46,12 +46,13 @@ def unexpected_argument(arg: str, usage: str, slug: bool) -> Failure:
     return Failure("Unexpected argument: %s" % arg, "Run %s for this command's usage." % usage)
 
 
-def unknown_command(typed: str, usage: str) -> NoReturn:
+def unknown_command(typed: str, usage: str, commands: Iterable[str], elsewhere: Sequence[str] = ()) -> NoReturn:
     """Raise the Failure for a word in a command's place that names no
     command. typed is the command as far as it was read ("loop --slug"); usage
-    is the --help command that lists the commands there. An option in that
-    place is out of order, not a command from a newer skill, so it gets the
-    order and not "rerun Setup"."""
+    is the --help command that lists the commands there, and commands are
+    those commands; elsewhere are the commands of other groups the word names
+    ("doorbell take" for "loop take"), the closest when there are any. An option in that place is out of order, not a command
+    from a newer skill, so it gets the order and not "rerun Setup"."""
     word = typed.split(" ")[-1]
     if word.startswith("-"):
         raise Failure(
@@ -59,12 +60,19 @@ def unknown_command(typed: str, usage: str) -> NoReturn:
             "Put every option after the group and its command, as in %s, and run it again. Run %s for the "
             "commands." % (line("loop", "show", role="<Role>", slug="<slug>"), usage),
         )
+    known = sorted(commands)
+    before = typed[:-len(word)]
+    matches = difflib.get_close_matches(word, known, n=1, cutoff=0.5)
+    close = elsewhere[0] if elsewhere else before + matches[0] if matches else None
+    lines = ["Unknown command: %s" % typed, "The commands here: %s." % ", ".join(before + name for name in known)]
+    if close:
+        lines.append("Closest: %s." % close)
     raise Failure(
-        [
-            "Unknown command: %s" % typed,
-            "This copy of the VDD tool may be older than the skill that called it: rerun Setup.",
-        ],
-        "Tell the user this copy of the VDD tool is out of date and to rerun Setup, then retry.",
+        lines,
+        "%s; run %s for what each one does. Only if your skill writes %s word for word, this copy of the VDD "
+        "tool is older than the skill: tell the user to rerun Setup."
+        % ("Run %s if that is the command your step needs, else the one above that is" % close if close
+           else "Run the command above that your step needs", usage, typed),
     )
 
 

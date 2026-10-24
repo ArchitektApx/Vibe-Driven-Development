@@ -69,7 +69,7 @@ def dispatch(argv: list[str]) -> int:
         if not argv or argv[0] in ("-h", "--help", "help"):
             return helps.top()
         if argv[0] not in catalog.GROUPS:
-            catalog.unknown_command(argv[0], catalog.line("", help=True))
+            catalog.unknown_command(argv[0], catalog.line("", help=True), catalog.GROUPS)
         return load(argv[0]).run(argv[1:])
     except Failure as failure:
         return failure.emit()

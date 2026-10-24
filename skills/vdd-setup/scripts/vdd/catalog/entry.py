@@ -56,7 +56,9 @@ def run(
             return helps.show(text.whole(), help_next)
         commands = COMMANDS[group]
         if argv[0] not in commands:
-            unknown_command("%s %s" % (group, argv[0]), line(group, help=True))
+            elsewhere = ["%s %s" % (other, argv[0]) for other in sorted(COMMANDS)
+                         if other != group and argv[0] in COMMANDS[other]]
+            unknown_command("%s %s" % (group, argv[0]), line(group, help=True), commands, elsewhere)
         command, rest = commands[argv[0]], argv[1:]
     named = line(group, command.name, help=True)
     values = parse(rest, command, named)
