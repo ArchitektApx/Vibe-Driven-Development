@@ -123,6 +123,33 @@ class EntryTest(ToolTest):
         self.assertNext(result, "again with --role")
         self.assertNotIn("rerun Setup", result.text)
 
+    def test_a_lone_bare_argument_names_the_slug_retry(self):
+        """A Role that wrote the slug without --slug was sent to --help and
+        needed a third call to start; when the slug is the one right retry,
+        the refusal names it."""
+        for argv in (("coder", "start", "csv-quote"), ("orchestrator", "start", "--harness", "codex", "csv-quote")):
+            with self.subTest(argv=" ".join(argv)):
+                result = self.box.run(*argv)
+                self.assertNotEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertIn("Unexpected argument: csv-quote", result.lines)
+                self.assertIn("Closest: --slug csv-quote.", result.lines)
+                self.assertNext(result, "again with --slug csv-quote in place of csv-quote")
+
+    def test_a_bare_argument_that_is_no_slug_retry_names_the_usage(self):
+        """Prevents a slug retry named where it is wrong: with two bare
+        arguments, a --slug already given, or a command that takes no --slug,
+        --slug <arg> is not the one right retry."""
+        for argv in (("coder", "start", "csv-quote", "other"), ("coder", "start", "--slug", "x", "csv-quote"),
+                     ("brainstorm", "check", "csv-quote")):
+            with self.subTest(argv=" ".join(argv)):
+                result = self.box.run(*argv)
+                self.assertNotEqual(result.code, 0, result)
+                self.assertContract(result)
+                self.assertIn("Unexpected argument: csv-quote", result.lines)
+                self.assertNotIn("Closest", result.text)
+                self.assertNext(result, "--help for this command's usage")
+
     def test_an_unknown_option_with_none_close_says_to_rerun_setup(self):
         """An option this copy lacks, written by a newer skill, has no close
         spelling: the refusal tells the Role to have the user rerun Setup."""

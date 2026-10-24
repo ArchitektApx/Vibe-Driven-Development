@@ -1,5 +1,5 @@
-"""The refusals of a command line: an unknown option or command, a missing
-option, a value outside an option's choices, and a slug that does not match
+"""The refusals of a command line: an unknown option or command, a bare
+argument, a missing option, a value outside an option's choices, and a slug that does not match
 its pattern."""
 
 from __future__ import annotations
@@ -32,6 +32,18 @@ def unknown_option(name: str, options: Iterable[str], usage: str) -> Failure:
         "this copy of the VDD tool is older than the skill: tell the user to rerun Setup."
         % ("with the options above" if takes else "without --%s" % name, usage, name),
     )
+
+
+def unexpected_argument(arg: str, usage: str, slug: bool) -> Failure:
+    """The Failure for a bare argument where only options go. slug is
+    whether --<arg> is the one right retry: the command takes --slug and the
+    line gives no other bare argument and no --slug."""
+    if slug:
+        return Failure(
+            ["Unexpected argument: %s" % arg, "Closest: --slug %s." % arg],
+            "Run the command again with --slug %s in place of %s." % (arg, arg),
+        )
+    return Failure("Unexpected argument: %s" % arg, "Run %s for this command's usage." % usage)
 
 
 def unknown_command(typed: str, usage: str) -> NoReturn:
