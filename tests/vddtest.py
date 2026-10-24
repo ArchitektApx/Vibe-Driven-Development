@@ -349,7 +349,7 @@ def help_run(box, command):
         refused = re.match(r"^--([a-z-]+) takes (.*), not %s\.$" % DUMMY, first)
         option = "--%s" % refused.group(1) if refused else None
         at = [i + 1 for i, word in enumerate(argv[:-1]) if word == option and argv[i + 1] == DUMMY]
-        if proc.returncode == 0 or not at:
+        if proc.returncode == 0 or refused is None or not at:
             return proc
         argv[at[0]] = re.split(r", | or ", refused.group(2))[0].strip('"')
 
