@@ -12,14 +12,14 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict
 
-from .. import catalog, gitcmd, textfile
+from .. import catalog, gitcmd
 from ..out import TELL, Failure, Output
-from . import cleanup, journal, layout1, migrate, moves, printed, reads, restructure
-from .lock import Lock
+from . import cleanup, layout1, migrate, moves, printed, reads, restructure, runner
 from .migrate import require_layout
-from .store import LAYOUT, LAYOUT_FILE, Store, layout, store_dir
+from .runner import Move
+from .store import Store, layout
 
 # The first sentence of the overview's Next: step.
 ANSWER = "Answer the user's message from this overview; read or run nothing else unless it needs more."
@@ -28,8 +28,8 @@ HELP = catalog.Help({
     "start": [
         "brainstorm start [--page <n>]",
         "  The Session's first call: the open ideas, each part under its parent, with status, importance/size/fog,",
-        "  last update, what each waits on, and the tldr. A large store is paged, the most recently updated",
-        "  families first; --page shows the next page.",
+        "  last update, what each waits on, and the tldr. A large store is paged, most recently updated families",
+        "  first; --page shows the next.",
     ],
     "show": [
         "brainstorm show --idea <slug>",
@@ -51,12 +51,15 @@ HELP = catalog.Help({
         "    [--despite <slug> ...]",
         "  Captures an idea: its file with frontmatter, title, Summary and a created History line. Without --write",
         "  it lists the ideas, open, closed or removed, that look like the same one, to ask the user about before",
-        "  capturing; --despite <slug> leaves one out of that list.",
+        "  capturing; --despite <slug> leaves one out of that list. A --summary starts \"Goal: <the goal>.\" (the",
+        "  user's goal), then what they said.",
     ],
     "note": [
         "brainstorm note --idea <slug> (--section <name> --text <text> [--text ...] | --tick <step>)",
-        "  Adds prose to a section (Evidence items are dated, Next Steps become open steps), or ticks the open",
-        "  Next Step that starts with --tick. To rewrite a section, Read the file and Edit only that section in place.",
+        "  Adds prose to a section (Evidence, Summary, Proposal, Pro, Con, Open Questions, Prior Art, Next Steps,",
+        "  Related Ideas as '<kind> <slug>: <why>'); Evidence items are dated, Next Steps become open steps.",
+        "  --tick ticks the open Next Step that starts with <step>. To rewrite a section, Read the file and Edit",
+        "  only that section in place.",
     ],
     "set": [
         "brainstorm set --idea <slug> [--idea ...] [--status <s>] [--decision <text>] [--reopen-when <text>]",
@@ -86,9 +89,9 @@ HELP = catalog.Help({
     ],
     "cleanup": [
         "brainstorm cleanup (--status done|dropped [--status ...] | --idea <slug> [--idea ...]) [--older <N>d|<N>w]",
-        "  Removes closed ideas from the store, each kept as one line in removed.md; --older counts from the day",
-        "  the idea closed. Never removes an open idea, a closed idea with an open part, a closed idea an open",
-        "  idea waits on, or a part whose family stays. Research folders stay.",
+        "  Removes closed ideas, each kept as one line in removed.md; --older counts from the day the idea closed.",
+        "  Never removes an open idea, a closed idea with an open part, a closed idea an open idea waits on, or a",
+        "  part whose family stays. Research folders stay.",
     ],
     "migrate": [
         "brainstorm migrate [--event '<date> <slug> split into|merged into|folded into|renamed from <slug>' ...]",
@@ -98,10 +101,10 @@ HELP = catalog.Help({
         "  Without --write it prints the plan and the Log sentences each --event may carry.",
     ]},
     [
-        "Every write needs --write; without it the command is a dry run.",
+        "Every write needs --write; without it the command is a dry run. A line starting \"  > \" quotes an idea's own "
+        "text.",
     ], apart=False)
 
-Move = Callable[[Store, Dict[str, Any]], Tuple[List[str], str, str]]
 WRITES: dict[str, Move] = {"new": moves.new, "note": moves.note, "set": moves.set_cmd, "move": restructure.move,
                            "split": restructure.split, "merge": restructure.merge, "rename": restructure.rename,
                            "cleanup": cleanup.cleanup}
@@ -110,7 +113,8 @@ READS: dict[str, Read] = {"show": reads.show, "find": reads.find, "check": reads
 
 
 def run(argv: list[str]) -> int:
-    return catalog.run("brainstorm", argv, HELP, "Run the brainstorm command your skill names.", dispatch)
+    return catalog.run("brainstorm", argv, HELP, "Run the brainstorm command above that fits what the user said.",
+                       dispatch)
 
 
 def dispatch(ctx: catalog.Context) -> int:
@@ -120,84 +124,14 @@ def dispatch(ctx: catalog.Context) -> int:
         return start(root, values)
     if command == "migrate":
         return migrate_cmd(root, values)
-    if migrate.STEPS["1"].half(root):
-        # Between the migration's two renames there is no store: a new one
-        # here would leave two half stores (F2).
-        raise Failure("A migration was interrupted after the backup; the idea store is not in place yet. Nothing was "
-                      "written.", "Run %s, then %s." % (printed.MIGRATE, printed.START))
-    found = layout(root)
-    if command == "new" and found is None:
-        if values["write"]:
-            # The first idea creates the store, but only once the command
-            # checks out: a refused new leaves no store behind (M16).
-            moves.new(Store(root), values)
-            os.makedirs(store_dir(root), exist_ok=True)
-            textfile.write(os.path.join(store_dir(root), LAYOUT_FILE), (LAYOUT + "\n").encode("ascii"))
-    else:
-        require_layout(root)
+    runner.guard(root, command, values)
     if command in WRITES:
-        return write(root, command, values)
+        return runner.write(root, command, WRITES[command], values)
     out = Output()
-    for line in recover_quietly(root):
+    for line in runner.recover_quietly(root):
         out.line(line)
     store = Store(root)
     return READS[command](store, values, out)
-
-
-def recover_quietly(root: str) -> list[str]:
-    """Before a read: settle a write a killed run left half done, when no
-    live writer holds the lock. A read never waits for the lock."""
-    if not journal.pending(root):
-        return []
-    with Lock(root, wait=False, on_take=journal.recover) as lock:
-        return lock.lines
-
-
-def write(root: str, command: str, values: dict[str, Any]) -> int:
-    handler = WRITES[command]
-    out = Output()
-    if not values["write"]:
-        # A dry run plans against the store the --write will see: a write a
-        # killed run left half done is settled first, as a read does.
-        for line in recover_quietly(root):
-            out.line(line)
-        store = Store(root)
-        lines, _, _ = handler(store, values)
-        would = store.planned()
-        out.line("Dry run, nothing was written. With --write, brainstorm %s would write %s:"
-                 % (command, ", ".join(would) or "nothing"))
-        for line in lines + loop_lines(store):
-            out.line(line)
-        return out.finish(store.dry_next or "If this is what the user asked for, run the same command again with "
-                          "--write.")
-    # The lock is taken before the store is read, so no update is lost;
-    # inside it, a write a killed run left half done is settled first.
-    with Lock(root, on_take=journal.recover) as lock:
-        store = Store(root)
-        lines, nxt, label = handler(store, values)
-        lines += loop_lines(store)
-        journal.save(store, label)
-    for line in lock.lines:
-        out.line(line)
-    for line in lines:
-        out.line(line)
-    return out.finish(nxt)
-
-
-def loop_lines(store: Store) -> list[str]:
-    """A parent loop written by hand among the ideas the command writes:
-    named, with the move that breaks it."""
-    lines: list[str] = []
-    seen: set[str] = set()
-    for slug in store.existing_loops():
-        if slug in seen:
-            continue
-        chain = [slug] + store.ancestors(slug)
-        seen.update(chain)
-        lines.append("%s sit in a parent loop written by hand, left as it is: %s -> %s. To break it, file one at the "
-                     "top level: %s" % (" and ".join(sorted(chain)), " -> ".join(chain), slug,
-                                        printed.command("move", set="%s=top" % slug, write=True)))
-    return lines
 
 
 def page_number(value: str | None) -> int:
@@ -229,7 +163,7 @@ def start(root: str, values: dict[str, Any]) -> int:
         return out.finish("Run %s: it checks the store and writes the marker back. Then run %s again."
                           % (printed.MIGRATE, printed.START))
     require_layout(root)
-    for line in recover_quietly(root):
+    for line in runner.recover_quietly(root):
         out.line(line)
     store = Store(root)
     lines, offer = overview(root, store, page_number(values["page"]))

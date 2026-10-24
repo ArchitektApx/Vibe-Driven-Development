@@ -369,10 +369,12 @@ def step(root: str, events_raw: list[str], write: bool) -> Result:
         os.rename(store, backup)
     except OSError as error:
         shutil.rmtree(staging, ignore_errors=True)
-        raise refused("The old store could not be renamed to the backup (%s); it is untouched and nothing was "
-                      "written." % textfile.reason(error),
-                      "Otherwise tell the user a file in .scratch/_brainstorming/ is held open (an editor?), ask "
-                      "them to close it, and run the command again.")
+        raise refused(["The old store could not be renamed to the backup (%s); it is untouched and nothing was "
+                       "written." % textfile.reason(error),
+                       "What can hold %s/ open: an editor, or a shell whose working directory is inside it." % STORE],
+                      "Otherwise, if your own shell's working directory is inside %s/, change to the repository "
+                      "root and run the command again; if not, tell the user what holds it open and wait for their "
+                      "word before you run it again." % STORE)
     try:
         os.rename(staging, store)
     except OSError as error:

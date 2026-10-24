@@ -511,7 +511,7 @@ class ShownDay(BrainstormTest):
         self.assertIn("- two [idea] unknown/unknown/unknown, updated 2026-10-15", self.ok("start").text)
         self.assertIn("two [idea] unknown/unknown/unknown, updated 2026-10-15", self.ok("show", "--idea", "two").text)
         result = self.ok("new", "--slug", "second-idea", "--title", "Two", "--tldr", "The second idea.")
-        self.assertIn("two [idea, 2026-10-15]: The second idea. (shared: two)", result.lines)
+        self.assertIn("two [idea, 2026-10-15]: The second idea. (shared: two)", result.text)
         result = self.ok("set", "--idea", "one", "--status", "done", "--decision", "PR 1", "--write")
         self.assertIn("Open ideas that name one and were last updated before today (check whether this landing "
                       "changes them): two (2026-10-15).", result.lines)
@@ -1296,3 +1296,36 @@ class Paging(BrainstormTest):
         result = self.ok("start")
         self.assertNotIn("Page 1", result.text)
         self.assertNotIn("Long tldrs are cut", result.text)
+
+
+class WriteAfterDryRun(BrainstormTest):
+    """Every brainstorm write, run after its dry run: the --write prints no
+    line the dry run printed apart from Tell lines, and the dry run shows the
+    write's own lines indented under what it would write."""
+
+    MOVES = (
+        ("new", "--slug", "second-half", "--title", "Second half", "--tldr", "The second half.",
+         "--parent", "main-idea"),
+        ("note", "--idea", "main-idea", "--section", "Next Steps", "--text", "Do a thing"),
+        ("set", "--idea", "other", "--status", "shaped", "--importance", "large"),
+        ("move", "--set", "second-half=top"),
+        ("split", "--idea", "other", "--part", "other-a | Other A | Part A."),
+        ("rename", "--idea", "other-a", "--to", "another"),
+        ("merge", "--idea", "another", "--into", "main-idea", "--reason", "same", "--reopen-when", "never"),
+        ("cleanup", "--status", "done"),
+    )
+
+    def test_no_write_repeats_its_dry_run(self):
+        """Prevents a --write making the Brainstormer read a line twice that
+        its dry run already printed."""
+        self.ok("new", "--slug", "main-idea", "--title", "Main idea", "--tldr", "The main idea.", "--write")
+        self.ok("new", "--slug", "other", "--title", "Other", "--tldr", "Another one.", "--write")
+        self.ok("new", "--slug", "old", "--title", "Old", "--tldr", "Old one.", "--write")
+        self.ok("set", "--idea", "old", "--status", "done", "--decision", "landed in v1", "--write")
+        for argv in self.MOVES:
+            dry = self.ok(*argv)
+            written = self.ok(*(argv + ("--write",)))
+            body = dry.lines[1:-1]
+            repeated = [line for line in written.lines[:-1] if line in body and not line.startswith("Tell the user")]
+            self.assertEqual(repeated, [], argv)
+            self.assertTrue(any("  " + line in body for line in written.lines[:-1]), (argv, dry, written))

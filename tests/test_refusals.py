@@ -56,6 +56,12 @@ class Refusals(Staged):
         self.coder_started()
         self.git("checkout", "-q", "main")
 
+    def backup_blocked(self):
+        """A 0.15 store with a file where the migration's backup goes, so
+        the old store's rename fails as a held store's does on Windows."""
+        self.legacy_store()
+        self.box.write(".scratch/_brainstorming.pre-0.16", "in the way\n")
+
     def fixes_deleted(self):
         self.coder_started()
         os.remove(self.box.path(self.rel("FIXES.md")))
@@ -154,13 +160,17 @@ class Refusals(Staged):
     def snapshot(self):
         """The staged project as a refusal must leave it: every file and
         directory outside .git, with its bytes, and the checked-out branch
-        and HEAD when the project is a repository."""
+        and HEAD when the project is a repository. The idea store's lock
+        file is left out: every brainstorm write that takes the lock writes
+        its pid there, a refused one included."""
         tree = {}
         for directory, dirs, files in os.walk(self.box.proj):
             dirs[:] = sorted(d for d in dirs if not (directory == self.box.proj and d == ".git"))
             rel = os.path.relpath(directory, self.box.proj)
             tree[rel] = None
             for name in files:
+                if rel == ".scratch" and name == "_brainstorming.lock":
+                    continue
                 with open(os.path.join(directory, name), "rb") as handle:
                     tree[os.path.join(rel, name)] = handle.read()
         if os.path.isdir(self.box.path(".git")):
@@ -418,6 +428,10 @@ TABLES = {
         ("unknown-idea", R.store, ("brainstorm", "show", "--idea", "main-ide"), "No idea named main-ide",
          "with the slug as the user meant it", None, False),
         ("show-missing", R.store, ("brainstorm", "show"), "Missing: --idea", "brainstorm show " + USAGE, None, False),
+        ("migrate-rename-held", R.backup_blocked, ("brainstorm", "migrate", "--write"),
+         ("could not be renamed to the backup", "an editor, or a shell whose working directory is inside it"),
+         "if your own shell's working directory is inside .scratch/_brainstorming/, change to the repository root "
+         "and run the command again; if not, tell the user what holds it open and wait for their word", None, False),
         ("set-option-of-new", R.store, ("brainstorm", "set", "--idea", "x", "--parent", "y", "--write"),
          unknown("parent", ("decision", "fog", "idea", "importance", "reopen-when", "size", "status", "title", "tldr",
                             "write")), AGAIN, None, False),

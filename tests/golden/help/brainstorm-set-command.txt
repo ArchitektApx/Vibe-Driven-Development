@@ -6,5 +6,5 @@ brainstorm set --idea <slug> [--idea ...] [--status <s>] [--decision <text>] [--
   --decision, dropped also --reopen-when; dropping an idea drops its open parts at every level; an open
   status on a closed idea reopens it.
 
-Every write needs --write; without it the command is a dry run.
+Every write needs --write; without it the command is a dry run. A line starting "  > " quotes an idea's own text.
 Next: Run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" brainstorm set with the options above.
