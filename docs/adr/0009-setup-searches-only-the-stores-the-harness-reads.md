@@ -9,5 +9,5 @@ read that setting.
 
 A Harness also reads stores the search does not cover, such as Claude
 Code's enterprise store. So when the search misses a skill that the Session
-can still run, Setup counts it as Present and says the search did not find
-it.
+can still run, Setup counts it as Resolvable, not Present, and says the
+search did not find it.
