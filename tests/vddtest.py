@@ -51,9 +51,13 @@ sys.stderr.write(err)
 sys.exit(code)
 """
 
-# Variables that move a store, the Shared directory or the home, or that
-# name a Codex thread. Each test sets the ones it needs.
+# Variables that move a store, the Shared directory or the home, that name
+# a Codex thread, or that say a Harness's sandbox runs the command, so a run
+# inside one tests the same. Each test sets the ones it needs.
 CLEARED = (
+    "SANDBOX_RUNTIME",
+    "CODEX_SANDBOX",
+    "CODEX_SANDBOX_NETWORK_DISABLED",
     "CLAUDE_CONFIG_DIR",
     "CLAUDE_CODE_PLUGIN_CACHE_DIR",
     "CODEX_HOME",

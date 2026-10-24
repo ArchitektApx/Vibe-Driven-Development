@@ -82,6 +82,11 @@ class Codex(Harness):
     def picks_up_doorbell(self) -> bool:
         return True
 
+    def runs_sandboxed(self) -> bool:
+        # Codex names its sandbox in CODEX_SANDBOX (seatbelt on macOS), and
+        # sets CODEX_SANDBOX_NETWORK_DISABLED when that sandbox cuts the network.
+        return bool(os.environ.get("CODEX_SANDBOX")) or os.environ.get("CODEX_SANDBOX_NETWORK_DISABLED") == "1"
+
     def waits_through_stop_hook(self) -> bool:
         return True
 

@@ -93,7 +93,7 @@ LOOP = group("loop", (value("slug"), value("harness")), {
     # named only to refuse them: a running loop's identity never changes.
     "set": (value("minors"), value("pr"), value("harness-line"), WRITE, value("feature"), value("base-branch"),
             value("feature-branch"), value("base"), value("branch")),
-    "fold": (SLUG, HARNESS, WRITE),
+    "fold": (SLUG, HARNESS, flag("escalation-refused"), WRITE),
     "close": (WRITE,),
     "reopen": (WRITE,),
 })

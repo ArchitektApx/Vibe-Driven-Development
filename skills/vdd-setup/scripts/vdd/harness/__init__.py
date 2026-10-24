@@ -43,6 +43,12 @@ class Harness(abc.ABC):
         to such a Harness."""
 
     @abc.abstractmethod
+    def runs_sandboxed(self) -> bool:
+        """Whether this process runs inside the Harness's sandbox, as the
+        environment the sandbox sets says; False when the Harness sets
+        nothing to tell."""
+
+    @abc.abstractmethod
     def borrowed_skill(self, skill: str) -> str:
         """The form the user types to invoke a Borrowed skill."""
 

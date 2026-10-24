@@ -106,9 +106,10 @@ def require_code_sign_off(state: State) -> None:
         )
 
 
-def fold_command(loop: Loop, harness: Harness, write: bool = True) -> str:
+def fold_command(loop: Loop, harness: Harness, write: bool = True, escalation_refused: bool = False) -> str:
     """The command that runs the fold, as every caller names it."""
-    return catalog.line("loop", "fold", slug=loop.slug, harness=harness.name, write=write)
+    return catalog.line("loop", "fold", slug=loop.slug, harness=harness.name, escalation_refused=escalation_refused,
+                        write=write)
 
 
 def pr_step(loop: Loop) -> str:

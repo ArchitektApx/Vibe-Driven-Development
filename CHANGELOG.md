@@ -225,6 +225,16 @@ and it offers to hand a decided idea to the next Role.
   messages, so on a system in another language a sandbox that refused git
   read as a plain failure instead of asking to rerun outside the sandbox.
   VDD now runs git in English.
+- **A fold the sandbox kept from signing.** Inside Claude Code's or Codex's
+  sandbox, signing the folded commits could fail, and VDD recorded the fold
+  as skipped, so the rerun outside the sandbox left the branch unfolded. VDD
+  now asks for that rerun first, and skips the fold only if you refuse it or
+  signing fails outside the sandbox too.
+- **Messages for you lost before the next call.** When VDD printed a line for
+  you and then named a command to run, the agent could run it and end its
+  turn without passing the line on: the Planner did not tell you to start
+  the Orchestrator, and the loop waited. VDD now has the agent pass on every
+  line meant for you before the next step.
 - **Late or polled code reviews on Claude Code.** The Code-Reviewer's two
   review passes sometimes reported late, or the Code-Reviewer spent tokens
   polling for them. Both are fixed.

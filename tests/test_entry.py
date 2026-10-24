@@ -15,7 +15,7 @@ TAKES = {
     ("loop", "aside"): "harness slug write",
     ("loop", "show"): "harness role slug",
     ("loop", "set"): "base base-branch branch feature feature-branch harness harness-line minors pr slug write",
-    ("loop", "fold"): "harness slug write",
+    ("loop", "fold"): "escalation-refused harness slug write",
     ("loop", "close"): "harness slug write",
     ("loop", "reopen"): "harness slug write",
     ("doorbell", "ring"): "harness role slug write",

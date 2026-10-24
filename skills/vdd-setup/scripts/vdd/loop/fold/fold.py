@@ -35,6 +35,15 @@ class Skip(Exception):
         self.reason = reason
 
 
+class SigningRefused(Exception):
+    """A signing call that failed inside the Harness's sandbox, which may be
+    what refused it."""
+
+    def __init__(self, call: gitcmd.Call) -> None:
+        Exception.__init__(self, call.first_error())
+        self.call = call
+
+
 def signed_commit(state: loopstate.State) -> tuple[int, str]:
     """(round, sha) of the code round whose review signed off, or a Failure."""
     review = state.last_review("code")
@@ -54,9 +63,11 @@ def signed_commit(state: loopstate.State) -> tuple[int, str]:
     return review.round, sha
 
 
-def plan(loop: Loop, harness: Harness, write: bool) -> runner.Plan:
+def plan(loop: Loop, harness: Harness, write: bool, escalation_refused: bool = False) -> runner.Plan:
     """The fold's plan. write signs the folded commits, as commit.gpgSign
-    asks, which only a --write does."""
+    asks, which only a --write does. A signing failure inside the Harness's
+    sandbox is a refusal, unless escalation_refused says the rerun outside
+    it was refused; anywhere else it is the skip."""
     state = runner.open_loop(loop, "loop fold")
     _, signed = signed_commit(state)
     branch = loop.branch
@@ -93,13 +104,20 @@ def plan(loop: Loop, harness: Harness, write: bool) -> runner.Plan:
     index_path = os.path.join(loop.dir, INDEX_NAME)
     try:
         try:
-            result = fold(loop, state, repo, signed, index_path, write)
+            result = fold(loop, state, repo, signed, index_path, write,
+                          harness.runs_sandboxed() and not escalation_refused)
         finally:
             remove(index_path)
     except Skip as skip:
         return skipped(loop, state, store, signed, skip.reason, harness)
     except gitcmd.Refused as error:
         raise refused_inside(loop, harness, write, error.call, branch, signed)
+    except SigningRefused as error:
+        raise gitcmd.sandbox_refusal(
+            error.call, loopstate.fold_command(loop, harness, write),
+            "run %s to record the fold as skipped." % loopstate.fold_command(loop, harness, escalation_refused=True),
+            ["Nothing was folded or written; %s stays at the signed commit %s." % (branch, signed[:7])],
+            name="signing a folded commit")
     before, chain, tip, lines = result.before, result.chain, result.tip, result.lines
     summary = "Folded %s: %d commits into %d; the folded tree equals the signed tree (%s)." % (
         branch, before, len(chain), signed[:7])
@@ -156,8 +174,10 @@ def folded(loop: Loop, branch: str, signed: str, record: records.Record) -> list
 
 def fold(
     loop: Loop, state: loopstate.State, repo: Repo, signed: str, index_path: str, write: bool,
+    sandboxed: bool = False,
 ) -> Result:
-    """What the fold built, or a Skip. It moves no ref."""
+    """What the fold built, or a Skip. It moves no ref. sandboxed raises
+    SigningRefused for a signing failure, which is otherwise a Skip."""
     found, text, timed_out = gitcmd.version(loop.root)
     if timed_out:
         raise Skip("a git error: %s" % timed_out)
@@ -165,13 +185,13 @@ def fold(
         raise Skip("git %s is older than the 2.40 the fold needs" % gitcmd.number(text) if found else
                    "git reports no version this tool can read, and the fold needs 2.40 or newer")
     try:
-        return checked_fold(loop, state, repo, signed, index_path, write)
+        return checked_fold(loop, state, repo, signed, index_path, write, sandboxed)
     except GitFailed as error:
         raise Skip(git_error(error.call))
 
 
 def checked_fold(
-    loop: Loop, state: loopstate.State, repo: Repo, signed: str, index_path: str, write: bool,
+    loop: Loop, state: loopstate.State, repo: Repo, signed: str, index_path: str, write: bool, sandboxed: bool,
 ) -> Result:
     base_branch = loop.base
     branch = loop.branch
@@ -205,6 +225,8 @@ def checked_fold(
         try:
             chain = resign(repo, committer, base, chain, originals)
         except GitFailed as error:
+            if sandboxed:
+                raise SigningRefused(error.call)
             raise Skip("signing a folded commit failed: %s" % error.call.first_error())
     tip = chain[-1] if chain else base
     differ = repo.names("diff-tree", "-z", "-r", "--name-only", signed, tip)

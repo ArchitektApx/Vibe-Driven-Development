@@ -77,6 +77,9 @@ class Cursor(Harness):
     def picks_up_doorbell(self) -> bool:
         return True
 
+    def runs_sandboxed(self) -> bool:
+        return False
+
     def waits_through_stop_hook(self) -> bool:
         return False
 

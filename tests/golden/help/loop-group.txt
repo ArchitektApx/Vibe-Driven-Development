@@ -24,10 +24,11 @@ loop set [--slug <slug>] [--minors <a>] [--pr <a>] [--harness-line <label>] --wr
   feature branch never change. When the user corrects the Harness after loop new: --harness-line <label>
   with --harness <the corrected h>.
 
-loop fold --slug <slug> --harness <h> [--write]
+loop fold --slug <slug> --harness <h> [--escalation-refused] [--write]
   Run at each code Sign-off, on every PR: value, without asking the user. Moves each later round's fix
   into the commit that wrote its lines; when it cannot, the branch stays as signed and it says why.
-  Without --write it prints what it would do.
+  Without --write it prints what it would do. --escalation-refused, only when a Next: line names it:
+  the rerun outside the sandbox was refused, so a signing failure skips the fold.
 
 loop close [--slug <slug>] --write
   Close the loop: it stays on disk as the record, a ring or a wait on it is refused, and its Codex armed

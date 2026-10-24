@@ -40,10 +40,11 @@ HELP = catalog.Help({
         "  with --harness <the corrected h>.",
     ],
     "fold": [
-        "loop fold --slug <slug> --harness <h> [--write]",
+        "loop fold --slug <slug> --harness <h> [--escalation-refused] [--write]",
         "  Run at each code Sign-off, on every PR: value, without asking the user. Moves each later round's fix",
         "  into the commit that wrote its lines; when it cannot, the branch stays as signed and it says why.",
-        "  Without --write it prints what it would do.",
+        "  Without --write it prints what it would do. --escalation-refused, only when a Next: line names it:",
+        "  the rerun outside the sandbox was refused, so a signing failure skips the fold.",
     ],
     "close": [
         "loop close [--slug <slug>] --write",
@@ -99,7 +100,8 @@ def dispatch(ctx: catalog.Context) -> int:
     if sub == "fold":
         from .fold import fold
         return runner.run(ctx, lambda: fold.plan(
-            loopfile.find(root, values["slug"]), harnesses.from_option(values, ctx.usage), values["write"]))
+            loopfile.find(root, values["slug"]), harnesses.from_option(values, ctx.usage), values["write"],
+            values["escalation-refused"]))
     return runner.run(ctx, lambda: set_lines(root, values, ctx.usage))
 
 

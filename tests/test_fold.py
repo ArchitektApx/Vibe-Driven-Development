@@ -743,6 +743,49 @@ class SandboxAndSigningTest(FoldTest):
         self.assertIn("signing a folded commit failed", result.tells()[0])
         self.assertIn("fold skipped ", self.state())
 
+    NO_KEY = "cat >/dev/null\necho 'error: No private key found for public key \"/k.pub\"?' >&2\nexit 2\n"
+    SIGNS = ("cat >/dev/null\nprintf '\\n[GNUPG:] SIG_CREATED D 1 8 00 0 0 0 X\\n' >&2\n"
+             "printf -- '-----BEGIN PGP SIGNATURE-----\\nfake\\n-----END PGP SIGNATURE-----\\n'\n")
+
+    def test_a_signing_failure_inside_the_sandbox_records_nothing_and_asks_for_the_rerun(self):
+        """Prevents a fold whose signing a Harness's sandbox blocked being
+        recorded as skipped for good, so the rerun outside the sandbox,
+        where signing works, folds nothing."""
+        signed = self.signed_loop()
+        self.gpg(self.NO_KEY)
+        result = self.fold(env=self.box.env(SANDBOX_RUNTIME="1"))
+        self.assertRerun(result, signed)
+        self.assertIn("A sandbox refused signing a folded commit inside the tool: ", result.text)
+        self.assertNext(result, "when that is refused too, run ",
+                        "loop fold --slug demo --harness claude-code --escalation-refused --write",
+                        "to record the fold as skipped.")
+        self.gpg(self.SIGNS)
+        self.folded(signed, self.fold())
+
+    def test_a_signing_failure_inside_the_codex_sandbox_asks_for_the_rerun(self):
+        """Prevents the same final skip on Codex, whose sandbox names itself
+        in CODEX_SANDBOX."""
+        signed = self.signed_loop()
+        self.gpg(self.NO_KEY)
+        result = self.box.run("loop", "fold", "--slug", "demo", "--harness", "codex", "--write",
+                              env=self.box.env(CODEX_SANDBOX="seatbelt"))
+        self.assertNotEqual(result.code, 0, result)
+        self.assertNext(result, "loop fold --slug demo --harness codex --escalation-refused --write")
+        self.assertEqual(self.sha("demo"), signed)
+        self.assertNotIn("fold ", self.state())
+
+    def test_a_refused_rerun_outside_the_sandbox_skips_the_fold(self):
+        """Prevents a loop stuck at its fold when the user refuses the rerun
+        outside the sandbox."""
+        signed = self.signed_loop()
+        self.gpg(self.NO_KEY)
+        result = self.box.run("loop", "fold", "--slug", "demo", "--harness", "claude-code", "--escalation-refused",
+                              "--write", env=self.box.env(SANDBOX_RUNTIME="1"))
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(self.sha("demo"), signed)
+        self.assertIn("signing a folded commit failed", result.tells()[0])
+        self.assertIn("fold skipped ", self.state())
+
     def test_a_refused_update_ref_gets_the_rerun_line_in_lower_case(self):
         signed = self.signed_loop()
         real = shutil.which("git")
