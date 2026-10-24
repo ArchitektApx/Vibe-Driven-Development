@@ -172,6 +172,16 @@ def mark_handled(place: Place, role: str) -> tuple[list[Entry], State | None]:
     return beyond, state
 
 
+def sign_off_taken(place: Place) -> bool:
+    """Whether the newest line to the Planner is the plan Sign-off's Doorbell
+    and the Planner has taken it."""
+    entries = place.entries("Planner")
+    newest = entries[-1].doorbell if entries else None
+    if newest is None or not newest.signed_off:
+        return False
+    return newest.key() in place.load_state("Planner").handled
+
+
 def plan_signed_off(place: Place) -> bool:
     """The plan Loop is over and neither Role waits: the position is in the
     code Loop."""

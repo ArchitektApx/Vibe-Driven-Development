@@ -165,6 +165,38 @@ class PlacementTest(OrchestratorTest):
         result = self.start()
         self.assertNext(result, "vdd-create-pr", "own Session")
 
+    def test_a_restart_names_no_ring_once_the_planner_took_the_sign_off(self):
+        """A restarted Orchestrator rang the plan Sign-off again after the
+        Planner had taken it, and relayed a paste line into a Planner Session
+        that had long finished."""
+        self.signed_plan("code 1 start a", "code 1 end b", CODE_OPEN_1, "code 2 start b", "code 2 end c",
+                         CODE_SIGNED_2, "fold skipped c the branch moved after Sign-off")
+        ring = ("doorbell", "ring", "--role", "Orchestrator", "--harness", "claude-code", "--slug", "demo")
+        self.box.run(*ring, "--write")
+        rung = self.start()
+        self.assertIn("First: ", rung.text)
+        self.assertIn("doorbell ring --role Orchestrator", rung.text)
+        took = self.box.run("doorbell", "take", "--role", "Planner", "--harness", "claude-code", "--slug", "demo")
+        self.assertEqual(took.code, 0, took)
+        result = self.start()
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertNotIn("First: ", result.text)
+        self.assertNotIn("doorbell ring", result.text)
+        self.assertNext(result, "vdd-create-pr", "own Session")
+
+    def test_a_restart_in_the_code_loop_spawns_with_no_ring_once_taken(self):
+        """Prevents the ring dropped while the Planner has not taken the
+        Sign-off, and kept once it has."""
+        self.signed_plan("code 1 start aaa")
+        self.box.run("doorbell", "ring", "--role", "Orchestrator", "--harness", "claude-code", "--slug", "demo",
+                     "--write")
+        self.assertNext(self.start(), "doorbell ring --role Orchestrator", "spawn a fresh Coder")
+        self.box.run("doorbell", "take", "--role", "Planner", "--harness", "claude-code", "--slug", "demo")
+        result = self.start()
+        self.spawned(result, "Coder", 1, "after a restart")
+        self.assertNotIn("doorbell ring", result.text)
+
     def test_start_changes_no_doorbell_working_file_or_git(self):
         """Start changes no Working file and no git ref. Of the Doorbell files
         it writes only the Orchestrator's state file, where it records the

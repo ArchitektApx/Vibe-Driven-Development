@@ -185,9 +185,13 @@ def place(flow: Flow, out: Output) -> runner.Plan:
         return spawn(flow, out, "Coder", code.round + 1, USER_REASON)
     where = flow.position()
     if where.phase == "code":
-        first = "Run %s in the foreground; the plan Loop is over, so it names no wait." % flow.ring_command()
+        # A Planner that took the plan Sign-off has finished; a ring would ask
+        # the user to paste into its Session.
+        first = (None if doorbells.sign_off_taken(flow.place) else
+                 "Run %s in the foreground; the plan Loop is over, so it names no wait." % flow.ring_command())
         if where.signed_off:
-            out.line("First: %s" % first)
+            if first:
+                out.line("First: %s" % first)
             return after_sign_off(flow, out)
         return spawn(flow, out, where.owes, where.round, reason, first)
     if where.owed_by("Plan-Reviewer"):
