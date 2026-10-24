@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .. import catalog, gitcmd, harness as harnesses, loopfile, loopstate, prbody, runner, textfile
+from .. import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, prbody, runner, textfile
 from ..out import TELL, Failure, Output, one_line, or_list, refused
 
 HELP = catalog.Help({
@@ -183,14 +183,31 @@ def show(root: str, values: dict[str, Any]) -> int:
 
 
 def after_show(loop: loopfile.Loop, role: str | None) -> str:
-    """The step after loop show: the PR-Author's pr check, the Planner's start
-    of its session, or the step that named loop show."""
+    """The step after loop show: the PR-Author's pr check, the Planner's take
+    of a Doorbell that waits for it or the start of its session, or the step
+    that named loop show."""
     if role == "PR-Author":
         return "Then run %s" % catalog.line("pr", "check", slug=loop.slug, harness=loop.harness.name)
+    if role == "Planner" and planner_doorbell_waits(loop):
+        return ("Read the Harness file above. A Doorbell to the Planner waits untaken, so this Session goes on a "
+                "loop already under way: take it first, then act on what the take prints. Run %s"
+                % catalog.line("doorbell", "take", role="Planner", harness=loop.harness.name, slug=loop.slug,
+                               resumed=True))
     if role == "Planner":
         return ("Read the Harness file above, then start the session as your skill says, on the user's problem or "
                 "by asking for one.")
     return "Then go on with the step that named loop show."
+
+
+def planner_doorbell_waits(loop: loopfile.Loop) -> bool:
+    """Whether a Doorbell addressed to the Planner waits untaken; a Doorbell
+    file or state file that cannot be read counts as none, and the take
+    reports it."""
+    place = doorbells.Place(loop.root, loop.slug, loop)
+    try:
+        return bool(doorbells.pending(place.entries("Planner"), place.load_state("Planner"))[1])
+    except (OSError, Failure):
+        return False
 
 
 def set_lines(root: str, values: dict[str, Any], usage: str) -> runner.Plan:
