@@ -122,8 +122,7 @@ def git_repository(report: Report, cwd: str) -> None:
         out.line("Git repository: passed.")
         return
     out.line("Git repository: this directory is not one, and the workflow needs one.")
-    if not report.write:
-        report.questions.append("Ask the user whether to run git init here; on yes, run it with your own tools.")
+    report.questions.append("Ask the user whether to run git init here; on yes, run it with your own tools.")
 
 
 def git_version(report: Report, cwd: str) -> None:
@@ -158,20 +157,17 @@ def gitignore(report: Report, cwd: str) -> None:
     if not added and not removed:
         report.out.line(".gitignore: covers .scratch/. Passed.")
         return
-    for entry in added:
-        report.change(".gitignore", ".gitignore adds %s" % entry)
-    for entry in removed:
-        report.change(".gitignore", ".gitignore removes %s, which VDD no longer maintains" % entry)
-    if not report.write:
-        return
-    try:
+
+    def write() -> list[str]:
         textfile.write(path, after)
         _, again_added, again_removed = plan_gitignore(path)
         if again_added or again_removed:
             raise OSError("the file does not hold the change after the write")
-        report.out.line(".gitignore: checked.")
-    except OSError as error:
-        report.not_changed(".gitignore", ".gitignore", error)
+        return [".gitignore: checked."]
+
+    texts = [".gitignore adds %s" % entry for entry in added]
+    texts += [".gitignore removes %s, which VDD no longer maintains" % entry for entry in removed]
+    report.change(".gitignore", ".gitignore", texts, write)
 
 
 def plan_gitignore(path: str) -> tuple[bytes, list[str], list[str]]:
@@ -232,16 +228,15 @@ def shared_copy(report: Report) -> None:
         report.out.line("Shared copy of the VDD tool in %s: current. Passed." % shared)
         return
     what = "install" if state == install.INSTALL else "update"
-    report.change("shared", "%s the VDD tool (vdd.py and vdd/) in %s" % (what, shared))
-    if not report.write:
-        return
-    try:
+
+    def write() -> list[str]:
         install.swap(shared)
         if install.state(shared) != install.CURRENT:
             raise OSError("the copy differs from the shipped tool after the write")
-        report.out.line("Shared copy of the VDD tool: checked.")
-    except OSError as error:
-        report.not_changed("shared", "the Shared copy of the VDD tool", error)
+        return ["Shared copy of the VDD tool: checked."]
+
+    report.change("shared", "the Shared copy of the VDD tool",
+                  ["%s the VDD tool (vdd.py and vdd/) in %s" % (what, shared)], write)
 
 
 # --- Codex: VDD's old hooks.json entry and the hook's trust ---
@@ -261,26 +256,25 @@ def codex(report: Report, cwd: str) -> None:
     elif not migration.removed:
         out.line("%s: no Stop entry from an older VDD. Passed." % label)
     else:
-        report.change("hooks.json", "%s removes VDD's old Stop hook entry; the hook now ships with the plugin."
-                      % label)
-        if not report.write:
-            for line in migration.diff(label):
-                out.line(line)
-            if migration.relaid():
-                out.line("%s is rewritten in two-space JSON layout with LF line ends and no byte-order mark; "
+        after = migration.after
+
+        def write() -> list[str]:
+            textfile.write_text(hooks_path, after)
+            json.loads(textfile.decode(textfile.read_bytes(hooks_path)))
+            return ["%s: checked, it parses." % label]
+
+        extra = list(migration.diff(label))
+        if migration.relaid():
+            extra.append("%s is rewritten in two-space JSON layout with LF line ends and no byte-order mark; "
                          "the diff shows only VDD's removal." % label)
+        report.change("hooks.json", label,
+                      ["%s removes VDD's old Stop hook entry; the hook now ships with the plugin." % label],
+                      write, extra)
         if migration.shifted:
             out.tell(
                 "Codex will list your own Stop hooks under 'Hooks need review' once at its next start, "
                 "because removing VDD's old entry moved them: trust them again there."
             )
-        if report.write:
-            try:
-                textfile.write_text(hooks_path, migration.after)
-                json.loads(textfile.decode(textfile.read_bytes(hooks_path)))
-                out.line("%s: checked, it parses." % label)
-            except (OSError, ValueError) as error:
-                report.not_changed("hooks.json", label, error)
     for event, command in migration.others:
         out.line("%s: a %s hook naming vdd-codex-stop that Setup did not write stays: %s" % (label, event, command))
     config = os.path.join(home, "config.toml")

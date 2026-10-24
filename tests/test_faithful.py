@@ -476,6 +476,44 @@ class DoorbellAndOrchestratorPlans(Plans, Faithful):
                                                           "request"])
 
 
+SETUP = ("setup", *CC, "--listed", "writing-for-agents", "--glossary-named", "yes")
+TELL = 'Tell the user verbatim: "'
+
+
+class SetupPlans(Plans):
+    """Setup's dry run refuses where its --write refuses, and its --write
+    prints what it changed without the dry run's lines again."""
+
+    def test_write_repeats_no_dry_run_line(self):
+        """Prevents setup --write printing the dry run's passed checks
+        again, or dropping a Tell line or a change it made."""
+        self.repo()
+        self.box.write(".gitignore", "node_modules/\n")
+        dry, written, changed = self.plan_and_write(*SETUP)
+        self.assertEqual(changed, [".gitignore"])
+        self.assertIn("Planned change: .gitignore adds .scratch/", dry.lines)
+        body = written.lines[1:-1]
+        self.assertEqual([line for line in body if line in dry.lines[1:-1]],
+                         [line for line in body if line.startswith(TELL)])
+        self.assertEqual([line for line in dry.lines if line.startswith(TELL)],
+                         [line for line in body if line.startswith(TELL)])
+        self.assertIn("Changed: .gitignore adds .scratch/", body)
+        self.assertIn(".gitignore: checked.", body)
+        self.assertFalse([line for line in body if line.endswith("Passed.") and not line.startswith(TELL)], body)
+
+    def test_a_tracker_it_cannot_read(self):
+        """Prevents setup's dry run passing a tracker file its --write
+        cannot read."""
+        self.repo()
+        os.makedirs(self.box.path("docs", "agents", "issue-tracker.md"))
+        dry = self.box.run(*SETUP)
+        written = self.box.run(*(SETUP + ("--write",)))
+        for result in (dry, written):
+            self.assertEqual(result.code, 1, result)
+            self.assertIn("Could not read docs/agents/issue-tracker.md", result.text)
+        self.assertEqual(dry.lines[1:], written.lines[1:])
+
+
 class LeftOut(Staged):
     def newer(self):
         self.box.write_loop("newer", branch="newer")

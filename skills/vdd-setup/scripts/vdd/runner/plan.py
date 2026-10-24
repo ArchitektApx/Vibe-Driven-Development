@@ -49,7 +49,9 @@ class Plan:
     reads what the effects wrote; dry_next, the dry run's. A plan that writes nothing has no
     effects and prints lines, what the command found, and next, with or
     without --write. requires names the options a --write needs that a dry
-    run asks the user for. An always plan applies without --write."""
+    run asks the user for. An always plan applies without --write. code is
+    the exit code, or a function the runner calls for it once the effects
+    applied or printed, when a write that did not land fails the command."""
 
     def __init__(
         self,
@@ -59,6 +61,7 @@ class Plan:
         lines: Sequence[str] = (),
         requires: Sequence[str] = (),
         always: bool = False,
+        code: Union[int, Callable[[], int]] = 0,
     ) -> None:
         self.effects = list(effects)
         self.next = next_step
@@ -66,10 +69,14 @@ class Plan:
         self.lines = list(lines)
         self.requires = tuple(requires)
         self.always = always
+        self.code = code
 
     def next_line(self) -> str:
         """The Next: step once the effects applied."""
         return self.next if isinstance(self.next, str) else self.next()
+
+    def exit_code(self) -> int:
+        return self.code if isinstance(self.code, int) else self.code()
 
 
 class Instead(Exception):

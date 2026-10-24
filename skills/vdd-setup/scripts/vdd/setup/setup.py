@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .. import catalog, gitcmd, harness as harnesses
+from .. import catalog, gitcmd, harness as harnesses, runner
 from ..harness import Harness
 from ..out import Failure, escalate
 from . import borrowed, checks
@@ -47,14 +47,23 @@ def run(argv: list[str]) -> int:
 def setup(ctx: catalog.Context) -> int:
     values = ctx.values
     harness = harnesses.from_option(values, ctx.usage)
-    answer = values["user-answer"]
     cwd = os.getcwd()
     require_root(harness, values, cwd)
-    report = Report(values["write"])
-    mode = "writing" if report.write else "dry run, nothing is changed yet"
-    report.out.line("Setup, Harness %s (%s)." % (header_name(harness), mode))
-    checks.run(report, harness, cwd, values["listed"], values["glossary-named"], answer)
-    return finish(report, harness, values)
+    mode = "writing" if values["write"] else "dry run, nothing is changed yet"
+    report = Report("Setup, Harness %s (%s)." % (header_name(harness), mode))
+    return runner.run(ctx, lambda: plan(report, harness, values, cwd))
+
+
+def plan(report: Report, harness: Harness, values: dict[str, Any], cwd: str) -> runner.Plan:
+    """Setup as a plan: every check's lines and planned changes in the order
+    they print, the dry run's Next: and the write's."""
+    checks.run(report, harness, cwd, values["listed"], values["glossary-named"], values["user-answer"])
+    effects = list(report.effects)
+    if not report.changes:
+        effects.append(runner.Effect(done=["Nothing left to change."]))
+    return runner.Plan(effects, lambda: finish(report, harness, values, write=True),
+                       dry_next=finish(report, harness, values, write=False), lines=[report.header],
+                       code=lambda: 1 if report.git_too_old or report.failed else 0)
 
 
 def command(harness: Harness, values: dict[str, Any], write: bool) -> str:
@@ -85,36 +94,29 @@ def require_root(harness: Harness, values: dict[str, Any], cwd: str) -> None:
     )
 
 
-def finish(report: Report, harness: Harness, values: dict[str, Any]) -> int:
-    out = report.out
+def finish(report: Report, harness: Harness, values: dict[str, Any], write: bool) -> str:
+    """The Next: step, from what the checks found and, on a write, what
+    landed."""
     if report.git_too_old:
-        return out.finish(
-            "Relay the Tell the user verbatim line about git above, and stop: no loop can start until git is "
-            "2.40 or newer.",
-            1,
-        )
+        return ("Relay the Tell the user verbatim line about git above, and stop: no loop can start until git is "
+                "2.40 or newer.")
     if report.failed:
-        return out.finish(
-            escalate("Otherwise tell the user which change did not land and what it was for, and stop."),
-            1,
-        )
+        return escalate("Otherwise tell the user which change did not land and what it was for, and stop.")
     if report.user_answer_needed:
-        return out.finish(
+        return (
             "Ask the user to invoke %s and tell you whether it resolves. Then run: %s --user-answer "
             "resolves, or with --user-answer does-not-resolve when it does not."
             % (harness.borrowed_skill(borrowed.WRITING), command(harness, values, write=False))
         )
-    if not report.write and (report.changes or report.questions):
+    if not write and (report.changes or report.questions):
         steps = []
         if report.questions:
             steps.append(" ".join(report.questions))
         if report.changes:
             steps.append("Show the user the planned changes above; showing them is the consent step.")
         steps.append("Then run: %s" % command(harness, values, write=True))
-        return out.finish(" ".join(steps))
-    if report.write and not report.changes:
-        out.line("Nothing left to change.")
-    return out.finish(
+        return " ".join(steps)
+    return (
         "Give the user a short status report: what passed, what Setup changed, and what the user "
         "still has to do, relaying every Tell the user verbatim line above unchanged. Setup is done."
     )

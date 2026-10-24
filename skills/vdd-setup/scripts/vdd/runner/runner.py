@@ -48,7 +48,7 @@ def run(ctx: Context, build: Callable[[], Plan]) -> int:
         next_step = plan.next_line()
     for line in lines:
         out.line(line)
-    return out.finish(next_step)
+    return out.finish(next_step, plan.exit_code())
 
 
 def apply(effects: Sequence[Effect]) -> list[str]:

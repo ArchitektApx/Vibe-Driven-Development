@@ -2,12 +2,7 @@ $ vdd setup --harness claude-code --listed writing-for-agents --glossary-named y
 exit 0
 Setup, Harness Claude Code (writing).
 Tell the user verbatim: "setup-matt-pocock-skills, grill-with-docs, to-spec, to-tickets, wayfinder, code-review, writing-for-agents, grilling, domain-modeling, research, prototype: Resolvable from a store Setup does not search. Passed."
-Tracker: docs/agents/issue-tracker.md is missing.
 Tell the user verbatim: "Invoke /setup-matt-pocock-skills and pick Local markdown when it asks which tracker to use. Until then the Planner (to-spec, to-tickets) and the Code-Reviewer (code-review) are blocked."
-Glossary rename: nothing in this repository to migrate. Passed.
-git version: <version> Passed.
-Git repository: passed.
-.gitignore: covers .scratch/. Passed.
 Changed: install the VDD tool (vdd.py and vdd/) in <shared>
 Shared copy of the VDD tool: checked.
 Next: Give the user a short status report: what passed, what Setup changed, and what the user still has to do, relaying every Tell the user verbatim line above unchanged. Setup is done.

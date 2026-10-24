@@ -690,8 +690,9 @@ class CodexSetupTest(ToolTest):
 
     def test_any_other_vdd_handler_is_reported_and_left(self):
         before = self.hooks({"hooks": {"Stop": [self.vdd_group("python3 /mine/vdd-codex-stop.py")]}})
-        result = self.setup("--write")
-        self.assertIn("naming vdd-codex-stop that Setup did not write stays: python3 /mine/vdd-codex-stop.py", result.text)
+        self.assertIn("naming vdd-codex-stop that Setup did not write stays: python3 /mine/vdd-codex-stop.py",
+                      self.setup().text)
+        self.setup("--write")
         self.assertEqual(self.read_hooks(), before)
 
     def test_an_old_template_with_another_timeout_stays(self):
@@ -705,7 +706,7 @@ class CodexSetupTest(ToolTest):
         result = self.setup("--write")
         self.assertTrue(any("left ~/.codex/hooks.json untouched" in t for t in result.tells()), result)
         self.assertEqual(self.read_hooks(), "{ not json")
-        self.assertIn("~/.codex/hooks.json: left untouched, it does not parse as JSON (", result.text)
+        self.assertIn("~/.codex/hooks.json: left untouched, it does not parse as JSON (", self.setup().text)
 
     def test_a_hooks_json_that_cannot_be_read_names_the_reason_as_one(self):
         """The Tell line read "untouched because Permission denied.", a bare
@@ -716,7 +717,8 @@ class CodexSetupTest(ToolTest):
         self.assertEqual(len(tells), 1, result)
         self.assertRegex(tells[0], r"^Setup left ~/\.codex/hooks\.json untouched: it could not be read \([^()]+\)\. "
                                    r"If it holds VDD's old Stop hook entry, remove that entry by hand\.$")
-        self.assertRegex(result.text, r"~/\.codex/hooks\.json: left untouched, it could not be read \([^()]+\)\.")
+        self.assertRegex(self.setup().text,
+                         r"~/\.codex/hooks\.json: left untouched, it could not be read \([^()]+\)\.")
 
     def test_a_registration_in_config_toml_is_reported(self):
         self.config('[[hooks.Stop]]\n[[hooks.Stop.hooks]]\ncommand = "sh /x/vdd-codex-stop.sh"\n')
@@ -902,7 +904,7 @@ class GitVersionTest(ToolTest):
         result = self.box.run("setup", "--harness", "claude-code", "--listed", "none", "--glossary-named", "absent",
                               "--write", env=self.box.stub_env())
         self.assertNotEqual(result.code, 0, result)
-        self.assertIn("git version: 2.39.5, older than the 2.40 VDD needs. Failed.", result.lines)
+        self.assertIn("VDD needs git 2.40 or newer, and this machine has git 2.39.5", result.text)
         self.assertEqual(vddtest_tree(SCRIPTS), vddtest_tree(self.box.shared))
 
     def hanging_on(self, argument):
