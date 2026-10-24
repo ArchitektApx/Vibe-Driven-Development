@@ -177,11 +177,11 @@ and it offers to hand a decided idea to the next Role.
   Linux**, instead of after two seconds of retrying; Windows still retries a
   file another program holds for a moment. A refusal names a loop's state
   file by its `.scratch/<slug>/` path, as every other line does.
-- **A Spec you change after the plan Sign-off is reviewed again.** When the
-  Planner rings after the plan review signed off and before the Coder
-  starts, the Plan-Reviewer reviews the new round. Once the Coder has
-  started, VDD tells you the code loop goes on with the Spec as signed off,
-  and starts no reviewer that would only stop.
+- **The plan Sign-off fixes the Spec for the code loop.** Once the plan
+  review signs off, the Planner's work is done: VDD refuses a further
+  Planner round, the Spec and the Tickets stay as signed off, and no
+  reviewer starts that would only stop. A change you still want goes in as
+  a finding with `review add` once the code loop signs off.
 - **The PR step asks only what your `PR:` line leaves open.**
   On `PR: ask at sign-off` it asks whether to open the PR or leave it to
   you; on `PR: yes` you confirm the title and body once before anything is
