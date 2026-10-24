@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
-from .. import textfile, workfile
+from .. import markdown, textfile
 from ..out import refused
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ def read_sections(loop: Loop) -> dict[str, list[str]]:
         return sections
     current = None
     # A heading quoted in a fence or comment is prose.
-    for line in workfile.classify(text.split("\n")):
+    for line in markdown.classify(text.split("\n")):
         if line.frame and line.text.startswith("## ") and line.text[3:].strip() in SECTIONS:
             current = line.text[3:].strip()
             continue

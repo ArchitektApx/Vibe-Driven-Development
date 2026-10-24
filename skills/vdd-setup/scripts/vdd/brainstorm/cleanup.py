@@ -18,7 +18,8 @@ from ..out import Failure
 from .ideafile import CLOSED, Idea, squash, today
 from .moves import norm_value
 from .printed import Result
-from .store import REMOVED, REMOVED_HEAD, Store, removed_line
+from .removed import REMOVED, REMOVED_HEAD, removed_line
+from .store import Store
 
 
 def gist(idea: Idea) -> str:

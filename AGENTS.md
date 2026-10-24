@@ -53,10 +53,10 @@ The VDD tool is the package `skills/vdd-setup/scripts/vdd/`.
 
 - Shared helpers sit at the top of the package. A group with modules of its
   own is a subpackage, as `setup/`, `loop/`, `review/`, `orchestrator/` and
-  `coder/` are, and so is a concern with several modules, as `catalog/`,
-  `doorbells/`, `harness/`, `loopfile/`, `loopstate/`, `runner/` and
-  `setup/codex/` are. A module that splits becomes a directory named for its
-  concern.
+  `coder/` are, and so is a concern with several modules, as
+  `brainstorm/ideafile/`, `catalog/`, `doorbells/`, `harness/`, `loopfile/`,
+  `loopstate/`, `runner/`, `setup/codex/` and `workfile/` are. A module that
+  splits becomes a directory named for its concern.
 - The command catalog, `catalog/`, holds every command's spec and the group
   list, parses a command line and words its refusals. A group module holds
   the rest of its command surface: help, dispatch and printed lines. No group

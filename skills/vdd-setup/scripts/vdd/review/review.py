@@ -15,7 +15,7 @@ from typing import Iterable
 
 from .. import catalog, doorbells, gitcmd, loopfile, loopstate, runner, textfile, workfile
 from ..loopstate import recap, records
-from ..out import Failure
+from ..out import Failure, and_list
 from .frame import start
 from .lint import lint, not_carried
 from .rounds import CHECKS, LABELS, STATUS_LINE, TITLES, Round, require_round, round_available, status_line
@@ -200,7 +200,7 @@ def check(round_: Round, write: bool) -> runner.Plan:
     if closed:
         done.append("Moved to %s: finding%s %s." % (
             round_.path(recap.NAME), "" if len(closed) == 1 else "s",
-            workfile.join_numbers([b.number for b in closed if b.number is not None])))
+            and_list(map(str, [b.number for b in closed if b.number is not None]))))
     if items:
         done.append("Moved to %s: %d Not carried line%s." % (
             round_.path(recap.NAME), len(items), "" if len(items) == 1 else "s"))

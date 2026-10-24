@@ -17,7 +17,9 @@ from typing import Callable
 
 from .. import textfile
 from ..out import Failure
-from .ideafile import DEPTH_MAX, SLUG, Idea, is_idea_name, today, unread_line
+from . import removed
+from .ideafile import DEPTH_MAX, Idea, is_idea_name, today, unread_line
+from .removed import REMOVED
 
 # Written with "/" because it is printed, and so are the backup, staging and
 # lock paths built from it; Windows takes "/" in a path as well.
@@ -25,9 +27,6 @@ STORE = ".scratch/_brainstorming"
 LAYOUT = "3"
 LAYOUT_FILE = ".layout"
 STATE = ".state"
-REMOVED = "removed.md"
-REMOVED_HEAD = ("# Removed ideas\n\nIdeas brainstorm cleanup removed from the store, one line each: slug | title | "
-                "status | closed | removed | the Decision's gist.\n\n")
 
 def store_dir(root: str) -> str:
     return os.path.join(root, STORE)
@@ -85,34 +84,12 @@ def layout(root: str) -> str | None:
 def removed_entries(root: str) -> list[dict[str, str]]:
     """[{slug, title, status, closed, removed, gist}] of removed.md, oldest
     first."""
-    text = read_once(os.path.join(store_dir(root), REMOVED)) or ""
-    out: list[dict[str, str]] = []
-    for line in text.split("\n"):
-        if not line.startswith("- "):
-            continue
-        bits = [b.strip() for b in line[2:].split(" | ")]
-        if len(bits) < 6 or not SLUG.match(bits[0]):
-            continue
-        out.append({"slug": bits[0], "title": bits[1], "status": bits[2],
-                    "closed": bits[3].replace("closed ", ""), "removed": bits[4].replace("removed ", ""),
-                    "gist": " | ".join(bits[5:])})
-    return out
+    return removed.entries(read_once(os.path.join(store_dir(root), REMOVED)) or "")
 
 
 def removed_entry(root: str, slug: str) -> dict[str, str] | None:
     found = [e for e in removed_entries(root) if e["slug"] == slug]
     return found[-1] if found else None
-
-
-def removed_line(idea: Idea, closed: str | None, gist: str) -> str:
-    return "- %s | %s | %s | closed %s | removed %s | %s\n" % (
-        idea.slug, idea.title.replace("|", "/"), idea.status, closed or "unknown", today(),
-        " ".join(gist.replace(" | ", " / ").split()))
-
-
-def removed_reopen(entry: dict[str, str]) -> str:
-    match = re.search(r"Reopen when:\s*(.+)$", entry["gist"])
-    return match.group(1).strip() if match else ""
 
 
 # --- unknown slugs ----------------------------------------------------------------

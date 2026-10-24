@@ -10,7 +10,8 @@ from ..out import Failure, Output
 from . import printed
 from .ideafile import DEPTH_MAX, STATUSES, Idea, is_idea_name, reflow, squash, unread_line
 from .printed import QUOTE, quoted, step_line
-from .store import REMOVED, Store, rel, removed_entries, removed_entry
+from .removed import REMOVED
+from .store import Store, rel, removed_entries, removed_entry
 
 FIND_MAX = 10
 # The 0.15 workaround for a part: "Part 2 of <parent>." in its tldr.

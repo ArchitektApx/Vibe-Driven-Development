@@ -14,7 +14,7 @@ import os
 import re
 from typing import Callable
 
-from .. import catalog, gitcmd, loopfile, loopstate, runner, textfile, workfile
+from .. import catalog, gitcmd, loopfile, loopstate, markdown, runner, textfile, workfile
 from ..loopstate import recap, records
 from ..out import Failure, and_list
 from . import rounds
@@ -45,7 +45,7 @@ def read_findings(source: str) -> list[Finding]:
     except OSError as error:
         raise Failure("--from %s cannot be read: %s. Nothing was written." % (source, textfile.reason(error)),
                       "Run the command again with --from naming a file that holds the findings.")
-    lines, opener = workfile.walk(workfile.split(text))
+    lines, opener = markdown.walk(markdown.split(text))
     lint = workfile.Lint(source)
     at = lint.at
 
@@ -68,7 +68,7 @@ def read_findings(source: str) -> list[Finding]:
         if not any(line.text.strip() for line in finding.body):
             at(finding.line, "this finding has no body. Write what is wrong and a concrete fix under its heading.")
     if opener is not None:
-        at(opener.number, workfile.unclosed_text(opener))
+        at(opener.number, markdown.unclosed_text(opener))
     if not found:
         lint.problems.append((0, ["%s holds no finding. Write each as \"%s\" and a body." % (source, FORM)]))
     if lint.problems:
@@ -179,7 +179,7 @@ def kept_blocks(loop: loopfile.Loop, entry: Entry) -> list[workfile.Block]:
     if missing:
         raise Failure(
             "%s/%s no longer holds the heading of finding%s %s of the user's entry after round %d. Nothing was "
-            "written." % (loop.tracker, NAME, "" if len(missing) == 1 else "s", workfile.join_numbers(missing),
+            "written." % (loop.tracker, NAME, "" if len(missing) == 1 else "s", and_list(map(str, missing)),
                           entry.round),
             "Tell the user CODEREVIEW.md lost a finding the loop still has open, and stop.",
         )
@@ -240,7 +240,7 @@ def plan(loop: loopfile.Loop, source: str) -> runner.Plan:
     store = records.Records.load(loop)
     dry = ["Would add %d finding%s after round %d's Sign-off%s:" % (
         len(findings), "" if len(findings) == 1 else "s", entry.round,
-        ", joining the open entry of findings %s" % workfile.join_numbers(entry.joined.raised())
+        ", joining the open entry of findings %s" % and_list(map(str, entry.joined.raised()))
         if entry.joined else "")]
     dry += headings
     dry.append(status)
@@ -251,7 +251,7 @@ def plan(loop: loopfile.Loop, source: str) -> runner.Plan:
     if reopening:
         dry.append("Would reopen the closed loop %s." % loop.slug)
         done.append("Reopened the loop %s." % loop.slug)
-    done.append("Findings %s open: %d blocker, %d major, %d minor." % ((workfile.join_numbers(numbers),) + counts))
+    done.append("Findings %s open: %d blocker, %d major, %d minor." % ((and_list(map(str, numbers)),) + counts))
     if carried:
         dry.append(carried)
         done.append(carried)
@@ -279,7 +279,7 @@ def already_added(loop: loopfile.Loop, state: loopstate.State, entry: Entry, sou
     if joined is None:
         raise RuntimeError("already_added without an open entry.")
     store = records.Records.load(loop)
-    numbers = workfile.join_numbers(joined.raised())
+    numbers = and_list(map(str, joined.raised()))
     added = "The findings of %s are already added after round %d's Sign-off, as findings %s. " % (
         source, entry.round, numbers)
     still = "Findings %s open: %d blocker, %d major, %d minor." % ((numbers,) + tuple(joined.counts))

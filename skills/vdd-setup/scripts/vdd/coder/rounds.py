@@ -7,7 +7,7 @@ import os
 import re
 
 from .. import catalog, doorbells, fixes, loopfile, loopstate, textfile, workfile
-from ..out import Failure
+from ..out import Failure, and_list
 
 TICKET_FILE = re.compile(r"^([0-9]+)-.+\.md$")
 SNAPSHOT = "coder-untracked-%d"
@@ -120,7 +120,7 @@ def open_findings(round_: Round) -> list[tuple[int, str, str]]:
     if missing:
         raise Failure(
             "CODEREVIEW.md has no heading for finding%s %s, which round %d's review left open. Nothing was "
-            "written." % ("" if len(missing) == 1 else "s", workfile.join_numbers(missing), round_.number - 1),
+            "written." % ("" if len(missing) == 1 else "s", and_list(map(str, missing)), round_.number - 1),
             "Tell the user CODEREVIEW.md lost a finding the loop still has open, and stop.",
         )
     return [found[n] for n in round_.open_numbers]

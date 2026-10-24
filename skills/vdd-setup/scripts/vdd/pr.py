@@ -16,7 +16,7 @@ import shutil
 from typing import TYPE_CHECKING, Iterable
 
 from . import (
-    catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, preflight, runner, textfile, workfile,
+    catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, markdown, preflight, runner, textfile,
 )
 from .gitcmd import Refused
 from .out import Failure, Output, refused
@@ -145,7 +145,7 @@ def history(root: str) -> History:
 
 
 def headings(body: str) -> list[str]:
-    lines = workfile.outside_fences(body.replace("\r\n", "\n").split("\n"))
+    lines = markdown.outside_fences(body.replace("\r\n", "\n").split("\n"))
     return [line.strip() for line in lines if HEADING.match(line)]
 
 

@@ -7,7 +7,7 @@ import os
 import textwrap
 
 from .. import fixes, loopstate, runner, textfile, workfile
-from ..out import Failure
+from ..out import Failure, and_list
 from .rounds import CHECKS, NO_COMMITS, TITLES, Round, require_round
 
 NOT_CARRIED_GUIDE = [
@@ -27,7 +27,7 @@ def carried_blocks(round_: Round) -> list[list[str]]:
     if missing:
         raise Failure(
             "%s no longer holds finding%s %s, which round %d left open. Nothing was written."
-            % (round_.relative, "" if len(missing) == 1 else "s", workfile.join_numbers(missing),
+            % (round_.relative, "" if len(missing) == 1 else "s", and_list(map(str, missing)),
                round_.number - 1),
             "Tell the user %s lost a finding the loop still has open, and stop." % round_.relative,
         )
@@ -131,7 +131,7 @@ def started(round_: Round) -> list[str]:
     lines: list[str] = []
     if round_.carried_numbers:
         carried = "finding%s %s carried open" % (
-            "" if len(round_.carried_numbers) == 1 else "s", workfile.join_numbers(round_.carried_numbers))
+            "" if len(round_.carried_numbers) == 1 else "s", and_list(map(str, round_.carried_numbers)))
     else:
         carried = "no finding carried"
     lines.append("Round %d: %s, new findings start at %d." % (round_.number, carried, round_.first_new))

@@ -7,8 +7,8 @@ from __future__ import annotations
 import os
 import textwrap
 
-from .. import loopstate, runner, workfile
-from ..out import Failure
+from .. import loopstate, runner
+from ..out import Failure, and_list
 from .branch import apply_branch, decide_branch, head, on_branch, tip_after, untracked, would_branch
 from .rounds import Round, open_findings, precondition, tickets
 
@@ -95,9 +95,9 @@ def started(round_: Round, sha: str | None) -> list[str]:
     """The lines that say where the round starts and what it holds."""
     lines = ["Round %d starts at %s." % (round_.number, sha)]
     if round_.number == 1:
-        lines.append("Entries: one per Ticket, %s." % workfile.join_numbers([n for n, _ in tickets(round_.loop)]))
+        lines.append("Entries: one per Ticket, %s." % and_list(map(str, [n for n, _ in tickets(round_.loop)])))
     else:
-        lines.append("Entries: one per open finding, %s." % workfile.join_numbers(round_.open_numbers))
+        lines.append("Entries: one per open finding, %s." % and_list(map(str, round_.open_numbers)))
     lines.append("Read: %s" % ", ".join(round_.read_list()))
     return lines
 

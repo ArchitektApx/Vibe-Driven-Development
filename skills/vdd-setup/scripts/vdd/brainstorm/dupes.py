@@ -7,7 +7,8 @@ from __future__ import annotations
 import re
 from typing import Iterable, NamedTuple
 
-from .store import Store, removed_entries, removed_reopen
+from .removed import removed_reopen
+from .store import Store, removed_entries
 
 # The share of one field's words a new idea must repeat to be listed as a
 # likely match: the check's one knob.

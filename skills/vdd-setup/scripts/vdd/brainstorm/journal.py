@@ -25,7 +25,8 @@ from .. import textfile
 from ..out import TELL
 from .ideafile import SLUG_PATTERN, is_idea_name
 from .lock import Lock
-from .store import REMOVED, Store, read_once, rel, state_dir, store_dir
+from .removed import REMOVED
+from .store import Store, read_once, rel, state_dir, store_dir
 
 # "pid" is read, never written: an earlier 0.16 beta wrote it. The pid is in
 # the journal's file name.
