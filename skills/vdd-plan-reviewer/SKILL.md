@@ -21,7 +21,7 @@ Every command shows its usage and options with `--help`. Every run ends with a `
 
 ## Starting the review
 
-Run `review start --slug <slug>` for your Role first, with the slug your Spawn prompt's
+Run `review start --role Plan-Reviewer --slug <slug>` first, with the slug your Spawn prompt's
 `Loop:` line names. It prints the files to read and the `Minors:` line you act on.
 
 ## What to read

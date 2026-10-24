@@ -24,8 +24,9 @@ Every command shows its usage and options with `--help`. Every run ends with a `
 ## The wayfinding process
 
 1. Ask the user for the effort slug.
-2. Run `wayfinder start` with the effort slug and this skill's base
-   directory, the one your Harness reported when the skill loaded, and do
+2. Run `wayfinder start --effort <slug> --skill-dir <dir>`, with the effort
+   slug and this skill's base directory, the one your Harness reported when
+   the skill loaded, and do
    what its `Next:` line says. You are done once the
    user has been told to invoke `wayfinder`, which charts the map and works its tickets over as many sessions as
    the effort needs.
