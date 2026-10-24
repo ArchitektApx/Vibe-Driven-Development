@@ -402,6 +402,22 @@ class CheckTest(CoderTest):
         self.refused("finding 1: \"Answer: done\": the answer is fixed or pushback",
                      "finding 2 answers pushback with no Why:")
 
+    def test_an_answer_that_runs_on_names_the_labels_and_where_the_rest_goes(self):
+        """Prevents a refusal that quotes the merged answer without saying
+        what is wrong, after which a Coder cuts the entry to its answer and
+        the record of the fix is lost."""
+        self.later()
+        self.answer("Answer: fixed\nFiles: src/a.py\nChange: one line.\nVerified: the test passed.\nWhy:",
+                    "Answer: fixed\nWhy:", "Answer: fixed\nWhy:")
+        self.refused('finding 1: Answer: runs on past fixed into "Files: src/a.py Change: one line. '
+                     'Verified: the test passed."',
+                     "A finding's entry holds two labels, Answer: and Why:",
+                     "Put Answer: fixed alone on its line and move the rest below a Why: line")
+        text = self.read("FIXES.md").replace("Answer: fixed\nFiles:", "Answer: fixed\nWhy: Files:", 1)
+        self.put("FIXES.md", text.replace("Verified: the test passed.\nWhy:\n", "Verified: the test passed.\n", 1))
+        result = self.coder("check")
+        self.assertEqual(result.code, 0, result)
+
     def test_a_missing_finding_entry_prints_its_whole_heading(self):
         """The refusal printed "## Finding 2. ...", not the heading the tool
         wrote."""

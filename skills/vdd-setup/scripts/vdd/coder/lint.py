@@ -76,6 +76,14 @@ def lint_findings(round_: Round, found: list[fixes.Entry], at: Callable[[workfil
             at(entry.heading, "finding %d has no Answer: line. Write \"Answer: fixed\" or \"Answer: pushback\" "
                "under it." % number)
             continue
+        first, _, rest = answer.partition(" ")
+        first = first.rstrip(".,;:")
+        if first in ANSWERS and rest:
+            at(line, "finding %d: Answer: runs on past %s into \"%s\". A finding's entry holds two labels, "
+               "Answer: and Why:, and each runs on to the next label. Put Answer: %s alone on its line and move "
+               "the rest below a Why: line, Files:, Change: and Verified: lines included, keeping their text."
+               % (number, first, rest, first))
+            continue
         if answer not in ANSWERS:
             at(line, "finding %d: \"Answer: %s\": the answer is fixed or pushback." % (number, answer))
             continue
