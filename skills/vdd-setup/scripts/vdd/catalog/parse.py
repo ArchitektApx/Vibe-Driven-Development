@@ -86,8 +86,12 @@ def parse(argv: Sequence[str], command: Command, usage: str) -> dict[str, Any]:
         i += 1
     if bare:
         # --slug <arg> is the one right retry only for a lone bare argument
-        # on a command that takes --slug and was given none.
-        raise unexpected_argument(bare[0], usage, "slug" in spec and len(bare) == 1 and values["slug"] is None)
+        # that does not start with - on a command that takes --slug and was
+        # given none.
+        slug_retry = (
+            "slug" in spec and len(bare) == 1 and not bare[0].startswith("-") and values["slug"] is None
+        )
+        raise unexpected_argument(bare[0], usage, slug_retry)
     check(values, command, usage, required=not values["help"])
     return values
 

@@ -140,11 +140,12 @@ class EntryTest(ToolTest):
         """Prevents a slug retry named where it is wrong: with two bare
         arguments, a --slug already given, or a command that takes no --slug,
         --slug <arg> is not the one right retry. A word with one dash is a
-        bare argument too."""
+        bare argument too, and never a slug to retry with."""
         for argv, word in ((("coder", "start", "csv-quote", "other"), "csv-quote"),
                            (("coder", "start", "--slug", "x", "csv-quote"), "csv-quote"),
                            (("brainstorm", "check", "csv-quote"), "csv-quote"),
-                           (("coder", "start", "-x", "csv-quote"), "-x")):
+                           (("coder", "start", "-x", "csv-quote"), "-x"),
+                           (("coder", "start", "-x"), "-x")):
             with self.subTest(argv=" ".join(argv)):
                 result = self.box.run(*argv)
                 self.assertNotEqual(result.code, 0, result)
