@@ -172,12 +172,12 @@ def mark_handled(place: Place, role: str) -> tuple[list[Entry], State | None]:
     return beyond, state
 
 
-def sign_off_taken(place: Place) -> bool:
-    """Whether the newest line to the Planner is the plan Sign-off's Doorbell
-    and the Planner has taken it."""
+def sign_off_taken(place: Place, round_number: int) -> bool:
+    """Whether the newest line to the Planner is the Sign-off Doorbell of plan
+    round round_number and the Planner has taken it."""
     entries = place.entries("Planner")
     newest = entries[-1].doorbell if entries else None
-    if newest is None or not newest.signed_off:
+    if newest is None or not newest.signed_off or newest.round != round_number:
         return False
     return newest.key() in place.load_state("Planner").handled
 

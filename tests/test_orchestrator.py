@@ -197,6 +197,21 @@ class PlacementTest(OrchestratorTest):
         self.spawned(result, "Coder", 1, "after a restart")
         self.assertNotIn("doorbell ring", result.text)
 
+    def test_a_later_plan_sign_off_is_rung_after_an_earlier_one_was_taken(self):
+        """Prevents a Planner left waiting on a later plan round's Sign-off
+        because it had taken an earlier round's."""
+        self.signed_plan()
+        ring = ("doorbell", "ring", "--role", "Orchestrator", "--harness", "claude-code", "--slug", "demo")
+        self.box.run(*ring, "--write")
+        self.box.run("doorbell", "take", "--role", "Planner", "--harness", "claude-code", "--slug", "demo")
+        self.rings("VDD Planner: .scratch/demo/ ready, round 3. Read spec.md and issues/.")
+        self.stage("plan 3 reviewed signed-off - counts 0 0 0 next 3 new 0 closed 0 checks writing-for-agents ran")
+        result = self.start()
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("Plan Loop: signed off in round 3", result.text)
+        self.spawned(result, "Coder", 1)
+        self.assertNext(result, "doorbell ring --role Orchestrator", "spawn a fresh Coder")
+
     def test_start_changes_no_doorbell_working_file_or_git(self):
         """Start changes no Working file and no git ref. Of the Doorbell files
         it writes only the Orchestrator's state file, where it records the

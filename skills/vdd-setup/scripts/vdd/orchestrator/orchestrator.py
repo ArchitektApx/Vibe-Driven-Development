@@ -187,7 +187,9 @@ def place(flow: Flow, out: Output) -> runner.Plan:
     if where.phase == "code":
         # A Planner that took the plan Sign-off has finished; a ring would ask
         # the user to paste into its Session.
-        first = (None if doorbells.sign_off_taken(flow.place) else
+        plan = flow.state.last_review("plan")
+        taken = plan is not None and doorbells.sign_off_taken(flow.place, plan.round)
+        first = (None if taken else
                  "Run %s in the foreground; the plan Loop is over, so it names no wait." % flow.ring_command())
         if where.signed_off:
             if first:
