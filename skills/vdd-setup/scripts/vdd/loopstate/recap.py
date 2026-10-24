@@ -1,5 +1,7 @@
 """The Recap, .scratch/<slug>/RECAP.md: the account of one loop that only
-the tool writes and no Role reads during the loop.
+the tool writes. No Role reads it during the loop's rounds; the PR-Author
+reads it at the end, and only for a template's or a history's section on
+testing or review.
 
 RECAP.md is rendered whole on every write: its header and rounds table from
 the state file, its sections, Tickets, Plan findings, Code findings, Commits
