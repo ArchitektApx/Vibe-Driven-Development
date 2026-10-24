@@ -51,7 +51,8 @@ BRIEFING = [
 
 
 def run(argv: list[str]) -> int:
-    return catalog.run("wayfinder", argv, HELP, "Run the wayfinder command your skill names.", dispatch)
+    return catalog.run("wayfinder", argv, HELP, "Run wayfinder start with the effort slug and this skill's base directory.",
+                       dispatch)
 
 
 def dispatch(ctx: catalog.Context) -> int:

@@ -1,11 +1,11 @@
 $ vdd doorbell --help
 exit 0
 doorbell ring --role <Planner|Orchestrator> --harness <h> --slug <slug> --write
-  Ring the other Role: append your Doorbell line, composed from the loop's state, to the Doorbell file,
-  addressed to it. Run it in the foreground. The Planner's line names the round after the last plan
-  review, or round 1; the Orchestrator's relays the last plan review, its open counts or SIGNED OFF.
-  Without --write it prints what it would append and changes nothing; ringing the same line twice
-  appends it once.
+  At the end of every turn that wrote your Working file, ring the other Role: append your Doorbell
+  line, composed from the loop's state, to the Doorbell file, addressed to it. Run it in the foreground.
+  The Planner's line names the round after the last plan review, or round 1; the Orchestrator's relays
+  the last plan review, its open counts or SIGNED OFF. Without --write it prints what it would append
+  and changes nothing; ringing the same line twice appends it once.
 
 doorbell wait --role <Planner|Orchestrator> --harness <h> --slug <slug>
   Wait for a Doorbell addressed to your Role. Start it only as a Next: line names it. It reads the
@@ -28,4 +28,4 @@ doorbell take --role <Planner|Orchestrator> --harness <h> --slug <slug> [--paste
 --harness takes claude-code, codex, cursor, copilot-cli or generic: the Harness the Loop file's Harness:
 line names. --slug names the loop; pass it on every call. Without it the tool takes the loop whose feature
 branch is checked out, else the only open loop.
-Next: Run the command your skill or the last Next: line names.
+Next: Run the doorbell command above that your step needs, or the one the last Next: line names.

@@ -45,7 +45,8 @@ HELP = catalog.Help({
     ])
 
 def run(argv: list[str]) -> int:
-    return catalog.run("coder", argv, HELP, "Run the coder command your skill or the last Next: line names.", dispatch)
+    return catalog.run("coder", argv, HELP,
+                       "Run the coder command above that your step needs, or the one the last Next: line names.", dispatch)
 
 
 def dispatch(ctx: catalog.Context) -> int:

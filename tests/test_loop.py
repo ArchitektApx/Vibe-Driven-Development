@@ -18,8 +18,9 @@ SUMMARY = [
     "You can ask the Orchestrator to respawn any hosted Role at any round.",
 ]
 NEXT_AFTER_NEW = (
-    "Next: Relay every Tell the user verbatim line above unchanged; only after doing that, invoke vdd-planner "
-    "as your skill says. The loop's slug is demo: pass --slug demo on every VDD tool call from here on."
+    "Next: Relay every Tell the user verbatim line above unchanged; only after doing that, invoke the vdd-planner "
+    "skill in this same Session, or tell the user to invoke it if you cannot invoke skills. The loop's slug is "
+    "demo: pass --slug demo on every VDD tool call from here on."
 )
 ROOT_FIX = (
     "Delete `LOOP.md`. To carry on the loop it belongs to, run `vdd-start-loop` with its slug and answer continue."

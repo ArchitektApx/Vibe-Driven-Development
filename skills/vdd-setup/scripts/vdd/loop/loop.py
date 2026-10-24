@@ -14,11 +14,12 @@ HELP = catalog.Help({
     "new": [
         "loop new --slug <slug> --harness <h> [--base <branch>] [--branch <branch>] [--minors <a>] [--pr <a>]",
         "         [--leftover continue] [--write]",
-        "  Start a loop. Without --write it checks the slug, reads the base branch, proposes the feature branch",
-        "  and prints the questions for the user, changing nothing. Ask them, then run it again with the answers",
-        "  and --write: it writes .scratch/<slug>/loop.md and marks the loop open. On PR: yes it checks that a",
-        "  push and gh would work, and warns without blocking. When .scratch/<slug>/ already exists it reports",
-        "  what is there and the answers it allows; the user's continue is --leftover continue.",
+        "  Start-Loop's first call: start a loop. Without --write it checks the slug, reads the base branch,",
+        "  proposes the feature branch and prints the questions for the user, changing nothing. Ask them, then",
+        "  run it again with the answers and --write: it writes .scratch/<slug>/loop.md and marks the loop open.",
+        "  On PR: yes it checks that a push and gh would work, and warns without blocking. When .scratch/<slug>/",
+        "  already exists it reports what is there and the answers it allows; the user's continue is",
+        "  --leftover continue.",
     ],
     "aside": [
         "loop aside --slug <slug> --write",
@@ -35,7 +36,8 @@ HELP = catalog.Help({
     "set": [
         "loop set [--slug <slug>] [--minors <a>] [--pr <a>] [--harness-line <label>] --write",
         "  Change the Minors:, PR: or Harness: line on the user's word. The feature, the base branch and the",
-        "  feature branch never change.",
+        "  feature branch never change. When the user corrects the Harness after loop new: --harness-line <label>",
+        "  with --harness <the corrected h>.",
     ],
     "fold": [
         "loop fold --slug <slug> --harness <h> [--write]",
@@ -73,7 +75,8 @@ SETTABLE = ANSWERS + (("harness-line", "Harness"),)
 
 
 def run(argv: list[str]) -> int:
-    return catalog.run("loop", argv, HELP, "Run the loop command your skill or the last Next: line names.", dispatch)
+    return catalog.run("loop", argv, HELP,
+                       "Run the loop command above that your step needs, or the one the last Next: line names.", dispatch)
 
 
 def dispatch(ctx: catalog.Context) -> int:
@@ -103,11 +106,9 @@ def check_answers(values: dict[str, Any], options: tuple[tuple[str, str], ...]) 
     for option, name in options:
         value = values.get(option)
         if value is not None and not loopfile.accepted(name, value):
-            raise Failure(
-                "--%s %s is not a value the %s: line accepts. It takes %s."
-                % (option, value, name, loopfile.accepted_text(name)),
-                "Ask the user again with the accepted answers, then run the command with one of them.",
-            )
+            raise catalog.not_a_choice(
+                option, value, loopfile.choices(name),
+                step="Ask the user again with the accepted answers, then run the command with one of them.")
 
 
 def aside(root: str, values: dict[str, Any]) -> runner.Plan:
@@ -145,7 +146,8 @@ def aside(root: str, values: dict[str, Any]) -> runner.Plan:
         effects += runner.close(state, done=["Closed the loop %s." % slug], refuse=refuse)
     effects.append(runner.Step(move, dry=["Would move .scratch/%s/ to .scratch/%s/%s." % (
         slug, target, ", closing its open loop first" if closing else "")], after=True))
-    return runner.Plan(effects, "Run %s for %s again, as your skill says." % (catalog.bare("loop", "new"), slug))
+    return runner.Plan(effects, "Run the %s command that reported the leftover again: .scratch/%s/ is free now."
+                       % (catalog.bare("loop", "new"), slug))
 
 
 def show(root: str, values: dict[str, Any]) -> int:
@@ -174,9 +176,18 @@ def show(root: str, values: dict[str, Any]) -> int:
         out.tell(
             "The Loop file's %s: line is %s, so it reads as %s: %s." % (name, fault, name, value)
         )
-    return out.finish(
-        "Pass --slug %s on every VDD tool call from here on, and go on as your skill says." % loop.slug
-    )
+    return out.finish("Pass --slug %s on every VDD tool call from here on. %s" % (loop.slug, after_show(loop, role)))
+
+
+def after_show(loop: loopfile.Loop, role: str | None) -> str:
+    """The step after loop show: the PR-Author's pr check, the Planner's start
+    of its session, or the step that named loop show."""
+    if role == "PR-Author":
+        return "Then run %s" % catalog.line("pr", "check", slug=loop.slug, harness=loop.harness.name)
+    if role == "Planner":
+        return ("Read the Harness file above, then start the session as your skill says, on the user's problem or "
+                "by asking for one.")
+    return "Then go on with the step that named loop show."
 
 
 def set_lines(root: str, values: dict[str, Any], usage: str) -> runner.Plan:
@@ -202,11 +213,15 @@ def set_lines(root: str, values: dict[str, Any], usage: str) -> runner.Plan:
         "Otherwise tell the user the Loop file could not be changed, and stop.",
         dry=["Would set: %s: %s" % (name, values[option]) for option, name in changes],
         done=["Set: %s: %s" % (name, values[option]) for option, name in changes])
-    return runner.Plan([written], go_on(loop.slug))
+    return runner.Plan(
+        [written], "Go on with the step you were on when the user asked for the change, passing --slug %s." % loop.slug)
 
 
-def go_on(slug: str) -> str:
-    return "Go on as your skill says, passing --slug %s." % slug
+def after_state(slug: str, target: str) -> str:
+    """The Next: step once the loop is closed or open."""
+    if target == loopstate.CLOSED:
+        return "The loop %s is closed: run nothing more for it; finish the step you were on, then end your turn." % slug
+    return "Go on as the user directs, passing --slug %s." % slug
 
 
 def close_or_reopen(root: str, values: dict[str, Any], sub: str) -> runner.Plan:
@@ -214,7 +229,7 @@ def close_or_reopen(root: str, values: dict[str, Any], sub: str) -> runner.Plan:
     target = loopstate.CLOSED if sub == "close" else loopstate.OPEN
     state = loop.load_state()
     if state.status == target:
-        return runner.Plan([], go_on(loop.slug),
+        return runner.Plan([], after_state(loop.slug, target),
                            lines=["The loop %s is already %s. Nothing was written." % (loop.slug, target)])
 
     def refuse(error: OSError) -> Failure:
@@ -228,4 +243,4 @@ def close_or_reopen(root: str, values: dict[str, Any], sub: str) -> runner.Plan:
         effects = runner.close(state, dry, [runner.closed_line(loop.slug)], refuse)
     else:
         effects = [runner.reopen(state, dry, ["Reopened: the loop %s is open again." % loop.slug], refuse)]
-    return runner.Plan(effects, go_on(loop.slug))
+    return runner.Plan(effects, after_state(loop.slug, target))

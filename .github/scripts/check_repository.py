@@ -27,6 +27,7 @@ HOSTED = (
     "skills/vdd-code-reviewer/SKILL.md",
 )
 START_SENTENCE = "An Orchestrator hosts this Workflow."
+HELP_SENTENCE = "Every command shows its usage and options with `--help`."
 
 CODEX_HOOK = {
     "hooks": {
@@ -409,6 +410,25 @@ def check_start_sentence(repo: Repo) -> List[str]:
     return problems
 
 
+def check_help_sentence(repo: Repo) -> List[str]:
+    """A skill that runs the VDD tool names only its entry command and leaves
+    every other command and option to the tool's help, so the sentence that
+    sends a Role to `--help` is the one place it learns that the help exists:
+    without it the Role guesses a command line. Once, so the skill says it in
+    one place."""
+    problems = []
+    for path in repo.skill_files():
+        text = repo.text(path) or ""
+        if "vdd.py" not in text:
+            continue
+        count = text.count(HELP_SENTENCE)
+        if count == 0:
+            problems.append("%s: names vdd.py but lacks: %s" % (path, HELP_SENTENCE))
+        elif count > 1:
+            problems.append("%s: says %d times, once is enough: %s" % (path, count, HELP_SENTENCE))
+    return problems
+
+
 def check_claude_md(repo: Repo) -> List[str]:
     """Claude Code reads CLAUDE.md first, so a house rule added only to
     AGENTS.md never reaches it, and one added to both is read twice. The
@@ -720,6 +740,7 @@ CHECKS = (
     check_harness_index,
     check_user_invoked_pairs,
     check_start_sentence,
+    check_help_sentence,
     check_claude_md,
     check_executable_surface,
     check_skill_modes,

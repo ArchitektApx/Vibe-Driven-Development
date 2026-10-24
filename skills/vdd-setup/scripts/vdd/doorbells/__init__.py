@@ -34,7 +34,6 @@ from .lines import (  # noqa: F401
 
 )
 from .wait import (  # noqa: F401
-    SIGNED_OFF_NEXT,
     THREAD_ID,
     Found,
     Marker,
@@ -43,6 +42,7 @@ from .wait import (  # noqa: F401
     arm,
     clear_marker,
     hand_relay,
+    signed_off_next,
     timeout_next,
     timings,
     wait_for,

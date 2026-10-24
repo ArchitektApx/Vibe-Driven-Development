@@ -24,7 +24,6 @@ from .lines import OTHER, Entry
 
 WAIT_PREFIX = "vdd doorbell-wait "
 WAIT_VERSION = "1"
-SIGNED_OFF_NEXT = "Nothing to wait for: the plan Loop is over. Go on as your skill says."
 # A Codex thread id: CODEX_THREAD_ID, and session_id in the hook input.
 THREAD_ID = re.compile(r"^[0-9A-Za-z_-]+$")
 
@@ -131,11 +130,20 @@ def wait_runs(place: Place, role: str) -> bool:
     return age <= STALE_POLLS * poll + STALE_GRACE_SECONDS
 
 
+def signed_off_next(role: str) -> str:
+    """The Next: step of a ring or take once the plan Loop is over: the
+    Orchestrator goes on hosting the code Loop, the Planner's work is done."""
+    if role == "Orchestrator":
+        return ("Nothing to wait for: the plan Loop is over. Go on with the step the Next: line that named this "
+                "command gives after it.")
+    return "Nothing to wait for: the plan Loop is over, and the code Loop goes on without the Planner. End your turn."
+
+
 def wait_or_hold(place: Place, role: str, harness: Harness) -> str:
     """The Next: step that waits: the Harness's wait, or, while a wait of the
     Role still runs, ending the turn; after the plan Sign-off, none."""
     if plan_signed_off(place):
-        return SIGNED_OFF_NEXT
+        return signed_off_next(role)
     if not harness.waits_through_stop_hook() and wait_runs(place, role):
         return (
             "Your wait for the %s's Doorbell still runs and wakes you when one arrives: end your turn, "

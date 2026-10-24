@@ -81,8 +81,9 @@ def new(root: str, ctx: catalog.Context, harness: Harness) -> runner.Plan:
                     "Then run: %s" % command)
     return runner.Plan(
         writes(root, slug, fields, state, dry, continuing),
-        "Relay every Tell the user verbatim line above unchanged; only after doing that, invoke vdd-planner as your "
-        "skill says. The loop's slug is %s: pass --slug %s on every VDD tool call from here on." % (slug, slug),
+        "Relay every Tell the user verbatim line above unchanged; only after doing that, invoke the vdd-planner skill "
+        "in this same Session, or tell the user to invoke it if you cannot invoke skills. The loop's slug is %s: "
+        "pass --slug %s on every VDD tool call from here on." % (slug, slug),
         dry_next, requires=[option for option, _ in ANSWERS])
 
 

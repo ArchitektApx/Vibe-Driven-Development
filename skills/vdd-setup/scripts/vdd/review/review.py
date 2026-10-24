@@ -54,7 +54,8 @@ HELP = catalog.Help({
     ])
 
 def run(argv: list[str]) -> int:
-    return catalog.run("review", argv, HELP, "Run the review command your skill or the last Next: line names.",
+    return catalog.run("review", argv, HELP,
+                       "Run the review command above that your step needs, or the one the last Next: line names.",
                        dispatch)
 
 

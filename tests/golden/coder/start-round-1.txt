@@ -5,4 +5,4 @@ Wrote the frame of .scratch/demo/FIXES.md.
 Round 1 starts at <sha>.
 Entries: one per Ticket, 01 and 02.
 Read: .scratch/demo/spec.md, .scratch/demo/issues/
-Next: Build the Tickets in order, committing on demo as your skill says, and fill each entry of .scratch/demo/FIXES.md. Then run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" coder check --slug demo --write. Pass --slug demo on every VDD tool call from here on.
+Next: Build the Tickets in order, committing on demo by your skill's rules for commits, and fill each entry of .scratch/demo/FIXES.md. Then run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" coder check --slug demo --write. Pass --slug demo on every VDD tool call from here on.

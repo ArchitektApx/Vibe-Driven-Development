@@ -29,7 +29,8 @@ def handoff(flow: Flow, role: str, number: int) -> str:
 
 
 def next_after(flow: Flow, role: str) -> str:
-    return ("When it returns, act on its last line as your skill says; for anything but QUESTION or BLOCKED, run %s"
+    return ("When it returns, put a last line that starts QUESTION: or BLOCKED: to the user as your skill says for "
+            "a Role's return; for anything else, run %s"
             % flow.return_command(role))
 
 

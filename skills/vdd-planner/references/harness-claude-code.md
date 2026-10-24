@@ -11,7 +11,7 @@
   when the command exits.
 - **A resume.** `claude --continue` and `claude --resume` resume a Session.
   When the user names one of them, or tells you this Session was resumed,
-  run the `--resumed` take first, as `SKILL.md` says.
+  take first in the form for a resumed Session, as `SKILL.md` says.
 - **A refused command.** When a sandbox refuses a command, rerun it once with
   `dangerouslyDisableSandbox: true` on the same call. When that is denied
   too, stop with one line naming the command and what it was for; a wait

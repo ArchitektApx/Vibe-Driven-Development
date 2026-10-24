@@ -8,7 +8,7 @@
 - **The wait.** Where your tools can run a command in the background and
   wake you when it exits, run the wait command a `Next:` line names that
   way. Otherwise relay by hand: the user pastes the Planner's next
-  Doorbell into this Session, and you take it with `--pasted`.
+  Doorbell into this Session, and you take it as a pasted line.
 - **A refused command.** When a sandbox refuses a command, rerun it once
   outside the sandbox if your tools offer a way; otherwise treat the refusal
   as a denial. On a denial, stop with one line naming the command and what it

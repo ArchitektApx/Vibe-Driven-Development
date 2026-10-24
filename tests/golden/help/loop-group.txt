@@ -2,11 +2,12 @@ $ vdd loop --help
 exit 0
 loop new --slug <slug> --harness <h> [--base <branch>] [--branch <branch>] [--minors <a>] [--pr <a>]
          [--leftover continue] [--write]
-  Start a loop. Without --write it checks the slug, reads the base branch, proposes the feature branch
-  and prints the questions for the user, changing nothing. Ask them, then run it again with the answers
-  and --write: it writes .scratch/<slug>/loop.md and marks the loop open. On PR: yes it checks that a
-  push and gh would work, and warns without blocking. When .scratch/<slug>/ already exists it reports
-  what is there and the answers it allows; the user's continue is --leftover continue.
+  Start-Loop's first call: start a loop. Without --write it checks the slug, reads the base branch,
+  proposes the feature branch and prints the questions for the user, changing nothing. Ask them, then
+  run it again with the answers and --write: it writes .scratch/<slug>/loop.md and marks the loop open.
+  On PR: yes it checks that a push and gh would work, and warns without blocking. When .scratch/<slug>/
+  already exists it reports what is there and the answers it allows; the user's continue is
+  --leftover continue.
 
 loop aside --slug <slug> --write
   Move .scratch/<slug>/ to .scratch/<slug>-<n>/, the lowest free n from 2, closing an open loop first.
@@ -20,7 +21,8 @@ loop show [--slug <slug>] [--role <Role>]
 
 loop set [--slug <slug>] [--minors <a>] [--pr <a>] [--harness-line <label>] --write
   Change the Minors:, PR: or Harness: line on the user's word. The feature, the base branch and the
-  feature branch never change.
+  feature branch never change. When the user corrects the Harness after loop new: --harness-line <label>
+  with --harness <the corrected h>.
 
 loop fold --slug <slug> --harness <h> [--write]
   Run at each code Sign-off, on every PR: value, without asking the user. Moves each later round's fix
@@ -40,4 +42,4 @@ Claude Code, Codex, Cursor, Copilot CLI or Generic.
 --slug names the loop. Without it the tool takes the loop whose feature branch is checked out, else the
 only open loop, else it refuses. A Role passes --slug on every call. --harness names the Harness this
 Session runs in (claude-code, codex, cursor, copilot-cli or generic) and never changes the Loop file.
-Next: Run the loop command your skill or the last Next: line names.
+Next: Run the loop command above that your step needs, or the one the last Next: line names.

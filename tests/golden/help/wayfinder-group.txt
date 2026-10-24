@@ -6,4 +6,4 @@ wayfinder start --effort <slug> --skill-dir <dir>
   and the absolute paths of both templates filled in. --skill-dir is the Wayfinder skill's base
   directory, the one your Harness reported when the skill loaded; it refuses when a template is missing
   there. It writes nothing.
-Next: Run the wayfinder command your skill names.
+Next: Run wayfinder start with the effort slug and this skill's base directory.

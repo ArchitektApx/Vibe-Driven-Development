@@ -26,4 +26,4 @@ review add --slug <slug> --from <file> [--write]
   loop. Then tell the Orchestrator to run orchestrator start.
 
 --slug names the loop; pass it on every call.
-Next: Run the review command your skill or the last Next: line names.
+Next: Run the review command above that your step needs, or the one the last Next: line names.

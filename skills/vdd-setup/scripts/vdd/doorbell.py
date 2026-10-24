@@ -20,11 +20,11 @@ from .out import TELL, Failure, Output, one_line, or_list
 HELP = catalog.Help({
     "ring": [
         "doorbell ring --role <Planner|Orchestrator> --harness <h> --slug <slug> --write",
-        "  Ring the other Role: append your Doorbell line, composed from the loop's state, to the Doorbell file,",
-        "  addressed to it. Run it in the foreground. The Planner's line names the round after the last plan",
-        "  review, or round 1; the Orchestrator's relays the last plan review, its open counts or SIGNED OFF.",
-        "  Without --write it prints what it would append and changes nothing; ringing the same line twice",
-        "  appends it once.",
+        "  At the end of every turn that wrote your Working file, ring the other Role: append your Doorbell",
+        "  line, composed from the loop's state, to the Doorbell file, addressed to it. Run it in the foreground.",
+        "  The Planner's line names the round after the last plan review, or round 1; the Orchestrator's relays",
+        "  the last plan review, its open counts or SIGNED OFF. Without --write it prints what it would append",
+        "  and changes nothing; ringing the same line twice appends it once.",
     ],
     "wait": [
         "doorbell wait --role <Planner|Orchestrator> --harness <h> --slug <slug>",
@@ -56,7 +56,8 @@ HELP = catalog.Help({
 
 
 def run(argv: list[str]) -> int:
-    return catalog.run("doorbell", argv, HELP, "Run the command your skill or the last Next: line names.", dispatch)
+    return catalog.run("doorbell", argv, HELP,
+                       "Run the doorbell command above that your step needs, or the one the last Next: line names.", dispatch)
 
 
 def dispatch(ctx: catalog.Context) -> int:
@@ -87,7 +88,7 @@ def composed(place: doorbells.Place, role: str) -> str:
         raise Failure(
             "No plan review is recorded for the loop %s, so there is nothing to relay. Nothing was written."
             % place.slug,
-            "Wait for the Plan-Reviewer's return, as your skill says.",
+            "Wait for the Plan-Reviewer's return and act on its last line as your skill says for a Role's return.",
         )
     return doorbells.review_doorbell(last)
 
@@ -140,7 +141,7 @@ def after_ring(place: doorbells.Place, role: str, harness: Harness, doorbell: do
     if new:
         return "A Doorbell for you is already waiting. Run: %s" % doorbells.take_command(role, harness, place.slug)
     if role == "Orchestrator" and doorbell.signed_off:
-        return doorbells.SIGNED_OFF_NEXT
+        return doorbells.signed_off_next(role)
     return doorbells.wait_or_hold(place, role, harness)
 
 
@@ -151,7 +152,8 @@ def take(place: doorbells.Place, role: str, harness: Harness, pasted: str | None
         if role != "Planner":
             raise Failure(
                 "--resumed is the Planner's.",
-                "Place the Workflow with %s, as your skill says." % catalog.bare("orchestrator", "start"),
+                "Run %s instead: it places the Workflow."
+                % catalog.line("orchestrator", "start", slug=place.slug, harness=harness.name),
             )
         # A wait an earlier Session started wakes that Session, not this one.
         effects.append(runner.Step(lambda: cleared(place, role)))
@@ -221,7 +223,7 @@ def act_next(place: doorbells.Place, role: str, harness: Harness) -> str:
     orchestrator return for the Planner's Doorbell."""
     if role == "Orchestrator":
         return "Run %s" % catalog.line("orchestrator", "return", role="Planner", slug=place.slug, harness=harness.name)
-    return "Act on this Doorbell as your skill says."
+    return "Read the Working file this Doorbell names and continue your Role."
 
 
 def after_nothing(place: doorbells.Place, role: str, harness: Harness, entries: list[doorbells.Entry],

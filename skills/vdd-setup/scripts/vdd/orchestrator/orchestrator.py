@@ -19,7 +19,7 @@ from typing import NoReturn
 from .. import catalog, doorbells, loopstate, runner
 from ..out import TELL, Failure, Output
 from .flow import Flow
-from .respawn import policies_line, respawn, respawn_question, step, tokens
+from .respawn import counting, policies_line, respawn, respawn_question, step, tokens
 from .spawn import resume, spawn
 
 USER_REASON = "for the user's findings"
@@ -31,7 +31,8 @@ HELP = catalog.Help({
         "  Harness and its Harness file, says where each Loop stands, and prints the one next step: a spawn, the",
         "  ring to the Planner, the wait for the Planner's Doorbell, the fold at a code Sign-off, or the PR",
         "  step. Every spawn after a restart is fresh. After the user's findings it spawns the Coder fresh for",
-        "  the next round, with no ring.",
+        "  the next round, with no ring. While the Coder's Respawn policy is not set it records nothing and asks",
+        "  the Respawn question instead; the respawn that answers it records the session and prints that step.",
     ],
     "return": [
         "orchestrator return --role <Planner|Plan-Reviewer|Coder|Code-Reviewer> --slug <slug> --harness <h>",
@@ -48,7 +49,8 @@ HELP = catalog.Help({
         "  (%s only, from the Coder's subagent_tokens); --once makes the Role's next spawn fresh, and"
         % counting(),
         "  after a BLOCKED prints that fresh spawn for the unfinished round at once. The reviewers start at never;",
-        "  the Coder's policy is asked at Model approval.",
+        "  the Coder's policy is asked by the first start, and the --write that answers it records the session",
+        "  and places the Workflow as start does.",
     ],
     "tokens": [
         "orchestrator tokens --role <Role> --tokens <n> --slug <slug> [--harness <h>]",
@@ -66,7 +68,7 @@ HELP = catalog.Help({
 
 def run(argv: list[str]) -> int:
     return catalog.run("orchestrator", argv, HELP,
-                       "Run the orchestrator command your skill or the last Next: line names.", dispatch)
+                       "Run the orchestrator command above that your step needs, or the one the last Next: line names.", dispatch)
 
 
 def dispatch(ctx: catalog.Context) -> int:

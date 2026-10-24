@@ -105,6 +105,6 @@ def started(round_: Round, sha: str | None) -> list[str]:
 def work(round_: Round) -> str:
     """The Next: step once the round started."""
     what = "Build the Tickets in order" if round_.number == 1 else "Answer every open finding"
-    return ("%s, committing on %s as your skill says, and fill each entry of %s. Then run %s. Pass --slug %s on "
-            "every VDD tool call from here on." % (what, round_.branch, round_.relative, round_.command("check"),
-                                                   round_.loop.slug))
+    return ("%s, committing on %s by your skill's rules for commits, and fill each entry of %s. Then run %s. "
+            "Pass --slug %s on every VDD tool call from here on."
+            % (what, round_.branch, round_.relative, round_.command("check"), round_.loop.slug))

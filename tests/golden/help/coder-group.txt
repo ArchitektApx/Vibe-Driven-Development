@@ -17,4 +17,4 @@ coder check --slug <slug> [--write]
   line to end your turn with.
 
 --slug names the loop; pass it on every call.
-Next: Run the coder command your skill or the last Next: line names.
+Next: Run the coder command above that your step needs, or the one the last Next: line names.
