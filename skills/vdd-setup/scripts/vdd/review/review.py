@@ -27,7 +27,8 @@ HELP = catalog.Help({
         "  the title, a guidance comment, ## Checks, ## Open findings with every still-open finding carried",
         "  whole (round 2 on), ## New findings and, for the Code-Reviewer, ## Not carried. Prints the round, the",
         "  carried findings, the number new findings start at, the files to read and the Minors: line. A second",
-        "  start in a round already started writes nothing and prints the same again.",
+        "  start in a round already started writes nothing and prints the same again, naming the new findings",
+        "  the file already holds and the number the next one takes.",
     ],
     "check": [
         "review check --role <Plan-Reviewer|Code-Reviewer> --slug <slug> [--write]",

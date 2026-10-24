@@ -124,13 +124,28 @@ class StartTest(ReviewTest):
         wipe the round's work."""
         self.ring()
         first = self.start()
-        self.put("PLAN-REVIEW.md", ROUND_1)
         before = self.snapshot()
         second = self.start()
         self.assertEqual(second.code, 0, second)
         self.assertEqual(self.snapshot(), before)
         self.assertIn("Nothing was written", second.lines[0])
         self.assertEqual(second.lines[1:], first.lines[1:])
+
+    def test_a_second_start_names_the_findings_held_and_the_next_number(self):
+        """Prevents a fresh reviewer in a round already started numbering its
+        findings from the round's first number and so overwriting the
+        findings an earlier start left in the file."""
+        self.ring()
+        self.start()
+        self.put("PLAN-REVIEW.md", ROUND_1)
+        before = self.snapshot()
+        second = self.start()
+        self.assertEqual(second.code, 0, second)
+        self.assertEqual(self.snapshot(), before)
+        self.assertIn("Round 1: no finding carried; .scratch/demo/PLAN-REVIEW.md already holds new findings 1 and 2 "
+                      "from an earlier start of this round. Keep them, and number your new findings from 3.",
+                      second.lines)
+        self.assertNotIn("new findings start at 1", second.text)
 
     def test_round_two_carries_both_findings_whole(self):
         result = self.round_two()

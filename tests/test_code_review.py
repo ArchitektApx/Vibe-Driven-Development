@@ -158,6 +158,18 @@ class StartTest(CodeReviewTest):
         self.assertEqual(second.lines[1:], first.lines[1:])
         self.assertIn("Coder: pushed back in round 2.", self.read("carried-code.md"))
 
+    def test_a_second_start_names_a_held_new_finding_and_the_next_number(self):
+        """Prevents a fresh Code-Reviewer replacing the new finding an earlier
+        start of the round left in the file with its own of the same number."""
+        self.round_two()
+        self.put("CODEREVIEW.md", self.read("CODEREVIEW.md").replace(
+            "## New findings\n", "## New findings\n\n### 4. minor (open): src/c.py:1\n\nTypo.\n"))
+        second = self.review("start")
+        self.assertEqual(second.code, 0, second)
+        self.assertIn("Round 2: findings 1, 2 and 3 carried open; .scratch/demo/CODEREVIEW.md already holds new "
+                      "finding 4 from an earlier start of this round. Keep it, and number your new findings from 5.",
+                      second.lines)
+
 
 class AgentDocumentTest(CodeReviewTest):
     """The Agent-document list: a changed Agent document, and a file one link

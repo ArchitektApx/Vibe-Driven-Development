@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import textwrap
+from typing import Sequence
 
 from .. import fixes, loopstate, runner, textfile, workfile
 from ..out import Failure, and_list
@@ -105,7 +106,7 @@ def start(round_: Round) -> runner.Plan:
     if round_.state.review_started(round_.kind, round_.number):
         again = ("Round %d was already started: %s stays as it is. Nothing was written."
                  % (round_.number, round_.relative))
-        return runner.Plan([], work(round_), lines=[again] + started(round_))
+        return runner.Plan([], work(round_), lines=[again] + started(round_, held_new(round_)))
     blocks = carried_blocks(round_)
     carried_text = "\n\n".join("\n".join(block) for block in blocks)
     cannot = "Otherwise tell the user the review file cannot be written, and stop."
@@ -126,15 +127,33 @@ def work(round_: Round) -> str:
             "VDD tool call from here on." % (round_.relative, round_.command("check"), round_.loop.slug))
 
 
-def started(round_: Round) -> list[str]:
-    """The lines that name the round, what it carries and what to read."""
+def held_new(round_: Round) -> list[int]:
+    """The numbers of the new findings the review file already holds, from
+    an earlier start of this round."""
+    text = textfile.read(round_.file)
+    if text is None:
+        return []
+    return [b.number for b in workfile.Parsed(text).blocks_in("New findings")
+            if b.match is not None and b.number is not None]
+
+
+def started(round_: Round, held: Sequence[int] = ()) -> list[str]:
+    """The lines that name the round, what it carries and what to read;
+    held, the new findings an earlier start of the round left in the file."""
     lines: list[str] = []
     if round_.carried_numbers:
         carried = "finding%s %s carried open" % (
             "" if len(round_.carried_numbers) == 1 else "s", and_list(map(str, round_.carried_numbers)))
     else:
         carried = "no finding carried"
-    lines.append("Round %d: %s, new findings start at %d." % (round_.number, carried, round_.first_new))
+    if held:
+        free = max([round_.first_new - 1] + list(held)) + 1
+        lines.append("Round %d: %s; %s already holds new finding%s %s from an earlier start of this round. Keep "
+                     "%s, and number your new findings from %d." % (
+                         round_.number, carried, round_.relative, "" if len(held) == 1 else "s",
+                         and_list(map(str, held)), "it" if len(held) == 1 else "them", free))
+    else:
+        lines.append("Round %d: %s, new findings start at %d." % (round_.number, carried, round_.first_new))
     lines.append("Read: %s" % ", ".join(round_.read_list()))
     lines.append("Minors: %s" % round_.minors())
     if round_.kind == "code":
