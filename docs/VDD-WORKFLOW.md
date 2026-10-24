@@ -129,7 +129,7 @@ Then the Orchestrator runs the PR-Author in its own session, which follows the L
 - `PR: manual` closes the loop, prints the title and body for you, and touches neither the branch nor the remote.
 - `PR: no` skips the PR-Author. The branch stays local and no body is printed.
 
-When VDD can push but cannot open a PR, it asks once whether to push the branch so you open the PR yourself. When it can do neither, it names the check that failed. Except on `PR: no`, the title and body are printed as the loop closes whenever no PR is opened.
+When VDD can push but cannot open a PR, it asks once whether to push the branch so you open the PR yourself. When it can do neither, it names the check that failed. Except on `PR: no`, the title and body are printed when the loop closes without a push.
 
 Then:
 
