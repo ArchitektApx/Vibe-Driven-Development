@@ -735,6 +735,17 @@ class AsideTest(LoopTest):
         self.assertEqual(self.tree(), [os.path.join(".scratch", "demo-2", "spec.md"),
                                        os.path.join(".scratch", "demo-3", "spec.md")])
 
+    def test_aside_has_its_tell_relayed_before_loop_new_reruns(self):
+        """Prevents a Role rerunning loop new after loop aside without
+        relaying, word for word, where the earlier loop's files moved."""
+        self.box.write(os.path.join(".scratch", "demo", "spec.md"), "first\n")
+        result = self.loop("aside", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn('Tell the user verbatim: "The earlier Workflow\'s files are now in .scratch/demo-2/."',
+                      result.lines)
+        self.assertTrue(result.last.startswith("Next: Relay every Tell the user verbatim line above unchanged; "
+                                               "only after doing that, run the loop new command"), result)
+
     def test_aside_without_write_moves_nothing(self):
         self.box.write_loop("demo")
         before = self.tree()
@@ -807,6 +818,8 @@ class CloseTest(LoopTest):
             "Title: feat: a title", "", "The change.", "", "## Why", "Because.")]
         start = result.lines.index(expected[0])
         self.assertEqual(result.lines[start:start + len(expected)], expected)
+        self.assertTrue(result.last.startswith("Next: Relay every Tell the user verbatim line above unchanged; "
+                                               "only after doing that,"), result)
 
     def test_close_on_pr_no_or_without_a_body_tells_none(self):
         """Prevents a body shown where no PR is wanted, or a malformed
@@ -815,6 +828,7 @@ class CloseTest(LoopTest):
         result = self.loop("close", "--slug", "demo", "--write")
         self.assertEqual(result.code, 0, result)
         self.assertNotIn("Tell the user", result.text)
+        self.assertNext(result, "The loop demo is closed: run nothing more for it")
         self.loop("reopen", "--slug", "demo", "--write")
         self.loop("set", "--slug", "demo", "--pr", "no", "--write")
         self.box.write(os.path.join(".scratch", "demo", "pr-body.md"), "a title\n\nThe change.\n")

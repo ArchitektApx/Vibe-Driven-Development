@@ -147,7 +147,8 @@ def aside(root: str, values: dict[str, Any]) -> runner.Plan:
         effects += runner.close(state, done=["Closed the loop %s." % slug], refuse=refuse)
     effects.append(runner.Step(move, dry=["Would move .scratch/%s/ to .scratch/%s/%s." % (
         slug, target, ", closing its open loop first" if closing else "")], after=True))
-    return runner.Plan(effects, "Run the %s command that reported the leftover again: .scratch/%s/ is free now."
+    return runner.Plan(effects, "Relay every Tell the user verbatim line above unchanged; only after doing that, run "
+                       "the %s command that reported the leftover again: .scratch/%s/ is free now."
                        % (catalog.bare("loop", "new"), slug))
 
 
@@ -218,9 +219,13 @@ def set_lines(root: str, values: dict[str, Any], usage: str) -> runner.Plan:
         [written], "Go on with the step you were on when the user asked for the change, passing --slug %s." % loop.slug)
 
 
-def after_state(slug: str, target: str) -> str:
-    """The Next: step once the loop is closed or open."""
+def after_state(slug: str, target: str, told: bool = False) -> str:
+    """The Next: step once the loop is closed or open; told when the close
+    printed Tell the user verbatim lines."""
     if target == loopstate.CLOSED:
+        if told:
+            return ("Relay every Tell the user verbatim line above unchanged; only after doing that, run nothing "
+                    "more for the loop %s, which is closed, and end your turn." % slug)
         return "The loop %s is closed: run nothing more for it; finish the step you were on, then end your turn." % slug
     return "Go on as the user directs, passing --slug %s." % slug
 
@@ -255,8 +260,10 @@ def close_or_reopen(root: str, values: dict[str, Any], sub: str) -> runner.Plan:
         )
 
     dry = ["Would mark the loop %s %s." % (loop.slug, target)]
+    shown: list[runner.Effect] = []
     if target == loopstate.CLOSED:
-        effects = runner.close(state, dry, [runner.closed_line(loop.slug)], refuse) + shown_body(loop)
+        shown = shown_body(loop)
+        effects = runner.close(state, dry, [runner.closed_line(loop.slug)], refuse) + shown
     else:
         effects = [runner.reopen(state, dry, ["Reopened: the loop %s is open again." % loop.slug], refuse)]
-    return runner.Plan(effects, after_state(loop.slug, target))
+    return runner.Plan(effects, after_state(loop.slug, target, bool(shown)))
