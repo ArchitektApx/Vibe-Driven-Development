@@ -121,8 +121,9 @@ spawn, resume and ring nothing until they say go on.
 
 ## The user's say on Respawn
 
-The user can change any hosted Role's Respawn policy at any round ("respawn the Code-Reviewer every round"), or ask
-for one respawn: record it with the tool, and do what it prints.
+The user can change any hosted Role's Respawn policy at any round ("respawn the Code-Reviewer every round"): run
+`orchestrator respawn --role <Role> --policy "<p>" --slug <slug>`. For one respawn the user asks for, run
+`orchestrator respawn --role <Role> --once --slug <slug>`. Then do what it prints.
 
 ## Receiving a message from the Planner
 
