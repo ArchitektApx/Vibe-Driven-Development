@@ -240,6 +240,37 @@ class ShowTest(LoopTest):
         result = self.loop("show", "--slug", "demo", "--role", "Wayfinder")
         self.assertNotEqual(result.code, 0, result)
 
+    def test_a_role_in_any_letter_case_is_that_role(self):
+        """Prevents a retry on every lowercase Role name: --role planner was
+        refused, and most Planners passed it so on their first call."""
+        expected = self.loop("show", "--slug", "demo", "--role", "Planner")
+        for spelled in ("planner", "PLANNER", "pLaNnEr"):
+            with self.subTest(role=spelled):
+                result = self.loop("show", "--slug", "demo", "--role", spelled)
+                self.assertEqual(result.code, 0, result)
+                self.assertEqual(result.text, expected.text)
+
+    def test_the_planner_takes_a_doorbell_that_waits_before_it_starts(self):
+        """Prevents a resumed Planner guessing its way to the take: loop show
+        told it to start the session while a Doorbell to the Planner waited,
+        and it tried command after command before the take for a resumed
+        Session. With one waiting, the Next: names that take."""
+        take = "doorbell take --role Planner --harness claude-code --slug demo --resumed"
+        self.assertNotIn(take, self.loop("show", "--slug", "demo", "--role", "Planner").last)
+        ring = ("doorbell", "ring", "--harness", "claude-code", "--slug", "demo", "--write")
+        self.assertEqual(self.box.run(*ring[:2], "--role", "Planner", *ring[2:]).code, 0)
+        with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
+            handle.write("plan 1 reviewed open 1 counts 0 1 0\n")
+        self.assertEqual(self.box.run(*ring[:2], "--role", "Orchestrator", *ring[2:]).code, 0)
+        result = self.loop("show", "--slug", "demo", "--role", "Planner")
+        self.assertEqual(result.code, 0, result)
+        self.assertNext(result, "A Doorbell to the Planner waits untaken", take)
+        self.assertNotIn("start the session", result.last)
+        taken = self.box.run("doorbell", "take", "--role", "Planner", "--harness", "claude-code", "--slug", "demo",
+                             "--resumed")
+        self.assertEqual(taken.code, 0, taken)
+        self.assertNext(self.loop("show", "--slug", "demo", "--role", "Planner"), "start the session")
+
     def rewrite(self, name, value):
         lines = self.file().split("\n")
         lines = [line for line in lines if not line.startswith(name + ":")]

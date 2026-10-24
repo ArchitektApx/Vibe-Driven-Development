@@ -104,16 +104,31 @@ def given(value: Any) -> bool:
 
 def check(values: dict[str, Any], command: Command, usage: str, required: bool = True) -> None:
     """Refuse the required options not given, unless required is False,
-    then a value outside its option's choices."""
+    then a value outside its option's choices. A value that names a choice
+    in another letter case becomes that choice."""
     absent = [name for name, option in command.options.items() if option.required and not given(values[name])]
     if absent and required:
         raise missing(absent, usage)
     for name, option in command.options.items():
         if not option.choices or values[name] is None:
             continue
-        for value in values[name] if option.kind == LIST else [values[name]]:
-            if value not in option.choices:
+        given_values = values[name] if option.kind == LIST else [values[name]]
+        canonical = []
+        for value in given_values:
+            choice = spelling(value, option.choices)
+            if choice is None:
                 raise not_a_choice(name, value, option.choices, usage)
+            canonical.append(choice)
+        values[name] = canonical if option.kind == LIST else canonical[0]
+
+
+def spelling(value: str, choices: Sequence[str]) -> str | None:
+    """The choice value names, in its own letter case or any other, or None:
+    --role planner runs as --role Planner."""
+    if value in choices:
+        return value
+    folded = [choice for choice in choices if choice.casefold() == value.casefold()]
+    return folded[0] if len(folded) == 1 else None
 
 
 def mangled(value: str, spec: Container[str]) -> str | None:
