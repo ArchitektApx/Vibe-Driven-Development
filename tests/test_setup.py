@@ -356,6 +356,36 @@ class SetupTest(ToolTest):
                 self.assertEqual(self.proj_files(), [".git", "sub"])
                 self.assertFalse(os.path.exists(self.box.shared))
 
+    def test_a_run_from_the_shared_copy_is_refused(self):
+        """Prevents Setup run from the Shared copy calling that copy current
+        whatever the plugin ships: it compares the directory it runs from
+        with the Shared directory, which are then the same."""
+        os.makedirs(self.box.shared)
+        shutil.copyfile(os.path.join(SCRIPTS, "vdd.py"), os.path.join(self.box.shared, "vdd.py"))
+        shutil.copytree(os.path.join(SCRIPTS, "vdd"), os.path.join(self.box.shared, "vdd"),
+                        ignore=shutil.ignore_patterns("__pycache__"))
+        with open(os.path.join(self.box.shared, "vdd.py"), "a") as handle:
+            handle.write("# old\n")
+        entry = os.path.join(self.box.shared, "vdd.py")
+        before = vddtest_tree(self.box.shared)
+        for extra in ((), ("--write",)):
+            with self.subTest(extra=extra):
+                result = self.box.run("setup", "--harness", "claude-code", "--listed", "writing-for-agents",
+                                      "--glossary-named", "yes", *extra, entry=entry)
+                self.assertEqual(result.code, 1, result)
+                self.assertContract(result)
+                self.assertIn("Setup ran from the Shared copy of the VDD tool, %s" % entry, result.text)
+                self.assertIn("Nothing was checked or changed.", result.lines)
+                self.assertNotIn("current", result.text)
+                self.assertNext(result, "Setup runs from the copy beside the vdd-setup skill you loaded",
+                                vddtest.tool_command(os.path.join("<vdd-setup skill directory>", "scripts", "vdd.py"))
+                                + " setup --harness claude-code --listed writing-for-agents --glossary-named yes",
+                                *extra)
+                self.assertEqual(vddtest_tree(self.box.shared), before)
+                self.assertEqual(self.proj_files(), [".git"])
+        shipped = self.setup("claude-code", "writing-for-agents", "yes")
+        self.assertIn("Planned change: update the VDD tool", shipped.text)
+
     def test_a_loop_md_in_lowercase_is_not_reported_as_a_root_loop_file(self):
         """Only a file named exactly LOOP.md is a format-1 Loop file; on a
         case-insensitive file system a path test would match loop.md too."""

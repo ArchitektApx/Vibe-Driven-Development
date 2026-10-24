@@ -262,7 +262,9 @@ def options(words, argv):
 
 def path_commands(line):
     """The tool commands with a vdd.py path in line, each (entry, argv), and
-    the ones whose group or command word is a placeholder as None."""
+    the ones whose group or command word is a placeholder as None. A
+    placeholder in the path, a copy the Role locates itself, is checked
+    against the tool under test."""
     found = []
     starts = list(TOOL_COMMAND.finditer(line))
     for index, match in enumerate(starts):
@@ -281,7 +283,8 @@ def path_commands(line):
         argv = [word for word, _ in head]
         rest = words[len(head):] if not any(ended for _, ended in head) else []
         argv = options(rest, argv)
-        found.append(None if argv is None else (match.group(1), argv))
+        entry = ENTRY if placeholder(match.group(1)) else match.group(1)
+        found.append(None if argv is None else (entry, argv))
     return found
 
 

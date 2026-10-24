@@ -7,10 +7,10 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .. import catalog, gitcmd, harness as harnesses, runner
+from .. import catalog, gitcmd, harness as harnesses, places, runner
 from ..harness import Harness
 from ..out import Failure, escalate
-from . import borrowed, checks
+from . import borrowed, checks, install
 from .report import Report
 
 HELP = [
@@ -48,6 +48,7 @@ def setup(ctx: catalog.Context) -> int:
     values = ctx.values
     harness = harnesses.from_option(values, ctx.usage)
     cwd = os.getcwd()
+    require_shipped(harness, values)
     require_root(harness, values, cwd)
     mode = "writing" if values["write"] else "dry run, nothing is changed yet"
     report = Report("Setup, Harness %s (%s)." % (header_name(harness), mode))
@@ -66,11 +67,30 @@ def plan(report: Report, harness: Harness, values: dict[str, Any], cwd: str) -> 
                        code=lambda: 1 if report.git_too_old or report.failed else 0)
 
 
-def command(harness: Harness, values: dict[str, Any], write: bool) -> str:
-    """The setup command line this run names, with or without --write."""
-    return catalog.line("setup", harness=harness.name, listed=quote(values["listed"]),
+def command(harness: Harness, values: dict[str, Any], write: bool, entry: str | None = None) -> str:
+    """The setup command line this run names, with or without --write, on
+    the copy of the tool at entry (the running one by default)."""
+    return catalog.line("setup", entry=entry, harness=harness.name, listed=quote(values["listed"]),
                         glossary_named=values["glossary-named"], user_answer=values["user-answer"] or None,
                         write=write)
+
+
+def require_shipped(harness: Harness, values: dict[str, Any]) -> None:
+    """Refuse a run from the Shared copy: it would compare the Shared copy
+    with itself and call it current whatever the plugin ships."""
+    shared = places.shared_dir()
+    if not same_directory(install.shipped_dir(), shared):
+        return
+    entry = os.path.join("<vdd-setup skill directory>", "scripts", "vdd.py")
+    raise Failure(
+        [
+            "Setup ran from the Shared copy of the VDD tool, %s, which it installs and checks; from there it cannot "
+            "see the copy the plugin ships." % os.path.join(shared, "vdd.py"),
+            "Nothing was checked or changed.",
+        ],
+        "Setup runs from the copy beside the vdd-setup skill you loaded: run scripts/vdd.py in the directory its "
+        "SKILL.md sits in, with the same options: %s" % command(harness, values, values["write"], entry),
+    )
 
 
 def require_root(harness: Harness, values: dict[str, Any], cwd: str) -> None:
