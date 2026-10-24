@@ -399,6 +399,83 @@ class RoundPlans(Plans):
         self.assertIn("code 1 user open 1,2 ", self.state())
 
 
+class DoorbellAndOrchestratorPlans(Plans, Faithful):
+    """doorbell ring's and orchestrator respawn's dry runs: they refuse where
+    --write refuses, write nothing, and name the change --write makes."""
+
+    RESPAWN = ("orchestrator", "respawn", "--role", "Coder", "--policy", "every round", *SLUG)
+
+    def test_ring_on_a_closed_loop(self):
+        """Prevents a dry run of doorbell ring passing on a closed loop."""
+        self.plan()
+        self.stage("loop closed")
+        self.refuses_like_write(("doorbell", "ring", "--role", "Planner", *CC, *SLUG), "The loop demo is closed")
+
+    def test_ring_with_nothing_to_relay(self):
+        """Prevents a dry run of the Orchestrator's ring passing with no plan
+        review to relay."""
+        self.plan()
+        self.refuses_like_write(("doorbell", "ring", "--role", "Orchestrator", *CC, *SLUG),
+                                "No plan review is recorded")
+
+    def test_respawn_with_no_respawn_policy(self):
+        """Prevents a dry run of orchestrator respawn passing a policy --write
+        refuses."""
+        self.plan()
+        self.refuses_like_write(("orchestrator", "respawn", "--role", "Coder", "--policy", "sometimes", *SLUG),
+                                "is not a Respawn policy")
+
+    def test_ring(self):
+        """Prevents doorbell ring's dry run naming another line than --write
+        appends."""
+        self.plan()
+        dry, written, changed = self.plan_and_write("doorbell", "ring", "--role", "Planner", *CC, *SLUG)
+        self.assertEqual(self.body(dry), ["Would append, addressed to the Orchestrator: " + P1])
+        self.assertEqual(self.body(written)[0], "Rung: the Doorbell file now holds it, addressed to the "
+                                                "Orchestrator.")
+        self.assertEqual(changed, [".scratch/demo/doorbells"])
+        self.assertTrue(self.read("doorbells").endswith(" to: Orchestrator %s\n" % P1))
+
+    def test_ring_already_rung(self):
+        """Prevents a dry run of a ring already rung naming an append."""
+        self.plan()
+        self.rings(P1)
+        dry, written, changed = self.plan_and_write("doorbell", "ring", "--role", "Planner", *CC, *SLUG)
+        self.assertEqual(self.body(dry), ["Already rung: " + P1])
+        self.assertEqual(self.body(written)[0], "Already rung: the newest line to the Orchestrator is this "
+                                                "Doorbell.")
+        self.assertEqual(changed, [])
+
+    def test_respawn_answering_start(self):
+        """Prevents the dry run of the respawn that answers start's Respawn
+        question hiding that its --write records the session and places the
+        Workflow."""
+        self.plan()
+        self.rings(P1)
+        self.run_ok("orchestrator", "start", *SLUG, *CC)
+        dry, written, changed = self.plan_and_write(*self.RESPAWN)
+        self.assertEqual(self.body(dry), ["Would set: respawn Coder every round.",
+                                          "Would then record orchestrator session 1 and place the Workflow."])
+        self.assertIn("Spawning Plan-Reviewer, <model>, round 1.", written.lines)
+        self.assertEqual(changed, [".scratch/demo/doorbell-state-orchestrator", ".scratch/demo/loop-state"])
+        self.assertEqual(self.state().splitlines()[-3:], ["respawn Coder every round", "orchestrator session 1",
+                                                          "spawn Plan-Reviewer 1 session 1"])
+
+    def test_respawn_once(self):
+        """Prevents respawn --once's dry run hiding the spawn line --write
+        records for an unfinished round."""
+        self.plan(policies=("respawn Coder never",))
+        self.stage("orchestrator session 1", "spawn Plan-Reviewer 1 session 1")
+        dry, written, changed = self.plan_and_write("orchestrator", "respawn", "--role", "Plan-Reviewer", "--once",
+                                                    *SLUG)
+        self.assertEqual(self.body(dry), ["Would make the Plan-Reviewer's next spawn fresh."])
+        self.assertIn("Spawning Plan-Reviewer, <model>, round 1, respawn on request.", written.lines)
+        self.assertEqual(changed, [".scratch/demo/loop-state"])
+        self.assertEqual(self.state().splitlines()[-2:], ["respawn-once Plan-Reviewer",
+                                                          "spawn Plan-Reviewer 1 session 1 reason respawn on "
+                                                          "request"])
+
+
 class LeftOut(Staged):
     def newer(self):
         self.box.write_loop("newer", branch="newer")

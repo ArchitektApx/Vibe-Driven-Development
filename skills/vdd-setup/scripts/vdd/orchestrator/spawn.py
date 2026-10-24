@@ -3,7 +3,7 @@ it the round."""
 
 from __future__ import annotations
 
-from .. import doorbells, loopstate, workfile
+from .. import doorbells, loopstate, runner, workfile
 from ..out import Output
 from .flow import Flow
 
@@ -34,7 +34,7 @@ def next_after(flow: Flow, role: str) -> str:
 
 
 def spawn(flow: Flow, out: Output, role: str, number: int, reason: str | None = None,
-          first: str | None = None) -> int:
+          first: str | None = None) -> runner.Plan:
     """Record a fresh spawn and print it. first, when given, is a step to
     take before it."""
     flow.append(loopstate.spawn_line(role, number, flow.session(), reason))
@@ -43,20 +43,22 @@ def spawn(flow: Flow, out: Output, role: str, number: int, reason: str | None = 
     out.line("Read: %s" % ", ".join(read))
     out.line("Write: %s" % ", ".join(write))
     before = "%s Then print" % first if first else "Print"
-    return out.finish(
+    return flow.plan(
+        out,
         "%s the Spawning line above in your reply, <model> filled in from Model approval, then spawn a fresh %s "
         "with the Spawn prompt, the slug %s, round %d and the Read and Write lists above. %s"
         % (before, role, flow.slug, number, next_after(flow, role))
     )
 
 
-def resume(flow: Flow, out: Output, role: str, number: int, message: str, first: str | None = None) -> int:
+def resume(flow: Flow, out: Output, role: str, number: int, message: str, first: str | None = None) -> runner.Plan:
     flow.append(loopstate.resume_line(role, number, flow.session()))
     out.line("Resuming %s, round %d." % (role, number))
     out.line("Resume message:")
     out.line(message)
     before = "%s Then resume" % first if first else "Resume"
-    return out.finish(
+    return flow.plan(
+        out,
         "%s the same %s with the resume message above as the whole message, nothing added but what your "
         "Harness file says every resume message carries. %s" % (before, role, next_after(flow, role))
     )

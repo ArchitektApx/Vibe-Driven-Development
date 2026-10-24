@@ -28,9 +28,14 @@ import json
 import os
 import sys
 
-from . import armed, doorbells, loopfile, places, textfile
+# Every module the hook reaches after its claim, imported here, at start.
+from . import armed, doorbells, loopfile, places, runner, seams, textfile  # noqa: F401
+from .catalog import builder as _builder  # noqa: F401
+from .doorbells import commands as _commands, files as _files, lines as _lines, wait as _wait  # noqa: F401
 from .harness import codex as codex_harness
+from .loopfile import format as _format  # noqa: F401
 from .out import Failure, Output
+from .runner import effects as _effects, plan as _plan, runner as _runner  # noqa: F401
 
 
 def run(argv: list[str]) -> int:
@@ -73,19 +78,24 @@ def hook() -> None:
     role, count = claimed
     entry = places.shared_entry()
     harness = codex_harness.HARNESS
-    try:
+
+    def waited() -> list[str]:
         outcome = doorbells.wait_for(doorbells.Place(cwd, slug), role, harness, entry, floor=count)
+        if isinstance(outcome, doorbells.Found):
+            return ["A Doorbell for the %s is waiting. Next: run %s" % (role, outcome.take)]
+        return ["TIMEOUT. Next: " + outcome.next_step]
+
+    # The wait always applies once claimed: its outcome is the block's reason.
+    try:
+        reason = runner.apply([runner.Step(waited)])
     except Failure as failure:
-        block("%s Next: %s" % (" ".join(failure.lines), doorbells.hand_relay(role, harness, slug, entry)))
-        return
+        said = " ".join(failure.lines)
+        reason = ["%s%s Next: %s" % (said, "" if said.endswith(".") else ".",
+                                     doorbells.hand_relay(role, harness, slug, entry))]
     except Exception as error:  # noqa: B902 - the armed file is gone, so say so once
-        block("The wait stopped on an error: %s. Next: %s" % (
-            textfile.reason(error).rstrip("."), doorbells.hand_relay(role, harness, slug, entry)))
-        return
-    if isinstance(outcome, doorbells.Found):
-        block("A Doorbell for the %s is waiting. Next: run %s" % (role, outcome.take))
-    else:
-        block("TIMEOUT. Next: " + outcome.next_step)
+        reason = ["The wait stopped on an error: %s. Next: %s" % (
+            textfile.reason(error).rstrip("."), doorbells.hand_relay(role, harness, slug, entry))]
+    block(" ".join(reason))
 
 
 def block(reason: str) -> None:

@@ -8,7 +8,7 @@ import os
 import re
 
 from .. import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, runner
-from ..out import Failure
+from ..out import Failure, Output
 
 
 # The spawn ledger's lines, as loopstate's builders write them.
@@ -63,6 +63,14 @@ class Flow:
         self.policies: dict[str, str] = {}
         self.returns: list[tuple[str, int, bool]] = []
         self.counts: dict[tuple[str, int], int] = {}
+        # What the command's plan writes: the state lines in one write, and
+        # the effects before that commit point.
+        self.pending: list[str] = []
+        self.before: list[runner.Effect] = []
+        # start, return and tokens always apply their plan; respawn applies
+        # it on --write, its dry run printing dry.
+        self.always = True
+        self.dry: list[str] = []
         for line in state.lines:
             self.read(line)
 
@@ -99,9 +107,19 @@ class Flow:
             self.counts[(match.group(1), int(match.group(2)))] = int(match.group(3))
 
     def append(self, line: str) -> None:
-        """Append a built state line and add it to the records."""
-        self.state.append(line)
+        """Add a built state line to the records and to the lines the plan
+        appends."""
+        self.pending.append(line)
         self.read(line)
+
+    def plan(self, out: Output, next_step: runner.Next) -> runner.Plan:
+        """The command's plan: the effects before the commit point, then the
+        state lines appended in one write, out's lines printing once they
+        applied."""
+        if not self.pending and not self.before:
+            return runner.Plan([], next_step, lines=out.lines)
+        effects = self.before + [runner.StateLines(self.state, self.pending, self.dry, out.lines)]
+        return runner.Plan(effects, next_step, always=self.always)
 
     def session(self) -> int:
         return self.last_session

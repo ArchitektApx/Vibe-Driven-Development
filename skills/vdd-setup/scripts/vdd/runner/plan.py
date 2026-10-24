@@ -10,7 +10,7 @@ effects apply in plan order, and every effect's lines print in plan order.
 
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Callable, Sequence, Union
 
 RECORDS = "records"
 BEFORE = "before"
@@ -20,6 +20,9 @@ AFTER = "after"
 PHASES = (RECORDS, BEFORE, STATE, RECAP, AFTER)
 
 WRITE_NEXT = "Run the same command with --write."
+
+# A Next: step, or a function that words it from what the effects wrote.
+Next = Union[str, Callable[[], str]]
 
 
 class Effect:
@@ -42,7 +45,8 @@ class Effect:
 
 class Plan:
     """What a command does: its effects; next, the Next: step once they
-    applied; dry_next, the dry run's. A plan that writes nothing has no
+    applied, or a function the runner calls for it then, when the step
+    reads what the effects wrote; dry_next, the dry run's. A plan that writes nothing has no
     effects and prints lines, what the command found, and next, with or
     without --write. requires names the options a --write needs that a dry
     run asks the user for. An always plan applies without --write."""
@@ -50,7 +54,7 @@ class Plan:
     def __init__(
         self,
         effects: Sequence[Effect],
-        next_step: str,
+        next_step: Next,
         dry_next: str = WRITE_NEXT,
         lines: Sequence[str] = (),
         requires: Sequence[str] = (),
@@ -62,6 +66,10 @@ class Plan:
         self.lines = list(lines)
         self.requires = tuple(requires)
         self.always = always
+
+    def next_line(self) -> str:
+        """The Next: step once the effects applied."""
+        return self.next if isinstance(self.next, str) else self.next()
 
 
 class Instead(Exception):

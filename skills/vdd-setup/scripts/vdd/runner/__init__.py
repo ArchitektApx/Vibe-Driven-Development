@@ -15,6 +15,6 @@ from .effects import (  # noqa: F401
     record_step,
     reopen,
 )
-from .plan import Effect, Instead, Plan  # noqa: F401
+from .plan import Effect, Instead, Next, Plan  # noqa: F401
 from .preconditions import Ask, closed_loop, open_loop  # noqa: F401
 from .runner import apply, run  # noqa: F401

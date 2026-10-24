@@ -509,15 +509,51 @@ class RespawnQuestionTest(OrchestratorTest):
                 self.assertNotIn("orchestrator session", self.state())
                 self.assertNext(result, 'orchestrator respawn --role Coder --policy "<answer>" --slug demo --write')
 
-    def test_setting_the_policy_names_start_which_then_asks_nothing(self):
-        self.rings(P1)
+    def test_start_then_respawn_places_the_workflow(self):
+        """Starting took a second start after the respawn that answered the
+        first one's question, which printed the Harness-file line and the
+        plan's state again."""
+        self.rings(P1, "not a doorbell")
+        started = self.start()
+        self.assertIn("Respawn question", started.text)
         result = self.orch("respawn", "--role", "Coder", "--policy", "every round", "--slug", "demo", "--write")
         self.assertEqual(result.code, 0, result)
-        self.assertIn("Respawn policies: Coder every round, Plan-Reviewer never, Code-Reviewer never.", result.lines)
+        self.assertEqual(result.lines[0], "Respawn policies: Coder every round, Plan-Reviewer never, Code-Reviewer "
+                                          "never.")
+        self.spawned(result, "Plan-Reviewer", 1)
+        for line in started.lines[:-1]:
+            if not line.startswith("Respawn policies:"):
+                self.assertNotIn(line, result.lines)
+        self.assertIn("Line 3 of the Doorbell file is not a Doorbell", result.text)
+        self.assertIn("orchestrator return --role Plan-Reviewer", result.last)
+        lines = self.state().splitlines()
+        self.assertEqual(lines[-3:], ["respawn Coder every round", "orchestrator session 1",
+                                      "spawn Plan-Reviewer 1 session 1"])
+        self.assertIn("count 2", self.box.read(".scratch/demo/doorbell-state-orchestrator"))
+        later = self.start()
+        self.assertEqual(later.code, 0, later)
+        self.assertNotIn("Respawn question", later.text)
+        self.spawned(later, "Plan-Reviewer", 1, "after a restart")
+        self.assertIn("orchestrator session 2", self.state().splitlines())
+
+    def test_start_then_respawn_while_waiting_names_the_wait(self):
+        """The two-call start with nothing rung ends in the Planner's wait,
+        as the second start did."""
+        self.start()
+        result = self.orch("respawn", "--role", "Coder", "--policy", "never", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(len(result.lines), 2, result)
+        self.assertIn("doorbell wait --role Orchestrator", result.last)
+        self.assertEqual(self.state().count("orchestrator session"), 1)
+
+    def test_a_policy_set_before_start_still_names_start(self):
+        """A reviewer's policy set while the Coder's is unset answers no
+        question start asked, so it places nothing."""
+        result = self.orch("respawn", "--role", "Code-Reviewer", "--policy", "every round", "--slug", "demo",
+                           "--write")
+        self.assertEqual(result.code, 0, result)
         self.assertNext(result, "orchestrator start --slug demo --harness claude-code")
-        started = self.start()
-        self.assertNotIn("Respawn question", started.text)
-        self.spawned(started, "Plan-Reviewer", 1)
+        self.assertNotIn("orchestrator session", self.state())
 
     def test_a_policy_in_another_case_is_taken(self):
         """An Orchestrator passed its answer label "Every round" as the

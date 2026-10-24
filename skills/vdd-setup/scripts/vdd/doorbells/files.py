@@ -153,22 +153,23 @@ def tell_not_doorbells(out: Output, entries: list[Entry]) -> None:
             )
 
 
-def mark_handled(place: Place, role: str, out: Output) -> None:
-    """Record every line addressed to role so far as handled, as take does,
+def mark_handled(place: Place, role: str) -> tuple[list[Entry], State | None]:
+    """Every line addressed to role so far recorded as handled, as take does,
     without printing a Doorbell: the Orchestrator's start acts on what was
     rung before it from the state, so the relay after it names the wait
-    rather than a Doorbell already acted on."""
+    rather than a Doorbell already acted on. The lines beyond the handled
+    count, and the state recording them handled for the caller to save, or
+    None when there are none."""
     entries = place.entries(role)
     state = place.load_state(role)
     beyond, _ = pending(entries, state)
     if not beyond:
-        return
-    tell_not_doorbells(out, beyond)
+        return beyond, None
     for entry in beyond:
         if entry.doorbell:
             state.handled.add(entry.doorbell.key())
     state.count = len(entries)
-    place.save_state(role, state)
+    return beyond, state
 
 
 def plan_signed_off(place: Place) -> bool:

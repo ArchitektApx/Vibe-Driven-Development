@@ -30,14 +30,14 @@ def run(ctx: Context, build: Callable[[], Plan]) -> int:
             out.line(line)
         return out.finish(ask.next_step, 1 if write else 0)
     if not plan.effects:
-        lines, next_step = plan.lines, plan.next
+        lines, next_step = plan.lines, plan.next_line()
     elif not (write or plan.always):
         lines = plan.lines + [line for effect in plan.effects for line in effect.dry]
         next_step = plan.dry_next
     else:
         if write:
             ctx.require(*plan.requires)
-        lines, next_step = list(plan.lines), plan.next
+        lines = list(plan.lines)
         while True:
             try:
                 lines += apply(plan.effects)
@@ -45,7 +45,7 @@ def run(ctx: Context, build: Callable[[], Plan]) -> int:
             except Instead as instead:
                 lines += instead.kept
                 plan = instead.plan
-                next_step = plan.next
+        next_step = plan.next_line()
     for line in lines:
         out.line(line)
     return out.finish(next_step)

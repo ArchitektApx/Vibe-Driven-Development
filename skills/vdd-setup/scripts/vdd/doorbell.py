@@ -10,9 +10,9 @@ import signal
 from types import FrameType
 from typing import NoReturn
 
-from . import catalog, doorbells, harness as harnesses, textfile
+from . import catalog, doorbells, harness as harnesses, runner, textfile
 from .harness import Harness
-from .out import Failure, Output, or_list
+from .out import TELL, Failure, Output, one_line, or_list
 
 
 # --- the commands ---
@@ -60,12 +60,16 @@ def run(argv: list[str]) -> int:
 
 
 def dispatch(ctx: catalog.Context) -> int:
+    return runner.run(ctx, lambda: plan(ctx))
+
+
+def plan(ctx: catalog.Context) -> runner.Plan:
     sub, values = ctx.command, ctx.values
     harness = harnesses.from_option(values, ctx.usage)
     role = values["role"]
     place = doorbells.Place.find(values["slug"])
     if sub == "ring":
-        return ring(place, role, harness, values["write"])
+        return ring(place, role, harness)
     if sub == "wait":
         return wait(place, role, harness)
     return take(place, role, harness, values["pasted"], values["resumed"])
@@ -88,53 +92,61 @@ def composed(place: doorbells.Place, role: str) -> str:
     return doorbells.review_doorbell(last)
 
 
-def ring(place: doorbells.Place, role: str, harness: Harness, write: bool) -> int:
+def ring(place: doorbells.Place, role: str, harness: Harness) -> runner.Plan:
     to = doorbells.OTHER[role]
     place.require_open("a ring")
     line = composed(place, role)
     doorbell = doorbells.parse(line, to, place.tracker)
     if doorbell is None:
         raise RuntimeError("The composed Doorbell line does not parse: %s" % line)
-    out = Output()
     last = place.entries(to)
-    already = bool(last) and last[-1].text == line
-    if not write:
-        out.line("Would append, addressed to the %s: %s" % (to, line) if not already else "Already rung: %s" % line)
-        return out.finish("Run the same command with --write.")
-    if already:
-        out.line("Already rung: the newest line to the %s is this Doorbell." % to)
+    rung: runner.Effect
+    if bool(last) and last[-1].text == line:
+        rung = runner.Effect(["Already rung: %s" % line],
+                             ["Already rung: the newest line to the %s is this Doorbell." % to])
     else:
-        try:
-            place.append(to, line)
-        except OSError as error:
-            raise textfile.write_refusal(
-                "the Doorbell file %s" % textfile.shown(place.file), error,
-                "Otherwise print the Doorbell line for the user to paste into the %s's Session, and stop." % to,
-            )
-        out.line("Rung: the Doorbell file now holds it, addressed to the %s." % to)
+        rung = runner.Step(lambda: append(place, to, line),
+                           ["Would append, addressed to the %s: %s" % (to, line)])
     if role == "Planner" and doorbell.round == 1:
         launch = harness.orchestrator_launch(place.slug)
-        out.tell("Start the Orchestrator now: %s." % launch)
+        tells = ["Start the Orchestrator now: %s." % launch]
         if harness.picks_up_doorbell():
-            out.tell(
-                "It picks up the Doorbell below from the Doorbell file; paste it in only if it does not "
-                "start the review."
-            )
+            tells.append("It picks up the Doorbell below from the Doorbell file; paste it in only if it does not "
+                         "start the review.")
         else:
-            out.tell("Paste the Doorbell below into it once it is up.")
-        out.tell(line)
+            tells.append("Paste the Doorbell below into it once it is up.")
+        tells.append(line)
     else:
-        out.tell("If the %s's Session does not wake, paste this into it: %s" % (to, line))
-    entries = place.entries(role)
-    _, new = doorbells.pending(entries, place.load_state(role))
+        tells = ["If the %s's Session does not wake, paste this into it: %s" % (to, line)]
+    return runner.Plan([rung, runner.Effect(done=[TELL % one_line(text) for text in tells])],
+                       lambda: after_ring(place, role, harness, doorbell))
+
+
+def append(place: doorbells.Place, to: str, line: str) -> list[str]:
+    try:
+        place.append(to, line)
+    except OSError as error:
+        raise textfile.write_refusal(
+            "the Doorbell file %s" % textfile.shown(place.file), error,
+            "Otherwise print the Doorbell line for the user to paste into the %s's Session, and stop." % to,
+        )
+    return ["Rung: the Doorbell file now holds it, addressed to the %s." % to]
+
+
+def after_ring(place: doorbells.Place, role: str, harness: Harness, doorbell: doorbells.Doorbell) -> str:
+    """The Next: step once the ring is in the Doorbell file: a Planner ring
+    after the plan Sign-off opens a plan round again."""
+    _, new = doorbells.pending(place.entries(role), place.load_state(role))
     if new:
-        return out.finish("A Doorbell for you is already waiting. Run: %s" % doorbells.take_command(role, harness, place.slug))
+        return "A Doorbell for you is already waiting. Run: %s" % doorbells.take_command(role, harness, place.slug)
     if role == "Orchestrator" and doorbell.signed_off:
-        return out.finish(doorbells.SIGNED_OFF_NEXT)
-    return out.finish(doorbells.wait_or_hold(place, role, harness))
+        return doorbells.SIGNED_OFF_NEXT
+    return doorbells.wait_or_hold(place, role, harness)
 
 
-def take(place: doorbells.Place, role: str, harness: Harness, pasted: str | None, resumed: bool = False) -> int:
+def take(place: doorbells.Place, role: str, harness: Harness, pasted: str | None,
+         resumed: bool = False) -> runner.Plan:
+    effects: list[runner.Effect] = []
     if resumed:
         if role != "Planner":
             raise Failure(
@@ -142,42 +154,66 @@ def take(place: doorbells.Place, role: str, harness: Harness, pasted: str | None
                 "Place the Workflow with %s, as your skill says." % catalog.bare("orchestrator", "start"),
             )
         # A wait an earlier Session started wakes that Session, not this one.
-        doorbells.clear_marker(place, role)
+        effects.append(runner.Step(lambda: cleared(place, role)))
     entries = place.entries(role)
     state = place.load_state(role)
-    out = Output()
     if pasted is not None:
-        return take_pasted(place, role, harness, entries, state, pasted.strip(), out)
+        return take_pasted(place, role, harness, entries, state, pasted.strip(), effects)
     beyond, new = doorbells.pending(entries, state)
-    doorbells.tell_not_doorbells(out, beyond)
+    lines = not_doorbells(beyond)
     for entry in beyond:
         if entry.doorbell:
             state.handled.add(entry.doorbell.key())
     state.count = len(entries)
-    place.save_state(role, state)
+    effects.append(saved(place, role, state))
     if not new:
-        out.line("No new Doorbell for the %s." % role)
-        return out.finish(doorbells.wait_or_hold(place, role, harness))
-    out.line("Doorbell: %s" % new[-1].text)
-    return out.finish(act_next(place, role, harness))
+        lines.append("No new Doorbell for the %s." % role)
+        return taken(effects, lines, lambda: doorbells.wait_or_hold(place, role, harness))
+    lines.append("Doorbell: %s" % new[-1].text)
+    return taken(effects, lines, act_next(place, role, harness))
 
 
 def take_pasted(place: doorbells.Place, role: str, harness: Harness, entries: list[doorbells.Entry],
-                state: doorbells.State, line: str, out: Output) -> int:
+                state: doorbells.State, line: str, effects: list[runner.Effect]) -> runner.Plan:
     doorbell = doorbells.parse(line, role, place.tracker)
     if doorbell is None:
-        out.tell("This is not a Doorbell for the %s, so it was not acted on: %s" % (role, line))
-        return out.finish(after_nothing(place, role, harness, entries, state))
+        return taken(effects, [TELL % one_line("This is not a Doorbell for the %s, so it was not acted on: %s"
+                                               % (role, line))],
+                     lambda: after_nothing(place, role, harness, entries, state))
     if doorbell.key() in state.handled:
-        out.line("Already handled, nothing to do: %s" % line)
-        return out.finish(after_nothing(place, role, harness, entries, state))
+        return taken(effects, ["Already handled, nothing to do: %s" % line],
+                     lambda: after_nothing(place, role, harness, entries, state))
     state.handled.add(doorbell.key())
     for index, entry in enumerate(entries):
         if index >= state.count and entry.doorbell and entry.doorbell.key() == doorbell.key():
             state.count = index + 1
-    place.save_state(role, state)
-    out.line("Doorbell: %s" % line)
-    return out.finish(act_next(place, role, harness))
+    effects.append(saved(place, role, state))
+    return taken(effects, ["Doorbell: %s" % line], act_next(place, role, harness))
+
+
+def taken(effects: list[runner.Effect], lines: list[str], next_step: runner.Next) -> runner.Plan:
+    """take's plan, which always applies: its lines print once its state file
+    is saved, since a Doorbell is printed only once it is recorded as
+    handled."""
+    return runner.Plan(effects + [runner.Effect(done=lines)], next_step, always=True)
+
+
+def not_doorbells(entries: list[doorbells.Entry]) -> list[str]:
+    out = Output()
+    doorbells.tell_not_doorbells(out, entries)
+    return out.lines
+
+
+def saved(place: doorbells.Place, role: str, state: doorbells.State) -> runner.Step:
+    def save() -> list[str]:
+        place.save_state(role, state)
+        return []
+    return runner.Step(save)
+
+
+def cleared(place: doorbells.Place, role: str) -> list[str]:
+    doorbells.clear_marker(place, role)
+    return []
 
 
 def act_next(place: doorbells.Place, role: str, harness: Harness) -> str:
@@ -209,22 +245,29 @@ def end_on_signal() -> None:
                 pass
 
 
-def wait(place: doorbells.Place, role: str, harness: Harness) -> int:
+def wait(place: doorbells.Place, role: str, harness: Harness) -> runner.Plan:
     place.require_open("a wait")
     if harness.waits_through_stop_hook():
-        doorbells.arm(place, role, harness)
-        out = Output()
-        out.line("Armed: the Codex Stop hook waits for the %s's next Doorbell when this turn ends." % role)
-        return out.finish("End your turn now.")
-    end_on_signal()
-    marker = doorbells.Marker(place, role, doorbells.timings()[0])
-    try:
-        outcome = doorbells.wait_for(place, role, harness, beat=marker.beat)
-    finally:
-        marker.clear()
-    out = Output()
-    if isinstance(outcome, doorbells.Found):
-        out.line("A Doorbell for the %s is waiting." % role)
-        return out.finish("Run: %s" % outcome.take)
-    out.line("TIMEOUT")
-    return out.finish(outcome.next_step)
+        def armed() -> list[str]:
+            doorbells.arm(place, role, harness)
+            return ["Armed: the %s Stop hook waits for the %s's next Doorbell when this turn ends."
+                    % (harness.display_name, role)]
+        return runner.Plan([runner.Step(armed)], "End your turn now.", always=True)
+    outcome: list[doorbells.Outcome] = []
+
+    def waited() -> list[str]:
+        end_on_signal()
+        marker = doorbells.Marker(place, role, doorbells.timings()[0])
+        try:
+            outcome.append(doorbells.wait_for(place, role, harness, beat=marker.beat))
+        finally:
+            marker.clear()
+        if isinstance(outcome[0], doorbells.Found):
+            return ["A Doorbell for the %s is waiting." % role]
+        return ["TIMEOUT"]
+
+    def then() -> str:
+        found = outcome[0]
+        return "Run: %s" % found.take if isinstance(found, doorbells.Found) else found.next_step
+
+    return runner.Plan([runner.Step(waited)], then, always=True)
