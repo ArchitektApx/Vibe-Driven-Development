@@ -277,15 +277,15 @@ class Staged(LoopRepoTest):
             self.git("config", "url.%s.pushInsteadOf" % bare, URL)
 
     def pr_check_open(self):
-        self.code_signed(pr="yes")
+        self.folded(pr="yes")
         self.github(merged=[0, "[]", ""], head=[0, "[]", ""])
 
     def pr_check_existing(self):
-        self.code_signed(pr="yes")
+        self.folded(pr="yes")
         self.github(merged=[0, "[]", ""], head=[0, json.dumps([{"url": PR_URL}]), ""])
 
     def pr_check_neither(self):
-        self.code_signed(pr="yes")
+        self.folded(pr="yes")
         self.github(remote=False, merged=[0, "[]", ""])
 
     def pr_open_open(self):

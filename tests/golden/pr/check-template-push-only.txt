@@ -7,4 +7,4 @@ Template: .github/pull_request_template.md
 Preflight, can push, remote origin: passed.
 Preflight, can open a PR, remote origin: failed (gh is not on PATH).
 Path: push-only
-Next: Assemble the title and body as your skill's step 3 says and write them to .scratch/demo/pr-body.md, then go on from its step 4 (the PR: line).
+Next: Write the title and body to .scratch/demo/pr-body.md as your skill says, then show the user the title and body and ask one question: push the branch so they can open the PR themselves (gh cannot open it here: gh is not on PATH), or leave it to them. On push, write any amendment back to .scratch/demo/pr-body.md, run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" pr open --path push-only --slug demo --harness claude-code --write and do what its Next: line says; on leave, print the title and body, run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" loop close --slug demo --write and stop; push nothing.

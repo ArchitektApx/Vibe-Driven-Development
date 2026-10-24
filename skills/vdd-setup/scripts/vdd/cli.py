@@ -34,7 +34,7 @@ def load(name: str) -> ModuleType:
     elif name == "review":
         from .review import review as module
     elif name == "pr":
-        from . import pr as module
+        from .pr import pr as module
     elif name == "wayfinder":
         from . import wayfinder as module
     elif name == "setup":

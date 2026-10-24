@@ -1,12 +1,14 @@
 $ vdd pr --help
 exit 0
 pr check --slug <slug> --harness <h>
-  The PR-Author's first call after Sign-off. Reads only, and refuses until the code Loop is signed off.
-  Prints the PR template (the first of PULL_REQUEST_TEMPLATE.md or pull_request_template.md at the
-  repository root, in .github/ or in docs/) or that there is none; with none, the merged-PR history:
-  each title, each body's headings, whether the bodies link issues and the newest body whole, or no
-  history, or could not read. Unless PR: manual or no, it runs the preflight (can push, can open a PR)
-  and the existing-PR check, and prints the path: open, push-only, neither or existing.
+  The PR-Author's first call after Sign-off. Reads only, and refuses until the code Loop is signed off
+  and while a fold is owed. Prints the PR template (the first of PULL_REQUEST_TEMPLATE.md or
+  pull_request_template.md at the repository root, in .github/ or in docs/) or that there is none; with
+  none and unless PR: no, the merged-PR history: each title, each body's headings, whether the bodies
+  link issues and the newest body whole, or no history, or could not read. On PR: yes or ask at
+  sign-off it runs the preflight (can push, can open a PR) and the existing-PR check, and prints the
+  path: open, push-only, neither or existing. Its Next: line is the one ending for the PR: line and the
+  path.
 
 pr open --path <open|push-only|existing> --slug <slug> --harness <h> --write
   After the user confirmed the title and body in .scratch/<slug>/pr-body.md (the title, a blank line, the
@@ -18,4 +20,4 @@ pr open --path <open|push-only|existing> --slug <slug> --harness <h> --write
   the sandbox.
 
 --slug names the loop; pass it on every call. --harness names the Harness this Session runs in.
-Next: Run the pr command your skill or the last Next: line names.
+Next: Run the pr command above that your step needs, or the one the last Next: line names.

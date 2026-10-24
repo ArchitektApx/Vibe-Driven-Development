@@ -89,7 +89,7 @@ class Refusals(Staged):
     def gh_refuses_head(self):
         """PR: yes with a template, origin on GitHub with ls-remote stubbed, and a gh
         that passes auth and refuses the existing-PR check."""
-        self.code_signed(pr="yes")
+        self.folded(pr="yes")
         self.git("remote", "add", "origin", "https://github.com/example/repo.git")
         real = shutil.which("git")
         self.box.stub("git", "if [ \"$1\" = ls-remote ]; then exit 0; fi\nexec '%s' \"$@\"\n" % real)
@@ -399,6 +399,8 @@ TABLES = {
          "Pushed demo to origin.", "could not be closed", None, True),
         ("bad-path", R.folded, ("pr", "open", "--path", "pushed", *SLUG, *CC, "--write"),
          "--path takes open, push-only or existing, not pushed.", "pr open " + USAGE, None, False),
+        ("check-fold-owed", R.code_signed, ("pr", "check", *SLUG, *CC), "The fold's outcome is not recorded",
+         "loop fold --slug demo --harness claude-code --write, then run ", None, False),
         ("check-option-of-open", R.code_signed, ("pr", "check", *SLUG, *CC, "--path", "open"),
          unknown("path", ("harness", "slug")), AGAIN, None, False),
         ("open-missing", R.folded, ("pr", "open", *SLUG, "--write"), "Missing: --harness, --path", "pr open " + USAGE,

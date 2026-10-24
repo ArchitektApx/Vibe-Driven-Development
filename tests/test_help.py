@@ -234,9 +234,9 @@ def wayfinder_map(t):
 
 
 def pr_template(t):
-    """Code signed off on PR: no, with a PR template, so pr check reads no
-    PR history through gh."""
-    t.code_signed(pr="no")
+    """Code signed off and folded on PR: no, with a PR template, so pr check
+    reads no PR history through gh."""
+    t.folded(pr="no")
     t.box.write(os.path.join(".github", "pull_request_template.md"), "## Summary\n")
 
 

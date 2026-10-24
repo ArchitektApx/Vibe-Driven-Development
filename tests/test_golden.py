@@ -211,9 +211,9 @@ ROWS = [
                                                    t.stage("orchestrator session 1", "spawn Coder 1 session 1")),
      ("orchestrator", "tokens", "--role", "Coder", "--tokens", "52000", *SLUG), None, None, 0),
 
-    ("pr", "check", "manual", lambda t: t.code_signed(pr="manual"), ("pr", "check", *SLUG, *CC), S.no_gh, None, 0),
-    ("pr", "check", "no", lambda t: t.code_signed(pr="no"), ("pr", "check", *SLUG, *CC), S.no_gh, None, 0),
-    ("pr", "check", "template-push-only", lambda t: (t.code_signed(pr="yes"), t.origin(),
+    ("pr", "check", "manual", lambda t: t.folded(pr="manual"), ("pr", "check", *SLUG, *CC), S.no_gh, None, 0),
+    ("pr", "check", "no", lambda t: t.folded(pr="no"), ("pr", "check", *SLUG, *CC), S.no_gh, None, 0),
+    ("pr", "check", "template-push-only", lambda t: (t.folded(pr="yes"), t.origin(),
                                                      t.box.write(".github/pull_request_template.md", "## What\n")),
      ("pr", "check", *SLUG, *CC), S.no_gh, None, 0),
     ("pr", "open", "push-only", lambda t: (t.folded(pr="yes"), t.origin(),

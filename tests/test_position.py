@@ -137,9 +137,12 @@ class Positions(Scenes):
         self.assertNotIn("already recorded", check.text)
 
     def test_the_owed_fold(self):
-        """The one exception: pr check passes on an owed fold, as before,
-        while pr open refuses."""
-        self.row(Scenes.fold_owed, "pr", ["Fold: not run yet."])
+        """Prevents a PR assembled or pushed from a branch the fold has not
+        put in its reviewed shape: pr check and pr open both refuse, and pr
+        check names the loop fold call."""
+        self.row(Scenes.fold_owed, None, ["Fold: not run yet."])
+        checked = self.box.run("pr", "check", *SLUG, *CC, env=self.env(self.no_gh()))
+        self.assertIn("loop fold --slug demo --harness claude-code --write, then run ", checked.last)
         opened = self.box.run("pr", "open", "--path", "open", *SLUG, *CC, "--write", env=self.env(self.no_gh()))
         self.assertNotEqual(opened.code, 0, opened)
         self.assertIn("The fold's outcome is not recorded", opened.text)

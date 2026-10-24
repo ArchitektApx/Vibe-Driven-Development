@@ -14,14 +14,14 @@ import subprocess
 import sys
 import unittest
 
-from vddtest import GH, PLAN_SIGNED, URL, WINDOWS, LoopRepoTest, SceneTest
+from vddtest import GH, PLAN_SIGNED, URL, WINDOWS, LoopRepoTest, SceneTest, tool_command
 
 HOSTS_REFUSED = "failed to read configuration: open ~/.config/gh/hosts.yml: operation not permitted"
 
 
 class PRScene(SceneTest):
-    """A loop signed off on demo, one commit ahead of main. With bare set,
-    origin is a local bare repository holding main."""
+    """A loop signed off and folded on demo, one commit ahead of main. With
+    bare set, origin is a local bare repository holding main."""
 
     pr = "yes"
     bare = False
@@ -41,7 +41,8 @@ class PRScene(SceneTest):
         self.git("commit", "-q", "-m", "feat: a")
         self.box.write_loop("demo", extra=(PLAN_SIGNED, "code 1 start %s" % start, "code 1 end %s" % self.sha(),
                                            "code 1 reviewed signed-off - counts 0 0 0 next 1 new 0 closed 0 "
-                                           "checks code-review ran"))
+                                           "checks code-review ran",
+                                           "fold folded %s signed %s" % (self.sha(), self.sha())))
         self.set_pr(self.pr)
         if self.bare:
             self.origin = self.box.bare_origin()
@@ -233,37 +234,143 @@ class CheckTest(PRTest):
         self.assertIn("Preflight, can push, remote origin: passed.", result.lines)
         self.assertIn("Preflight, can open a PR, remote origin: passed.", result.lines)
         self.assertIn("Path: open", result.lines)
-        self.assertNext(result, "step 3", ".scratch/demo/pr-body.md", "step 4 (the PR: line)")
+        self.assertNext(result, ".scratch/demo/pr-body.md", "pr open --path open --slug demo")
         head = [c["argv"] for c in self.calls() if "--head" in c["argv"]]
         self.assertEqual(head, [["pr", "list", "--head", "demo", "--state", "open", "--json", "url"]])
         url = "https://github.com/example/repo/pull/7"
         self.plan(merged=[0, "[]", ""], head=[0, json.dumps([{"url": url}]), ""])
         result = self.pr_check()
         self.assertIn("Path: existing %s" % url, result.lines)
-        self.assertNext(result, "step 3", ".scratch/demo/pr-body.md", "step 4 (the PR: line)")
+        self.assertNext(result, ".scratch/demo/pr-body.md", url, "pr open --path existing --slug demo")
 
     def test_push_only_and_neither(self):
         self.remote()
         self.plan(merged=[0, "[]", ""], auth=[1, "", "You are not logged into any GitHub hosts.\n"])
         result = self.pr_check()
         self.assertIn("Path: push-only", result.lines)
-        self.assertNext(result, "step 3", ".scratch/demo/pr-body.md", "step 4 (the PR: line)")
+        self.assertNext(result, ".scratch/demo/pr-body.md", "pr open --path push-only --slug demo")
         self.git("remote", "remove", "origin")
         result = self.pr_check()
         self.assertIn("Path: neither", result.lines)
-        self.assertNext(result, "step 3", ".scratch/demo/pr-body.md", "step 4 (the PR: line)")
+        self.assertNext(result, ".scratch/demo/pr-body.md", "loop close --slug demo --write")
+        self.assertNotIn("pr open", result.last)
 
     def test_ask_at_sign_off_goes_on_to_the_deferred_question(self):
-        """The Next: line restated the skill's step 7 on every path, and on PR:
-        ask at sign-off the PR-Author skipped the deferred question."""
+        """Prevents a PR-Author on PR: ask at sign-off skipping the deferred
+        question: the Next: line asks it before naming pr open."""
         self.remote()
         self.set_pr("ask at sign-off")
         self.plan(merged=[0, "[]", ""], head=[0, "[]", ""])
         result = self.pr_check()
         self.assertEqual(result.code, 0, result)
         self.assertIn("Path: open", result.lines)
-        self.assertNext(result, "step 3", ".scratch/demo/pr-body.md", "step 4 (the PR: line)")
-        self.assertNotIn("pr open", result.lines[-1])
+        self.assertNext(result, ".scratch/demo/pr-body.md", "ask the user whether to open the PR or leave it")
+        self.assertLess(result.last.index("ask the user whether"), result.last.index("pr open --path open"))
+
+
+TOOL = tool_command()
+PR = "https://github.com/example/repo/pull/7"
+CLOSE = TOOL + " loop close --slug demo --write"
+LEAVE = "print the title and body, run %s and stop; push nothing" % CLOSE
+
+
+def open_line(path):
+    return TOOL + " pr open --path %s --slug demo --harness claude-code --write" % path
+
+
+class EndingTest(PRTest):
+    """pr check's Next: line is the one PR-Author ending for the PR: line and
+    the path, each with the exact command it runs."""
+
+    def staged(self, pr, path):
+        self.set_pr(pr)
+        has_origin = "origin" in self.git("remote").split()
+        if path != "neither" and not has_origin:
+            self.remote()
+        if path == "neither" and has_origin:
+            self.git("remote", "remove", "origin")
+        outcomes = {"merged": [0, "[]", ""], "head": [0, "[]", ""]}
+        if path == "existing":
+            outcomes["head"] = [0, json.dumps([{"url": PR}]), ""]
+        if path == "push-only":
+            outcomes["auth"] = [1, "", "You are not logged into any GitHub hosts.\n"]
+        self.plan(**outcomes)
+        result = self.pr_check()
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("Path: %s" % (path if path != "existing" else "existing " + PR), result.lines)
+        return result.last
+
+    def assert_leaves(self, last):
+        """An ending that runs no pr open prints the title and body before
+        loop close."""
+        self.assertIn(LEAVE, last)
+
+    def test_yes_open_and_existing(self):
+        """Prevents a push without the user's one confirmation on PR: yes."""
+        for path in ("open", "existing"):
+            last = self.staged("yes", path)
+            self.assertIn("wait for one confirmation before any push", last)
+            self.assertIn(open_line(path), last)
+            self.assertNotIn("whether to open the PR or leave it", last)
+            self.assertNotIn(CLOSE, last)
+        self.assertIn(PR, last)
+
+    def test_ask_open_and_existing(self):
+        """Prevents a PR-Author on PR: ask at sign-off skipping the deferred
+        question, or losing the body when the user leaves the PR to
+        themselves."""
+        for path in ("open", "existing"):
+            last = self.staged("ask at sign-off", path)
+            self.assertIn("ask the user whether to open the PR or leave it to them. On leave, " + LEAVE, last)
+            self.assertIn("On open, ", last)
+            self.assertIn(open_line(path), last)
+
+    def test_push_only_asks_one_question(self):
+        """Prevents a push the user cannot turn into a PR without their yes,
+        a second question on PR: ask at sign-off, and a push that drops the
+        user's amendment to the title or body."""
+        for pr in ("yes", "ask at sign-off"):
+            last = self.staged(pr, "push-only")
+            self.assertIn("ask one question: push the branch so they can open the PR themselves", last)
+            self.assertIn("On push, write any amendment back to .scratch/demo/pr-body.md, run %s"
+                          % open_line("push-only"), last)
+            self.assert_leaves(last)
+            self.assertNotIn("whether to open the PR or leave it", last)
+
+    def test_neither_asks_nothing(self):
+        """Prevents a question that cannot lead to a PR, and a push, where
+        no check passes."""
+        for pr in ("yes", "ask at sign-off"):
+            last = self.staged(pr, "neither")
+            self.assertIn("ask nothing: tell the user the check that failed (can push: ", last)
+            self.assert_leaves(last)
+            self.assertNotIn("pr open", last)
+            self.assertNotIn("whether to open the PR or leave it", last)
+
+    def test_manual_prints_and_closes(self):
+        """Prevents a PR: manual ending that closes the loop without printing
+        the title and body, or reads more than the merged history."""
+        self.set_pr("manual")
+        last = self.pr_check().last
+        self.assert_leaves(last)
+        self.assertNotIn("pr open", last)
+        calls = [c["argv"] for c in self.calls()]
+        self.assertEqual(calls, [["pr", "list", "--state", "merged", "--limit", "10", "--json", "title,body"]])
+
+    def test_no_makes_no_gh_call(self):
+        """Prevents a gh call, and its sandbox refusal, where PR: no opens
+        nothing."""
+        self.set_pr("no")
+        result = self.pr_check()
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(self.calls(), [])
+        self.assertIn("`PR: no`: `demo` stays local, nothing pushed.", result.last)
+
+    def test_no_line_names_a_step_number(self):
+        """Prevents a Next: line that a renumbered skill would misroute."""
+        for pr, path in (("yes", "open"), ("ask at sign-off", "push-only"), ("yes", "neither")):
+            self.assertNotRegex(self.staged(pr, path), r"\bstep [0-9]")
+
 
 class NoGhTest(PRScene):
     """pr check and pr open where gh is off PATH: PR: manual, PR: no, gh not
@@ -313,7 +420,8 @@ class NoGhTest(PRScene):
         result = self.pr_check()
         self.assertNotIn("Preflight", result.text)
         self.assertIn("Path: manual (PR: manual, no preflight)", result.lines)
-        self.assertNext(result, "step 3", ".scratch/demo/pr-body.md", "step 4 (the PR: line)")
+        self.assertNext(result, ".scratch/demo/pr-body.md", "print the title and body, run ",
+                        "loop close --slug demo --write and stop; push nothing")
 
     def test_pr_no_ends_on_the_fold_s_pr_step(self):
         self.set_pr("no")
