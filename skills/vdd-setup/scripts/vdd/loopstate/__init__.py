@@ -1,6 +1,7 @@
 """A loop's state: the state file read once per command (state), one
 builder per state-line kind (lines), where the Workflow stands (position),
-and the Recap and its records (recap, imported by its users)."""
+and the Recap and its records (recap and records, imported by their
+users)."""
 
 from .lines import (  # noqa: F401
     STATE_PREFIX,
@@ -42,11 +43,6 @@ from .state import (  # noqa: F401
     SEVERITIES,
     STATE_NAME,
     State,
-    closed_loop,
-    coder_doorbell,
-    open_loop,
-    planner_doorbell,
-    review_doorbell,
-    start_state,
+    start_text,
 
 )

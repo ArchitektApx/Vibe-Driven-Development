@@ -277,15 +277,15 @@ class Staged(LoopRepoTest):
             self.git("config", "url.%s.pushInsteadOf" % bare, URL)
 
     def pr_check_open(self):
-        self.code_signed(pr="yes")
+        self.folded(pr="yes")
         self.github(merged=[0, "[]", ""], head=[0, "[]", ""])
 
     def pr_check_existing(self):
-        self.code_signed(pr="yes")
+        self.folded(pr="yes")
         self.github(merged=[0, "[]", ""], head=[0, json.dumps([{"url": PR_URL}]), ""])
 
     def pr_check_neither(self):
-        self.code_signed(pr="yes")
+        self.folded(pr="yes")
         self.github(remote=False, merged=[0, "[]", ""])
 
     def pr_open_open(self):
@@ -326,9 +326,17 @@ class Staged(LoopRepoTest):
             handle.write(("10:00:00 to: Orchestrator VDD Planner: .scratch/feat/ ready, round 1. "
                           "Read spec.md and issues/.\n").encode())
 
+    def codex_armed_newer_doorbells(self):
+        """An armed Codex Orchestrator whose Doorbell file has a format
+        version this copy does not know: the wait fails after the claim."""
+        self.codex_armed()
+        with open(self.box.path(".scratch", "feat", "doorbells"), "wb") as handle:
+            handle.write(b"# vdd doorbells 99\n")
+
     def wayfinder_installed(self):
         self.repo()
-        self.box.write(os.path.join(self.box.home, ".claude", "plugins", "cache", "x", "wayfinder", "SKILL.md"),
+        self.box.write(os.path.join(self.box.home, ".claude", "plugins", "cache", "mattpocock", "mattpocock-skills",
+                                    "1.0.0", "skills", "wayfinder", "SKILL.md"),
                        "---\nname: wayfinder\n---\n", base=self.box.root)
 
     def read_only_state(self):

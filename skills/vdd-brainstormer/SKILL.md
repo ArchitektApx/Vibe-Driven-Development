@@ -28,20 +28,17 @@ to run `vdd-setup`, which names the install for their Harness, and stop.
 The idea store is kept by the VDD tool, `vdd.py` in the Shared directory:
 `~/.local/share/vdd/vdd.py` on macOS and Linux (`$XDG_DATA_HOME/vdd/vdd.py`
 when that variable is set), and `%LOCALAPPDATA%\vdd\vdd.py` on native Windows.
-Write the path out in full, every variable expanded, so a hook that checks
-shell commands and an approval prompt see no expansion. Run it as `python3
-"<path>" brainstorm <command>`, on native Windows as `py -3 "<path>"
-brainstorm <command>`. If `python3` or `py -3` is not found, tell the user
-VDD needs Python 3.9 or newer, and stop.
+Run it as `python3 "<path>" brainstorm <command>`, on native Windows as
+`py -3 "<path>" brainstorm <command>`, the path written out in full with
+every variable expanded. If `python3` or `py -3` is not found, tell the user
+VDD needs Python 3.9 or newer, and stop. If the interpreter cannot open
+`vdd.py`, tell the user to invoke `vdd-setup`, which installs it, and wait;
+then rerun the command that failed.
 
-If the interpreter cannot open `vdd.py`, the tool is not at its path: tell the
-user to invoke `vdd-setup`, which installs it, and wait; when they say it has
-run, rerun the command that failed.
-
-Every run ends with a `Next:` line: do what it says, and relay every `Tell
-the user verbatim` line unchanged. Lines starting `  > ` quote an idea's own
-text. Never write, edit, copy or replace the tool, and never do its work as
-inline shell.
+Every command shows its usage and options with `--help`. Every run ends with
+a `Next:` line: do what it says, and relay every `Tell the user verbatim`
+line unchanged. Never write, edit, copy or replace the tool, and never do its
+work as inline shell.
 
 ## The idea store
 
@@ -55,17 +52,16 @@ edit its frontmatter, `## History` or `## Related Ideas`. Research notes,
 scripts and PoCs under `research/<slug>/` are yours to write. `removed.md`
 keeps one line per idea `cleanup` removed.
 
-A part names its parent; families go three levels deep. The tool keeps each
-idea's History and `last-updated` itself, your Edits included.
+A part names its parent; families go three levels deep.
 
 ## Session start
 
-Run `brainstorm start` before you answer anything. It prints every open
-idea, parts under their parent, with status, importance/size/fog, last
-update, what it waits on and its tldr. Keep it in mind for the whole
-Session: answer "what's on the table", "what's next" and "what waits on X"
-from it, with no further call. Do not offer a menu; answer the user's first
-message.
+Run `brainstorm start` before you answer anything. Keep its overview in mind
+for the whole Session: answer "what's on the table", "what's next" and "what
+waits on X" from it, with no further call. When `start` sends you to
+`brainstorm migrate` instead, run `brainstorm start` again after
+`migrate --write` when you need the overview, as its `Next:` says. Do not
+offer a menu; answer the user's first message.
 
 Recommend ideas to work on by `importance`, `size` and `fog` from the
 frontmatter:
@@ -76,41 +72,29 @@ frontmatter:
 - large size and thick fog with low importance is a lot to do and not a
   priority
 
-If `start` reports a 0.15 store, follow its `Next:` before anything else.
-
 ## The moves
 
-Each move is one command. `<slug>` is an idea's kebab-case name. Every write
-ends in `--write`; without it the command is a dry run that prints what it
-would write.
+Each move is one `brainstorm` command, and every write ends in `--write`.
+Write what the user decides into the store in the same turn, without being
+asked.
 
 | The user | You run |
 |---|---|
-| "X landed", "X is done" | Check what landed with `git` or `gh`, then `set --idea X --status done --decision "<what landed: the PR, commit or version>" --write`; repeat `--idea` for every idea it finishes |
-| "where are we with X", "what's left of X" | `show --idea X` |
-| "didn't we talk about ...", "why did we drop X" | `find --text "<word>"`, or `show --idea X` |
-| a new idea | `new --slug <slug> --title "<title>" --tldr "<one sentence>" --summary "Goal: <the goal>. <what the user said>"`, with `--parent <slug>` for a part; then the same with `--write`, see below |
-| a result, an answer, a fact about X | `note --idea X --section <Evidence, Summary, Proposal, Pro, Con, Open Questions, Prior Art, Next Steps or Related Ideas> --text "<text>" --write` (Related Ideas: `"<kind> <slug>: <why>"`); `--tick "<start of a step>"` ticks a Next Step |
+| "X landed", "X is done" | Check what landed with `git` or `gh`, then `set --status done` with `--decision "<what landed: the PR, commit or version>"`; repeat `--idea` for every idea it finishes |
+| "where are we with X", "what's left of X" | `show` |
+| "didn't we talk about ...", "why did we drop X" | `find`, or `show` |
+| a new idea | `new`, with `--parent` for a part and `--summary "Goal: <the goal>. <what the user said>"`; see below |
+| a result, an answer, a fact about X | `note` |
 | rewrite what X says | Read the idea file, then Edit only that section |
-| a status, importance, size or fog | `set --idea X --status <s>` or `--importance`, `--size` or `--fog` with xsmall to xlarge or unknown, `--write` |
-| "drop X" | `set --idea X --status dropped --decision "<why>" --reopen-when "<when it comes back>" --write`; its open parts drop with it |
-| "reopen X" | `set --idea X --status idea --decision "<what is new>" --write` |
-| "split X" | `split --idea X --part "<part>" --part "<part>" --write`, each part written as below; X stays their parent |
-| "A and B are one idea" | `merge --idea A --into B --reason "<why>" --reopen-when "<when>" --write` |
-| "X belongs under P" | `move --set X=P --write`, `X=top` back to the top level |
-| "rename X to Y" | `rename --idea X --to Y --write` |
-| "clean up the old ideas" | `cleanup --status <done or dropped> --older <N>d or <N>w`, or `--idea X`; see below |
-
-A part of a split is one argument, its slug, title and tldr joined by
-vertical bars: `--part "vendor-skill-sync | Upstream sync | A workflow syncs
-the vendored skills from upstream."`.
+| a status, importance, size or fog | `set` |
+| "drop X", "reopen X" | `set --status dropped` with `--reopen-when`, `set --status idea` |
+| "split X", "A and B are one idea", "X belongs under P", "rename X to Y" | `split`, `merge`, `move`, `rename` |
+| "clean up the old ideas" | `cleanup`; see below |
 
 Statuses: `idea` (written down), `discussed` (talked through), `shaped`
 (direction chosen), `decided` (taken on by a loop or a Wayfinder),
-`in-progress` (a loop carries it), `done`, `dropped`. `done`, `dropped` and
-`decided` need `--decision`; `dropped` needs `--reopen-when`, so the same
-idea is not discussed twice. Done needs the user's word; a part's status
-never closes its parent.
+`in-progress` (a loop carries it), `done`, `dropped`. Done needs the user's
+word; a part's status never closes its parent.
 
 **A new idea.** Run `new` without `--write` first: it lists the ideas,
 open, closed or removed, that look like the same one. If it lists any, ask
@@ -120,20 +104,10 @@ when, before you capture anything. On "it is new", run the same `new` with
 `set --status idea` to reopen a closed one). If it lists none, run it with
 `--write` straight away.
 
-When `merge` refuses because the idea has open parts, ask the user where
-those parts go, move them, then merge.
-
-When `rename` lists prose that still names the old slug, quote those lines
-to the user and ask whether to change them; on a yes, Read each idea file
-and Edit only those lines in place. Never change them unasked.
-
 **Cleanup.** Run `cleanup` without `--write` first and show the user the
 list it prints; run it with `--write` only on their yes. When they give the
 age vaguely ("long ago", "a while back"), ask them for a number of days or
-weeks before the first run. Never remove every closed idea at once.
-
-Write what the user decides into the store in the same turn, without being
-asked.
+weeks before the first run.
 
 ## Working on an idea
 

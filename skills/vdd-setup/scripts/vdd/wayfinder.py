@@ -9,40 +9,25 @@ alone.
 from __future__ import annotations
 
 import os
-from typing import Any
 
-from . import args, gitcmd, places, stores
+from . import catalog, gitcmd, harness as harnesses, stores
 from .out import Failure, Output
 
-SUBCOMMANDS = ("start",)
 TEMPLATES = ("overview-template.md", "handoff-template.md")
 # A Feature slug, with dots allowed between words: an effort is often named
-# for a release, as beta-0.16.0-work is.
+# for a release, as release-2.1-work is.
 EFFORT_PATTERN = "[a-z0-9]+([.-][a-z0-9]+)*"
 
-HELP = [
-    "wayfinder start --effort <slug> --skill-dir <dir>",
-    "  The Wayfinder's first call. Checks the effort slug, reports whether .scratch/<effort>/map.md exists and",
-    "  where Matt Pocock's wayfinder skill is installed, and prints the briefing for wayfinder with the effort",
-    "  and the absolute paths of both templates filled in. --skill-dir is the Wayfinder skill's base",
-    "  directory, the one your Harness reported when the skill loaded; it refuses when a template is missing",
-    "  there. It writes nothing.",
-    "",
-    "Run every command from the repository root.",
-]
-
-SPEC = {"effort": args.VALUE, "skill-dir": args.VALUE}
-
-# The roots Matt Pocock's wayfinder is searched under, on every Harness: (base,
-# relative path), base "~" for the user's home and "." for the project.
-ROOTS = (
-    ("~", ".agents/skills"),
-    (".", ".agents/skills"),
-    ("~", ".claude/skills"),
-    (".", ".claude/skills"),
-    ("~", ".claude/plugins/cache"),
-    ("~", ".codex/plugins/cache"),
-)
+HELP = catalog.Help({
+    "start": [
+        "wayfinder start --effort <slug> --skill-dir <dir>",
+        "  The Wayfinder's first call. Checks the effort slug, reports whether .scratch/<effort>/map.md exists and",
+        "  where Matt Pocock's wayfinder skill is installed, and prints the briefing for wayfinder with the effort",
+        "  and the absolute paths of both templates filled in. --skill-dir is the Wayfinder skill's base",
+        "  directory, the one your Harness reported when the skill loaded; it refuses when a template is missing",
+        "  there. It writes nothing.",
+    ],
+})
 
 BRIEFING = [
     "Briefing for the wayfinding of <effort>:",
@@ -65,18 +50,13 @@ BRIEFING = [
 ]
 
 
-def usage() -> str:
-    return "%s wayfinder --help" % places.command()
-
-
 def run(argv: list[str]) -> int:
-    return args.run_group(argv, "wayfinder", dict.fromkeys(SUBCOMMANDS, SPEC), HELP,
-                          "Run the wayfinder command your skill names.", dispatch)
+    return catalog.run("wayfinder", argv, HELP, "Run wayfinder start with the effort slug and this skill's base directory.",
+                       dispatch)
 
 
-def dispatch(sub: str, values: dict[str, Any]) -> int:
-    args.require(values, ["effort", "skill-dir"], usage())
-    return start(values["effort"], values["skill-dir"])
+def dispatch(ctx: catalog.Context) -> int:
+    return start(ctx.values["effort"], ctx.values["skill-dir"])
 
 
 def templates(skill_dir: str) -> list[str]:
@@ -96,15 +76,28 @@ def templates(skill_dir: str) -> list[str]:
     return found
 
 
-def find_wayfinder(root: str) -> str | None:
+def wayfinder_roots(root: str) -> list[stores.Root]:
+    """The roots Matt Pocock's wayfinder is searched under: every Harness's
+    skill stores, the ones Setup searches under Generic, whichever Harness
+    this Session runs in."""
+    return stores.union(found.present_roots(root) for found in harnesses.every())
+
+
+def find_wayfinder(roots: list[stores.Root]) -> str | None:
     """The path of wayfinder/SKILL.md under the first root that holds one,
     or None."""
-    for base, relative in ROOTS:
-        directory = os.path.join(places.home() if base == "~" else root, *relative.split("/"))
-        hits = stores.search([stores.Root(directory, stores.SKILL_STORE, stores.USER, "any")], ["wayfinder"])
+    for store in roots:
+        hits = stores.search([store], ["wayfinder"])
         if hits.get("wayfinder"):
             return sorted(hit.path for hit in hits["wayfinder"])[0]
     return None
+
+
+def shown(store: stores.Root, root: str) -> str:
+    """A root as the refusal names it, with the pattern a plugin cache is
+    searched below."""
+    label = store.label(root)
+    return "%s/%s" % (label, store.pattern) if store.pattern else label
 
 
 def briefing(effort: str, overview: str, handoff: str) -> list[str]:
@@ -113,7 +106,7 @@ def briefing(effort: str, overview: str, handoff: str) -> list[str]:
 
 
 def check_effort(effort: str) -> None:
-    args.check_slug(effort, EFFORT_PATTERN, "an effort slug", "an effort slug", "hyphens or dots")
+    catalog.check_slug(effort, EFFORT_PATTERN, "an effort slug", "an effort slug", "hyphens or dots")
 
 
 def start(effort: str, skill_dir: str) -> int:
@@ -125,10 +118,11 @@ def start(effort: str, skill_dir: str) -> int:
     map_path = ".scratch/%s/map.md" % effort
     has_map = os.path.isfile(os.path.join(root, ".scratch", effort, "map.md"))
     out.line("Map: %s %s." % (map_path, "exists" if has_map else "does not exist"))
-    found = find_wayfinder(root)
+    roots = wayfinder_roots(root)
+    found = find_wayfinder(roots)
     if found is None:
         out.line("wayfinder: not installed: no wayfinder/SKILL.md under %s." % ", ".join(
-            "%s/%s" % (base, relative) for base, relative in ROOTS))
+            shown(store, root) for store in roots))
         out.tell("Matt Pocock's wayfinder skill is not installed. Invoke vdd-setup, which installs it, then start "
                  "the Wayfinder again.")
     else:
@@ -137,7 +131,7 @@ def start(effort: str, skill_dir: str) -> int:
     for line in briefing(effort, overview, handoff):
         out.line(line)
     if found is None:
-        return out.finish("Relay the Tell the user verbatim line above and stop.")
+        return out.finish("Stop.")
     if has_map:
         return out.finish(
             "Read the ## Notes of %s. If any of the three points in the briefing above is missing there, print the "

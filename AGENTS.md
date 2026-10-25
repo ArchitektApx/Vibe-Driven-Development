@@ -44,21 +44,31 @@ temporary prefix they remove, so a run leaves no `__pycache__` behind. A test
 drives the tool from outside, as a Role or a user sees it. The one exception
 is the Harness contract test, `tests/test_harness_contract.py`, which imports
 the package to check that every Harness module implements the whole
-interface. A test that replaces a guardrail says in its docstring which
-failure it prevents.
+interface. A guardrail test's docstring states the failure it prevents in
+plain words, without loop, Ticket or finding numbers or a commit sha; the
+commit that adds the test keeps the history.
 
 ## Code layout
 
 The VDD tool is the package `skills/vdd-setup/scripts/vdd/`.
 
 - Shared helpers sit at the top of the package. A group with modules of its
-  own is a subpackage, as `setup/`, `loop/`, `review/`, `orchestrator/` and
-  `coder/` are, and so is a concern with several modules, as `harness/` and
-  `loopstate/` are. A module that splits becomes a directory named for its
-  concern.
-- A group module holds its command surface: help, parsing, dispatch and
-  printed lines. No group module imports another group's module; `loop fold`
-  is part of the `loop` group.
+  own is a subpackage, as `brainstorm/`, `setup/`, `loop/`, `review/`,
+  `orchestrator/`, `coder/` and `pr/` are, and so is a concern with several
+  modules, as `brainstorm/ideafile/`, `catalog/`, `doorbells/`, `harness/`,
+  `loop/fold/`, `loopfile/`, `loopstate/`, `runner/`, `setup/codex/` and
+  `workfile/` are. A module that
+  splits becomes a directory named for its concern.
+- The command catalog, `catalog/`, holds every command's spec and the group
+  list, parses a command line and words its refusals. A group module holds
+  the rest of its command surface: help, dispatch and printed lines. No group
+  module imports another group's module; `loop fold` is part of the `loop`
+  group.
+- A write command is a precondition and a plan of effects, each effect
+  carrying its dry-run and done lines; `runner/` prints the plan as the dry
+  run, or applies it with `--write` through the record step. `brainstorm/`
+  keeps its own runner, lock and journal, and its `--write` prints what it
+  wrote and no line its dry run printed.
 - Code with one user stays in that group's subpackage. It moves to the top
   when a second group adopts it.
 - One concern per module, about 500 lines at most, as guidance.

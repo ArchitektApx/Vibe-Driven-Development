@@ -33,7 +33,7 @@ If the other session does not wake, paste the line the Role prints.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="workflow-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="workflow-light.svg">
-  <img alt="The VDD workflow: you start the loop as the Planner, and an Orchestrator session runs the rest. The Planner and its hosted Plan-Reviewer exchange the spec and PLAN-REVIEW.md until sign-off, the hosted Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the Orchestrator invokes the PR-Author, which opens the PR or hands it to you. Every file named here lives in the tracker directory .scratch/&lt;slug&gt;/, beside the spec, the tickets and the Loop file." src="workflow-light.svg" width="900">
+  <img alt="The VDD workflow: you start the loop as the Planner, and an Orchestrator session runs the rest. The Planner and the Plan-Reviewer the Orchestrator hosts exchange the spec and PLAN-REVIEW.md until sign-off, the hosted Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the Orchestrator invokes the PR-Author, which opens the PR or hands it to you, unless the loop's PR: line is no. Every file named here lives in the tracker directory .scratch/&lt;slug&gt;/, beside the spec, the tickets and the Loop file." src="workflow-light.svg" width="900">
 </picture>
 
 </div>
@@ -53,7 +53,7 @@ The Planner and the Coder explore the codebase before they write, so token cost 
 
 When the Planner's or the Coder's work is complex, buy judgement there too.
 
-You pick the Planner's model when you open its session. The Orchestrator only spawns Roles, relays Doorbells and counts rounds, so a mid-tier model like Claude Sonnet 5.5 is enough for it. Before its first spawn it prints Model approval: a model per hosted Role, filled from what your environment says about models, such as the file below. You approve or correct the list once, and it holds for every spawn in the session.
+You pick the Planner's model when you open its session. The Orchestrator mostly does what the VDD tool prints: it spawns and respawns Roles, relays Doorbells, runs the fold and invokes the PR-Author, so a mid-tier model like Claude Sonnet 5.5 is enough for it. Before its first spawn it prints Model approval: a model per hosted Role, filled from what your environment says about models, such as the file below. You approve or correct the list once, and it holds for every spawn in the session.
 
 An example, `~/.claude/AGENT_SELECTION.md`:
 
@@ -80,11 +80,13 @@ Put it where your Harness reads its instructions; the path above is Claude Code'
 `/vdd:vdd-start-loop` runs the environment check, then asks for:
 
 - a kebab-case slug for the work
-- the base branch and the feature branch
+- the feature branch: the slug, unless you name another branch
 - whether an open minor holds up Sign-off (`fix`, or `leave` it listed)
 - whether VDD opens the PR at the end (yes, ask at Sign-off, manual, or no)
 
-The VDD tool writes the answers to the loop's Loop file, `.scratch/<slug>/loop.md`, which every Role reads first, so none asks again. If an earlier loop used the slug, you choose to continue it, start fresh (its directory is moved aside to `.scratch/<slug>-2/`, nothing deleted) or pick another slug. To check a repository before its first loop, run `/vdd:vdd-setup` on its own. It looks at the borrowed skills, the issue tracker and the gitignore entries, and tells you how to fix anything missing. It then prints a summary of the Loop file, which says you can ask the Orchestrator to start any Role fresh at its next round, and hands over to the Planner.
+The loop branches from the branch you have checked out, and asks for one only when HEAD is detached.
+
+The VDD tool writes the answers to the loop's Loop file, `.scratch/<slug>/loop.md`, which every Role reads first, so none asks again. If an earlier loop used the slug, you choose to continue it, start fresh (its directory is moved aside to `.scratch/<slug>-2/`, nothing deleted) or pick another slug. To check a repository before its first loop, run `/vdd:vdd-setup` on its own. It looks at the borrowed skills, the issue tracker and the gitignore entries, and tells you how to fix anything missing. It then prints a summary of the Loop file, which says you can ask the Orchestrator to respawn any hosted Role at any round, and hands over to the Planner.
 
 One question comes later, with the Orchestrator's Model approval: how the Coder continues between rounds (fresh every round, resumed, or on Claude Code fresh once its token count passes a limit). The Orchestrator asks it once per loop. The reviewers are resumed unless you ask otherwise.
 
@@ -122,10 +124,12 @@ On each code Sign-off the Orchestrator first folds the branch, without asking: e
 
 Then the Orchestrator runs the PR-Author in its own session, which follows the Loop file's `PR:` line:
 
-- `PR: yes` shows you the body, pushes the branch and opens the PR.
-- `PR: ask at sign-off` asks you then.
-- `PR: manual` prints the body and touches neither the branch nor the remote.
+- `PR: yes` shows you the title and body, and on your yes pushes the branch and opens the PR.
+- `PR: ask at sign-off` asks whether to open the PR or leave it to you.
+- `PR: manual` closes the loop, prints the title and body for you, and touches neither the branch nor the remote.
 - `PR: no` skips the PR-Author. The branch stays local and no body is printed.
+
+When VDD can push but cannot open a PR, it asks once whether to push the branch so you open the PR yourself. When it can do neither, it names the check that failed. Except on `PR: no`, the title and body are printed when the loop closes without a push.
 
 Then:
 
@@ -133,7 +137,7 @@ Then:
 2. The loop is closed by then. Read `.scratch/<slug>/RECAP.md` for how it went: the rounds, each ticket, every closed finding with what was wrong and how it was resolved, and each final commit with the commits it was built from. `.scratch/<slug>/` keeps it beside the Loop file, the spec and the tickets. It is gitignored, so it stays on this machine. To fix something before you merge, a finding from an outside review for example, send it back with `review add`, below.
 3. Start the next loop with fresh sessions.
 
-To send your own findings back into a signed-off loop, write them in a file, each as `### <blocker|major|minor>: <reference>` and a body, and run `python3 ~/.local/share/vdd/vdd.py review add --slug <slug> --from <file>` from the repository root. It shows what it would do; add `--write` to do it. `python3 ~/.local/share/vdd/vdd.py review --help` has the rest. On native Windows in PowerShell, run `py -3 "$env:LOCALAPPDATA\vdd\vdd.py" ...` instead. Then tell the Orchestrator: "I sent findings back after the Sign-off with review add, and the loop is open again. Run orchestrator start for <slug> and do what it prints." A fresh Coder takes your findings, the Code-Reviewer reviews its fixes, and the fold runs again at the next Sign-off. When the PR is already open, the fixes stay as their own commits and the PR-Author pushes them to it.
+To send your own findings back into a signed-off loop, write them in a file, each as `### <blocker|major|minor>: <reference>` and a body, and run `python3 "${XDG_DATA_HOME:-$HOME/.local/share}/vdd/vdd.py" review add --slug <slug> --from <file>` in the repository. It shows what it would do; add `--write` to do it. `review add --help` has the rest. On native Windows in PowerShell, run `py -3 "$env:LOCALAPPDATA\vdd\vdd.py" ...` instead. Then tell the Orchestrator: "I sent findings back after the Sign-off with review add, and the loop is open again. Run orchestrator start for <slug> and do what it prints." A fresh Coder takes your findings, the Code-Reviewer reviews its fixes, and the fold runs again at the next Sign-off. When the PR is already open, the fixes stay as their own commits and the PR-Author pushes them to it.
 
 ## 🧭 Before the loop
 
@@ -147,7 +151,7 @@ To send your own findings back into a signed-off loop, write them in a file, eac
 
 </div>
 
-Two optional Roles run in your own session before a loop. Neither starts the next Role: you carry what they write forward yourself.
+Two optional Roles run in your own session before a loop. Neither starts the next Role for you: you start it in a fresh session, with the line the Brainstormer gives you or the prompt in the Wayfinder's overview.
 
 ### 💡 The Brainstormer
 

@@ -18,8 +18,9 @@ SUMMARY = [
     "You can ask the Orchestrator to respawn any hosted Role at any round.",
 ]
 NEXT_AFTER_NEW = (
-    "Next: Relay every Tell the user verbatim line above unchanged; only after doing that, invoke vdd-planner "
-    "as your skill says. The loop's slug is demo: pass --slug demo on every VDD tool call from here on."
+    "Next: Relay every Tell the user verbatim line above unchanged; only after doing that, invoke the vdd-planner "
+    "skill in this same Session, or tell the user to invoke it if you cannot invoke skills. The loop's slug is "
+    "demo: pass --slug demo on every VDD tool call from here on."
 )
 ROOT_FIX = (
     "Delete `LOOP.md`. To carry on the loop it belongs to, run `vdd-start-loop` with its slug and answer continue."
@@ -98,7 +99,7 @@ class NewTest(LoopTest):
         self.assertNext(result, "--slug demo")
 
     def test_write_prints_the_summary_as_tell_lines_and_relays_them_in_next(self):
-        """A7: in all 7 Claude Code Start-Loops since 2026-10-17 the model
+        """On Claude Code the Start-Loop's model, run after run,
         wrote the closing summary into its thinking and never showed the user
         the Tell lines. The tool now prints the summary's facts itself, and
         the Next: line names relaying them."""
@@ -137,11 +138,18 @@ class NewTest(LoopTest):
         self.assertEqual(names, ["Question 1, PR"])
 
     def test_the_harness_line_is_the_display_name(self):
-        for harness, label in (("codex", "Codex"), ("copilot-cli", "Copilot CLI"), ("generic", "Generic")):
-            with self.subTest(harness=harness):
-                slug = "h-" + harness
-                self.new(slug, *ANSWERS, harness=harness, write=True)
-                self.assertIn("Harness: %s\n" % label, self.file(slug))
+        """The labels moved from the Loop file's table into the Harness
+        modules; every Harness, named by its slug or by its label, still
+        writes the same Harness: line."""
+        labels = (("claude-code", "Claude Code"), ("codex", "Codex"), ("cursor", "Cursor"),
+                  ("copilot-cli", "Copilot CLI"), ("generic", "Generic"))
+        for harness, label in labels:
+            for given in (harness, label):
+                with self.subTest(harness=given):
+                    slug = "h-%s-%d" % (harness, given == label)
+                    result = self.new(slug, *ANSWERS, harness=given, write=True)
+                    self.assertEqual(result.code, 0, result)
+                    self.assertIn("Harness: %s\n" % label, self.file(slug))
 
     def test_a_slug_outside_the_pattern_is_refused_with_the_pattern(self):
         """The slug check moved from Start-Loop's prose into the tool: the
@@ -231,6 +239,37 @@ class ShowTest(LoopTest):
     def test_an_unknown_role_is_refused(self):
         result = self.loop("show", "--slug", "demo", "--role", "Wayfinder")
         self.assertNotEqual(result.code, 0, result)
+
+    def test_a_role_in_any_letter_case_is_that_role(self):
+        """Prevents a retry on every lowercase Role name: --role planner was
+        refused, and most Planners passed it so on their first call."""
+        expected = self.loop("show", "--slug", "demo", "--role", "Planner")
+        for spelled in ("planner", "PLANNER", "pLaNnEr"):
+            with self.subTest(role=spelled):
+                result = self.loop("show", "--slug", "demo", "--role", spelled)
+                self.assertEqual(result.code, 0, result)
+                self.assertEqual(result.text, expected.text)
+
+    def test_the_planner_takes_a_doorbell_that_waits_before_it_starts(self):
+        """Prevents a resumed Planner guessing its way to the take: loop show
+        told it to start the session while a Doorbell to the Planner waited,
+        and it tried command after command before the take for a resumed
+        Session. With one waiting, the Next: names that take."""
+        take = "doorbell take --role Planner --harness claude-code --slug demo --resumed"
+        self.assertNotIn(take, self.loop("show", "--slug", "demo", "--role", "Planner").last)
+        ring = ("doorbell", "ring", "--harness", "claude-code", "--slug", "demo", "--write")
+        self.assertEqual(self.box.run(*ring[:2], "--role", "Planner", *ring[2:]).code, 0)
+        with open(self.box.path(".scratch", "demo", "loop-state"), "a") as handle:
+            handle.write("plan 1 reviewed open 1 counts 0 1 0\n")
+        self.assertEqual(self.box.run(*ring[:2], "--role", "Orchestrator", *ring[2:]).code, 0)
+        result = self.loop("show", "--slug", "demo", "--role", "Planner")
+        self.assertEqual(result.code, 0, result)
+        self.assertNext(result, "A Doorbell to the Planner waits untaken", take)
+        self.assertNotIn("start the session", result.last)
+        taken = self.box.run("doorbell", "take", "--role", "Planner", "--harness", "claude-code", "--slug", "demo",
+                             "--resumed")
+        self.assertEqual(taken.code, 0, taken)
+        self.assertNext(self.loop("show", "--slug", "demo", "--role", "Planner"), "start the session")
 
     def rewrite(self, name, value):
         lines = self.file().split("\n")
@@ -709,8 +748,9 @@ class LeftoverTest(LoopTest):
 
 class AsideTest(LoopTest):
     def test_aside_takes_the_lowest_free_n_and_deletes_nothing(self):
-        """The leftover-tracker reference: "Delete nothing on any of the
-        three answers", and the move takes the lowest n from 2 that is free."""
+        """Prevents a move aside that deletes a file of the leftover loop, or
+        takes an n already used: the move deletes nothing and takes the
+        lowest n from 2 that is free."""
         self.box.write(os.path.join(".scratch", "demo", "spec.md"), "first\n")
         result = self.loop("aside", "--slug", "demo", "--write")
         self.assertEqual(result.code, 0, result)
@@ -725,6 +765,17 @@ class AsideTest(LoopTest):
         self.assertEqual(self.box.read(os.path.join(".scratch", "demo-3", "spec.md")), "second\n")
         self.assertEqual(self.tree(), [os.path.join(".scratch", "demo-2", "spec.md"),
                                        os.path.join(".scratch", "demo-3", "spec.md")])
+
+    def test_aside_has_its_tell_relayed_before_loop_new_reruns(self):
+        """Prevents a Role rerunning loop new after loop aside without
+        relaying, word for word, where the earlier loop's files moved."""
+        self.box.write(os.path.join(".scratch", "demo", "spec.md"), "first\n")
+        result = self.loop("aside", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertIn('Tell the user verbatim: "The earlier Workflow\'s files are now in .scratch/demo-2/."',
+                      result.lines)
+        self.assertTrue(result.last.startswith("Next: Relay every Tell the user verbatim line above unchanged; "
+                                               "only after doing that, run the loop new command"), result)
 
     def test_aside_without_write_moves_nothing(self):
         self.box.write_loop("demo")
@@ -780,6 +831,41 @@ class CloseTest(LoopTest):
         self.assertEqual(result.code, 0, result)
         self.assertEqual(self.file(name="loop-state"), "vdd loop-state 2\nloop open\nloop closed\nloop open\n")
         self.assertIn("State: open", self.loop("show", "--slug", "demo").lines)
+
+    def test_close_tells_the_user_the_pr_title_and_body(self):
+        """A PR-Author told to print the title and body before loop close
+        left them out or put them after the call, so a user left to open the
+        PR had none; loop close now prints them as lines to relay."""
+        self.box.write(os.path.join(".scratch", "demo", "pr-body.md"),
+                       "# feat: a title\n\nThe change.\n\n## Why\nBecause.\n")
+        self.assertIn("Would print the PR title and body in .scratch/demo/pr-body.md for the user.",
+                      self.loop("close", "--slug", "demo").lines)
+        result = self.loop("close", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        tell = 'Tell the user verbatim: "%s"'
+        expected = [tell % text for text in (
+            "Open the PR yourself with this title and body, also in .scratch/demo/pr-body.md:",
+            "Title: feat: a title", "", "The change.", "", "## Why", "Because.")]
+        start = result.lines.index(expected[0])
+        self.assertEqual(result.lines[start:start + len(expected)], expected)
+        self.assertTrue(result.last.startswith("Next: Relay every Tell the user verbatim line above unchanged; "
+                                               "only after doing that,"), result)
+
+    def test_close_on_pr_no_or_without_a_body_tells_none(self):
+        """Prevents a body shown where no PR is wanted, or a malformed
+        pr-body.md shown as a body."""
+        self.box.write(os.path.join(".scratch", "demo", "pr-body.md"), "no blank line\nafter the title\n")
+        result = self.loop("close", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertNotIn("Tell the user", result.text)
+        self.assertNext(result, "The loop demo is closed: run nothing more for it")
+        self.loop("reopen", "--slug", "demo", "--write")
+        self.loop("set", "--slug", "demo", "--pr", "no", "--write")
+        self.box.write(os.path.join(".scratch", "demo", "pr-body.md"), "a title\n\nThe change.\n")
+        result = self.loop("close", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertNotIn("Tell the user", result.text)
 
     def test_close_without_write_and_twice_change_nothing(self):
         before = self.file(name="loop-state")
@@ -886,7 +972,7 @@ class StubbedPreflightTest(LoopTest):
         return self.box.env(PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""))
 
     def test_the_push_check_judges_the_exit_code_only(self):
-        """9e820de: git ls-remote printed fatal: failed to store on a call
+        """git ls-remote printed fatal: failed to store on a call
         that exited 0, and a check that read stderr reported a working remote
         as broken. The stub stays: a remote cannot make that fault."""
         self.box.git("remote", "add", "origin", "https://github.com/example/repo.git")

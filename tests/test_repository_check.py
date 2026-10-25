@@ -22,6 +22,7 @@ COPIED = (
 )
 
 START = "An Orchestrator hosts this Workflow."
+HELP = "Every command shows its usage and options with `--help`."
 HOSTED_CHECK = 'If the prompt that started you does not say "%s", stop.\n' % START
 
 CLEAN = {
@@ -54,7 +55,7 @@ CLEAN = {
         "- Codex: [`references/harness-codex.md`](references/harness-codex.md)\n"
     ),
     "skills/vdd-code-reviewer/references/harness-codex.md": "x\n",
-    "skills/vdd-setup/SKILL.md": "---\nname: vdd-setup\ndescription: x\n---\n\nRun [the tool](scripts/vdd.py).\n",
+    "skills/vdd-setup/SKILL.md": "---\nname: vdd-setup\ndescription: x\n---\n\nRun [the tool](scripts/vdd.py). %s\n" % HELP,
     "skills/vdd-setup/scripts/vdd.py": "import sys\n",
 }
 
@@ -321,6 +322,22 @@ class StartSentenceTest(RepositoryCheck):
         self.assertFails("skills/vdd-coder/SKILL.md: the start check lacks")
 
 
+class HelpSentenceTest(RepositoryCheck):
+    def test_a_skill_naming_the_tool_without_the_sentence_fails(self):
+        """Prevents a skill that runs the tool from losing the one line that
+        sends its Role to --help for every command it no longer spells out."""
+        self.edit("skills/vdd-setup/SKILL.md", " " + HELP, "")
+        self.assertFails("skills/vdd-setup/SKILL.md: names vdd.py but lacks: " + HELP)
+
+    def test_the_sentence_twice_fails(self):
+        self.edit("skills/vdd-setup/SKILL.md", HELP, HELP + " " + HELP)
+        self.assertFails("skills/vdd-setup/SKILL.md: says 2 times")
+
+    def test_a_skill_that_never_names_the_tool_needs_no_sentence(self):
+        self.assertNotIn("vdd.py", self.read("skills/vdd-coder/SKILL.md"))
+        self.assertPasses()
+
+
 class ClaudeMdTest(RepositoryCheck):
     def test_a_house_rule_in_claude_md_fails(self):
         """Prevents a rule Claude Code reads that other Harnesses never see."""
@@ -433,7 +450,8 @@ class WriteAccessTest(RepositoryCheck):
     VERIFY = ".github/workflows/verify.yml"
     RELEASE = ".github/workflows/release.yml"
 
-    # T60's five mutations of verify.yml.
+    # Five mutations of verify.yml, each of which would let PR-head content
+    # run with write access or secrets.
 
     def test_pull_request_target_fails(self):
         """Prevents verify.yml running PR-head content with write access and

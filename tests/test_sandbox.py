@@ -149,10 +149,66 @@ class NextCheckTest(ToolTest):
         with self.assertRaises(AssertionError):
             self.box.finish(proc)
 
-    def test_a_placeholder_and_a_line_with_no_command_are_skipped(self):
-        placeholder = ('Ask the user, then run py -3 "%s" orchestrator respawn --role Coder --policy "<answer>" '
-                       '--slug demo --write' % ENTRY)
-        self.assertEqual(check_next(self.box, self.result(placeholder)), [])
+    def test_a_placeholder_value_is_checked_with_a_dummy_value(self):
+        line = ('Ask the user, then run python3 "%s" orchestrator respawn --role Coder --policy "<answer>" '
+                '--slug demo --write' % ENTRY)
+        self.assertEqual(check_next(self.box, self.result(line)),
+                         [(ENTRY, ("orchestrator", "respawn", "--role", "Coder", "--policy", "x", "--slug", "demo",
+                                   "--write"))])
+
+    def test_a_wrong_option_beside_a_placeholder_fails(self):
+        """Prevents a printed command that holds a placeholder from going
+        unchecked, so a misspelt option beside it reaches a Role."""
+        line = ('Ask the user, then run python3 "%s" orchestrator respawn --role Coder --polcy "<answer>" '
+                '--slug demo --write' % ENTRY)
+        with self.assertRaises(AssertionError) as caught:
+            check_next(self.box, self.result(line), "test_x")
+        self.assertIn("orchestrator respawn --role Coder --polcy x", str(caught.exception))
+
+    def test_a_wrong_option_on_a_plain_command_fails(self):
+        """Prevents a printed command with an option its own command does not
+        take, though another command of the group takes it."""
+        line = 'Run python3 "%s" pr check --slug demo --harness claude-code --write.' % ENTRY
+        with self.assertRaises(AssertionError) as caught:
+            check_next(self.box, self.result(line), "test_x")
+        self.assertIn("pr check --slug demo --harness claude-code --write", str(caught.exception))
+
+    def test_every_command_of_a_line_is_checked(self):
+        """Prevents a second command in one line going unchecked behind the
+        first."""
+        line = ('Run python3 "%s" loop show --slug demo, then run python3 "%s" loop fold --slug demo --harness '
+                'claude-code --bogus.' % (ENTRY, ENTRY))
+        with self.assertRaises(AssertionError) as caught:
+            check_next(self.box, self.result(line), "test_x")
+        self.assertIn("loop fold --slug demo --harness claude-code --bogus", str(caught.exception))
+
+    def test_a_bare_brainstorm_command_is_checked(self):
+        """Prevents a brainstorm line a Role cannot run: the group names its
+        own commands without the tool's path."""
+        self.assertEqual(check_next(self.box, self.result("Run brainstorm migrate --write, then brainstorm start.")),
+                         [(ENTRY, ("brainstorm", "migrate", "--write")), (ENTRY, ("brainstorm", "start"))])
+        with self.assertRaises(AssertionError) as caught:
+            check_next(self.box, self.result("Run brainstorm migrate --wirte."), "test_x")
+        self.assertIn("brainstorm migrate --wirte", str(caught.exception))
+
+    def test_an_option_named_without_its_value_is_checked(self):
+        self.assertEqual(check_next(self.box, self.result("For a decision use brainstorm set --decision; go on.")),
+                         [(ENTRY, ("brainstorm", "set", "--decision", "x"))])
+
+    def test_a_tell_line_and_the_resume_message_are_checked(self):
+        """Prevents a command a Role relays or a hosted Role runs from the
+        resume message going unchecked, as only the Next: line was."""
+        tell = 'Tell the user verbatim: "Run brainstorm show --idaa a."'
+        resume = 'Resume message:\nRun `python3 "%s" coder check --slug demo --wirte` first.' % ENTRY
+        for text, fragment in ((tell, "brainstorm show --idaa a"), (resume, "coder check --slug demo --wirte")):
+            with self.assertRaises(AssertionError) as caught:
+                check_next(self.box, Result(0, (text + "\nNext: Go on.\n").encode("utf-8")), "test_x")
+            self.assertIn(fragment, str(caught.exception))
+
+    def test_a_placeholder_command_prose_and_a_line_with_no_command_are_skipped(self):
+        group = 'Run python3 "%s" <group> --help for the group your skill names.' % ENTRY
+        self.assertEqual(check_next(self.box, self.result(group)), [])
+        self.assertEqual(check_next(self.box, self.result("Tell the user the brainstorm command reads it.")), [])
         self.assertEqual(check_next(self.box, self.result("Tell the user in one line.")), [])
 
 

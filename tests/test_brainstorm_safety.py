@@ -94,8 +94,8 @@ class LockTest(BrainstormTest):
         return self.bs("set", "--idea", "part-one", "--size", size, "--write")
 
     def test_a_held_lock_is_waited_for_and_the_write_lands(self):
-        """Prevents a second writer refused for a holder that needs a moment
-        (T1, 9 of 20 parallel writes refused): a lock freed within 5 s makes
+        """Prevents a second writer refused for a holder that needs a moment,
+        as 9 of 20 parallel writes once were: a lock freed within 5 s makes
         the write wait, then land."""
         self.hold(1.5)
         started = time.monotonic()
@@ -123,7 +123,7 @@ class LockTest(BrainstormTest):
         self.assertEqual(self.ideas_tree(), before)
 
     def test_a_killed_holders_lock_is_taken_at_once(self):
-        """Prevents a crash blocking the next command (red team M9, U13): the
+        """Prevents a crash blocking the next command: the
         kernel frees a dead holder's lock, so the write lands without a
         wait, though the file still names the dead pid."""
         child = self.hold(60)
@@ -138,8 +138,8 @@ class LockTest(BrainstormTest):
         self.assertIn("size: large", self.read("part-one.md"))
 
     def test_parallel_writes_all_land(self):
-        """Prevents a lost or refused update among parallel subagents (T1's
-        parallel.py): 4 writes at once, 5 rounds, every one lands."""
+        """Prevents a lost or refused update among parallel subagents: 4
+        writes at once, 5 rounds, every one lands."""
         for n in range(4):
             self.new("idea-%d" % n)
         env = self.box.env(VDD_TODAY=TODAY)
@@ -158,7 +158,7 @@ class LockTest(BrainstormTest):
 
     def test_the_lock_file_stays(self):
         """Prevents a release or a takeover deleting the lock file, which
-        would let two writers hold a lock each (story 5)."""
+        would let two writers hold a lock each."""
         self.assertTrue(self.exists(".state/lock"))
         self.assertEqual(self.set_size().code, 0)
         self.assertTrue(self.exists(".state/lock"))
@@ -264,8 +264,7 @@ class JournalTest(BrainstormTest):
         return sorted(os.listdir(folder)) if os.path.isdir(folder) else []
 
     def test_start_finishes_a_write_killed_at_any_step(self):
-        """Prevents a half-applied move the next command cannot finish (red
-        team U3, F3, D6): killed after the journal, after one file, after both
+        """Prevents a half-applied move the next command cannot finish: killed after the journal, after one file, after both
         files, start rolls it forward to a clean run's store."""
         for done in (0, 1, 2):
             with self.subTest(done=done):
@@ -293,8 +292,8 @@ class JournalTest(BrainstormTest):
         self.assertNotIn("interrupted write", written.text)
 
     def test_a_file_edited_since_is_left_and_the_rest_rolled_back(self):
-        """Prevents the roll-forward overwriting an edit made after the crash
-        (red team F3): the edited file stays as it is, the other goes back to
+        """Prevents the roll-forward overwriting an edit made after the crash:
+        the edited file stays as it is, the other goes back to
         its before bytes, and the file is named, left byte for byte as
         edited."""
         self.stage_close(done=2)
@@ -308,7 +307,7 @@ class JournalTest(BrainstormTest):
 
     def test_a_created_file_edited_since_is_kept_and_told(self):
         """Prevents a silent duplicate after a killed move whose new file was
-        edited before recovery (red team M10): the undo keeps the edited new
+        edited before recovery: the undo keeps the edited new
         file and a Tell line names it and the file the undo brought back."""
         old = self.box.read(S + "part-one.md").encode("utf-8")
         self.put("part-one.md", None)
@@ -327,7 +326,7 @@ class JournalTest(BrainstormTest):
 
     def test_a_refused_write_still_prints_the_recovery_it_did(self):
         """Prevents the recovery's Tell line lost for good when the write that
-        settled the journal is then refused (finding 15): the refusal prints
+        settled the journal is then refused: the refusal prints
         the recovery's lines first."""
         old = self.box.read(S + "part-one.md").encode("utf-8")
         self.put("part-one.md", None)
@@ -343,7 +342,7 @@ class JournalTest(BrainstormTest):
 
     def test_a_journal_naming_a_path_outside_the_store_is_set_aside(self):
         """Prevents recovery writing or moving outside the store from a
-        crafted journal (red team M4): every path is checked before anything
+        crafted journal: every path is checked before anything
         is touched; a journal that fails is set aside as .unreadable and
         named."""
         outside = os.path.join(self.box.root, "victim")
@@ -395,7 +394,7 @@ class JournalTest(BrainstormTest):
 
     def test_a_journal_in_another_form_is_set_aside_without_a_crash(self):
         """Prevents a newer tool's journal crashing every command and leaking
-        the lock (red team M8): it is set aside, naming the files it touches."""
+        the lock: it is set aside, naming the files it touches."""
         self.stage_close(done=1)
         with open(self.box.path(self.JOURNAL)) as handle:
             data = json.load(handle)
@@ -423,7 +422,7 @@ class JournalTest(BrainstormTest):
     @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "POSIX permissions")
     def test_a_refused_write_leaves_no_journal_and_the_store_as_it_was(self):
         """Prevents a refused write leaving its journal for the next command
-        to replay (red team F3): with the store folder read-only the journal
+        to replay: with the store folder read-only the journal
         is written, the idea file's write fails, and the save rolls back."""
         before = self.store_tree()
         store = self.box.path(S.rstrip("/"))
@@ -442,7 +441,7 @@ class JournalTest(BrainstormTest):
                          "no trigger for the lock call's failure on Linux or Windows: flock works on a FIFO on Linux, "
                          "and Windows has no FIFOs")
     def test_a_read_the_lock_call_refuses_settles_the_journal_and_says_so_truly(self):
-        """Prevents a read told it was a write (finding 5): with a FIFO at
+        """Prevents a read told it was a write: with a FIFO at
         .state/lock and a pending journal, start settles it and says the
         command went ahead without the lock."""
         after, _ = self.stage_close(done=1)
@@ -460,8 +459,8 @@ class JournalTest(BrainstormTest):
     def test_a_migration_that_waited_while_another_finished_it_writes_nothing(self):
         """Prevents a second migration running the layout 2 step again over
         a store another Session took to layout 3 while it waited for the
-        lock (commit 969010c), and the lines it gathered dropped (finding
-        9): it says nothing is left to migrate, after the recovery it did."""
+        lock, and the lines it gathered dropped: it
+        says nothing is left to migrate, after the recovery it did."""
         self.stage_close(done=1)
         self.box.write(S + ".layout", "2\n")
         self.box.write(S + ".state/ledger.json", "{}")
@@ -487,7 +486,7 @@ class JournalTest(BrainstormTest):
         self.assertEqual(time.strftime("%Y-%m-%d", time.localtime(stamp)), "2026-10-15")
 
     def test_leftover_temp_files_are_swept(self):
-        """Prevents temp files a killed write left piling up (red team F14)."""
+        """Prevents temp files a killed write left piling up."""
         self.box.write(S + "part-one.md.vdd-new-999", "half")
         self.box.write(S + ".state/journal.vdd-new-999", "half")
         self.ok("set", "--idea", "part-one", "--size", "large", "--write")
@@ -497,8 +496,8 @@ class JournalTest(BrainstormTest):
 
     def test_a_beta_journal_with_a_pid_settles_and_a_new_one_has_none(self):
         """Prevents an upgrade setting aside a pending write an earlier 0.16
-        beta journaled with its pid (story 38), and a field nobody reads
-        written again (story 39): the journal a rename writes, copied just
+        beta journaled with its pid, and a field nobody reads
+        written again: the journal a rename writes, copied just
         before the tool removes it, holds no pid."""
         after, _ = self.stage_close(done=1)
         with open(self.box.path(self.JOURNAL)) as handle:

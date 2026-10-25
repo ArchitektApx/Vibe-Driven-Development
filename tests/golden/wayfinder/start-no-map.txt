@@ -2,7 +2,7 @@ $ vdd wayfinder start --effort demo --skill-dir <repo>/skills/vdd-wayfinder
 exit 0
 Effort: demo
 Map: .scratch/demo/map.md does not exist.
-wayfinder: <home>/.claude/plugins/cache/x/wayfinder/SKILL.md
+wayfinder: <home>/.claude/plugins/cache/mattpocock/mattpocock-skills/1.0.0/skills/wayfinder/SKILL.md
 The briefing, to print unchanged, runs from the next line to the line before Next:.
 Briefing for the wayfinding of demo:
 

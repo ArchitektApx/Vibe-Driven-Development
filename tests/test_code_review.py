@@ -158,6 +158,18 @@ class StartTest(CodeReviewTest):
         self.assertEqual(second.lines[1:], first.lines[1:])
         self.assertIn("Coder: pushed back in round 2.", self.read("carried-code.md"))
 
+    def test_a_second_start_names_a_held_new_finding_and_the_next_number(self):
+        """Prevents a fresh Code-Reviewer replacing the new finding an earlier
+        start of the round left in the file with its own of the same number."""
+        self.round_two()
+        self.put("CODEREVIEW.md", self.read("CODEREVIEW.md").replace(
+            "## New findings\n", "## New findings\n\n### 4. minor (open): src/c.py:1\n\nTypo.\n"))
+        second = self.review("start")
+        self.assertEqual(second.code, 0, second)
+        self.assertIn("Round 2: findings 1, 2 and 3 carried open; .scratch/demo/CODEREVIEW.md already holds new "
+                      "finding 4 from an earlier start of this round. Keep it, and number your new findings from 5.",
+                      second.lines)
+
 
 class AgentDocumentTest(CodeReviewTest):
     """The Agent-document list: a changed Agent document, and a file one link
@@ -333,7 +345,7 @@ class CheckTest(CodeReviewTest):
 
 
 class ChecksValuesTest(CodeReviewTest):
-    """Ticket 90, findings 4 and 5 of loop 04's acceptance: a round-2
+    """Prevents a skip recorded as ran: a round-2
     Code-Reviewer that rightly reviewed a small fix by hand was refused twice
     and settled on ran. not needed, <reason> records a skip as a skip."""
 
@@ -398,7 +410,7 @@ class ChecksValuesTest(CodeReviewTest):
 
 
 class OwnDiffTest(CodeReviewTest):
-    """Ticket 90, finding 5 of loop 04's acceptance: the tool listed round
+    """Prevents a later round reviewed on the whole branch: the tool listed round
     1's Agent document again in round 2, because it read the whole branch
     while its own text says "this round's diff". A later round is reviewed
     from the previous round's recorded end."""
@@ -412,8 +424,8 @@ class OwnDiffTest(CodeReviewTest):
         self.round_one_with_a_skill()
         result = self.review("start")
         self.assertEqual(result.code, 0, result)
-        self.assertIn("Review range: main...demo, with main as code-review's fixed point and Step 2's diff.",
-                      result.lines)
+        self.assertIn("Review range: main...demo, with main as code-review's fixed point and the diff you check "
+                      "against the Tickets.", result.lines)
         self.assertIn("Agent documents in the range: skills/x/SKILL.md", result.lines)
 
     def test_a_later_round_reviews_from_the_previous_round_s_end(self):

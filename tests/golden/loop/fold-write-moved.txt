@@ -8,4 +8,4 @@ Folded demo: 2 commits into 1.
 The folded tree equals the tree the Code-Reviewer signed off (<sha>).
 Wrote the final commits to .scratch/demo/RECAP.md.
 Tell the user verbatim: "Folded demo: 2 commits into 1. The tree equals the signed tree; RECAP.md lists the commits."
-Next: Invoke the vdd-create-pr skill in your own Session, never as a subagent.
+Next: Relay every Tell the user verbatim line above unchanged; only after doing that, invoke the vdd-create-pr skill in your own Session, never as a subagent.

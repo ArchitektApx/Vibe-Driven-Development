@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import os
 import textwrap
+from typing import Sequence
 
-from .. import fixes, loopstate, textfile, workfile
-from ..out import Failure, Output
+from .. import fixes, loopstate, runner, textfile, workfile
+from ..out import Failure, and_list
 from .rounds import CHECKS, NO_COMMITS, TITLES, Round, require_round
 
 NOT_CARRIED_GUIDE = [
@@ -27,7 +28,7 @@ def carried_blocks(round_: Round) -> list[list[str]]:
     if missing:
         raise Failure(
             "%s no longer holds finding%s %s, which round %d left open. Nothing was written."
-            % (round_.relative, "" if len(missing) == 1 else "s", workfile.join_numbers(missing),
+            % (round_.relative, "" if len(missing) == 1 else "s", and_list(map(str, missing)),
                round_.number - 1),
             "Tell the user %s lost a finding the loop still has open, and stop." % round_.relative,
         )
@@ -97,60 +98,86 @@ def skeleton(round_: Round, blocks: list[list[str]]) -> list[str]:
     return lines
 
 
-def start(round_: Round, write: bool) -> int:
+def start(round_: Round) -> runner.Plan:
+    """The round's start as a plan: the carried findings and the frame
+    written and the round recorded as started. A round already started
+    writes nothing."""
     require_round(round_)
-    out = Output()
-    again = round_.state.review_started(round_.kind, round_.number)
-    if again:
-        out.line("Round %d was already started: %s stays as it is. Nothing was written."
+    if round_.state.review_started(round_.kind, round_.number):
+        again = ("Round %d was already started: %s stays as it is. Nothing was written."
                  % (round_.number, round_.relative))
-    elif not write:
-        # The carried findings and the frame are read-only checks of the
-        # write path: a dry run refuses wherever --write would.
-        skeleton(round_, carried_blocks(round_))
-        out.line("Would write the frame of %s for round %d." % (round_.relative, round_.number))
-        return out.finish("Run the same command with --write.")
-    else:
-        blocks = carried_blocks(round_)
-        carried_text = "\n\n".join("\n".join(block) for block in blocks)
-        cannot = "Otherwise tell the user the review file cannot be written, and stop."
-        frame = "\n".join(skeleton(round_, blocks)) + "\n"
-        textfile.write_or_refuse(round_.carried_file, carried_text + "\n" if carried_text else "",
-                                 round_.relative, cannot)
-        textfile.write_or_refuse(round_.file, frame, round_.relative, cannot)
-        round_.state.append(loopstate.review_started_line(round_.kind, round_.number))
-        out.line("Wrote the frame of %s." % round_.relative)
+        return runner.Plan([], work(round_), lines=[again] + started(round_, held_new(round_)))
+    blocks = carried_blocks(round_)
+    carried_text = "\n\n".join("\n".join(block) for block in blocks)
+    cannot = "Otherwise tell the user the review file cannot be written, and stop."
+    frame = "\n".join(skeleton(round_, blocks)) + "\n"
+    effects: list[runner.Effect] = [
+        runner.WriteFile(round_.carried_file, carried_text + "\n" if carried_text else "", round_.relative, cannot,
+                         dry=["Would write the frame of %s for round %d." % (round_.relative, round_.number)]),
+        runner.WriteFile(round_.file, frame, round_.relative, cannot),
+        runner.StateLines(round_.state, [loopstate.review_started_line(round_.kind, round_.number)],
+                          done=["Wrote the frame of %s." % round_.relative] + started(round_)),
+    ]
+    return runner.Plan(effects, work(round_))
+
+
+def work(round_: Round) -> str:
+    """The Next: step once the round started."""
+    return ("Review, write your findings into %s under the headings it has, then run %s. Pass --slug %s on every "
+            "VDD tool call from here on." % (round_.relative, round_.command("check"), round_.loop.slug))
+
+
+def held_new(round_: Round) -> list[int]:
+    """The numbers of the new findings the review file already holds, from
+    an earlier start of this round."""
+    text = textfile.read(round_.file)
+    if text is None:
+        return []
+    return [b.number for b in workfile.Parsed(text).blocks_in("New findings")
+            if b.match is not None and b.number is not None]
+
+
+def started(round_: Round, held: Sequence[int] = ()) -> list[str]:
+    """The lines that name the round, what it carries and what to read;
+    held, the new findings an earlier start of the round left in the file."""
+    lines: list[str] = []
     if round_.carried_numbers:
         carried = "finding%s %s carried open" % (
-            "" if len(round_.carried_numbers) == 1 else "s", workfile.join_numbers(round_.carried_numbers))
+            "" if len(round_.carried_numbers) == 1 else "s", and_list(map(str, round_.carried_numbers)))
     else:
         carried = "no finding carried"
-    out.line("Round %d: %s, new findings start at %d." % (round_.number, carried, round_.first_new))
-    out.line("Read: %s" % ", ".join(round_.read_list()))
-    out.line("Minors: %s" % round_.minors())
+    if held:
+        free = max([round_.first_new - 1] + list(held)) + 1
+        lines.append("Round %d: %s; %s already holds new finding%s %s from an earlier start of this round. Keep "
+                     "%s, and number your new findings from %d." % (
+                         round_.number, carried, round_.relative, "" if len(held) == 1 else "s",
+                         and_list(map(str, held)), "it" if len(held) == 1 else "them", free))
+    else:
+        lines.append("Round %d: %s, new findings start at %d." % (round_.number, carried, round_.first_new))
+    lines.append("Read: %s" % ", ".join(round_.read_list()))
+    lines.append("Minors: %s" % round_.minors())
     if round_.kind == "code":
-        out.line("Base branch: %s" % round_.base())
-        out.line("Harness file: %s" % round_.loop.harness_file())
+        lines.append("Base branch: %s" % round_.base())
+        lines.append("Harness file: %s" % round_.loop.harness_file())
         if round_.number == 1:
-            out.line("Review range: %s, with %s as code-review's fixed point and Step 2's diff." % (
-                round_.review_range(), round_.base()))
+            lines.append("Review range: %s, with %s as code-review's fixed point and the diff you check against the "
+                         "Tickets." % (round_.review_range(), round_.base()))
         else:
             if round_.folded_tip():
-                out.line("Fixed point: %s, the branch as folded after round %d's Sign-off." % (
+                lines.append("Fixed point: %s, the branch as folded after round %d's Sign-off." % (
                     round_.fixed_point(), round_.number - 1))
             else:
-                out.line("Fixed point: %s, code round %d's recorded end." % (round_.fixed_point(), round_.number - 1))
-            out.line("Review range: %s, this round's own diff: code-review's fixed point is %s, and Step 2 reads "
-                     "the diff over this range. The verification runs on the whole branch." % (
-                         round_.review_range(), round_.fixed_point()))
+                lines.append("Fixed point: %s, code round %d's recorded end." % (round_.fixed_point(),
+                                                                                  round_.number - 1))
+            lines.append("Review range: %s, this round's own diff: code-review's fixed point is %s, and the diff you "
+                         "check against the Tickets is this range. The verification runs on the whole branch." % (
+                             round_.review_range(), round_.fixed_point()))
             if round_.no_commits():
-                out.line("No commits in this round's range, so the code-review line is filled: %s." % NO_COMMITS)
+                lines.append("No commits in this round's range, so the code-review line is filled: %s."
+                             % NO_COMMITS)
         documents = round_.agent_documents()
         if documents:
-            out.line("Agent documents in the range: %s" % ", ".join(documents))
+            lines.append("Agent documents in the range: %s" % ", ".join(documents))
         else:
-            out.line("Agent documents in the range: none, so the writing-for-agents line is filled.")
-    return out.finish(
-        "Review, write your findings into %s under the headings it has, then run %s. Pass --slug %s on every "
-        "VDD tool call from here on." % (round_.relative, round_.command("check"), round_.loop.slug)
-    )
+            lines.append("Agent documents in the range: none, so the writing-for-agents line is filled.")
+    return lines

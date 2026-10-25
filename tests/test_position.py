@@ -63,7 +63,7 @@ class Scenes(Staged):
         self.review_file("a.txt:1")
 
     def user_findings(self):
-        """T4: the user's findings after the round-1 Sign-off."""
+        """The user's findings after the round-1 Sign-off."""
         self.code_signed(policies=NEVER)
         self.stage(USER_1)
         self.review_file("docs/a.md:3")
@@ -128,7 +128,7 @@ class Positions(Scenes):
         self.row(Scenes.code_open, "coder", ["Spawning Coder, <model>, round 2."])
 
     def test_the_user_s_findings(self):
-        """T4: prevents review check answering the user's counts as the
+        """Prevents review check answering the user's counts as the
         Code-Reviewer's own Doorbell."""
         self.row(Scenes.user_findings, "coder", ["Spawning Coder, <model>, round 2, for the user's findings."])
         check = self.box.run("review", "check", "--role", "Code-Reviewer", *SLUG, "--write", env=self.env())
@@ -137,9 +137,12 @@ class Positions(Scenes):
         self.assertNotIn("already recorded", check.text)
 
     def test_the_owed_fold(self):
-        """The one exception: pr check passes on an owed fold, as before,
-        while pr open refuses."""
-        self.row(Scenes.fold_owed, "pr", ["Fold: not run yet."])
+        """Prevents a PR assembled or pushed from a branch the fold has not
+        put in its reviewed shape: pr check and pr open both refuse, and pr
+        check names the loop fold call."""
+        self.row(Scenes.fold_owed, None, ["Fold: not run yet."])
+        checked = self.box.run("pr", "check", *SLUG, *CC, env=self.env(self.no_gh()))
+        self.assertIn("loop fold --slug demo --harness claude-code --write, then run ", checked.last)
         opened = self.box.run("pr", "open", "--path", "open", *SLUG, *CC, "--write", env=self.env(self.no_gh()))
         self.assertNotEqual(opened.code, 0, opened)
         self.assertIn("The fold's outcome is not recorded", opened.text)
@@ -164,8 +167,8 @@ class PlanRing(Scenes):
             "Plan-Reviewer reviews it.",
             'Tell the user verbatim: "The plan Loop is signed off and the code Loop is running, so the Planner\'s '
             'plan round 2 is not reviewed. The code Loop goes on with the Spec as it was signed off."',
-            "Next: Relay the Tell the user verbatim line above unchanged, then go on with the step you were on "
-            "before the Planner's Doorbell. Spawn no Plan-Reviewer.",
+            "Next: Relay every Tell the user verbatim line above unchanged; only after doing that, go on with the "
+            "step you were on before the Planner's Doorbell. Spawn no Plan-Reviewer.",
         ])
         self.assertNotIn("spawn Plan-Reviewer", self.state())
 

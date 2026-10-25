@@ -6,7 +6,7 @@ import re
 import subprocess
 import unittest
 
-from vddtest import PLAN_SIGNED, PLAN_SIGNED_2, CODE_SIGNED_2, REPO, LoopRepoTest, SceneTest
+from vddtest import PLAN_SIGNED, PLAN_SIGNED_2, CODE_SIGNED_2, REPO, LoopRepoTest, SceneTest, tool_command
 
 P1 = "VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/."
 P2 = "VDD Planner: .scratch/demo/ ready, round 2. Read spec.md and issues/."
@@ -92,6 +92,26 @@ class PlacementTest(OrchestratorTest):
         self.assertNext(result, "doorbell wait --role Orchestrator --harness claude-code --slug demo")
         self.assertIn("orchestrator session 1", self.state())
 
+    def test_a_stray_line_while_the_planner_is_owed_starts_the_wait_before_the_relay(self):
+        """Prevents a Tell the user never reads, or a wait that never starts,
+        on a start that owes the Planner's wait: the Tell about a stray line
+        in the Doorbell file came before the wait, and a Next: that names the
+        relay first lost the wait or the Tell."""
+        relay_last = "holds every Tell the user verbatim line above, unchanged"
+        for label, name in (("Claude Code", "claude-code"), ("Codex", "codex")):
+            with self.subTest(harness=name):
+                self.box.write_loop("demo", text=(
+                    "# VDD Loop\n\nFormat: 2\nFeature: demo\nBase branch: main\nFeature branch: demo\n"
+                    "Minors: fix\nPR: ask at sign-off\nHarness: %s\n" % label), extra=self.policies())
+                self.rings("not a doorbell")
+                result = self.orch("start", "--slug", "demo", "--harness", name)
+                self.assertEqual(result.code, 0, result)
+                self.assertIn("is not a Doorbell", result.text)
+                self.assertFalse(result.last.startswith("Next: Relay"), result.last)
+                wait = "doorbell wait --role Orchestrator --harness %s" % name
+                self.assertNext(result, wait, relay_last)
+                self.assertLess(result.last.index(wait), result.last.index(relay_last))
+
     def test_a_rung_round_with_no_review_spawns_the_plan_reviewer(self):
         """A fresh Plan-Reviewer answers the Planner's Doorbell, since one an
         earlier Session spawned is gone."""
@@ -164,6 +184,53 @@ class PlacementTest(OrchestratorTest):
         self.stage("fold skipped c the branch moved after Sign-off")
         result = self.start()
         self.assertNext(result, "vdd-create-pr", "own Session")
+
+    def test_a_restart_names_no_ring_once_the_planner_took_the_sign_off(self):
+        """A restarted Orchestrator rang the plan Sign-off again after the
+        Planner had taken it, and relayed a paste line into a Planner Session
+        that had long finished."""
+        self.signed_plan("code 1 start a", "code 1 end b", CODE_OPEN_1, "code 2 start b", "code 2 end c",
+                         CODE_SIGNED_2, "fold skipped c the branch moved after Sign-off")
+        ring = ("doorbell", "ring", "--role", "Orchestrator", "--harness", "claude-code", "--slug", "demo")
+        self.box.run(*ring, "--write")
+        rung = self.start()
+        self.assertIn("First: ", rung.text)
+        self.assertIn("doorbell ring --role Orchestrator", rung.text)
+        took = self.box.run("doorbell", "take", "--role", "Planner", "--harness", "claude-code", "--slug", "demo")
+        self.assertEqual(took.code, 0, took)
+        result = self.start()
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertNotIn("First: ", result.text)
+        self.assertNotIn("doorbell ring", result.text)
+        self.assertNext(result, "vdd-create-pr", "own Session")
+
+    def test_a_restart_in_the_code_loop_spawns_with_no_ring_once_taken(self):
+        """Prevents the ring dropped while the Planner has not taken the
+        Sign-off, and kept once it has."""
+        self.signed_plan("code 1 start aaa")
+        self.box.run("doorbell", "ring", "--role", "Orchestrator", "--harness", "claude-code", "--slug", "demo",
+                     "--write")
+        self.assertNext(self.start(), "doorbell ring --role Orchestrator", "spawn a fresh Coder")
+        self.box.run("doorbell", "take", "--role", "Planner", "--harness", "claude-code", "--slug", "demo")
+        result = self.start()
+        self.spawned(result, "Coder", 1, "after a restart")
+        self.assertNotIn("doorbell ring", result.text)
+
+    def test_a_later_plan_sign_off_is_rung_after_an_earlier_one_was_taken(self):
+        """Prevents a Planner left waiting on a later plan round's Sign-off
+        because it had taken an earlier round's."""
+        self.signed_plan()
+        ring = ("doorbell", "ring", "--role", "Orchestrator", "--harness", "claude-code", "--slug", "demo")
+        self.box.run(*ring, "--write")
+        self.box.run("doorbell", "take", "--role", "Planner", "--harness", "claude-code", "--slug", "demo")
+        self.rings("VDD Planner: .scratch/demo/ ready, round 3. Read spec.md and issues/.")
+        self.stage("plan 3 reviewed signed-off - counts 0 0 0 next 3 new 0 closed 0 checks writing-for-agents ran")
+        result = self.start()
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("Plan Loop: signed off in round 3", result.text)
+        self.spawned(result, "Coder", 1)
+        self.assertNext(result, "doorbell ring --role Orchestrator", "spawn a fresh Coder")
 
     def test_start_changes_no_doorbell_working_file_or_git(self):
         """Start changes no Working file and no git ref. Of the Doorbell files
@@ -247,16 +314,33 @@ class ReturnTest(OrchestratorTest):
         self.assertEqual(first.code, 0, first)
         index = first.lines.index("Resume message:")
         self.assertEqual(first.lines[index + 1],
-                         "Round 1 is not finished: `coder check --slug demo --write` has not passed. Run it, fix "
-                         "what it reports until it passes, then end your turn with the line it prints.")
+                         "Round 1 is not finished: `%s coder check --slug demo --write` has not passed. Run it, fix "
+                         "what it reports until it passes, then end your turn with the line it prints."
+                         % tool_command())
         second = self.back("Coder")
         self.assertEqual(second.code, 0, second)
         self.assertNotIn("Spawning", second.text)
         self.assertNotIn("Resume message:", second.lines)
+        self.assertIn("Coder round 1 ended without `coder check --slug demo --write` a second time.", second.lines)
         tell = second.tells()[0]
         for word in ("resume", "respawn", "stop"):
             self.assertIn(word, tell)
         self.assertEqual(self.state().count("return Coder 1 miss"), 2)
+
+    def test_a_review_round_with_no_check_resumes_with_the_tool_s_check(self):
+        """Prevents a resume message naming review check without the tool's
+        path, which a hosted Role cannot run as written."""
+        self.live("spawn Coder 1 session 1", "code 1 start a", "code 1 end b", "return Coder 1 ok",
+                  "spawn Code-Reviewer 1 session 1")
+        result = self.back("Code-Reviewer")
+        self.assertEqual(result.code, 0, result)
+        index = result.lines.index("Resume message:")
+        self.assertEqual(result.lines[index + 1],
+                         "Round 1 is not finished: `%s review check --role Code-Reviewer --slug demo --write` has "
+                         "not passed. Run it, fix what it reports until it passes, then end your turn with the line "
+                         "it prints." % tool_command())
+        self.assertIn("Code-Reviewer round 1 ended without `review check --role Code-Reviewer --slug demo --write`: "
+                      "the round is not finished.", result.lines)
 
     def test_a_return_line_argument_is_refused(self):
         """The tool never reads the return's text, so return takes no --line."""
@@ -355,7 +439,7 @@ class UserFindingsTest(OrchestratorTest):
                    "return Code-Reviewer 2 ok", "fold skipped c the branch moved after Sign-off", USER_2)
 
     def test_start_spawns_a_fresh_coder_for_the_users_findings_and_rings_nothing(self):
-        """Loop 05's hand reopen sent the Orchestrator to ring the plan Loop
+        """A reopen by hand sent the Orchestrator to ring the plan Loop
         first (Already rung, a stale paste for the Planner) and labelled both
         fresh spawns after a restart, though nothing restarted."""
         self.earlier_session()
@@ -492,15 +576,51 @@ class RespawnQuestionTest(OrchestratorTest):
                 self.assertNotIn("orchestrator session", self.state())
                 self.assertNext(result, 'orchestrator respawn --role Coder --policy "<answer>" --slug demo --write')
 
-    def test_setting_the_policy_names_start_which_then_asks_nothing(self):
-        self.rings(P1)
+    def test_start_then_respawn_places_the_workflow(self):
+        """Starting took a second start after the respawn that answered the
+        first one's question, which printed the Harness-file line and the
+        plan's state again."""
+        self.rings(P1, "not a doorbell")
+        started = self.start()
+        self.assertIn("Respawn question", started.text)
         result = self.orch("respawn", "--role", "Coder", "--policy", "every round", "--slug", "demo", "--write")
         self.assertEqual(result.code, 0, result)
-        self.assertIn("Respawn policies: Coder every round, Plan-Reviewer never, Code-Reviewer never.", result.lines)
+        self.assertEqual(result.lines[0], "Respawn policies: Coder every round, Plan-Reviewer never, Code-Reviewer "
+                                          "never.")
+        self.spawned(result, "Plan-Reviewer", 1)
+        for line in started.lines[:-1]:
+            if not line.startswith("Respawn policies:"):
+                self.assertNotIn(line, result.lines)
+        self.assertIn("Line 3 of the Doorbell file is not a Doorbell", result.text)
+        self.assertIn("orchestrator return --role Plan-Reviewer", result.last)
+        lines = self.state().splitlines()
+        self.assertEqual(lines[-3:], ["respawn Coder every round", "orchestrator session 1",
+                                      "spawn Plan-Reviewer 1 session 1"])
+        self.assertIn("count 2", self.box.read(".scratch/demo/doorbell-state-orchestrator"))
+        later = self.start()
+        self.assertEqual(later.code, 0, later)
+        self.assertNotIn("Respawn question", later.text)
+        self.spawned(later, "Plan-Reviewer", 1, "after a restart")
+        self.assertIn("orchestrator session 2", self.state().splitlines())
+
+    def test_start_then_respawn_while_waiting_names_the_wait(self):
+        """The two-call start with nothing rung ends in the Planner's wait,
+        as the second start did."""
+        self.start()
+        result = self.orch("respawn", "--role", "Coder", "--policy", "never", "--slug", "demo", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(len(result.lines), 2, result)
+        self.assertIn("doorbell wait --role Orchestrator", result.last)
+        self.assertEqual(self.state().count("orchestrator session"), 1)
+
+    def test_a_policy_set_before_start_still_names_start(self):
+        """A reviewer's policy set while the Coder's is unset answers no
+        question start asked, so it places nothing."""
+        result = self.orch("respawn", "--role", "Code-Reviewer", "--policy", "every round", "--slug", "demo",
+                           "--write")
+        self.assertEqual(result.code, 0, result)
         self.assertNext(result, "orchestrator start --slug demo --harness claude-code")
-        started = self.start()
-        self.assertNotIn("Respawn question", started.text)
-        self.spawned(started, "Plan-Reviewer", 1)
+        self.assertNotIn("orchestrator session", self.state())
 
     def test_a_policy_in_another_case_is_taken(self):
         """An Orchestrator passed its answer label "Every round" as the

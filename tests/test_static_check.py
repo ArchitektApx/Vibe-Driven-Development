@@ -1,4 +1,4 @@
-"""Seam 4: the static-check script against fixture trees staged in a
+"""The static-check script against fixture trees staged in a
 temporary git repository."""
 
 import os

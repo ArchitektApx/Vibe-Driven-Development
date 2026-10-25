@@ -6,16 +6,9 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any
 
-from .. import args, doorbells, gitcmd, loopfile, loopstate, places
-from ..out import Failure
-
-HOSTED = ("Plan-Reviewer", "Coder", "Code-Reviewer")
-
-
-def usage() -> str:
-    return "%s orchestrator --help" % places.command()
+from .. import catalog, doorbells, gitcmd, harness as harnesses, loopfile, loopstate, runner
+from ..out import Failure, Output
 
 
 # The spawn ledger's lines, as loopstate's builders write them.
@@ -43,13 +36,14 @@ class Flow:
     file and the Harness the Loop file names."""
 
     @classmethod
-    def find(cls, values: dict[str, Any], command: str) -> Flow:
+    def find(cls, ctx: catalog.Context) -> Flow:
+        values = ctx.values
         loop = loopfile.find(gitcmd.project_root(os.getcwd()), values["slug"])
-        state = loopstate.open_loop(loop, command)
+        state = runner.open_loop(loop, ctx.label)
         flow = cls(loop, state)
         if values["harness"] is not None:
-            given = args.harness_of(values, usage())
-            if given.name != flow.harness.name:
+            given = harnesses.from_option(values, ctx.usage)
+            if given is not flow.harness:
                 raise Failure(
                     "--harness %s does not match the Loop file's Harness: %s." % (given.name, flow.harness_label),
                     "Run the command again with --harness %s." % flow.harness.name,
@@ -69,6 +63,14 @@ class Flow:
         self.policies: dict[str, str] = {}
         self.returns: list[tuple[str, int, bool]] = []
         self.counts: dict[tuple[str, int], int] = {}
+        # What the command's plan writes: the state lines in one write, and
+        # the effects before that commit point.
+        self.pending: list[str] = []
+        self.before: list[runner.Effect] = []
+        # start, return and tokens always apply their plan; respawn applies
+        # it on --write, its dry run printing dry.
+        self.always = True
+        self.dry: list[str] = []
         for line in state.lines:
             self.read(line)
 
@@ -105,9 +107,19 @@ class Flow:
             self.counts[(match.group(1), int(match.group(2)))] = int(match.group(3))
 
     def append(self, line: str) -> None:
-        """Append a built state line and add it to the records."""
-        self.state.append(line)
+        """Add a built state line to the records and to the lines the plan
+        appends."""
+        self.pending.append(line)
         self.read(line)
+
+    def plan(self, out: Output, next_step: runner.Next) -> runner.Plan:
+        """The command's plan: the effects before the commit point, then the
+        state lines appended in one write, out's lines printing once they
+        applied."""
+        if not self.pending and not self.before:
+            return runner.Plan([], next_step, lines=out.lines)
+        effects = self.before + [runner.StateLines(self.state, self.pending, self.dry, out.lines)]
+        return runner.Plan(effects, next_step, always=self.always)
 
     def session(self) -> int:
         return self.last_session
@@ -181,17 +193,23 @@ class Flow:
 
     # --- the lines printed ---
 
-    def command(self, text: str) -> str:
-        return "%s %s" % (places.command(), text)
+    def command(self, name: str, **options: catalog.Value) -> str:
+        """An orchestrator command of this loop, options in the order given."""
+        return catalog.line("orchestrator", name, None, **options)
+
+    def start_command(self) -> str:
+        return self.command("start", slug=self.slug, harness=self.harness.name)
 
     def return_command(self, role: str) -> str:
-        return self.command("orchestrator return --role %s --slug %s --harness %s" % (role, self.slug,
-                                                                                      self.harness.name))
+        return self.command("return", role=role, slug=self.slug, harness=self.harness.name)
 
     def ring_command(self) -> str:
         return doorbells.ring_command("Orchestrator", self.harness, self.slug)
 
-    def check_command(self, role: str) -> str:
+    def check_command(self, role: str, bare: bool = False) -> str:
+        """The check that ends a hosted Role's round, with the tool's path
+        unless bare."""
+        build = catalog.bare if bare else catalog.line
         if role == "Coder":
-            return "coder check --slug %s --write" % self.slug
-        return "review check --role %s --slug %s --write" % (role, self.slug)
+            return build("coder", "check", slug=self.slug, write=True)
+        return build("review", "check", role=role, slug=self.slug, write=True)

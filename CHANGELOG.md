@@ -164,8 +164,8 @@ and it offers to hand a decided idea to the next Role.
 - **The Codex hook starts Python only for a wait.** Outside a Codex
   session's wait for a Doorbell it ends at once, under zsh too.
 - **A mistyped option names its fix.** When a VDD command gets an option it
-  does not take, it lists the options the command takes and names the
-  closest one. When none is close and the skill itself writes that option,
+  does not take, it refuses it instead of ignoring it, lists the options the
+  command takes and names the closest one. When none is close and the skill itself writes that option,
   your copy of the VDD tool is older than the skill, and the Role asks you to
   rerun Setup.
 - **A value Windows PowerShell 5.1 mangled is refused.** When a
@@ -177,11 +177,29 @@ and it offers to hand a decided idea to the next Role.
   Linux**, instead of after two seconds of retrying; Windows still retries a
   file another program holds for a moment. A refusal names a loop's state
   file by its `.scratch/<slug>/` path, as every other line does.
-- **A Spec you change after the plan Sign-off is reviewed again.** When the
-  Planner rings after the plan review signed off and before the Coder
-  starts, the Plan-Reviewer reviews the new round. Once the Coder has
-  started, VDD tells you the code loop goes on with the Spec as signed off,
-  and starts no reviewer that would only stop.
+- **The plan Sign-off fixes the Spec for the code loop.** Once the plan
+  review signs off, the Planner's work is done: VDD refuses a further
+  Planner round, the Spec and the Tickets stay as signed off, and no
+  reviewer starts that would only stop. A change you still want goes in as
+  a finding with `review add` once the code loop signs off.
+- **The PR step asks only what your `PR:` line leaves open.**
+  On `PR: ask at sign-off` it asks whether to open the PR or leave it to
+  you; on `PR: yes` you confirm the title and body once before anything is
+  pushed. When VDD can push but cannot open a PR, it asks once whether to
+  push the branch so you can open the PR yourself. When it can do neither,
+  it names the check that failed and asks nothing. Except on `PR: no`, VDD
+  prints the title and body when it closes the loop without a push, so you
+  have them to open the PR from; on `PR: no` VDD prints no body and
+  makes no `gh` call.
+- **Each step is shown once.** A dry run shows exactly what the real run
+  will do, and the real run names what it did without repeating it. After
+  your yes, Setup reports only what it changed and the check of each change.
+  Every line meant for you still reaches you.
+- **Roles read less.** The skills are shorter: a Role looks up a VDD
+  command's usage with that command's own `--help` when it needs it, and each
+  step VDD prints names the next call.
+- **The Orchestrator's first start prints nothing twice.** It asks how the
+  Coder continues between rounds first, and your answer starts the loop.
 
 #### Internal
 
@@ -207,6 +225,16 @@ and it offers to hand a decided idea to the next Role.
   messages, so on a system in another language a sandbox that refused git
   read as a plain failure instead of asking to rerun outside the sandbox.
   VDD now runs git in English.
+- **A fold the sandbox kept from signing.** Inside Claude Code's or Codex's
+  sandbox, signing the folded commits could fail, and VDD recorded the fold
+  as skipped, so the rerun outside the sandbox left the branch unfolded. VDD
+  now asks for that rerun first, and skips the fold only if you refuse it or
+  signing fails outside the sandbox too.
+- **Messages for you lost before the next call.** When VDD printed a line for
+  you and then named a command to run, the agent could run it and end its
+  turn without passing the line on: the Planner did not tell you to start
+  the Orchestrator, and the loop waited. VDD now has the agent pass on every
+  line meant for you before the next step.
 - **Late or polled code reviews on Claude Code.** The Code-Reviewer's two
   review passes sometimes reported late, or the Code-Reviewer spent tokens
   polling for them. Both are fixed.
@@ -247,6 +275,22 @@ and it offers to hand a decided idea to the next Role.
   says why.
 - **The refusal for a loop started on 0.16.0-beta.3 offers only what works:**
   move the loop aside and start it again.
+- **A Codex wait that fails says so.** When the hook's wait for a Doorbell
+  failed after it started, the session sat idle without a word. It now says
+  what failed and gives you the line to paste.
+- **Setup keeps its report when a file cannot be read.** It shows every
+  check that passed and names the file it could not read. A Codex
+  `config.toml` it cannot read is reported as unknown, and one it read but
+  could not make sense of says so.
+- **The Wayfinder finds `wayfinder` wherever Setup does.** It could tell you
+  to stop for a skill Setup reported as installed.
+- **The PR step never runs on an unfolded branch.** While a fold is owed,
+  VDD names the fold to run first.
+- **A Brainstormer store that cannot be renamed on Windows says why.** VDD
+  names what can hold `.scratch/_brainstorming/` open, an editor or a shell
+  inside it, and the Brainstormer tells you what holds it and waits for
+  your word.
+- **Piping VDD's output into `head` ends quietly**, with no Python error.
 
 ## [0.15.0] - 2026-10-07
 

@@ -1,9 +1,10 @@
 """Refusal tables: one table per command group, one row per refusal.
 
 A row names a case, a staged scene, the argv, a fragment of the refusal's
-first line and a fragment of its Next: line. Every row asserts a non-zero
-exit, the tool's contract (UTF-8, LF, a Next: line last), the first-line
-fragment and the Next: fragment. A row marked POSIX stubs git or gh with an
+first line (or a tuple of fragments, one per line from the first) and a
+fragment of its Next: line. Every row asserts a non-zero exit, the tool's
+contract (UTF-8, LF, a Next: line last), the line fragments and the Next:
+fragment. A row marked POSIX stubs git or gh with an
 sh script, or leans on a POSIX permission, and skips on native Windows.
 
 Unreachable from vdd.py, so no row: orchestrator.py's four RuntimeError
@@ -25,7 +26,7 @@ from scenes import CC, CODEX_ID, FINDINGS, SLUG, Staged
 from vddtest import PLAN_SIGNED, WINDOWS
 
 V1 = "has state file version 1, which this VDD no longer reads."
-NEXT_V1 = "Relay the Tell the user verbatim line above unchanged, and stop."
+NEXT_V1 = "Relay every Tell the user verbatim line above unchanged; only after doing that, stop."
 GH_REFUSED = "failed to read configuration: open ~/.config/gh/hosts.yml: operation not permitted"
 
 
@@ -55,6 +56,12 @@ class Refusals(Staged):
         self.coder_started()
         self.git("checkout", "-q", "main")
 
+    def backup_blocked(self):
+        """A 0.15 store with a file where the migration's backup goes, so
+        the old store's rename fails as a held store's does on Windows."""
+        self.legacy_store()
+        self.box.write(".scratch/_brainstorming.pre-0.16", "in the way\n")
+
     def fixes_deleted(self):
         self.coder_started()
         os.remove(self.box.path(self.rel("FIXES.md")))
@@ -82,7 +89,7 @@ class Refusals(Staged):
     def gh_refuses_head(self):
         """PR: yes with a template, origin on GitHub with ls-remote stubbed, and a gh
         that passes auth and refuses the existing-PR check."""
-        self.code_signed(pr="yes")
+        self.folded(pr="yes")
         self.git("remote", "add", "origin", "https://github.com/example/repo.git")
         real = shutil.which("git")
         self.box.stub("git", "if [ \"$1\" = ls-remote ]; then exit 0; fi\nexec '%s' \"$@\"\n" % real)
@@ -153,13 +160,17 @@ class Refusals(Staged):
     def snapshot(self):
         """The staged project as a refusal must leave it: every file and
         directory outside .git, with its bytes, and the checked-out branch
-        and HEAD when the project is a repository."""
+        and HEAD when the project is a repository. The idea store's lock
+        file is left out: every brainstorm write that takes the lock writes
+        its pid there, a refused one included."""
         tree = {}
         for directory, dirs, files in os.walk(self.box.proj):
             dirs[:] = sorted(d for d in dirs if not (directory == self.box.proj and d == ".git"))
             rel = os.path.relpath(directory, self.box.proj)
             tree[rel] = None
             for name in files:
+                if rel == ".scratch" and name == "_brainstorming.lock":
+                    continue
                 with open(os.path.join(directory, name), "rb") as handle:
                     tree[os.path.join(rel, name)] = handle.read()
         if os.path.isdir(self.box.path(".git")):
@@ -223,13 +234,23 @@ class Refusals(Staged):
         self.assertNotEqual(result.code, 0, "%s: exit 0\n%r" % (label, result))
         self.assertNotIn(b"\r", result.data, label)
         self.assertTrue(result.last.startswith("Next: "), "%s: the last line is no Next: line\n%r" % (label, result))
-        self.assertIn(first, result.lines[0], "%s: first line\n%r" % (label, result))
+        for number, fragment in enumerate(first if isinstance(first, tuple) else (first,)):
+            self.assertIn(fragment, result.lines[number], "%s: line %d\n%r" % (label, number + 1, result))
         self.assertIn(following, result.last, "%s: Next: line\n%r" % (label, result))
 
 
 R = Refusals
 CHECK = ("coder", "check", *SLUG, "--write")
 START = ("coder", "start", *SLUG, "--write")
+USAGE = "--help for this command's usage."
+AGAIN = "Run the command again"
+
+
+def unknown(option, takes):
+    """The first two lines of the refusal of an option the command does not
+    take: the option, and the command's own options."""
+    return ("Unknown option: --%s" % option, "This command takes: %s." % ", ".join("--" + o for o in takes))
+
 
 # (group, case, scene, argv, first-line fragment, Next: fragment, env, POSIX only). A scene may return the
 # environment it needs; env adds to it.
@@ -239,10 +260,31 @@ TABLES = {
          "The code Loop is not signed off", "the Loop is not finished", None, False),
         ("bad-slug", R.repo, ("loop", "new", "--slug", "Not A Slug", *CC), "Not a Feature slug", "Ask the user for a slug",
          None, False),
-        ("set-nothing", R.plan, ("loop", "set", *SLUG, "--write"), "Nothing to set", "loop --help", None,
+        ("set-nothing", R.plan, ("loop", "set", *SLUG, "--write"), "Nothing to set", "loop set --help", None,
          False),
         ("newer-state-version", R.newer_state, ("loop", "show", *SLUG), "format version 9", "rerun Setup", None,
          False),
+        ("show-option-of-new", R.plan, ("loop", "show", *SLUG, *CC, "--minors", "leave"),
+         unknown("minors", ("harness", "role", "slug")), AGAIN, None, False),
+        ("close-option-of-set", R.plan, ("loop", "close", *SLUG, "--feature", "y"),
+         unknown("feature", ("harness", "slug", "write")), AGAIN, None, False),
+        ("new-option-of-set", R.repo, ("loop", "new", *SLUG, *CC, "--minors", "fix", "--pr", "no", "--harness-line",
+                                       "Codex"),
+         unknown("harness-line", ("base", "branch", "harness", "leftover", "minors", "pr", "slug", "write")), AGAIN,
+         None, False),
+        ("new-missing", R.repo, ("loop", "new", *CC), "Missing: --slug", "loop new " + USAGE, None, False),
+        ("new-write-missing-answers", R.repo, ("loop", "new", *SLUG, *CC, "--write"), "Missing: --minors, --pr",
+         "loop new " + USAGE, None, False),
+        ("show-role-not-a-choice", R.plan, ("loop", "show", *SLUG, "--role", "Nobody"),
+         "--role takes Planner, Plan-Reviewer, Coder, Code-Reviewer, Orchestrator or PR-Author, not Nobody.",
+         "loop show " + USAGE, None, False),
+        ("new-leftover-not-a-choice", R.repo, ("loop", "new", *SLUG, *CC, "--leftover", "keep"),
+         "--leftover takes continue, not keep.", "loop new " + USAGE, None, False),
+        ("new-minors-not-a-choice", R.repo, ("loop", "new", *SLUG, *CC, "--minors", "bogus"),
+         "--minors takes fix or leave, not bogus.", "Ask the user again with the accepted answers", None, False),
+        ("set-pr-not-a-choice", R.plan, ("loop", "set", *SLUG, "--pr", "bogus"),
+         '--pr takes yes, "ask at sign-off", manual or no, not bogus.', "Ask the user again with the accepted answers",
+         None, False),
     ],
     "doorbell": [
         ("version-1-ring", R.version_one, ("doorbell", "ring", "--role", "Planner", *CC, *SLUG, "--write"),
@@ -251,6 +293,16 @@ TABLES = {
         ("closed-loop-ring", lambda t: (t.plan(), t.stage("loop closed")),
          ("doorbell", "ring", "--role", "Planner", *CC, *SLUG, "--write"), "is closed", "ask the Orchestrator to reopen it", None,
          False),
+        ("ring-option-of-take", R.plan, ("doorbell", "ring", "--role", "Planner", *CC, *SLUG, "--pasted", "z"),
+         unknown("pasted", ("harness", "role", "slug", "write")), AGAIN, None, False),
+        ("take-option-of-ring", R.plan, ("doorbell", "take", "--role", "Planner", *CC, *SLUG, "--write"),
+         unknown("write", ("harness", "pasted", "resumed", "role", "slug")), AGAIN, None, False),
+        ("wait-option-of-ring", R.plan, ("doorbell", "wait", "--role", "Planner", *CC, *SLUG, "--write"),
+         unknown("write", ("harness", "role", "slug")), AGAIN, None, False),
+        ("ring-missing", R.plan, ("doorbell", "ring", *SLUG, "--write"), "Missing: --role, --harness",
+         "doorbell ring " + USAGE, None, False),
+        ("ring-role-not-a-choice", R.plan, ("doorbell", "ring", "--role", "Coder", *CC, *SLUG, "--write"),
+         "--role takes Planner or Orchestrator, not Coder.", "doorbell ring " + USAGE, None, False),
     ],
     "coder": [
         ("version-1-start", R.version_one, START, V1, NEXT_V1, None, False),
@@ -258,12 +310,12 @@ TABLES = {
         ("no-commit", R.no_commit, START, "has no commit", "first commit", None, False),
         ("git-diff-fails", R.coder_started, CHECK, "git diff failed", "git diff fails",
          lambda t: t.git_fails("diff"), True),
-        ("git-diff-times-out", R.coder_started, CHECK, "git diff --name-only timed out after 1 seconds.",
-         "git diff --name-only did not finish", lambda t: t.git_hangs("diff"), True),
+        ("git-diff-times-out", R.coder_started, CHECK, "git diff timed out after 1 seconds.",
+         "git diff did not finish", lambda t: t.git_hangs("diff"), True),
         ("git-ls-files-fails", R.coder_started, CHECK, "git ls-files failed", "git ls-files fails",
          lambda t: t.git_fails("ls-files"), True),
-        ("git-branch-times-out", R.signed, START, "git branch --show-current timed out after 1 seconds.",
-         "git branch --show-current did not finish", lambda t: t.git_hangs("branch"), True),
+        ("git-branch-times-out", R.signed, START, "git branch timed out after 1 seconds.",
+         "git branch did not finish", lambda t: t.git_hangs("branch"), True),
         ("start-after-code-sign-off", R.code_signed, START, "The code Loop signed off in round 1",
          "BLOCKED: the code Loop is already signed off", None, False),
         ("lost-open-finding", R.lost_open_finding, START, "CODEREVIEW.md has no heading for finding 1",
@@ -273,6 +325,8 @@ TABLES = {
         ("check-off-the-feature-branch", R.off_the_feature_branch, CHECK, "The checked-out branch is main",
          "coder check --slug demo --write again", None, False),
         ("check-fixes-deleted", R.fixes_deleted, CHECK, "FIXES.md does not exist", "FIXES.md is gone", None, False),
+        ("start-option-of-review", R.signed, START + ("--role", "Coder"), unknown("role", ("slug", "write")), AGAIN,
+         None, False),
     ],
     "review": [
         ("version-1-plan-start", R.version_one, ("review", "start", "--role", "Plan-Reviewer", *SLUG, "--write"), V1,
@@ -284,7 +338,7 @@ TABLES = {
         ("bad-review-range", R.bad_review_range, ("review", "start", "--role", "Code-Reviewer", *SLUG, "--write"),
          "git cannot read the review range", "git cannot diff", None, False),
         ("git-diff-times-out", R.coding, ("review", "start", "--role", "Code-Reviewer", *SLUG, "--write"),
-         "git diff --name-only timed out after 1 seconds.", "git diff --name-only did not finish",
+         "git diff timed out after 1 seconds.", "git diff did not finish",
          lambda t: t.git_hangs("diff"), True),
         ("start-after-sign-off", R.code_signed, ("review", "start", "--role", "Code-Reviewer", *SLUG, "--write"),
          "The code Loop signed off in round 1", "BLOCKED: the code Loop is already signed off", None, False),
@@ -304,6 +358,14 @@ TABLES = {
         ("add-moved-ref-closed", R.moved_ref_closed, ("review", "add", *SLUG, "--from", "findings.md", "--write"),
          "Code round 1 was folded but its fold is not recorded", "loop reopen --slug demo --write, then ", None,
          False),
+        ("add-option-of-start", R.code_signed, ("review", "add", *SLUG, "--from", "findings.md", "--role", "Coder"),
+         unknown("role", ("from", "slug", "write")), AGAIN, None, False),
+        ("start-missing", R.plan, ("review", "start", *SLUG, "--write"), "Missing: --role",
+         "review start " + USAGE, None, False),
+        ("add-missing", R.code_signed, ("review", "add", *SLUG, "--write"), "Missing: --from", "review add " + USAGE,
+         None, False),
+        ("start-role-not-a-choice", R.plan, ("review", "start", "--role", "Coder", *SLUG, "--write"),
+         "--role takes Plan-Reviewer or Code-Reviewer, not Coder.", "review start " + USAGE, None, False),
     ],
     "orchestrator": [
         ("version-1-start", R.version_one, ("orchestrator", "start", *SLUG, *CC), V1, NEXT_V1, None, False),
@@ -314,7 +376,14 @@ TABLES = {
         ("respawn-both", R.plan, ("orchestrator", "respawn", "--role", "Coder", "--policy", "never", "--once",
                                   *SLUG, "--write"), "Give --policy or --once", "usage", None, False),
         ("respawn-neither", R.plan, ("orchestrator", "respawn", "--role", "Coder", *SLUG, "--write"),
-         "Give --policy or --once", "usage", None, False),
+         "Missing: --policy or --once", "orchestrator respawn " + USAGE, None, False),
+        ("start-option-of-return", R.plan, ("orchestrator", "start", *SLUG, *CC, "--role", "Coder"),
+         unknown("role", ("harness", "slug")), AGAIN, None, False),
+        ("tokens-missing", R.coder_out, ("orchestrator", "tokens", "--role", "Coder", *SLUG), "Missing: --tokens",
+         "orchestrator tokens " + USAGE, None, False),
+        ("return-role-not-a-choice", R.plan, ("orchestrator", "return", "--role", "PR-Author", *SLUG, *CC),
+         "--role takes Planner, Plan-Reviewer, Coder or Code-Reviewer, not PR-Author.", "orchestrator return " + USAGE,
+         None, False),
         ("tokens-not-a-number", R.coder_out, ("orchestrator", "tokens", "--role", "Coder", "--tokens", "52k",
                                               *SLUG), "--tokens takes a whole number", "again with the number",
          None, False),
@@ -325,11 +394,17 @@ TABLES = {
         ("version-1-check", R.version_one, ("pr", "check", *SLUG, *CC), V1, NEXT_V1, None, False),
         ("gh-refuses-the-existing-pr-check", R.gh_refuses_head, ("pr", "check", *SLUG, *CC), "A sandbox refused",
          "outside the sandbox", None, True),
-        # The push is done, so it prints first (T7).
+        # The push is done, so it prints first.
         ("close-fails", R.close_fails, ("pr", "open", "--path", "push-only", *SLUG, *CC, "--write"),
          "Pushed demo to origin.", "could not be closed", None, True),
         ("bad-path", R.folded, ("pr", "open", "--path", "pushed", *SLUG, *CC, "--write"),
-         "--path takes open, push-only or existing", "Path: line", None, False),
+         "--path takes open, push-only or existing, not pushed.", "pr open " + USAGE, None, False),
+        ("check-fold-owed", R.code_signed, ("pr", "check", *SLUG, *CC), "The fold's outcome is not recorded",
+         "loop fold --slug demo --harness claude-code --write, then run ", None, False),
+        ("check-option-of-open", R.code_signed, ("pr", "check", *SLUG, *CC, "--path", "open"),
+         unknown("path", ("harness", "slug")), AGAIN, None, False),
+        ("open-missing", R.folded, ("pr", "open", *SLUG, "--write"), "Missing: --harness, --path", "pr open " + USAGE,
+         None, False),
         ("preflight-refused-at-open", R.ls_remote_refused, ("pr", "open", "--path", "push-only", *SLUG, *CC,
                                                             "--write"),
          "A sandbox refused", "outside the sandbox", None, True),
@@ -337,14 +412,38 @@ TABLES = {
     "wayfinder": [
         ("no-templates", R.repo, ("wayfinder", "start", "--effort", "demo", "--skill-dir", "nowhere"),
          "has no references/overview-template.md", "invoke vdd-setup", None, False),
+        ("start-missing", R.repo, ("wayfinder", "start", "--effort", "demo"), "Missing: --skill-dir",
+         "wayfinder start " + USAGE, None, False),
+        ("start-option-of-loop", R.repo, ("wayfinder", "start", "--effort", "demo", "--skill-dir", "x", *SLUG),
+         unknown("slug", ("effort", "skill-dir")), AGAIN, None, False),
     ],
     "setup": [
         ("unknown-harness", R.repo, ("setup", "--harness", "emacs", "--listed", "none", "--glossary-named", "yes"),
          "Unknown Harness: emacs", "Run again with --harness set to one of", None, False),
+        ("missing", R.repo, ("setup", *CC), "Missing: --listed, --glossary-named", "setup " + USAGE, None, False),
+        ("glossary-named-not-a-choice", R.repo, ("setup", *CC, "--listed", "none", "--glossary-named", "maybe"),
+         "--glossary-named takes yes, no or absent, not maybe.", "setup " + USAGE, None, False),
+        ("option-of-loop", R.repo, ("setup", *CC, "--listed", "none", "--glossary-named", "yes", *SLUG),
+         unknown("slug", ("glossary-named", "harness", "listed", "user-answer", "write")), AGAIN, None, False),
     ],
     "brainstorm": [
         ("unknown-idea", R.store, ("brainstorm", "show", "--idea", "main-ide"), "No idea named main-ide",
          "with the slug as the user meant it", None, False),
+        ("show-missing", R.store, ("brainstorm", "show"), "Missing: --idea", "brainstorm show " + USAGE, None, False),
+        ("migrate-rename-held", R.backup_blocked, ("brainstorm", "migrate", "--write"),
+         ("could not be renamed to the backup", "an editor, or a shell whose working directory is inside it"),
+         "if your own shell's working directory is inside .scratch/_brainstorming/, change to the repository root "
+         "and run the command again; if not, tell the user what holds it open and wait for their word", None, False),
+        ("set-option-of-new", R.store, ("brainstorm", "set", "--idea", "x", "--parent", "y", "--write"),
+         unknown("parent", ("decision", "fog", "idea", "importance", "reopen-when", "size", "status", "title", "tldr",
+                            "write")), AGAIN, None, False),
+        ("new-importance-not-a-choice", R.store, ("brainstorm", "new", "--slug", "x", "--title", "X", "--tldr", "X.",
+                                                  "--importance", "huge"),
+         "--importance takes ", "Nothing was written. Run the command again with one of those values.", None, False),
+        ("set-status-not-a-choice", R.store, ("brainstorm", "set", "--idea", "old", "--status", "gone"),
+         "--status takes ", "Nothing was written.", None, False),
+        ("cleanup-status-not-a-choice", R.store, ("brainstorm", "cleanup", "--status", "idea"),
+         "--status takes ", "Nothing was written.", None, False),
     ],
 }
 

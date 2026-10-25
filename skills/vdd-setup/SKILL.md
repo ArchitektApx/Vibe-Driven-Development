@@ -15,7 +15,7 @@ The checks run in the VDD tool, `scripts/vdd.py` in the directory this skill
 was loaded from, which your Harness named when it loaded the skill. Run it as
 `python3 "<skill directory>/scripts/vdd.py"` on macOS and Linux, and as
 `py -3 "<skill directory>\scripts\vdd.py"` on native Windows, with the path
-written out in full.
+written out in full. Every command shows its usage and options with `--help`.
 If `python3` or `py -3` is not found, tell the user VDD needs Python 3.9
 or newer, and stop.
 
@@ -34,14 +34,8 @@ and stop.
    the same bare name. Read `domain-modeling`'s description for whether it
    names `GLOSSARY.md`. This step runs no command.
 
-3. **Run `setup` without `--write`.** It changes nothing and prints every
-   check, every planned change, and every line for the user.
-
-4. **Do what its `Next:` line says.** Ask the user the questions it names,
-   and before you run `git init`, wait for their yes; run it with your own
-   tools. Show the user the planned changes:
-   showing them is the consent step, so ask no separate question. Then run
-   the same command with `--write`, which makes the changes and checks each.
-
-5. **Report.** Give the user a short status report, as the last `Next:` line
-   says. Relay every `Tell the user verbatim` line unchanged.
+3. **Run `setup` without `--write`, and do what each `Next:` line says**
+   until it says Setup is done: the questions to ask, the planned changes
+   shown to the user (showing them is the consent step, so ask no separate
+   question), the same command with `--write`, then the short status report.
+   Relay every `Tell the user verbatim` line unchanged.

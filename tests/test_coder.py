@@ -77,7 +77,7 @@ class HelpTest(CoderTest):
 
 class StartTest(CoderTest):
     def test_the_plan_loop_not_signed_off_refuses_and_changes_nothing(self):
-        """Replaces the Coder's Precondition (1e59e46): PLAN-REVIEW.md had to
+        """Replaces the Coder's Precondition: PLAN-REVIEW.md had to
         start SIGNED OFF, since an unreviewed Spec is not a contract."""
         self.box.write_loop("demo", extra=("plan 1 reviewed open 1 counts 0 1 0",))
         before = self.state()
@@ -295,7 +295,7 @@ class CheckTest(CoderTest):
 
     def test_a_modified_tracked_file_is_refused_by_name(self):
         """Replaces the Coder skill's "Uncommitted work at hand-off time is a
-        defect" (1e59e46): both reviews diff committed work only."""
+        defect": both reviews diff committed work only."""
         self.started()
         self.put("FIXES.md", filled_round_one(self.read("FIXES.md")))
         self.box.write("a.txt", "changed\n")
@@ -303,7 +303,7 @@ class CheckTest(CoderTest):
 
     def test_a_new_untracked_file_is_refused_by_name(self):
         """A file the Coder creates and never adds passed coder check, so it
-        missed the commits, the fold and the PR (loop 05's grading)."""
+        missed the commits, the fold and the PR."""
         self.started()
         self.put("FIXES.md", filled_round_one(self.read("FIXES.md")))
         self.box.write("made.txt", "never added\n")
@@ -402,6 +402,22 @@ class CheckTest(CoderTest):
         self.refused("finding 1: \"Answer: done\": the answer is fixed or pushback",
                      "finding 2 answers pushback with no Why:")
 
+    def test_an_answer_that_runs_on_names_the_labels_and_where_the_rest_goes(self):
+        """Prevents a refusal that quotes the merged answer without saying
+        what is wrong, after which a Coder cuts the entry to its answer and
+        the record of the fix is lost."""
+        self.later()
+        self.answer("Answer: fixed\nFiles: src/a.py\nChange: one line.\nVerified: the test passed.\nWhy:",
+                    "Answer: fixed\nWhy:", "Answer: fixed\nWhy:")
+        self.refused('finding 1: Answer: runs on past fixed into "Files: src/a.py Change: one line. '
+                     'Verified: the test passed."',
+                     "A finding's entry holds two labels, Answer: and Why:",
+                     "Put Answer: fixed alone on its line and move the rest below a Why: line")
+        text = self.read("FIXES.md").replace("Answer: fixed\nFiles:", "Answer: fixed\nWhy: Files:", 1)
+        self.put("FIXES.md", text.replace("Verified: the test passed.\nWhy:\n", "Verified: the test passed.\n", 1))
+        result = self.coder("check")
+        self.assertEqual(result.code, 0, result)
+
     def test_a_missing_finding_entry_prints_its_whole_heading(self):
         """The refusal printed "## Finding 2. ...", not the heading the tool
         wrote."""
@@ -420,7 +436,7 @@ class CheckTest(CoderTest):
         self.assertNotIn("Ticket", self.read("FIXES.md"))
 
     def test_an_amended_earlier_round_is_refused_until_it_is_a_new_commit(self):
-        """Ticket 71 (case c10): a round that amends, rebases or resets an
+        """Prevents a lost round end: a round that amends, rebases or resets an
         earlier round's commit loses the recorded end the fold and the next
         review read. check refuses it, writes no round end, and passes once
         the change is a new commit."""

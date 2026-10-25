@@ -1,4 +1,4 @@
-"""Seam 1: the setup command, driven from outside."""
+"""The setup command, driven from outside."""
 
 import json
 import os
@@ -61,8 +61,9 @@ class SetupTest(ToolTest):
         self.assertEqual(os.listdir(self.box.data), [])
 
     def test_writing_for_agents_listed_with_no_hit_is_resolvable_in_one_line(self):
-        """Resolvable with no search hit passes: the collection resolves from a
-        store Setup does not search, and gets no repair (180854c)."""
+        """Prevents a repair offered to a collection that resolves from a store
+        Setup does not search: Resolvable with no search hit passes and gets
+        no repair."""
         for listed in ("writing-for-agents", "mattpocock-skills:writing-for-agents"):
             with self.subTest(listed=listed):
                 result = self.setup(listed=listed, glossary="yes")
@@ -148,7 +149,7 @@ class SetupTest(ToolTest):
     def test_temp_git_clone_in_the_claude_cache_never_counts(self):
         """Claude Code stages a marketplace clone as cache/temp_git_*, laid out
         as the collection's own repository; the cache root stops at
-        */mattpocock-skills so that copy is not Present (180854c)."""
+        */mattpocock-skills so that copy is not counted as an installed one."""
         self.skills_in(self.store(".claude", "plugins", "cache", "temp_git_123", "skills", "engineering"))
         result = self.setup()
         self.assertIn("Not Present: " + ", ".join(SKILLS), result.text)
@@ -156,7 +157,7 @@ class SetupTest(ToolTest):
     def test_a_symlinked_skills_cli_install_counts(self):
         """A global skills-CLI install for Claude Code writes the real copy to
         ~/.agents/skills and a symlink at ~/.claude/skills; the search follows
-        it (180854c, find -L)."""
+        it, so such an install does not read as Not Present."""
         self.skills_in(self.store(".agents", "skills"))
         os.makedirs(os.path.join(self.box.home, ".claude", "skills"))
         for name in SKILLS:
@@ -182,7 +183,8 @@ class SetupTest(ToolTest):
 
     def test_claude_config_dir_moves_the_user_store_and_the_cache(self):
         """CLAUDE_CONFIG_DIR and CLAUDE_CODE_PLUGIN_CACHE_DIR move what Claude
-        Code reads, and the search moves with them (180854c)."""
+        Code reads, and the search moves with them, so skills installed there
+        do not read as Not Present."""
         self.skills_in(os.path.join("cfg", "skills"))
         env = self.box.env(CLAUDE_CONFIG_DIR=os.path.join(self.box.root, "cfg"))
         result = self.setup("claude-code", "writing-for-agents", "yes", env=env)
@@ -198,16 +200,16 @@ class SetupTest(ToolTest):
         self.assertTrue(any("mattpocock-skills@mk" in t for t in result.tells()), result)
 
     def test_copilot_home_unset_reads_the_agents_store(self):
-        """Copilot CLI reads ~/.agents/skills only while COPILOT_HOME is unset
-        (180854c)."""
+        """Copilot CLI reads ~/.agents/skills only while COPILOT_HOME is unset,
+        so the search neither misses that store nor counts it when set."""
         self.skills_in(self.store(".agents", "skills"))
         result = self.setup("copilot-cli", "writing-for-agents", "yes")
         self.assertIn("all 11 Present and Resolvable", result.text)
 
     def test_copilot_home_set_skips_the_agents_store_and_adds_it_by_hand(self):
-        """With COPILOT_HOME set, ~/.agents/skills is not read, and the -g
-        install route adds copilot skill add with the path expanded (180854c,
-        5638eda)."""
+        """Prevents ~/.agents/skills counted while COPILOT_HOME is set, and a
+        -g install route without the expanded path: it is not read, and the
+        route adds copilot skill add with the path expanded."""
         self.skills_in(self.store(".agents", "skills"))
         env = self.box.env(COPILOT_HOME=os.path.join(self.box.root, "copilot"))
         result = self.setup("copilot-cli", "", "absent", env=env)
@@ -274,7 +276,8 @@ class SetupTest(ToolTest):
 
     def test_old_collection_from_the_description_gives_one_update_route(self):
         """A collection from before the glossary rename gets the update route
-        for its store, in place of any install route (a483e69)."""
+        for its store, in place of any install route, which it does not
+        need."""
         self.skills_in(self.store(".claude", "skills"))
         result = self.setup("claude-code", "writing-for-agents", "no")
         self.assertTrue(any(t.startswith("Warning: your copy of Matt Pocock's collection") for t in result.tells()))
@@ -328,8 +331,7 @@ class SetupTest(ToolTest):
 
     def test_outside_a_repository_the_shared_copy_is_still_installed(self):
         """Prevents a Brainstormer left without its tool by a failed git
-        check (ticket 97's decision: Setup installs the tool before its git
-        gate): --write outside a repository installs the Shared copy."""
+        check, since Setup installs the tool before its git gate: --write outside a repository installs the Shared copy."""
         plain = os.path.join(self.box.root, "plain")
         os.makedirs(plain)
         result = self.setup("claude-code", "none", "absent", "--write", cwd=plain)
@@ -353,6 +355,36 @@ class SetupTest(ToolTest):
                 self.assertEqual(os.listdir(sub), [])
                 self.assertEqual(self.proj_files(), [".git", "sub"])
                 self.assertFalse(os.path.exists(self.box.shared))
+
+    def test_a_run_from_the_shared_copy_is_refused(self):
+        """Prevents Setup run from the Shared copy calling that copy current
+        whatever the plugin ships: it compares the directory it runs from
+        with the Shared directory, which are then the same."""
+        os.makedirs(self.box.shared)
+        shutil.copyfile(os.path.join(SCRIPTS, "vdd.py"), os.path.join(self.box.shared, "vdd.py"))
+        shutil.copytree(os.path.join(SCRIPTS, "vdd"), os.path.join(self.box.shared, "vdd"),
+                        ignore=shutil.ignore_patterns("__pycache__"))
+        with open(os.path.join(self.box.shared, "vdd.py"), "a") as handle:
+            handle.write("# old\n")
+        entry = os.path.join(self.box.shared, "vdd.py")
+        before = vddtest_tree(self.box.shared)
+        for extra in ((), ("--write",)):
+            with self.subTest(extra=extra):
+                result = self.box.run("setup", "--harness", "claude-code", "--listed", "writing-for-agents",
+                                      "--glossary-named", "yes", *extra, entry=entry)
+                self.assertEqual(result.code, 1, result)
+                self.assertContract(result)
+                self.assertIn("Setup ran from the Shared copy of the VDD tool, %s" % entry, result.text)
+                self.assertIn("Nothing was checked or changed.", result.lines)
+                self.assertNotIn("current", result.text)
+                self.assertNext(result, "Setup runs from the copy beside the vdd-setup skill you loaded",
+                                vddtest.tool_command(os.path.join("<vdd-setup skill directory>", "scripts", "vdd.py"))
+                                + " setup --harness claude-code --listed writing-for-agents --glossary-named yes",
+                                *extra)
+                self.assertEqual(vddtest_tree(self.box.shared), before)
+                self.assertEqual(self.proj_files(), [".git"])
+        shipped = self.setup("claude-code", "writing-for-agents", "yes")
+        self.assertIn("Planned change: update the VDD tool", shipped.text)
 
     def test_a_loop_md_in_lowercase_is_not_reported_as_a_root_loop_file(self):
         """Only a file named exactly LOOP.md is a format-1 Loop file; on a
@@ -473,7 +505,8 @@ class SetupTest(ToolTest):
 
     def test_gitignore_removes_only_whole_retired_lines(self):
         """A line goes only when the whole line, trimmed, is a retired entry:
-        docs/PLAN.md and !PLAN.md are the user's own (6106fb6)."""
+        docs/PLAN.md and !PLAN.md are the user's own, and Setup must not
+        delete them with the retired ones."""
         self.box.write(".gitignore", "PLAN.md\ndocs/PLAN.md\n!PLAN.md\n  FIXES.md  \n")
         result = self.setup("claude-code", "writing-for-agents", "yes", "--write")
         self.assertIn("Changed: .gitignore removes PLAN.md", result.text)
@@ -521,7 +554,7 @@ class SetupTest(ToolTest):
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("Not changed: the Shared copy of the VDD tool", result.text)
         self.assertNext(result, "outside the sandbox, rerun it once that way.", "did not land and what it was for, and stop.")
-        self.assertTrue(result.last.startswith("Next: If a sandbox refused it"), result)
+        self.assertTrue(result.last.startswith("Next: Relay every Tell the user verbatim line above unchanged; only after doing that, if a sandbox refused it"), result)
 
     @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
     def test_an_unreadable_gitignore_ends_on_the_escalation_not_a_traceback(self):
@@ -536,6 +569,49 @@ class SetupTest(ToolTest):
                 self.assertIn("Could not read .gitignore", result.text)
                 self.assertNotIn("Traceback", result.text)
                 self.assertNext(result, "outside the sandbox", "stop")
+
+    # (the file Setup cannot read, what else is staged, the line printed just before the refusal)
+    UNREADABLE = (
+        ("docs/agents/issue-tracker.md", {}, None),
+        ("docs/agents/domain.md", {}, "Tracker: docs/agents/issue-tracker.md configures local markdown. Passed."),
+        ("CONTEXT-MAP.md", {"docs/agents/domain.md": "See CONTEXT-MAP.md.\n"},
+         'Tell the user verbatim: "Warning: this repository was set up before Matt Pocock\'s glossary rename'),
+        ("AGENTS.md", {"docs/agents/domain.md": "See CONTEXT.md.\n", "CONTEXT.md": "x\n"},
+         'Tell the user verbatim: "git mv CONTEXT.md GLOSSARY.md"'),
+        ("CLAUDE.md", {"docs/agents/domain.md": "See CONTEXT.md.\n", "CONTEXT.md": "x\n", "AGENTS.md": "x\n"},
+         'Tell the user verbatim: "git mv CONTEXT.md GLOSSARY.md"'),
+    )
+
+    def test_an_unreadable_file_keeps_every_check_printed_before_it(self):
+        """Prevents a file Setup cannot read from ending the run on the bare
+        file error, which dropped every check Setup had already printed. A
+        directory stands in for the unreadable file on every OS."""
+        for name, staged, before in self.UNREADABLE:
+            with self.subTest(file=name):
+                self.box.write("docs/agents/issue-tracker.md", "Local markdown.\n")
+                for path, text in staged.items():
+                    self.box.write(path, text)
+                unreadable = os.path.join(self.box.proj, *name.split("/"))
+                if os.path.isfile(unreadable):
+                    os.remove(unreadable)
+                os.makedirs(unreadable)
+                result = self.setup("claude-code", "writing-for-agents", "yes")
+                shutil.rmtree(unreadable)
+                self.assertEqual(result.code, 1, result)
+                self.assertContract(result)
+                self.assertNext(result, "outside the sandbox", "Setup could not read %s, and stop." % name)
+                self.assertTrue(result.lines[-2].startswith("Could not read %s: " % name), result)
+                printed = result.lines[:-2]
+                self.assertEqual(printed[0], "Setup, Harness Claude Code (dry run, nothing is changed yet).")
+                if before is not None:
+                    self.assertTrue(printed[-1].startswith(before), result)
+                self.assertEqual(printed, self.setup("claude-code", "writing-for-agents", "yes").lines[:len(printed)])
+                for path in list(staged) + ["docs"]:
+                    full = os.path.join(self.box.proj, *path.split("/"))
+                    if os.path.isdir(full):
+                        shutil.rmtree(full)
+                    elif os.path.exists(full):
+                        os.remove(full)
 
 
 def vddtest_tree(base):
@@ -647,8 +723,9 @@ class CodexSetupTest(ToolTest):
 
     def test_any_other_vdd_handler_is_reported_and_left(self):
         before = self.hooks({"hooks": {"Stop": [self.vdd_group("python3 /mine/vdd-codex-stop.py")]}})
-        result = self.setup("--write")
-        self.assertIn("naming vdd-codex-stop that Setup did not write stays: python3 /mine/vdd-codex-stop.py", result.text)
+        self.assertIn("naming vdd-codex-stop that Setup did not write stays: python3 /mine/vdd-codex-stop.py",
+                      self.setup().text)
+        self.setup("--write")
         self.assertEqual(self.read_hooks(), before)
 
     def test_an_old_template_with_another_timeout_stays(self):
@@ -662,7 +739,7 @@ class CodexSetupTest(ToolTest):
         result = self.setup("--write")
         self.assertTrue(any("left ~/.codex/hooks.json untouched" in t for t in result.tells()), result)
         self.assertEqual(self.read_hooks(), "{ not json")
-        self.assertIn("~/.codex/hooks.json: left untouched, it does not parse as JSON (", result.text)
+        self.assertIn("~/.codex/hooks.json: left untouched, it does not parse as JSON (", self.setup().text)
 
     def test_a_hooks_json_that_cannot_be_read_names_the_reason_as_one(self):
         """The Tell line read "untouched because Permission denied.", a bare
@@ -673,7 +750,8 @@ class CodexSetupTest(ToolTest):
         self.assertEqual(len(tells), 1, result)
         self.assertRegex(tells[0], r"^Setup left ~/\.codex/hooks\.json untouched: it could not be read \([^()]+\)\. "
                                    r"If it holds VDD's old Stop hook entry, remove that entry by hand\.$")
-        self.assertRegex(result.text, r"~/\.codex/hooks\.json: left untouched, it could not be read \([^()]+\)\.")
+        self.assertRegex(self.setup().text,
+                         r"~/\.codex/hooks\.json: left untouched, it could not be read \([^()]+\)\.")
 
     def test_a_registration_in_config_toml_is_reported(self):
         self.config('[[hooks.Stop]]\n[[hooks.Stop.hooks]]\ncommand = "sh /x/vdd-codex-stop.sh"\n')
@@ -729,6 +807,28 @@ class CodexSetupTest(ToolTest):
         self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
         self.assertTrue(any("could not tell whether VDD's hook is trusted" in t for t in result.tells()), result)
 
+    def test_an_unreadable_config_toml_is_unknown(self):
+        """Prevents an unreadable config.toml from ending Setup on a bare file
+        error: Setup read it twice, and the first read had no guard, so the
+        trust check's unknown was never reached."""
+        os.mkdir(os.path.join(self.codex, "config.toml"))
+        result = self.setup()
+        self.assertEqual(result.code, 0, result)
+        self.assertIn("VDD's Codex hook: whether it is trusted is unknown, ~/.codex/config.toml could not be read.",
+                      result.lines)
+        self.assertIn("Setup could not tell whether VDD's hook is trusted. Open /hooks and trust VDD's hook if it "
+                      "is listed for review.", result.tells())
+        self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
+
+    def test_a_config_toml_read_but_not_understood_says_so(self):
+        """Prevents a config.toml Setup read but could not follow from being
+        reported as one it could not read."""
+        self.config('skills = [\n  "a",\n')
+        result = self.setup()
+        self.assertIn("VDD's Codex hook: whether it is trusted is unknown, ~/.codex/config.toml was read but not "
+                      "understood.", result.lines)
+        self.assertNotIn("could not be read", result.text)
+
     TRUST = '[hooks.state."vdd@mk:plugin.json#hooks[0]:stop:0:0"]\ntrusted_hash = "sha256:x"\n'
     SHAPES = (
         # (shape, the text staged before the trust entry, whether Setup finds the entry)
@@ -762,6 +862,20 @@ class CodexSetupTest(ToolTest):
         result = self.box.run("setup", "--harness", "codex", "--listed", "writing-for-agents",
                               "--glossary-named", "yes", env=self.box.env(CODEX_HOME=home))
         self.assertIn("removes VDD's old Stop hook entry", result.text)
+
+    def test_an_empty_codex_home_reads_as_unset(self):
+        """CODEX_HOME is read in one place now; empty there must still mean
+        ~/.codex, for the hook steps and for the skill search alike."""
+        self.hooks({"hooks": {"Stop": [self.vdd_group()]}})
+        self.box.write(os.path.join(self.codex, "plugins", "cache", "mk", "mattpocock-skills", "1.0", "skills",
+                                    "grilling", "SKILL.md"), "x\n", base=self.box.root)
+        for value in ("", None):
+            with self.subTest(CODEX_HOME=value):
+                result = self.box.run("setup", "--harness", "codex", "--listed", "writing-for-agents",
+                                      "--glossary-named", "yes", env=self.box.env(CODEX_HOME=value))
+                self.assertIn("~/.codex/hooks.json", result.text)
+                self.assertIn("removes VDD's old Stop hook entry", result.text)
+                self.assertIn("Borrowed skills Present and Resolvable, passed: grilling.", result.lines, result)
 
     def test_other_harnesses_skip_the_codex_steps(self):
         self.hooks({"hooks": {"Stop": [self.vdd_group()]}})
@@ -814,8 +928,8 @@ class GitVersionTest(ToolTest):
 
     def test_git_older_than_2_40_still_installs_the_shared_copy(self):
         """Prevents a Brainstormer left without its tool by a git too old for
-        the loop (ticket 97's decision: Setup installs the tool before its
-        git gate): --write with git 2.39 fails Setup and installs the Shared
+        the loop, since Setup installs the tool before its git gate:
+        --write with git 2.39 fails Setup and installs the Shared
         copy."""
         real = shutil.which("git")
         self.box.stub("git", "if [ \"$1\" = --version ]; then echo 'git version 2.39.5'; exit 0; fi\nexec '%s' \"$@\"\n"
@@ -823,7 +937,7 @@ class GitVersionTest(ToolTest):
         result = self.box.run("setup", "--harness", "claude-code", "--listed", "none", "--glossary-named", "absent",
                               "--write", env=self.box.stub_env())
         self.assertNotEqual(result.code, 0, result)
-        self.assertIn("git version: 2.39.5, older than the 2.40 VDD needs. Failed.", result.lines)
+        self.assertIn("VDD needs git 2.40 or newer, and this machine has git 2.39.5", result.text)
         self.assertEqual(vddtest_tree(SCRIPTS), vddtest_tree(self.box.shared))
 
     def hanging_on(self, argument):
@@ -843,9 +957,10 @@ class GitVersionTest(ToolTest):
         result = self.hanging_on("--is-inside-work-tree")
         self.assertEqual(result.code, 0, result)
         self.assertContract(result)
-        self.assertIn("Git repository: git rev-parse --is-inside-work-tree timed out after 1 seconds.", result.lines)
+        self.assertIn("Git repository: git rev-parse timed out after 1 seconds.", result.lines)
         self.assertIn("git did not answer in time: find what holds it, then rerun Setup.", result.tells())
-        self.assertNext(result, "Show the user the planned changes above", "setup --harness claude-code", "--write")
+        self.assertNext(result, "only after doing that, show the user the planned changes above",
+                        "setup --harness claude-code", "--write")
 
     def test_a_version_check_that_hangs_says_git_did_not_answer(self):
         """Prevents a git that hangs on --version read as a git with no
@@ -856,7 +971,8 @@ class GitVersionTest(ToolTest):
         self.assertContract(result)
         self.assertIn("git version: git --version timed out after 1 seconds. Failed.", result.lines)
         self.assertIn("git did not answer in time: find what holds it, then rerun Setup.", result.tells())
-        self.assertNext(result, "Show the user the planned changes above", "setup --harness claude-code", "--write")
+        self.assertNext(result, "only after doing that, show the user the planned changes above",
+                        "setup --harness claude-code", "--write")
 
     def test_2_40_and_vendor_suffixed_versions_pass(self):
         """Prevents a vendor suffix (Apple's, Git for Windows') read as part
@@ -867,3 +983,133 @@ class GitVersionTest(ToolTest):
             self.assertIn("git version: %s. Passed." % shown, result.lines, result)
             self.assertNotIn("older than the 2.40", result.text)
             self.assertNotIn("stop: no loop can start", result.last)
+
+
+# Setup's routes, per Harness: the store each case installs the collection
+# in (0 its user skill store, 1 its plugin cache, None nowhere), and the
+# lines for the user the route prints after the Borrowed-skills line. Generic
+# selects "your agent" and hands a plugin cache to the Harness that owns it.
+CASES = {
+    "present": (0, ("writing-for-agents", "yes")),
+    "not present": (None, ("", "absent")),
+    "reinstall": (0, ("", "absent", "--user-answer", "does-not-resolve")),
+    "plugin": (1, ("", "absent", "--user-answer", "does-not-resolve")),
+    "update": (0, ("writing-for-agents", "no")),
+    "update plugin": (1, ("writing-for-agents", "no")),
+}
+CODEX_CACHE = (".codex", "plugins", "cache", "mk", "mattpocock-skills", "1.0", "skills")
+CODEX_PLUGIN = ("Run codex plugin add mattpocock-skills@mk, then start a new Codex Session and rerun $vdd:vdd-setup "
+                "there.")
+CODEX_UPDATE = ("Update it: codex plugin marketplace upgrade mk, then codex plugin add mattpocock-skills@mk, then "
+                "start a new Codex Session.")
+ROUTES = {
+    "claude-code": {
+        "header": "Claude Code",
+        "stores": ((".claude", "skills"), (".claude", "plugins", "cache", "mk", "mattpocock-skills", "1.0", "skills")),
+        "not present": "Install Matt Pocock's collection: /plugin marketplace add mattpocock/skills, then /plugin "
+                       "install mattpocock-skills@mattpocock, then turn on auto-update for the mattpocock marketplace "
+                       "under /plugin > Marketplaces (auto-update is off by default for every marketplace but "
+                       "Anthropic's own).",
+        "reinstall": "Re-run the install and select Claude Code: npx skills@latest add -g mattpocock/skills, then "
+                     "start a new Claude Code Session.",
+        "plugin": "Run claude plugin enable mattpocock-skills@mk from the repository root, then start a new Claude "
+                  "Code Session. If the plugin is enabled and still not loaded, reinstall it.",
+        "update": "Update it: npx skills update -g",
+        "update plugin": "Update it: claude plugin marketplace update mk, then claude plugin update mattpocock-skills "
+                         "(inside a Claude Code Session the first half is /plugin marketplace update mk).",
+    },
+    "codex": {
+        "header": "Codex",
+        "stores": ((".agents", "skills"), CODEX_CACHE),
+        "not present": "Install Matt Pocock's collection: npx skills@latest add -g mattpocock/skills, selecting Codex "
+                       "when the installer asks which agents to install for, then start a new Codex Session: a skill "
+                       "added while a Session runs appears only in a new one. Rerun $vdd:vdd-setup there.",
+        "reinstall": "First start a new Codex Session: a skill added while a Session runs appears only in a new one. "
+                     "If the new Session still cannot run it, re-run the install and select Codex: npx skills@latest "
+                     "add -g mattpocock/skills, then start a new Codex Session and rerun $vdd:vdd-setup there.",
+        "plugin": CODEX_PLUGIN,
+        "update": "Update it: npx skills update -g, then start a new Codex Session.",
+        "update plugin": CODEX_UPDATE,
+    },
+    "cursor": {
+        "header": "Cursor",
+        "stores": ((".cursor", "skills"), (".cursor", "plugins", "cache", "mk", "mattpocock-skills", "1.0", "skills")),
+        "not present": "Install Matt Pocock's collection: npx skills@latest add -g mattpocock/skills, selecting Cursor "
+                       "when the installer asks which agents to install for, then open a new chat or a new agent "
+                       "Session before you rerun /vdd-setup.",
+        "reinstall": "First open a new chat or a new agent Session. If that still cannot run it, re-run the install "
+                     "and select Cursor: npx skills@latest add -g mattpocock/skills, then open a new chat or a new "
+                     "agent Session.",
+        "plugin": "Reinstall the plugin in the Cursor IDE's plugin UI, then open a new chat or a new agent Session. "
+                  "Cursor has no command-line route for this.",
+        "update": "Update it: npx skills update -g",
+        "update plugin": "Update it: refresh the plugin in the Cursor IDE's plugin UI.",
+    },
+    "copilot-cli": {
+        "header": "Copilot CLI",
+        "stores": ((".copilot", "skills"), (".copilot", "installed-plugins", "mk", "mattpocock-skills", "skills")),
+        "not present": "Install Matt Pocock's collection: npx skills@latest add -g mattpocock/skills, selecting GitHub "
+                       "Copilot when the installer asks which agents to install for. Then run /skills reload or a new "
+                       "copilot Session before you rerun /vdd:vdd-setup.",
+        "reinstall": "First run /skills reload or a new copilot Session. If that still cannot run it, re-run the "
+                     "install and select GitHub Copilot: npx skills@latest add -g mattpocock/skills. Then run "
+                     "/skills reload or a new copilot Session.",
+        "plugin": "Run copilot plugin enable mattpocock-skills@mk, then start a new copilot Session.",
+        "update": "Update it: npx skills update -g",
+        "update plugin": "Update it: copilot plugin update mattpocock-skills@mk",
+    },
+    "generic": {
+        "header": "generic",
+        "stores": ((".agents", "skills"), CODEX_CACHE),
+        "not present": "Install Matt Pocock's collection: npx skills@latest add -g mattpocock/skills, selecting your "
+                       "agent when the installer asks.",
+        "reinstall": "Re-run the install and select your agent: npx skills@latest add -g mattpocock/skills",
+        "plugin": CODEX_PLUGIN,
+        "update": "Update it: npx skills update -g",
+        "update plugin": CODEX_UPDATE,
+    },
+}
+
+
+class SetupRoutesTest(ToolTest):
+    """Every route each Harness's module prints, walked through Setup in one
+    table. Before it only Codex's and Generic's reinstall routes were run:
+    Cursor's not-present and reinstall routes, Copilot's not-present route
+    and Generic's "selecting your agent" could break with no test noticing."""
+
+    def test_every_route_of_every_harness(self):
+        self.assertEqual(sorted(ROUTES), sorted(["claude-code", "codex", "cursor", "copilot-cli", "generic"]))
+        for name, routes in ROUTES.items():
+            for case, (store, answers) in CASES.items():
+                with self.subTest(harness=name, route=case):
+                    self.walk(name, routes, case, store, answers)
+
+    def walk(self, name, routes, case, store, answers):
+        box = vddtest.Sandbox()
+        self.addCleanup(box.cleanup)
+        subprocess.run(["git", "init", "-q"], cwd=box.proj, check=True)
+        if store is not None:
+            for skill in SKILLS:
+                box.write(os.path.join(box.home, *(routes["stores"][store] + (skill, "SKILL.md"))),
+                          "---\nname: %s\n---\n" % skill, base=box.root)
+        result = box.run("setup", "--harness", name, "--listed", answers[0], "--glossary-named", answers[1],
+                         *answers[2:])
+        self.assertEqual(result.code, 0, result)
+        self.assertContract(result)
+        self.assertIn("Setup, Harness %s (dry run, nothing is changed yet)." % routes["header"], result.lines)
+        tells = result.tells()
+        if case == "present":
+            self.assertIn("Borrowed skills: all 11 Present and Resolvable. Passed.", result.lines, result)
+            self.assertFalse([t for t in tells if "Matt Pocock's collection" in t], result)
+            return
+        if case == "not present":
+            self.assertIn("Borrowed skills Not Present: %s." % ", ".join(SKILLS), result.lines, result)
+            previous = None
+        elif case.startswith("update"):
+            previous = next(t for t in tells if t.startswith("Warning: your copy of Matt Pocock's collection"))
+        else:
+            reads = "your agent" if name == "generic" else routes["header"]
+            previous = next(t for t in tells if t.startswith("Matt Pocock's collection sits in "))
+            self.assertIn("which %s reads, and this Session has not loaded them." % reads, previous)
+        route = tells[tells.index(previous) + 1] if previous else next(t for t in tells if t.startswith("Install "))
+        self.assertEqual(route, routes[case], result)

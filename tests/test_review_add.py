@@ -212,8 +212,8 @@ class DryRunAndWriteTest(AddTest):
 class LintTest(AddTest):
     def refused(self, text, *fragments):
         """A malformed file is refused with the line and the fix, and nothing
-        changes (the owner's grading found a slip only rounds later, at
-        review start)."""
+        changes, so a slip is not found only rounds later, at review
+        start."""
         self.signed_loop()
         self.findings(text)
         return self.add_refused("Nothing was written.", *fragments)

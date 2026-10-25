@@ -2,8 +2,8 @@
 
 A call a sandbox refused is told apart first, by its stderr after a non-zero
 exit; after that, exit codes alone decide and stderr is ignored. git ls-remote
-has been observed printing "fatal: failed to store" on a call that exited 0
-(9e820de). The tool's own code opens no connection; the git and gh it starts
+has been observed printing "fatal: failed to store" on a call that exited 0.
+The tool's own code opens no connection; the git and gh it starts
 may.
 """
 

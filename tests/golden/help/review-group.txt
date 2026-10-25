@@ -1,0 +1,30 @@
+$ vdd review --help
+exit 0
+review start --role <Plan-Reviewer|Code-Reviewer> --slug <slug> --write
+  The reviewer's first call each round. Writes the round's frame of PLAN-REVIEW.md or CODEREVIEW.md:
+  the title, a guidance comment, ## Checks, ## Open findings with every still-open finding carried
+  whole (round 2 on), ## New findings and, for the Code-Reviewer, ## Not carried. Prints the round, the
+  carried findings, the number new findings start at, the files to read and the Minors: line. A second
+  start in a round already started writes nothing and prints the same again, naming the new findings
+  the file already holds and the number the next one takes.
+
+review check --role <Plan-Reviewer|Code-Reviewer> --slug <slug> [--write]
+  Lint the review file against its frame: every refusal names the line and the fix and writes nothing.
+  With --write on a passing file it removes the guidance comments, writes the status line under the
+  title, moves every closed finding to .scratch/<slug>/RECAP.md, records the round in the state file
+  and prints the Doorbell line to end your turn with.
+
+review add --slug <slug> --from <file> [--write]
+  For the user, not a Role: sends the user's findings back into a signed-off code Loop.
+  The file holds only findings, unnumbered, each a heading and a body:
+
+      ### major: src/app.py:12
+
+      What is wrong, and the fix.
+
+  Severity is blocker, major or minor. Refused unless the code Loop is signed off; a second add before
+  the Coder starts joins the first. Without --write it shows the result; with --write it reopens the
+  loop. Then tell the Orchestrator to run orchestrator start.
+
+--slug names the loop; pass it on every call.
+Next: Run the review command above that your step needs, or the one the last Next: line names.

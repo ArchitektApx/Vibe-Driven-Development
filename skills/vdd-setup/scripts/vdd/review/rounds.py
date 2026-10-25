@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import re
 
-from .. import doorbells, gitcmd, loopfile, loopstate, places, workfile
+from .. import catalog, doorbells, gitcmd, loopfile, loopstate, workfile
 from ..out import Failure
 from . import agentdocs
 
@@ -56,8 +56,7 @@ class Round:
         self._documents: list[str] | None = None
 
     def command(self, sub: str, write: bool = True) -> str:
-        return "%s review %s --role %s --slug %s%s" % (
-            places.command(), sub, self.role, self.loop.slug, " --write" if write else "")
+        return catalog.line("review", sub, role=self.role, slug=self.loop.slug, write=write)
 
     def minors(self) -> str:
         return self.loop.minors
@@ -77,7 +76,7 @@ class Round:
     def fixed_point(self) -> str:
         """code-review's fixed point: the base branch in round 1, and in a
         later code round the previous round's recorded end, so the round is
-        reviewed on its own diff (ticket 90). When the fold rewrote the branch
+        reviewed on its own diff, not again on every earlier round's. When the fold rewrote the branch
         after the previous round's Sign-off, the branch as folded."""
         if self.kind == "code" and self.number > 1:
             end = self.state.code_mark("end", self.number - 1)
@@ -137,8 +136,8 @@ class Round:
 
     def skip_allowed(self, name: str) -> bool:
         """Whether the Checks line takes "not needed, <reason>": on
-        writing-for-agents in any round, and on code-review from round 2
-        (ticket 90): round 1 gets one full Borrowed review."""
+        writing-for-agents in any round, and on code-review from round 2:
+        round 1 gets one full Borrowed review."""
         if name == "writing-for-agents":
             return True
         return name == "code-review" and self.number > 1

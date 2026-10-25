@@ -124,13 +124,28 @@ class StartTest(ReviewTest):
         wipe the round's work."""
         self.ring()
         first = self.start()
-        self.put("PLAN-REVIEW.md", ROUND_1)
         before = self.snapshot()
         second = self.start()
         self.assertEqual(second.code, 0, second)
         self.assertEqual(self.snapshot(), before)
         self.assertIn("Nothing was written", second.lines[0])
         self.assertEqual(second.lines[1:], first.lines[1:])
+
+    def test_a_second_start_names_the_findings_held_and_the_next_number(self):
+        """Prevents a fresh reviewer in a round already started numbering its
+        findings from the round's first number and so overwriting the
+        findings an earlier start left in the file."""
+        self.ring()
+        self.start()
+        self.put("PLAN-REVIEW.md", ROUND_1)
+        before = self.snapshot()
+        second = self.start()
+        self.assertEqual(second.code, 0, second)
+        self.assertEqual(self.snapshot(), before)
+        self.assertIn("Round 1: no finding carried; .scratch/demo/PLAN-REVIEW.md already holds new findings 1 and 2 "
+                      "from an earlier start of this round. Keep them, and number your new findings from 3.",
+                      second.lines)
+        self.assertNotIn("new findings start at 1", second.text)
 
     def test_round_two_carries_both_findings_whole(self):
         result = self.round_two()
@@ -255,7 +270,7 @@ class LintTest(ReviewTest):
 
 class NotNeededTest(ReviewTest):
     def test_writing_for_agents_not_needed_passes_in_round_one(self):
-        """Ticket 90 (finding 4 of loop 04's acceptance): a reviewer with
+        """Prevents a skip recorded as ran: a reviewer with
         nothing for writing-for-agents to check could record only ran or did
         not resolve, and settled on ran. not needed, <reason> records the skip
         as a skip, its reason in the Recap."""
@@ -266,7 +281,8 @@ class NotNeededTest(ReviewTest):
         self.assertIn("| writing-for-agents not needed, no Agent document changed this round |", self.read("RECAP.md"))
 
     def test_not_needed_without_a_reason_is_refused(self):
-        """Ticket 90: the user sees why each check was skipped."""
+        """Prevents a 'not needed' skip without a reason: the user sees why
+        each check was skipped."""
         self.round_one(ROUND_1.replace("writing-for-agents: ran", "writing-for-agents: not needed,"))
         before = self.snapshot()
         result = self.check()
@@ -279,8 +295,9 @@ class NotNeededTest(ReviewTest):
 class CheckTest(ReviewTest):
     def test_a_passing_round_one(self):
         """Replaces the Plan-Reviewer's hand-written "Round <n>" line and
-        Doorbell (1e59e46) and its counts of open findings (9e820de): the
-        check writes the status line, the Doorbell and the state."""
+        Doorbell and its counts of open findings, which could disagree with
+        the findings file: the check writes the status line, the Doorbell and
+        the state."""
         self.round_one()
         dry = self.check(write=False)
         self.assertEqual(dry.code, 0, dry)
@@ -297,8 +314,9 @@ class CheckTest(ReviewTest):
         self.assertIn("plan 1 reviewed open 1,2 counts 0 1 1", self.read("loop-state"))
 
     def test_the_orchestrator_relays_round_one(self):
-        """Replaces the Plan-Reviewer's Doorbell line, composed by hand since
-        1e59e46: the relay rings the line the check recorded."""
+        """Replaces the Plan-Reviewer's Doorbell line, composed by hand, which
+        could differ from what the check recorded: the relay rings the line
+        the check recorded."""
         self.round_one()
         self.check()
         result = self.ring("Orchestrator")
@@ -308,7 +326,8 @@ class CheckTest(ReviewTest):
 
     def test_round_two_signs_off_and_moves_both_findings_to_the_recap(self):
         """Replaces the literal "SIGNED OFF" first line the Plan-Reviewer
-        wrote (1e59e46) and its sign-off Doorbell: the check writes both."""
+        wrote and its sign-off Doorbell, which could disagree with the
+        findings file: the check writes both."""
         self.round_two()
         text = self.read("PLAN-REVIEW.md")
         text = text.replace("### 1. major (open)", "### 1. major (fixed)").replace(
@@ -437,8 +456,8 @@ class LeaveTest(ReviewTest):
     minors = "leave"
 
     def test_open_minors_sign_off_on_leave_and_stay(self):
-        """Replaces the Minors: leave sign-off rule, open minors allowed
-        (9e820de): the check signs off and keeps the minors in the file."""
+        """Prevents open minors blocking a sign-off or dropped from the file:
+        the check signs off and keeps the minors in the file."""
         self.round_one(ROUND_1.replace("### 1. major", "### 1. minor"))
         result = self.check()
         self.assertEqual(result.code, 0, result)

@@ -1,4 +1,4 @@
 $ vdd loop close --slug demo --write
 exit 0
 Closed: the loop demo. Its files stay in .scratch/demo/ as the record.
-Next: Go on as your skill says, passing --slug demo.
+Next: The loop demo is closed: run nothing more for it; finish the step you were on, then end your turn.

@@ -4,14 +4,20 @@ next round, orchestrator respawn and orchestrator tokens."""
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Callable
 
-from .. import args, loopstate
-from ..out import Failure, Output
-from .flow import HOSTED, Flow, usage
+from .. import catalog, harness as harnesses, loopstate, runner
+from ..out import Failure, Output, or_list
+from .flow import Flow
 from .spawn import handoff, resume, spawn
 
 POLICY = re.compile(r"^(every round|never|over ([1-9][0-9]*)(k?))$")
+
+
+def counting() -> str:
+    """The Harnesses whose subagents report a token count, as a line names
+    them."""
+    return or_list(found.display_name for found in harnesses.every() if found.reports_subagent_tokens())
 
 
 def size(count: int) -> str:
@@ -26,7 +32,7 @@ def limit_of(policy: str | None) -> int | None:
 
 
 def step(flow: Flow, out: Output, role: str, number: int, first: str | None = None,
-         fresh: str | None = None) -> int:
+         fresh: str | None = None) -> runner.Plan:
     """Spawn or resume role for round number, by its Respawn policy: a Role
     with no live subagent in this session is spawned, for fresh when given;
     one with a live subagent is respawned on a once request, every round, or
@@ -41,17 +47,18 @@ def step(flow: Flow, out: Output, role: str, number: int, first: str | None = No
     if live[1] != number and policy == "every round":
         return spawn(flow, out, role, number, "respawn every round", first)
     limit = limit_of(policy)
-    if live[1] != number and limit is not None and flow.harness.name == "claude-code":
+    if live[1] != number and limit is not None and flow.harness.reports_subagent_tokens():
         count = flow.tokens(role, live[1])
         if count is None:
             if first:
                 out.line("First: %s" % first)
             out.line("The %s's Respawn policy is %s, and no token count is recorded for its round %d."
                      % (role, policy, live[1]))
-            return out.finish(
+            return flow.plan(
+                out,
                 "Run %s, with subagent_tokens from the %s's latest completion notice; it records the count and "
-                "prints the step that waits for it." % (flow.command(
-                    "orchestrator tokens --role %s --tokens <subagent_tokens> --slug %s" % (role, flow.slug)), role)
+                "prints the step that waits for it."
+                % (flow.command("tokens", role=role, tokens="<subagent_tokens>", slug=flow.slug), role)
             )
         if count > limit:
             return spawn(flow, out, role, number, "respawn at %s" % size(count), first)
@@ -63,10 +70,6 @@ def policies_line(flow: Flow) -> str:
         "%s %s" % (role, flow.policy(role) or "not set") for role in ("Coder", "Plan-Reviewer", "Code-Reviewer"))
 
 
-def quoted(value: str) -> str:
-    return '"%s"' % value if " " in value else value
-
-
 def respawn_question(flow: Flow) -> str:
     recommended, limit = flow.harness.respawn_recommendation()
     answers = [("Every round", "every round"), ("Never", "never")]
@@ -76,21 +79,24 @@ def respawn_question(flow: Flow) -> str:
     parts = []
     for label, value in answers:
         mark = " (recommended)" if value == recommended else ""
-        parts.append("\"%s\"%s (--policy %s)." % (label, mark, quoted(value)))
+        parts.append("\"%s\"%s (--policy %s)." % (label, mark, catalog.quoted(value)))
     return ("Respawn question: When should the Orchestrator respawn the Coder, spawning it anew for a round in "
             "place of resuming the one before? Answers, in this order: " + " ".join(parts))
 
 
-def respawn(flow: Flow, values: dict[str, Any]) -> int:
+def respawn(flow: Flow, ctx: catalog.Context, place: Callable[[Flow, Output], runner.Plan]) -> runner.Plan:
+    """The respawn command's plan; place(flow, out) records the session and
+    places the Workflow when it answers the Respawn question start asked."""
+    values = ctx.values
     role = values["role"]
-    args.choice(role, HOSTED, "--role takes Plan-Reviewer, Coder or Code-Reviewer.", "Run %s for the usage." % usage())
+    ctx.require_one_of("policy", "once")
+    # With one of them given, this holds only when both are.
     if (values["policy"] is None) == (not values["once"]):
-        raise Failure("Give --policy or --once, not both and not neither.", "Run %s for the usage." % usage())
+        raise Failure("Give --policy or --once, not both.", "Run %s for the usage." % ctx.usage)
     out = Output()
+    flow.always = False
     if values["once"]:
-        if not values["write"]:
-            out.line("Would make the %s's next spawn fresh." % role)
-            return out.finish("Run the same command with --write.")
+        flow.dry = ["Would make the %s's next spawn fresh." % role]
         flow.append(loopstate.respawn_once_line(role))
         live = flow.out(role)
         if live is not None and not flow.acted(role, live[1]) and not flow.done(role, live[1]):
@@ -101,8 +107,8 @@ def respawn(flow: Flow, values: dict[str, Any]) -> int:
             # A BLOCKED after the round's check --write passed: the round is
             # done and its return is still owed.
             out.line("The %s's round %d is finished and not acted on yet." % (role, live[1]))
-            return out.finish("Run %s" % flow.return_command(role))
-        return out.finish("Go on with the step the tool printed before it.")
+            return flow.plan(out, "Run %s" % flow.return_command(role))
+        return flow.plan(out, "Go on with the step the tool printed before it.")
     policy = " ".join(values["policy"].split()).lower()
     match = POLICY.match(policy)
     if match is None:
@@ -111,28 +117,29 @@ def respawn(flow: Flow, values: dict[str, Any]) -> int:
             "number from 1." % values["policy"],
             "Ask the user again with those answers, then run the command with one of them.",
         )
-    if match.group(2) and flow.harness.name != "claude-code":
+    if match.group(2) and not flow.harness.reports_subagent_tokens():
         raise Failure(
-            "over <n> works only on Claude Code: %s reports no subagent token count." % flow.harness_label,
+            "over <n> works only on %s: %s reports no subagent token count." % (counting(), flow.harness_label),
             "Ask the user for \"every round\" or never instead.",
         )
-    if not values["write"]:
-        out.line("Would set: respawn %s %s." % (role, policy))
-        return out.finish("Run the same command with --write.")
+    # The answer to the Respawn question start asks while the Coder's policy
+    # is unset: start's placement follows, so starting takes two calls.
+    answers_start = role == "Coder" and flow.policy("Coder") is None
+    flow.dry = ["Would set: respawn %s %s." % (role, policy)]
     flow.append(loopstate.respawn_line(role, policy))
     out.line(policies_line(flow))
+    if answers_start:
+        flow.dry.append("Would then record orchestrator session %d and place the Workflow." % (flow.session() + 1))
+        return place(flow, out)
     if flow.any_spawn():
-        return out.finish("The policy applies from the Role's next round; go on with the step the tool printed "
-                          "before it.")
-    return out.finish("Run %s" % flow.command("orchestrator start --slug %s --harness %s" % (flow.slug,
-                                                                                           flow.harness.name)))
+        return flow.plan(out, "The policy applies from the Role's next round; go on with the step the tool printed "
+                              "before it.")
+    return flow.plan(out, "Run %s" % flow.start_command())
 
 
-def tokens(flow: Flow, values: dict[str, Any]) -> int:
-    args.require(values, ["role", "tokens"], usage())
+def tokens(flow: Flow, values: dict[str, Any]) -> runner.Plan:
     role = values["role"]
-    args.choice(role, HOSTED, "--role takes Plan-Reviewer, Coder or Code-Reviewer.", "Run %s for the usage." % usage())
-    if flow.harness.name != "claude-code":
+    if not flow.harness.reports_subagent_tokens():
         raise Failure(
             "%s reports no subagent token count, so there is none to record." % flow.harness_label,
             "Go on with the step the tool printed before it.",
@@ -152,7 +159,7 @@ def tokens(flow: Flow, values: dict[str, Any]) -> int:
     out.line("Recorded: %s round %d, %s tokens." % (role, live[1], size(count)))
     waiting = waiting_step(flow, role)
     if waiting is None or waiting == live[1]:
-        return out.finish("Go on with the step the tool printed before it.")
+        return flow.plan(out, "Go on with the step the tool printed before it.")
     return step(flow, out, role, waiting)
 
 

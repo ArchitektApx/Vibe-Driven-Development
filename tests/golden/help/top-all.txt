@@ -1,0 +1,20 @@
+$ vdd --help
+exit 0
+The VDD tool: the program Vibe Driven Development's Roles run.
+Run it as <python> "<repo>/skills/vdd-setup/scripts/vdd.py" <group> ... (python3 on macOS and Linux, py -3 on native Windows).
+Every command prints plain text, one fact per line, and ends with a Next: line naming your next step.
+A line starting Tell the user verbatim: "..." is for the user: relay the quoted text unchanged.
+The exit code is zero or not; the reason is always in the text.
+
+Command groups:
+  brainstorm    The Brainstormer's idea store: the overview, one idea, a search, and every write to it.
+  coder         The Coder's round: start it on the feature branch, then check FIXES.md and record its end.
+  codex-stop    The Codex Stop hook. Codex runs it at a turn end; a Role never does.
+  doorbell      Ring, wait for and take Doorbells between the Planner and the Orchestrator.
+  loop          Start a loop, and show, change, close or reopen its Loop file.
+  orchestrator  The Orchestrator's steps: place the Workflow, and act on each hosted Role's return.
+  pr            The PR-Author's PR: check the template, history and preflight, then push, open and close.
+  review        The Plan-Reviewer's and the Code-Reviewer's round: write its frame, then check it.
+  setup         Check this repository and machine for a VDD loop, and make the changes Setup owns.
+  wayfinder     The Wayfinder's start: the effort's map, Matt Pocock's wayfinder, and the briefing.
+Next: Run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" <group> --help to list a group's commands, or <python> "<repo>/skills/vdd-setup/scripts/vdd.py" <group> <command> --help for one command's usage.

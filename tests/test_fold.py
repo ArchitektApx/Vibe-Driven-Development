@@ -3,8 +3,8 @@ the code Sign-off.
 
 Every fold case holds: the folded tree equals the signed tree, the base
 branch and every commit before the loop keep their shas, and the fold does
-not stop. Each case adds its own placement. The cases port ticket 71's
-scripted fold cases, every one but c10, which is coder check's."""
+not stop. Each case adds its own placement. A round that amends, rebases or resets an
+earlier round's commit is coder check's case, not the fold's."""
 
 import os
 import shutil
@@ -170,10 +170,10 @@ class FoldTest(SceneTest):
 
 
 class FoldCaseTest(FoldTest):
-    """Ticket 71's fold cases. They replace the guardrails of the Coder's
-    per-round fold: 0c8a25a (find the owning commit, leave no fixup! commit)
-    and 0a606c2 (PowerShell's sequence editor), now the tree check and these
-    placements."""
+    """The fold cases. They replace the guardrails of the Coder's old
+    per-round fold, which had to find the owning commit, leave no fixup!
+    commit and survive PowerShell's sequence editor: now the tree check and
+    these placements."""
 
     def test_c01_a_fix_to_lines_a_later_ticket_changed_stays_on_top(self):
         self.round_one({CSV: DOC_T02})
@@ -457,7 +457,7 @@ class FoldCommandTest(FoldTest):
         self.assertEqual(subjects, [T01_SUBJECT, T02_SUBJECT])
         self.assertIn("Folded demo: 4 commits into 2. The tree equals the signed tree; RECAP.md lists the commits.",
                       result.tells())
-        self.assertNext(result, "Invoke the vdd-create-pr skill in your own Session")
+        self.assertNext(result, "only after doing that, invoke the vdd-create-pr skill in your own Session")
 
     def test_the_recap_lists_the_commits_between_findings_and_not_carried(self):
         self.round_one({CSV: DOC_T02})
@@ -636,8 +636,9 @@ class SkipTest(FoldTest):
         self.skipped(signed, self.fold(), "demo was pushed to origin")
 
     def test_a_remote_branch_of_the_same_name_outside_the_loop_folds(self):
-        """The acceptance run's origin held an older, unrelated branch of the
-        loop's name, and the fold skipped as if the loop had been pushed."""
+        """Prevents a skipped fold when origin holds an older, unrelated
+        branch of the loop's name: the fold skipped as if the loop had been
+        pushed."""
         signed = self.signed_loop()
         self.git("remote", "add", "origin", "https://example.invalid/demo.git")
         stray = self.out("commit-tree", "%s^{tree}" % self.out("merge-base", "main", signed), "-m", "unrelated")
@@ -661,7 +662,7 @@ class SkipTest(FoldTest):
 
     @unittest.skipIf(WINDOWS, "a stubbed git is a POSIX sh script, as in PreflightTest")
     def test_a_tree_that_would_differ(self):
-        """Replaces 0c8a25a's guardrail: the fold never moves the branch to a
+        """Replaces the per-round fold's guardrail: the fold never moves the branch to a
         tree other than the one the Code-Reviewer signed off."""
         signed = self.signed_loop()
         real = shutil.which("git")
@@ -693,7 +694,7 @@ class SandboxAndSigningTest(FoldTest):
         self.assertNotIn("fold ", self.state())
 
     def test_a_refused_object_write_in_german_gets_the_rerun_line(self):
-        """Acceptance, Codex on Windows: its sandbox refused the fold's object
+        """Codex on Windows: its sandbox refused the fold's object
         write with git's "insufficient permission", which git translates; on
         a German system that refusal read as a git error and the fold
         skipped."""
@@ -728,12 +729,72 @@ class SandboxAndSigningTest(FoldTest):
     def test_a_refused_signature_gets_the_rerun_line(self):
         signed = self.signed_loop()
         self.gpg("cat >/dev/null\necho 'gpg: signing failed: Operation not permitted' >&2\nexit 2\n")
-        self.assertRerun(self.fold(), signed)
+        result = self.fold()
+        self.assertRerun(result, signed)
+        self.assertIn("A sandbox refused git commit-tree inside the tool: ", result.text)
+        self.assertNext(result, "tell the user git commit-tree was refused, and stop.")
 
     def test_another_signing_failure_is_a_skip(self):
         signed = self.signed_loop()
         self.gpg("cat >/dev/null\necho 'gpg: signing failed: No secret key' >&2\nexit 2\n")
         result = self.fold()
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(self.sha("demo"), signed)
+        self.assertIn("signing a folded commit failed", result.tells()[0])
+        self.assertIn("fold skipped ", self.state())
+
+    NO_KEY = "cat >/dev/null\necho 'error: No private key found for public key \"/k.pub\"?' >&2\nexit 2\n"
+    SIGNS = ("cat >/dev/null\nprintf '\\n[GNUPG:] SIG_CREATED D 1 8 00 0 0 0 X\\n' >&2\n"
+             "printf -- '-----BEGIN PGP SIGNATURE-----\\nfake\\n-----END PGP SIGNATURE-----\\n'\n")
+
+    def test_a_signing_failure_inside_the_sandbox_records_nothing_and_asks_for_the_rerun(self):
+        """Prevents a fold whose signing a Harness's sandbox blocked being
+        recorded as skipped for good, so the rerun outside the sandbox,
+        where signing works, folds nothing."""
+        signed = self.signed_loop()
+        self.gpg(self.NO_KEY)
+        result = self.fold(env=self.box.env(SANDBOX_RUNTIME="1"))
+        self.assertRerun(result, signed)
+        self.assertIn("A sandbox refused signing a folded commit inside the tool: ", result.text)
+        self.assertNext(result, "when that is refused too, run ",
+                        "loop fold --slug demo --harness claude-code --escalation-refused --write",
+                        "to record the fold as skipped.")
+        self.gpg(self.SIGNS)
+        self.folded(signed, self.fold())
+
+    def test_a_signing_failure_inside_the_codex_sandbox_asks_for_the_rerun(self):
+        """Prevents a fold whose signing Codex's sandbox blocked being
+        recorded as skipped for good, so the rerun outside the sandbox
+        folds nothing."""
+        signed = self.signed_loop()
+        self.gpg(self.NO_KEY)
+        result = self.box.run("loop", "fold", "--slug", "demo", "--harness", "codex", "--write",
+                              env=self.box.env(CODEX_SANDBOX="seatbelt"))
+        self.assertNotEqual(result.code, 0, result)
+        self.assertNext(result, "loop fold --slug demo --harness codex --escalation-refused --write")
+        self.assertEqual(self.sha("demo"), signed)
+        self.assertNotIn("fold ", self.state())
+
+    def test_a_signing_failure_with_only_codex_network_disabled_is_a_skip(self):
+        """Prevents an approved rerun outside Codex's sandbox, where Codex
+        still marks the network as cut, from asking for the same rerun again
+        instead of skipping a fold whose signing is broken."""
+        signed = self.signed_loop()
+        self.gpg(self.NO_KEY)
+        result = self.box.run("loop", "fold", "--slug", "demo", "--harness", "codex", "--write",
+                              env=self.box.env(CODEX_SANDBOX_NETWORK_DISABLED="1"))
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(self.sha("demo"), signed)
+        self.assertIn("signing a folded commit failed", result.tells()[0])
+        self.assertIn("fold skipped ", self.state())
+
+    def test_a_refused_rerun_outside_the_sandbox_skips_the_fold(self):
+        """Prevents a loop stuck at its fold when the user refuses the rerun
+        outside the sandbox."""
+        signed = self.signed_loop()
+        self.gpg(self.NO_KEY)
+        result = self.box.run("loop", "fold", "--slug", "demo", "--harness", "claude-code", "--escalation-refused",
+                              "--write", env=self.box.env(SANDBOX_RUNTIME="1"))
         self.assertEqual(result.code, 0, result)
         self.assertEqual(self.sha("demo"), signed)
         self.assertIn("signing a folded commit failed", result.tells()[0])
@@ -745,7 +806,10 @@ class SandboxAndSigningTest(FoldTest):
         self.box.stub("git", "if [ \"$1\" = update-ref ]; then\n"
                              "  echo 'fatal: cannot lock ref: operation not permitted' >&2; exit 1\nfi\n"
                              "exec '%s' \"$@\"\n" % real)
-        self.assertRerun(self.fold(env=self.box.stub_env()), signed)
+        result = self.fold(env=self.box.stub_env())
+        self.assertRerun(result, signed)
+        self.assertIn("A sandbox refused git update-ref inside the tool: ", result.text)
+        self.assertNext(result, "tell the user git update-ref was refused, and stop.")
 
     def test_an_upper_case_refusal_marker_too(self):
         signed = self.signed_loop()
@@ -765,8 +829,8 @@ FOLDED_AFTER = "(folded after round 2)"
 
 class SecondFoldTest(FoldTest):
     """A loop reopened by the user's findings folds again at its next Sign-off
-    (loop 06 left its grading fixes on top as commits because the fold ran
-    once, and the reopened round's review range showed the whole loop)."""
+    (a fold that ran once left the reopened round's fixes on top as
+    commits, and that round's review range showed the whole loop)."""
 
     def folded_once(self):
         """Round 1, a round-2 fix signed off, folded, and the user's finding

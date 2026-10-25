@@ -10,7 +10,7 @@
   the shell exits.
 - **A resume.** `copilot --continue` and `copilot --resume` resume a Session.
   When the user names one of them, or tells you this Session was resumed,
-  run the `--resumed` take first, as `SKILL.md` says.
+  take first in the form for a resumed Session, as `SKILL.md` says.
 - **A refused command.** When its sandbox refuses a command, Copilot CLI asks
   the user to rerun it outside the sandbox: run the command as usual and let
   the user decide. When the user denies it, stop with one line naming the

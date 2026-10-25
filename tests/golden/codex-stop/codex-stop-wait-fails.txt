@@ -1,0 +1,3 @@
+$ vdd codex-stop
+exit 0
+{"decision": "block", "reason": ".scratch/feat/doorbells has format version 99, which this copy of the VDD tool does not know. Next: Tell the user in one line that this wait cannot run, so they paste the Planner's next Doorbell here. With the pasted line, run: <python> \"<shared>/vdd.py\" doorbell take --role Orchestrator --pasted \"<the line the user pastes>\" --harness codex --slug feat"}

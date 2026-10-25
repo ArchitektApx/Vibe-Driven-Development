@@ -27,6 +27,7 @@ def agents_store_line() -> str:
 class CopilotCli(Harness):
     name = "copilot-cli"
     label = "Copilot CLI"
+    display_name = "Copilot CLI"
 
     def borrowed_skill(self, skill: str) -> str:
         return "/" + skill
@@ -88,13 +89,22 @@ class CopilotCli(Harness):
     def respawn_recommendation(self) -> tuple[str | None, str | None]:
         return ("every round", None)
 
-    def codex_hook_steps(self) -> bool:
+    def reports_subagent_tokens(self) -> bool:
+        return False
+
+    def picks_up_doorbell(self) -> bool:
+        return True
+
+    def runs_sandboxed(self) -> bool:
+        return False
+
+    def waits_through_stop_hook(self) -> bool:
         return False
 
     def orchestrator_launch(self, slug: str) -> str:
         return "run copilot in a terminal in this repository, then /vdd:vdd-orchestrator %s in that Session" % slug
 
-    def wait_next(self, role: str, wait_command: str, paste_command: str) -> str:
+    def wait_next(self, wait_command: str, paste_command: str) -> str:
         return "Run this in async or detach mode, never sync, then end your turn: %s" % wait_command
 
 

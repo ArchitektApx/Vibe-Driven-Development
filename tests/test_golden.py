@@ -200,7 +200,10 @@ ROWS = [
      ("orchestrator", "return", "--role", "Coder", *SLUG, *CC), None, None, 0),
     ("orchestrator", "return", "planner", S.planner_returned,
      ("orchestrator", "return", "--role", "Planner", *SLUG, *CC), None, None, 0),
-    ("orchestrator", "respawn", "policy", S.plan,
+    ("orchestrator", "respawn", "policy", lambda t: t.plan(policies=("respawn Coder never",)),
+     ("orchestrator", "respawn", "--role", "Coder", "--policy", "every round", *SLUG, "--write"), None, None, 0),
+    ("orchestrator", "respawn", "answers-start", lambda t: (t.plan(), t.rings(P1),
+                                                            t.run_ok("orchestrator", "start", *SLUG, *CC)),
      ("orchestrator", "respawn", "--role", "Coder", "--policy", "every round", *SLUG, "--write"), None, None, 0),
     ("orchestrator", "respawn", "once", lambda t: t.plan(policies=("respawn Coder never",)),
      ("orchestrator", "respawn", "--role", "Coder", "--once", *SLUG, "--write"), None, None, 0),
@@ -208,9 +211,9 @@ ROWS = [
                                                    t.stage("orchestrator session 1", "spawn Coder 1 session 1")),
      ("orchestrator", "tokens", "--role", "Coder", "--tokens", "52000", *SLUG), None, None, 0),
 
-    ("pr", "check", "manual", lambda t: t.code_signed(pr="manual"), ("pr", "check", *SLUG, *CC), S.no_gh, None, 0),
-    ("pr", "check", "no", lambda t: t.code_signed(pr="no"), ("pr", "check", *SLUG, *CC), S.no_gh, None, 0),
-    ("pr", "check", "template-push-only", lambda t: (t.code_signed(pr="yes"), t.origin(),
+    ("pr", "check", "manual", lambda t: t.folded(pr="manual"), ("pr", "check", *SLUG, *CC), S.no_gh, None, 0),
+    ("pr", "check", "no", lambda t: t.folded(pr="no"), ("pr", "check", *SLUG, *CC), S.no_gh, None, 0),
+    ("pr", "check", "template-push-only", lambda t: (t.folded(pr="yes"), t.origin(),
                                                      t.box.write(".github/pull_request_template.md", "## What\n")),
      ("pr", "check", *SLUG, *CC), S.no_gh, None, 0),
     ("pr", "open", "push-only", lambda t: (t.folded(pr="yes"), t.origin(),
@@ -262,13 +265,24 @@ ROWS = [
     ("brainstorm", "migrate", "dry-run", S.legacy_store, ("brainstorm", "migrate",), None, None, 0),
     ("brainstorm", "migrate", "write", S.legacy_store, ("brainstorm", "migrate", "--write"), None, None, 0),
 
-    # Two refusals whose wording the owner settled without a model run.
+    # The helps: the tool's, every group's, and two commands' own.
+    ("help", "top", "all", S.repo, ("--help",), None, None, 0),
+    *[("help", group, "group", S.repo, (group, "--help"), None, None, 0)
+      for group in ("brainstorm", "coder", "doorbell", "loop", "orchestrator", "pr", "review", "setup",
+                    "wayfinder")],
+    ("help", "loop-new", "command", S.repo, ("loop", "new", "--help"), None, None, 0),
+    ("help", "brainstorm-set", "command", S.repo, ("brainstorm", "set", "--help"), None, None, 0),
+
+    # Two refusals whose exact wording is held here.
     ("refusal", "coder-start", "sandbox-refused-checkout", S.signed, ("coder", "start", *SLUG, "--write"),
      checkout_refused, None, 1),
     ("refusal", "brainstorm-migrate", "backup-rename-fails", legacy_store_backup_blocked,
      ("brainstorm", "migrate", "--write"), None, None, 1),
 
     ("codex-stop", "codex-stop", "armed", S.codex_armed, ("codex-stop",), None,
+     json.dumps({"session_id": CODEX_ID, "turn_id": "t1", "hook_event_name": "Stop", "stop_hook_active": False,
+                 "last_assistant_message": "Done."}).encode("utf-8"), 0),
+    ("codex-stop", "codex-stop", "wait-fails", S.codex_armed_newer_doorbells, ("codex-stop",), None,
      json.dumps({"session_id": CODEX_ID, "turn_id": "t1", "hook_event_name": "Stop", "stop_hook_active": False,
                  "last_assistant_message": "Done."}).encode("utf-8"), 0),
 
@@ -380,6 +394,29 @@ class GoldenFileTest(unittest.TestCase):
                 os.remove(os.path.join(GOLDEN, stale))
             return
         self.assertEqual(sorted(found - named), [])
+
+    def test_every_output_with_a_tell_asks_for_the_relay(self):
+        """Prevents an output that prints a line for the user and then a
+        Next: naming a tool call: the Role makes the call, ends its turn,
+        and the user never reads the line. The relay comes first, or, after
+        a step that starts a wait and ends the turn, in the reply that ends
+        it."""
+        told = 0
+        for group in sorted(os.listdir(GOLDEN)):
+            for name in sorted(os.listdir(os.path.join(GOLDEN, group))):
+                if not name.endswith(".txt"):
+                    continue
+                with open(os.path.join(GOLDEN, group, name), "rb") as handle:
+                    lines = handle.read().decode("utf-8").replace("\r\n", "\n").splitlines()
+                if not any(line.startswith("Tell the user verbatim: ") for line in lines):
+                    continue
+                told += 1
+                with self.subTest(golden="%s/%s" % (group, name)):
+                    self.assertTrue(
+                        lines[-1].startswith("Next: Relay ")
+                        or lines[-1].endswith("the reply that ends your turn comes after it and holds every Tell "
+                                              "the user verbatim line above, unchanged."), lines[-1])
+        self.assertGreater(told, 10)
 
 
 if __name__ == "__main__":

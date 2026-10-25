@@ -14,9 +14,9 @@ import os
 import re
 from typing import Callable
 
-from .. import gitcmd, loopfile, loopstate, places, textfile, workfile
-from ..loopstate import recap
-from ..out import Failure, Output, and_list
+from .. import catalog, gitcmd, loopfile, loopstate, markdown, runner, textfile, workfile
+from ..loopstate import recap, records
+from ..out import Failure, and_list
 from . import rounds
 
 NAME = "CODEREVIEW.md"
@@ -45,7 +45,7 @@ def read_findings(source: str) -> list[Finding]:
     except OSError as error:
         raise Failure("--from %s cannot be read: %s. Nothing was written." % (source, textfile.reason(error)),
                       "Run the command again with --from naming a file that holds the findings.")
-    lines, opener = workfile.walk(workfile.split(text))
+    lines, opener = markdown.walk(markdown.split(text))
     lint = workfile.Lint(source)
     at = lint.at
 
@@ -68,7 +68,7 @@ def read_findings(source: str) -> list[Finding]:
         if not any(line.text.strip() for line in finding.body):
             at(finding.line, "this finding has no body. Write what is wrong and a concrete fix under its heading.")
     if opener is not None:
-        at(opener.number, workfile.unclosed_text(opener))
+        at(opener.number, markdown.unclosed_text(opener))
     if not found:
         lint.problems.append((0, ["%s holds no finding. Write each as \"%s\" and a body." % (source, FORM)]))
     if lint.problems:
@@ -153,7 +153,7 @@ def refuse_moved_fold(state: loopstate.State, loop: loopfile.Loop, source: str) 
     if not signed:
         return
     try:
-        moved = recap.moved_fold(recap.Records.load(loop), loop.root, loop.branch, signed)
+        moved = records.moved_fold(records.Records.load(loop), loop.root, loop.branch, signed)
     except gitcmd.Refused as error:
         raise gitcmd.sandbox_refusal(error.call, command(loop, source), "tell the user %s was refused, and stop."
                                      % gitcmd.call_text(error.call), ["Nothing was written."])
@@ -162,7 +162,7 @@ def refuse_moved_fold(state: loopstate.State, loop: loopfile.Loop, source: str) 
     fold = loopstate.fold_command(loop, loop.harness)
     steps = [fold, "this command again"]
     if state.status == loopstate.CLOSED:
-        steps.insert(0, "%s loop reopen --slug %s --write" % (places.command(), loop.slug))
+        steps.insert(0, catalog.line("loop", "reopen", slug=loop.slug, write=True))
     raise Failure(
         "Code round %d was folded but its fold is not recorded. Nothing was written." % review.round,
         "Run %s." % ", then ".join(steps),
@@ -179,7 +179,7 @@ def kept_blocks(loop: loopfile.Loop, entry: Entry) -> list[workfile.Block]:
     if missing:
         raise Failure(
             "%s/%s no longer holds the heading of finding%s %s of the user's entry after round %d. Nothing was "
-            "written." % (loop.tracker, NAME, "" if len(missing) == 1 else "s", workfile.join_numbers(missing),
+            "written." % (loop.tracker, NAME, "" if len(missing) == 1 else "s", and_list(map(str, missing)),
                           entry.round),
             "Tell the user CODEREVIEW.md lost a finding the loop still has open, and stop.",
         )
@@ -200,7 +200,11 @@ def not_carried(loop: loopfile.Loop, entry: Entry) -> str | None:
 
 # --- the command ---
 
-def run(loop: loopfile.Loop, source: str, write: bool) -> int:
+def plan(loop: loopfile.Loop, source: str) -> runner.Plan:
+    """The user's findings added as a plan: CODEREVIEW.md rewritten as the
+    user's open review before the commit point, since the user line it
+    records names its headings; a rerun before the commit point numbers the
+    same findings the same way and writes the same file."""
     state = loop.load_state()
     state.refuse_v1(loop.slug, "review add")
     refuse_moved_fold(state, loop, source)
@@ -211,7 +215,7 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
     # whose commit point passed: a rerun adds it no second time.
     findings = [f for f in every if not any(same(block, f) for block in kept)]
     if not findings:
-        return already_added(loop, state, entry, source, write)
+        return already_added(loop, state, entry, source)
     carried = not_carried(loop, entry)
     number = entry.first
     blocks: list[list[str]] = [block.text_lines() for block in kept]
@@ -233,40 +237,29 @@ def run(loop: loopfile.Loop, source: str, write: bool) -> int:
     review_path = "%s/%s" % (loop.tracker, NAME)
     reopening = state.status == loopstate.CLOSED
     user = loopstate.user_line(entry.round, numbers, counts, number, len(numbers))
-    store = recap.Records.load(loop)
-    out = Output()
-    if not write:
-        out.line("Would add %d finding%s after round %d's Sign-off%s:" % (
-            len(findings), "" if len(findings) == 1 else "s", entry.round,
-            ", joining the open entry of findings %s" % workfile.join_numbers(entry.joined.raised())
-            if entry.joined else ""))
-        for head in headings:
-            out.line(head)
-        out.line(status)
-        out.line("Would rewrite %s, record the findings in %s/%s and write %s/%s." % (
-            review_path, loop.tracker, loopstate.STATE_NAME, loop.tracker, recap.NAME))
-        if reopening:
-            out.line("Would reopen the closed loop %s." % loop.slug)
-        if carried:
-            out.line(carried)
-        return out.finish("Run %s" % command(loop, source))
-    # CODEREVIEW.md first: the committed user line names headings that must
-    # already be in it. A rerun before the commit point numbers the same
-    # findings the same way and writes the same file.
-    textfile.write_or_refuse(os.path.join(loop.dir, NAME), "\n".join(lines) + "\n", review_path,
-                             "Otherwise tell the user CODEREVIEW.md cannot be written, and stop.")
-    recap.record(loop, state, store, [], [user], reopen=reopening)
-    out.line("Wrote %s." % review_path)
-    out.line("Wrote %s/%s." % (loop.tracker, recap.NAME))
-    out.line("Recorded in %s/%s: %s" % (loop.tracker, loopstate.STATE_NAME, user))
+    store = records.Records.load(loop)
+    dry = ["Would add %d finding%s after round %d's Sign-off%s:" % (
+        len(findings), "" if len(findings) == 1 else "s", entry.round,
+        ", joining the open entry of findings %s" % and_list(map(str, entry.joined.raised()))
+        if entry.joined else "")]
+    dry += headings
+    dry.append(status)
+    dry.append("Would rewrite %s, record the findings in %s/%s and write %s/%s." % (
+        review_path, loop.tracker, loopstate.STATE_NAME, loop.tracker, recap.NAME))
+    done = ["Wrote %s." % review_path, "Wrote %s/%s." % (loop.tracker, recap.NAME),
+            "Recorded in %s/%s: %s" % (loop.tracker, loopstate.STATE_NAME, user)]
     if reopening:
-        out.line("Reopened the loop %s." % loop.slug)
-    out.line("Findings %s open: %d blocker, %d major, %d minor." % ((workfile.join_numbers(numbers),) + counts))
+        dry.append("Would reopen the closed loop %s." % loop.slug)
+        done.append("Reopened the loop %s." % loop.slug)
+    done.append("Findings %s open: %d blocker, %d major, %d minor." % ((and_list(map(str, numbers)),) + counts))
     if carried:
-        out.line(carried)
-    return out.finish(
-        "Tell the Orchestrator the loop has your findings; it carries on with orchestrator start."
-    )
+        dry.append(carried)
+        done.append(carried)
+    effects: list[runner.Effect] = [runner.WriteFile(
+        os.path.join(loop.dir, NAME), "\n".join(lines) + "\n", review_path,
+        "Otherwise tell the user CODEREVIEW.md cannot be written, and stop.", dry, done)]
+    effects += runner.record_step(store, state, [], [user], reopen_loop=reopening)
+    return runner.Plan(effects, CARRY_ON, dry_next="Run %s" % command(loop, source))
 
 
 def same(block: workfile.Block, finding: Finding) -> bool:
@@ -279,25 +272,26 @@ def same(block: workfile.Block, finding: Finding) -> bool:
             and [line.rstrip() for line in body] == body_lines(finding.body))
 
 
-def already_added(loop: loopfile.Loop, state: loopstate.State, entry: Entry, source: str, write: bool) -> int:
+def already_added(loop: loopfile.Loop, state: loopstate.State, entry: Entry, source: str) -> runner.Plan:
     """Every finding of source is in the open entry: a rerun after the commit
     point, which writes RECAP.md again where a failure left it behind."""
     joined = entry.joined
     if joined is None:
         raise RuntimeError("already_added without an open entry.")
-    store = recap.Records.load(loop)
-    out = Output()
-    numbers = workfile.join_numbers(joined.raised())
-    wrote = write and recap.render_recap(loop, state, store)
-    out.line("The findings of %s are already added after round %d's Sign-off, as findings %s. %s" % (
-        source, entry.round, numbers,
-        "Wrote %s/%s again." % (loop.tracker, recap.NAME) if wrote else "Nothing was written."))
-    out.line("Findings %s open: %d blocker, %d major, %d minor." % ((numbers,) + tuple(joined.counts)))
-    return out.finish(
-        "Tell the Orchestrator the loop has your findings; it carries on with orchestrator start."
-    )
+    store = records.Records.load(loop)
+    numbers = and_list(map(str, joined.raised()))
+    added = "The findings of %s are already added after round %d's Sign-off, as findings %s. " % (
+        source, entry.round, numbers)
+    still = "Findings %s open: %d blocker, %d major, %d minor." % ((numbers,) + tuple(joined.counts))
+    recap_ = runner.RenderRecap(store, state, dry=[added + "Nothing was written.", still],
+                                done=[added + "Wrote %s/%s again." % (loop.tracker, recap.NAME), still],
+                                unchanged=[added + "Nothing was written.", still])
+    return runner.Plan([recap_], CARRY_ON, dry_next=CARRY_ON)
+
+
+CARRY_ON = ("Tell the Orchestrator the loop has your findings; it carries on with %s."
+            % catalog.bare("orchestrator", "start"))
 
 
 def command(loop: loopfile.Loop, source: str) -> str:
-    quoted = '"%s"' % source if " " in source else source
-    return "%s review add --slug %s --from %s --write" % (places.command(), loop.slug, quoted)
+    return catalog.line("review", "add", slug=loop.slug, from_=catalog.quoted(source), write=True)

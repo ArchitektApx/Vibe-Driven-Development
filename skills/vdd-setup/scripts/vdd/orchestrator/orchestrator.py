@@ -2,7 +2,9 @@
 output, reading no Working file.
 
 orchestrator start places the Workflow from the state file and the Doorbell
-file, on a first start or after a restart, and records the session.
+file, on a first start or after a restart, and records the session. While the
+Coder's Respawn policy is unset it asks for it instead, and the respawn that
+answers records the session and places the Workflow.
 orchestrator return runs after every hosted Role's return that is not a
 QUESTION or a BLOCKED, and after a Planner Doorbell: it reads the round's
 outcome from the state its check --write recorded and prints the one next
@@ -12,101 +14,105 @@ outward step itself, so the user can pause the Loop before any of them.
 
 from __future__ import annotations
 
-from typing import Any, NoReturn
+from typing import NoReturn
 
-from .. import args, doorbells, loopstate
+from .. import catalog, doorbells, loopstate, runner
 from ..out import TELL, Failure, Output
-from .flow import HOSTED, Flow, usage
-from .respawn import policies_line, respawn, respawn_question, step, tokens
+from .flow import Flow
+from .respawn import counting, policies_line, respawn, respawn_question, step, tokens
 from .spawn import resume, spawn
 
-SUBCOMMANDS = ("start", "return", "respawn", "tokens")
 USER_REASON = "for the user's findings"
 
-HELP = [
-    "orchestrator start --slug <slug> [--harness <h>]",
-    "  Run on every start of the Orchestrator's Session, a restart included. Records a new session, names the",
-    "  Harness and its Harness file, says where each Loop stands, and prints the one next step: a spawn, the",
-    "  ring to the Planner, the wait for the Planner's Doorbell, the fold at a code Sign-off, or the PR",
-    "  step. Every spawn after a restart is fresh. After the user's findings it spawns the Coder fresh for",
-    "  the next round, with no ring.",
-    "",
-    "orchestrator return --role <Planner|Plan-Reviewer|Coder|Code-Reviewer> --slug <slug> --harness <h>",
-    "  Run after every hosted Role's return whose last line does not start with QUESTION: or BLOCKED:, and",
-    "  with --role Planner once doorbell take printed the Planner's Doorbell. It takes no return line and no",
-    "  token count: the round's outcome is the one its check --write recorded. It prints the next step, a",
-    "  spawn with its Read and Write lists, a resume with its message, the ring, the wait or the fold; a",
-    "  second return for a round already acted on, and a round with no check --write, each say what to do.",
-    "",
-    "orchestrator respawn --role <Plan-Reviewer|Coder|Code-Reviewer> (--policy \"<p>\" | --once) --slug <slug> --write",
-    "  On the user's word: --policy sets the Role's Respawn policy, \"every round\", never or \"over <n>k\"",
-    "  (Claude Code only, from the Coder's subagent_tokens); --once makes the Role's next spawn fresh, and",
-    "  after a BLOCKED prints that fresh spawn for the unfinished round at once. The reviewers start at never;",
-    "  the Coder's policy is asked at Model approval.",
-    "",
-    "orchestrator tokens --role <Role> --tokens <n> --slug <slug>",
-    "  Claude Code only, when a Next: line asks for it: record the Role's subagent_tokens from its latest",
-    "  completion notice and print the step that waited for the count.",
-    "",
-    "start, return and tokens ring, spawn and resume nothing, and take no --write: you take each step they",
-    "print. --slug names the loop; pass it on every call. Run every command from the repository root.",
-]
-
-COMMON = {"slug": args.VALUE, "harness": args.VALUE}
-
-SPECS = {
-    "start": dict(COMMON),
-    "return": dict(COMMON, role=args.VALUE),
-    "respawn": dict(COMMON, role=args.VALUE, policy=args.VALUE, once=args.FLAG, write=args.FLAG),
-    "tokens": dict(COMMON, role=args.VALUE, tokens=args.VALUE),
-}
-
+HELP = catalog.Help({
+    "start": [
+        "orchestrator start --slug <slug> [--harness <h>]",
+        "  Run on every start of the Orchestrator's Session, a restart included. Records a new session, names the",
+        "  Harness and its Harness file, says where each Loop stands, and prints the one next step: a spawn, the",
+        "  ring to the Planner, the wait for the Planner's Doorbell, the fold at a code Sign-off, or the PR",
+        "  step. Every spawn after a restart is fresh. After the user's findings it spawns the Coder fresh for",
+        "  the next round, with no ring. While the Coder's Respawn policy is not set it records nothing and asks",
+        "  the Respawn question instead; the respawn that answers it records the session and prints that step.",
+    ],
+    "return": [
+        "orchestrator return --role <Planner|Plan-Reviewer|Coder|Code-Reviewer> --slug <slug> --harness <h>",
+        "  Run after every hosted Role's return whose last line does not start with QUESTION: or BLOCKED:, and",
+        "  with --role Planner once doorbell take printed the Planner's Doorbell. It takes no return line and no",
+        "  token count: the round's outcome is the one its check --write recorded. It prints the next step, a",
+        "  spawn with its Read and Write lists, a resume with its message, the ring, the wait or the fold; a",
+        "  second return for a round already acted on, and a round with no check --write, each say what to do.",
+    ],
+    "respawn": [
+        "orchestrator respawn --role <Plan-Reviewer|Coder|Code-Reviewer> (--policy \"<p>\" | --once) --slug <slug>",
+        "    [--harness <h>] --write",
+        "  On the user's word: --policy sets the Role's Respawn policy, \"every round\", never or \"over <n>k\"",
+        "  (%s only, from the Coder's subagent_tokens); --once makes the Role's next spawn fresh, and"
+        % counting(),
+        "  after a BLOCKED prints that fresh spawn for the unfinished round at once. The reviewers start at never;",
+        "  the Coder's policy is asked by the first start, and the --write that answers it records the session",
+        "  and places the Workflow as start does.",
+    ],
+    "tokens": [
+        "orchestrator tokens --role <Role> --tokens <n> --slug <slug> [--harness <h>]",
+        "  %s only, when a Next: line asks for it: record the Role's subagent_tokens from its latest"
+        % counting(),
+        "  completion notice and print the step that waited for the count.",
+    ]},
+    [
+        catalog.Only(("start", "return", "tokens"),
+                     "start, return and tokens ring, spawn and resume nothing, and take no --write: you take each step "
+                     "they",
+                     "print. --slug names the loop; pass it on every call."),
+        catalog.Only(("respawn",), "--slug names the loop; pass it on every call.", group=False),
+    ])
 
 def run(argv: list[str]) -> int:
-    return args.run_group(argv, "orchestrator", SPECS, HELP,
-                          "Run the orchestrator command your skill or the last Next: line names.", dispatch)
+    return catalog.run("orchestrator", argv, HELP,
+                       "Run the orchestrator command above that your step needs, or the one the last Next: line names.", dispatch)
 
 
-def dispatch(sub: str, values: dict[str, Any]) -> int:
-    flow = Flow.find(values, "orchestrator %s" % sub)
-    if sub == "start":
+def dispatch(ctx: catalog.Context) -> int:
+    return runner.run(ctx, lambda: plan(ctx))
+
+
+def plan(ctx: catalog.Context) -> runner.Plan:
+    flow = Flow.find(ctx)
+    if ctx.command == "start":
         return start(flow)
-    if sub == "respawn":
-        return respawn(flow, values)
-    if sub == "tokens":
-        return tokens(flow, values)
-    args.require(values, ["role", "harness"], usage())
-    role = values["role"]
-    args.choice(role, HOSTED + ("Planner",), "--role takes Planner, Plan-Reviewer, Coder or Code-Reviewer.",
-                "Run %s for the usage." % usage())
-    return returned(flow, role)
+    if ctx.command == "respawn":
+        return respawn(flow, ctx, place)
+    if ctx.command == "tokens":
+        return tokens(flow, ctx.values)
+    return returned(flow, ctx.values["role"])
 
 
 def planner_wait(flow: Flow) -> str:
     return doorbells.wait_or_hold(flow.place, "Orchestrator", flow.harness)
 
 
-def ring_then_wait(flow: Flow, out: Output) -> int:
-    return out.finish(
+def ring_then_wait(flow: Flow, out: Output) -> runner.Plan:
+    return flow.plan(
+        out,
         "Relay the last plan review to the Planner: run %s in the foreground, then do what its Next: line says: it names the wait for the Planner's next "
         "Doorbell." % flow.ring_command()
     )
 
 
-def after_sign_off(flow: Flow, out: Output) -> int:
+def after_sign_off(flow: Flow, out: Output) -> runner.Plan:
     """The step after the code Sign-off: the fold while no fold outcome is
     recorded, on every PR: value, else the PR step."""
     out.line("Code Loop: signed off.")
     if flow.position().fold_owed:
         out.line("Fold: not run yet.")
-        return out.finish(
+        return flow.plan(
+            out,
             "Run %s, relay its Tell the user verbatim line, then do what its Next: line says."
             % loopstate.fold_command(flow.loop, flow.harness)
         )
     # Not owed after a signed-off review means a fold line is recorded.
     outcome = flow.state.fold_record()
     out.line("Fold: %s." % (outcome.kind if outcome else "not run yet"))
-    return out.finish(loopstate.pr_step(flow.loop))
+    return flow.plan(out, loopstate.pr_step(flow.loop))
 
 
 def describe(flow: Flow) -> str:
@@ -144,8 +150,7 @@ def describe(flow: Flow) -> str:
     return "Plan Loop: %s. Code Loop: %s." % (plan_text, code_text)
 
 
-def start(flow: Flow) -> int:
-    previous = flow.session()
+def start(flow: Flow) -> runner.Plan:
     out = Output()
     out.line("Loop: %s, open. Harness: %s. Read %s, the Harness file this skill's Harnesses index links, now, once."
              % (flow.slug, flow.harness_label, flow.loop.harness_file()))
@@ -153,15 +158,26 @@ def start(flow: Flow) -> int:
     out.line(policies_line(flow))
     if flow.policy("Coder") is None:
         out.line(respawn_question(flow))
-        return out.finish(
+        return flow.plan(
+            out,
             "Ask Model approval and the Respawn question above in one message, and wait for the user. Then run %s"
-            % flow.command('orchestrator respawn --role Coder --policy "<answer>" --slug %s --write' % flow.slug)
+            % flow.command("respawn", role="Coder", policy='"<answer>"', slug=flow.slug, write=True)
         )
+    return place(flow, out)
+
+
+def place(flow: Flow, out: Output) -> runner.Plan:
+    """Record the next session and place the Workflow: after start's lines,
+    or after the respawn that answered the Respawn question start asked."""
+    previous = flow.session()
     flow.append(loopstate.session_line(previous + 1))
     # A wait an earlier session started wakes that session, not this one.
-    doorbells.clear_marker(flow.place, "Orchestrator")
+    flow.before.append(runner.Step(lambda: cleared(flow)))
     # The placement below acts on every Doorbell rung so far.
-    doorbells.mark_handled(flow.place, "Orchestrator", out)
+    beyond, handled = doorbells.mark_handled(flow.place, "Orchestrator")
+    doorbells.tell_not_doorbells(out, beyond)
+    if handled is not None:
+        flow.before.append(runner.Step(lambda: saved(flow, handled)))
     reason = "after a restart" if previous else None
     code = flow.state.last_review("code")
     if code and code.user and flow.state.code_mark("start", code.round + 1) is None:
@@ -169,16 +185,33 @@ def start(flow: Flow) -> int:
         return spawn(flow, out, "Coder", code.round + 1, USER_REASON)
     where = flow.position()
     if where.phase == "code":
-        first = "Run %s in the foreground; the plan Loop is over, so it names no wait." % flow.ring_command()
+        # A Planner that took the plan Sign-off has finished; a ring would ask
+        # the user to paste into its Session.
+        plan = flow.state.last_review("plan")
+        taken = plan is not None and doorbells.sign_off_taken(flow.place, plan.round)
+        first = (None if taken else
+                 "Run %s in the foreground; the plan Loop is over, so it names no wait." % flow.ring_command())
         if where.signed_off:
-            out.line("First: %s" % first)
+            if first:
+                out.line("First: %s" % first)
             return after_sign_off(flow, out)
         return spawn(flow, out, where.owes, where.round, reason, first)
     if where.owed_by("Plan-Reviewer"):
         return spawn(flow, out, "Plan-Reviewer", where.round, reason)
     if flow.state.last_review("plan"):
         return ring_then_wait(flow, out)
-    return out.finish(planner_wait(flow))
+    # Worded once the marker is cleared: no wait of this Role runs then.
+    return flow.plan(out, lambda: planner_wait(flow))
+
+
+def cleared(flow: Flow) -> list[str]:
+    doorbells.clear_marker(flow.place, "Orchestrator")
+    return []
+
+
+def saved(flow: Flow, handled: doorbells.State) -> list[str]:
+    flow.place.save_state("Orchestrator", handled)
+    return []
 
 
 def fixed_resume(flow: Flow, role: str, number: int) -> str:
@@ -193,14 +226,14 @@ def already(role: str, number: int) -> NoReturn:
     )
 
 
-def returned(flow: Flow, role: str) -> int:
+def returned(flow: Flow, role: str) -> runner.Plan:
     if role == "Planner":
         return planner_returned(flow)
     live = flow.out(role)
     if live is None:
         raise Failure(
             "No %s is out in this Orchestrator session, so there is no return to act on." % role,
-            "Run %s" % flow.command("orchestrator start --slug %s --harness %s" % (flow.slug, flow.harness.name)),
+            "Run %s" % flow.start_command(),
         )
     number = live[1]
     if flow.acted(role, number):
@@ -210,15 +243,17 @@ def returned(flow: Flow, role: str) -> int:
         flow.append(loopstate.return_line(role, number, False))
         if flow.misses(role, number) == 1:
             out.line("%s round %d ended without `%s`: the round is not finished." % (
-                role, number, flow.check_command(role)))
+                role, number, flow.check_command(role, bare=True)))
             return resume(flow, out, role, number, fixed_resume(flow, role, number))
-        out.line("%s round %d ended without `%s` a second time." % (role, number, flow.check_command(role)))
+        out.line("%s round %d ended without `%s` a second time."
+                 % (role, number, flow.check_command(role, bare=True)))
         out.tell("The %s ended round %d twice without finishing it. Answer resume to resume it once more, respawn "
                  "to start a fresh %s for round %d, or stop." % (role, number, role, number))
-        return out.finish(
-            "Relay the line above and end your turn; the user decides. On resume, resume the same %s with the "
+        return flow.plan(
+            out,
+            "End your turn; the user decides. On resume, resume the same %s with the "
             "user's words as the message. On respawn, run %s. On stop, stop." % (
-                role, flow.command("orchestrator respawn --role %s --once --slug %s --write" % (role, flow.slug)))
+                role, flow.command("respawn", role=role, once=True, slug=flow.slug, write=True))
         )
     flow.append(loopstate.return_line(role, number, True))
     if role == "Coder":
@@ -246,7 +281,7 @@ def returned(flow: Flow, role: str) -> int:
     return ring_then_wait(flow, out)
 
 
-def planner_returned(flow: Flow) -> int:
+def planner_returned(flow: Flow) -> runner.Plan:
     """After doorbell take printed the Planner's Doorbell: the Plan-Reviewer's
     spawn for the rung round, or its resume when one is live."""
     plan = flow.state.last_review("plan")
@@ -259,7 +294,7 @@ def planner_returned(flow: Flow) -> int:
                 TELL % ("The plan Loop is signed off and the code Loop is running, so the Planner's plan round %d "
                         "is not reviewed. The code Loop goes on with the Spec as it was signed off." % flow.rung()),
             ],
-            "Relay the Tell the user verbatim line above unchanged, then go on with the step you were on before "
+            "Go on with the step you were on before "
             "the Planner's Doorbell. Spawn no Plan-Reviewer.",
         )
     if flow.rung() < number:

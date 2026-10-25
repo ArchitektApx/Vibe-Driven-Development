@@ -11,9 +11,16 @@ from ..stores import PLUGIN_CACHE, PROJECT, SKILL_STORE, USER, Root, Store, cli_
 NEW_SESSION = "start a new Codex Session: a skill added while a Session runs appears only in a new one"
 
 
+def home() -> str:
+    """Codex's home: CODEX_HOME, or ~/.codex when it is unset or empty. Its
+    skill stores, plugin cache, hooks.json and config.toml sit in it."""
+    return env("CODEX_HOME") or os.path.join(places.home(), ".codex")
+
+
 class Codex(Harness):
     name = "codex"
     label = "Codex"
+    display_name = "Codex"
 
     def borrowed_skill(self, skill: str) -> str:
         return "$" + skill
@@ -24,10 +31,10 @@ class Codex(Harness):
     def present_roots(self, cwd: str) -> list[Root]:
         # The skills-CLI stores, Codex's own skill stores (still read,
         # deprecated) and its plugin cache, the last two moved by CODEX_HOME.
-        home = places.home()
-        codex = env("CODEX_HOME") or os.path.join(home, ".codex")
+        user = places.home()
+        codex = home()
         return [
-            Root(os.path.join(home, ".agents", "skills"), SKILL_STORE, USER, self.name),
+            Root(os.path.join(user, ".agents", "skills"), SKILL_STORE, USER, self.name),
             Root(os.path.join(cwd, ".agents", "skills"), SKILL_STORE, PROJECT, self.name),
             Root(os.path.join(codex, "skills"), SKILL_STORE, USER, self.name),
             Root(os.path.join(cwd, ".codex", "skills"), SKILL_STORE, PROJECT, self.name),
@@ -69,7 +76,19 @@ class Codex(Harness):
     def respawn_recommendation(self) -> tuple[str | None, str | None]:
         return ("never", None)
 
-    def codex_hook_steps(self) -> bool:
+    def reports_subagent_tokens(self) -> bool:
+        return False
+
+    def picks_up_doorbell(self) -> bool:
+        return True
+
+    def runs_sandboxed(self) -> bool:
+        # Codex sets CODEX_SANDBOX (seatbelt) only on a command it runs in its
+        # macOS sandbox. CODEX_SANDBOX_NETWORK_DISABLED follows the network
+        # policy, also outside the sandbox, so it is not read.
+        return bool(os.environ.get("CODEX_SANDBOX"))
+
+    def waits_through_stop_hook(self) -> bool:
         return True
 
     def orchestrator_launch(self, slug: str) -> str:
@@ -78,7 +97,7 @@ class Codex(Harness):
             % slug
         )
 
-    def wait_next(self, role: str, wait_command: str, paste_command: str) -> str:
+    def wait_next(self, wait_command: str, paste_command: str) -> str:
         return "Run this, which arms the Stop hook, then end your turn: %s" % wait_command
 
 

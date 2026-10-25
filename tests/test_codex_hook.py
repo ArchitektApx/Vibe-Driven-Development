@@ -1,4 +1,4 @@
-"""Seam 1 for codex-stop, and seam 3: the hook strings as they ship.
+"""codex-stop driven from outside, and the hook strings as they ship.
 
 The cases of the 0.15 fixture suites (vdd-codex-stop.test.sh and .ps1) live
 on here, numbered as they were where they still apply. The hook finds its
@@ -182,7 +182,7 @@ class CodexHookTest(ToolTest):
         it reads back unchanged through json.loads: the reason names the Shared
         copy's path, and a quote, a backslash, a tab or a non-ASCII letter in
         it must not break the block decision Codex parses. The 0.15 hook
-        dropped control characters and escaped the reason too (e89c906)."""
+        dropped control characters and escaped the reason too."""
         data = os.path.join(self.box.root, 'da"t\\a\té')
         os.makedirs(data)
         self.loop()
@@ -204,7 +204,7 @@ class CodexHookTest(ToolTest):
     def test_10_12_a_malformed_armed_file_is_claimed_and_no_block(self):
         """The claim takes a malformed armed file too, so it cannot fire on a
         later turn end: the 0.15 hook deleted the armed file before it waited,
-        whatever it held (e89c906)."""
+        whatever it held."""
         self.loop()
         self.ring("Orchestrator", P1)
         for text in ("vdd codex-armed 1\nCoder 0\n", "vdd codex-armed 1\nOrchestrator x\n",
@@ -226,6 +226,19 @@ class CodexHookTest(ToolTest):
 
     # --- new cases ---
 
+    def test_an_unknown_option_is_no_refusal(self):
+        """codex-stop is not parsed by the command catalog: a catalog
+        refusal exits non-zero, which Codex reads as a block and repeats
+        (ADR 0008). An option it does not know changes nothing, silent or
+        blocking."""
+        self.loop()
+        self.assertSilent(self.box.run("codex-stop", "--no-such-option", stdin=stop_input(ID)))
+        self.armed(ID)
+        self.ring("Orchestrator", P1)
+        result = self.box.run("codex-stop", "--no-such-option", stdin=stop_input(ID), env=self.box.env(
+            VDD_WAIT_POLL_SECONDS="0.05", VDD_WAIT_TIMEOUT_SECONDS="0.5"))
+        self.assertIn("doorbell take --role Orchestrator", self.assertBlock(result))
+
     def test_garbage_on_stdin_exits_zero_silently(self):
         self.loop()
         self.armed(ID)
@@ -234,8 +247,7 @@ class CodexHookTest(ToolTest):
 
     def test_the_session_id_filter(self):
         """session_id becomes part of a file name, so only [0-9A-Za-z_-]+ is
-        accepted and ../ never reaches the disk, as in the 0.15 hook
-        (e89c906)."""
+        accepted and ../ never reaches the disk, as in the 0.15 hook."""
         self.loop()
         self.box.write(os.path.join(".scratch", "codex-armed-x"), "vdd codex-armed 1\nOrchestrator 0\n")
         self.ring("Orchestrator", P1)
@@ -247,7 +259,7 @@ class CodexHookTest(ToolTest):
     def test_a_right_double_quote_in_the_last_message(self):
         """Stdin decoded in the Windows code page broke on a U+201D in
         last_assistant_message; it is read as bytes and decoded UTF-8, as the
-        0.15 hook on native Windows read it (0a606c2)."""
+        0.15 hook on native Windows read it."""
         self.loop()
         self.armed(ID)
         self.ring("Orchestrator", P1)
@@ -265,16 +277,55 @@ class CodexHookTest(ToolTest):
 
     def test_an_error_inside_exits_zero(self):
         """Exit 0 on every path, exceptions included: Codex reads exit 2 as a
-        block and repeats it without limit (ADR 0008)."""
+        block and repeats it without limit (ADR 0008). A wait that fails after
+        the claim took the armed file blocks once with the failure and the
+        hand-relay step, naming the Shared copy: a silent exit left the
+        Session idle with no wait armed."""
         self.loop()
         self.armed(ID)
         self.box.write(os.path.join(TRACKER, "doorbells"), "# vdd doorbells 99\n")
+        reason = self.assertBlock(self.hook(stop_input(ID)))
+        self.assertTrue(reason.startswith(".scratch/feat/doorbells has format version 99, which this copy of the "
+                                          "VDD tool does not know. Next: Tell the user in one line that this wait "
+                                          "cannot run, so they paste the Planner's next Doorbell here."), reason)
+        self.assertIn('%s" doorbell take --role Orchestrator --pasted' % os.path.join(self.box.shared, "vdd.py"),
+                      reason)
+        self.assertTrue(self.gone(ID))
         self.assertSilent(self.hook(stop_input(ID)))
+
+    def test_an_unreadable_state_file_after_the_claim_blocks_once(self):
+        """A state file the wait cannot read, after the claim took the armed
+        file, blocks with the read failure and the hand-relay step, once."""
+        self.loop()
+        self.armed(ID)
+        self.ring("Orchestrator", P1)
+        os.makedirs(self.box.path(TRACKER, "doorbell-state-orchestrator"))
+        reason = self.assertBlock(self.hook(stop_input(ID)))
+        self.assertTrue(reason.startswith("The wait could not read its files: "
+                                          ".scratch/feat/doorbell-state-orchestrator: "), reason)
+        self.assertRegex(reason, r"\S\. Next: Tell the user in one line that this wait cannot run")
+        self.assertIn("--pasted", reason)
+        self.assertTrue(self.gone(ID))
+        self.assertSilent(self.hook(stop_input(ID)))
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0), "needs a POSIX permission bit")
+    def test_a_failure_before_the_claim_stays_silent(self):
+        """A claim that cannot create its marker ends the turn as usual: before
+        the claim nothing is taken, so blocking would stop an unrelated turn
+        end."""
+        self.loop()
+        self.armed(ID)
+        self.ring("Orchestrator", P1)
+        tracker = self.box.path(TRACKER)
+        os.chmod(tracker, stat.S_IRUSR | stat.S_IXUSR)
+        self.addCleanup(os.chmod, tracker, stat.S_IRWXU)
+        self.assertSilent(self.hook(stop_input(ID)))
+        self.assertFalse(self.gone(ID))
 
     def test_two_turn_ends_racing_claim_the_arm_once(self):
         """Two turn ends can race for the same armed file; only one of them
         creates the claim marker, so only one of them waits. The 0.15 hook deleted the armed
-        file before it waited (e89c906), which left a window between its read
+        file before it waited, which left a window between its read
         and its delete."""
         self.loop()
         self.armed(ID)
@@ -373,7 +424,7 @@ class CodexHookTest(ToolTest):
 
 
 class HookStringTest(ToolTest):
-    """Seam 3: the hook strings read from .codex-plugin/plugin.json, run where
+    """The hook strings read from .codex-plugin/plugin.json, run where
     Codex runs them, ${PLUGIN_ROOT} replaced as Codex replaces it."""
 
     def setUp(self):

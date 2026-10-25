@@ -17,7 +17,7 @@ The Role that hosts the Plan-Reviewer, the Coder and the Code-Reviewer as subage
 _Avoid_: dispatcher, controller, coordinator
 
 **PR-Author**:
-Runs in the Orchestrator's session on Sign-off and is the only Role that pushes. Reads the Loop file's `PR:` line and either opens the PR or prints the assembled body for the user. On `PR: no` it does not run.
+Runs in the Orchestrator's session on Sign-off and is the only Role that pushes. Reads the Loop file's `PR:` line and opens the PR, pushes the branch for the user to open it, or closes the loop, which prints the assembled title and body for the user. On `PR: no` it does not run.
 _Avoid_: extra session, autopilot, bot
 
 **Brainstormer**:
@@ -25,7 +25,7 @@ The Role that keeps a project's ideas in `.scratch/_brainstorming/`, one Idea fi
 _Avoid_: ideation, backlog, discovery
 
 **Idea file**:
-`.scratch/_brainstorming/<slug>.md`, one idea, open or closed, written by the VDD tool: frontmatter with status, parent, importance, size, fog and last-updated, then Key Metrics, Summary, Proposal, Pro, Con, Open Questions, Evidence, Prior Art, Related Ideas, Decision, Next Steps and History last, one line per structural event.
+`.scratch/_brainstorming/<slug>.md`, one idea, open or closed, written by the VDD tool: frontmatter with tldr, status, parent, importance, size, fog and last-updated, then Key Metrics, Summary, Proposal, Pro, Con, Open Questions, Evidence, Prior Art, Related Ideas, Decision, Next Steps and History last, one line per structural event.
 _Avoid_: proposal, RFC, note
 
 **Wayfinder**:
@@ -45,7 +45,7 @@ The program a Session runs in, which decides how a Role invokes skills, spawns s
 _Avoid_: host, platform, runtime, client, agent, model, provider
 
 **Harness file**:
-`references/harness-<slug>.md` in a Role skill, the Reference file that holds what the skill does differently on one Harness: the calls the model makes with its Harness's own tools, and judgment that differs by Harness. A Role reads the one for its Harness once, at the start, through the skill's `## Harnesses` section. Generic has one like the others in the Planner, the Orchestrator and the Code-Reviewer; Start-Loop carries Generic's path inline.
+`references/harness-<slug>.md` in a Role skill, the Reference file that holds what the skill does differently on one Harness: the calls the model makes with its Harness's own tools, and judgment that differs by Harness. A Role reads the one for its Harness once, at the start, through the skill's `## Harnesses` section, and the VDD tool names the file. Generic has one like the others in the Planner, the Orchestrator and the Code-Reviewer.
 _Avoid_: adapter, platform file, harness reference
 
 **Loop**:
@@ -53,7 +53,7 @@ A Role and its reviewer exchanging a working file until sign-off. The workflow h
 _Avoid_: cycle, iteration, phase
 
 **Working file**:
-Scratch space for handoff between sessions, gitignored, never part of the user's project. Every Working file sits in the tracker directory: the Loop file, the Spec and the Tickets, the three review files `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`, the Recap `RECAP.md` and its records `recap.json`, and the Doorbell file. Matt Pocock's local-markdown issue tracker counts as a Working file because VDD is what invokes it.
+Scratch space for handoff between sessions, gitignored, never part of the user's project. Every Working file sits in the tracker directory: the Loop file and the loop's state file `loop-state`, the Spec and the Tickets, the three review files `PLAN-REVIEW.md`, `FIXES.md` and `CODEREVIEW.md`, the Recap `RECAP.md` and its records `recap.json`, the PR-Author's `pr-body.md`, and the Doorbell file. Matt Pocock's local-markdown issue tracker counts as a Working file because VDD is what invokes it.
 _Avoid_: artifact, output, deliverable
 
 **Feature slug**:
@@ -93,7 +93,7 @@ The Orchestrator's one blocking prompt, put to the user before its first spawn i
 _Avoid_: model prompt, model config, model check
 
 **Doorbell**:
-A fixed line telling a Role that a Working file is ready: which file, which round, and the open findings per severity or `SIGNED OFF`, with no free text. It travels by one of four carriers: the Planner's cross-Session message to the Orchestrator, the Orchestrator's relay back to the Planner, a hosted Role's return value, or the Orchestrator's resume message. The two cross-Session carriers go through the Doorbell file.
+A fixed line telling a Role that a Working file is ready: which Role rang, which file and which round, and on a reviewer's line the open findings per severity or `SIGNED OFF`, with no free text. It travels by one of four carriers: the Planner's cross-Session message to the Orchestrator, the Orchestrator's relay back to the Planner, a hosted Role's return value, or the Orchestrator's resume message. The two cross-Session carriers go through the Doorbell file.
 _Avoid_: notification, handoff message, ping
 
 **Doorbell file**:
@@ -133,7 +133,7 @@ The VDD tool's rewrite of a Loop's commits after each code Sign-off. It moves ea
 _Avoid_: squash, autosquash, rebase
 
 **Recap**:
-`.scratch/<feature slug>/RECAP.md`, the account of one Loop: every closed finding with what was wrong and how it was resolved, each Ticket's record, and the commits: each final commit and what it was built from. The VDD tool renders it whole from its records, `recap.json`, on every write; no Role edits either. No Role reads it during the Loop; it is for the user afterwards.
+`.scratch/<feature slug>/RECAP.md`, the account of one Loop: every closed finding with what was wrong and how it was resolved, each Ticket's record, the commits, each final commit and what it was built from, and under `Not carried` the problems the Code-Reviewer did not turn into findings and the minors a Sign-off left open. The VDD tool renders it whole from its records, `recap.json`, on every write; no Role edits either. It is for the user after the Loop; the PR-Author reads it only to fill a testing or review section that the PR template or the merged PRs ask for.
 _Avoid_: log, history, archive
 
 **Open minor**:

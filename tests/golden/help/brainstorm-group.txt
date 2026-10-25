@@ -1,0 +1,54 @@
+$ vdd brainstorm --help
+exit 0
+brainstorm start [--page <n>]
+  The Session's first call: the open ideas, each part under its parent, with status, importance/size/fog,
+  last update, what each waits on, and the tldr. A large store is paged, most recently updated families
+  first; --page shows the next.
+brainstorm show --idea <slug>
+  One idea and its family at every level: status, Decision, open Next Steps and open questions of every
+  open member, what it waits on and what waits on it, and the file's path.
+brainstorm find --text <words> [--text <words> ...]
+  Every idea, open, closed or removed, whose text holds any of the words; the matching lines.
+brainstorm check
+  The store's problems: links that do not resolve, relations to no idea, parents missing, looping or too
+  deep, a leftover index.md, an idea file without History.
+brainstorm new --slug <slug> --title <title> --tldr <one sentence> [--parent <slug>] [--summary <text>]
+    [--importance|--size|--fog <xsmall..xlarge|unknown>] [--relate '<kind> <slug>: <why>' ...]
+    [--despite <slug> ...]
+  Captures an idea: its file with frontmatter, title, Summary and a created History line. Without --write
+  it lists the ideas, open, closed or removed, that look like the same one, to ask the user about before
+  capturing; --despite <slug> leaves one out of that list. A --summary starts "Goal: <the goal>." (the
+  user's goal), then what they said.
+brainstorm note --idea <slug> (--section <name> --text <text> [--text ...] | --tick <step>)
+  Adds prose to a section (Evidence, Summary, Proposal, Pro, Con, Open Questions, Prior Art, Next Steps,
+  Related Ideas as '<kind> <slug>: <why>'); Evidence items are dated, Next Steps become open steps.
+  --tick ticks the open Next Step that starts with <step>. To rewrite a section, Read the file and Edit
+  only that section in place.
+brainstorm set --idea <slug> [--idea ...] [--status <s>] [--decision <text>] [--reopen-when <text>]
+    [--importance|--size|--fog <m>] [--tldr <text>] [--title <text>]
+  Status idea, discussed, shaped, decided, in-progress, done or dropped. done, dropped and decided need
+  --decision, dropped also --reopen-when; dropping an idea drops its open parts at every level; an open
+  status on a closed idea reopens it.
+brainstorm move --set <part>=<parent>|top [--set ...]
+  Files a part under a parent, or back at the top level.
+brainstorm split --idea <slug> --part '<slug> | <title> | <tldr>' [--part ...]
+  New parts under the idea, which stays their parent.
+brainstorm merge --idea <slug> --into <slug> --reason <text> --reopen-when <text>
+  Drops the first idea into the second, which takes its open Next Steps. An idea with an open part, at any
+  level, cannot merge; its closed parts stay under it.
+brainstorm rename --idea <slug> --to <slug>
+  New slug for an idea and its research folder; relation lines, parent fields, links, research paths and
+  slug code spans follow. Prose and History are never rewritten; prose that still names the old slug is
+  listed.
+brainstorm cleanup (--status done|dropped [--status ...] | --idea <slug> [--idea ...]) [--older <N>d|<N>w]
+  Removes closed ideas, each kept as one line in removed.md; --older counts from the day the idea closed.
+  Never removes an open idea, a closed idea with an open part, a closed idea an open idea waits on, or a
+  part whose family stays. Research folders stay.
+brainstorm migrate [--event '<date> <slug> split into|merged into|folded into|renamed from <slug>' ...]
+  Converts a 0.15 store (index.md) to one file per idea with History, keeping the old store as
+  .scratch/_brainstorming.pre-0.16/; moves a 0.16 beta store's dates into its files; finishes an
+  interrupted migration; writes back a lost .layout marker.
+  Without --write it prints the plan and the Log sentences each --event may carry.
+
+Every write needs --write; without it the command is a dry run. A line starting "  > " quotes an idea's own text.
+Next: Run the brainstorm command above that fits what the user said.

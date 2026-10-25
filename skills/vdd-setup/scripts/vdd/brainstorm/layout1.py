@@ -19,6 +19,7 @@ from typing import Dict, List, Tuple
 
 from .. import textfile
 from ..out import TELL, Failure, refused
+from . import printed
 from .ideafile import CLOSED, Idea, fenced, real_date, split_frontmatter, today
 from .lock import Lock
 from .store import LAYOUT_FILE, STORE, layout, read_once, set_file_day
@@ -322,7 +323,7 @@ def run(root: str, events_raw: list[str], write: bool) -> Result:
     "migrated", or "moved" when another Session took the store past
     layout 1 meanwhile. A write holds the migration lock from the first look
     at the store to the last rename, so a second migration waits for it and
-    then finds the store migrated (M2)."""
+    then finds the store migrated instead of migrating it a second time."""
     if not write:
         return step(root, events_raw, False)
     os.makedirs(os.path.join(root, ".scratch"), exist_ok=True)
@@ -346,7 +347,7 @@ def step(root: str, events_raw: list[str], write: bool) -> Result:
             raise Failure("There is no .scratch/_brainstorming/, but a migration's backup is at %s/ with no finished "
                           "new layout beside it." % BACKUP,
                           "Tell the user the store is missing: to go back, rename %s/ to .scratch/_brainstorming/ and "
-                          "run brainstorm start again. Stop." % BACKUP)
+                          "run %s again. Stop." % (BACKUP, printed.START))
         raise Failure("This project has no idea store to migrate.", "Answer the user's message; there are no ideas yet.")
     if where == "done":
         return [], "moved", []
@@ -368,16 +369,18 @@ def step(root: str, events_raw: list[str], write: bool) -> Result:
         os.rename(store, backup)
     except OSError as error:
         shutil.rmtree(staging, ignore_errors=True)
-        raise refused("The old store could not be renamed to the backup (%s); it is untouched and nothing was "
-                      "written." % textfile.reason(error),
-                      "Otherwise tell the user a file in .scratch/_brainstorming/ is held open (an editor?), ask "
-                      "them to close it, and run the command again.")
+        raise refused(["The old store could not be renamed to the backup (%s); it is untouched and nothing was "
+                       "written." % textfile.reason(error),
+                       "What can hold %s/ open: an editor, or a shell whose working directory is inside it." % STORE],
+                      "Otherwise, if your own shell's working directory is inside %s/, change to the repository "
+                      "root and run the command again; if not, tell the user what holds it open and wait for their "
+                      "word before you run it again." % STORE)
     try:
         os.rename(staging, store)
     except OSError as error:
         raise Failure("The new store could not be renamed into place (%s). The backup is complete; the staging waits "
                       "in %s/." % (textfile.reason(error), STAGING),
-                      "Run brainstorm migrate --write again: it finishes the swap.")
+                      "Run %s again: it finishes the swap." % printed.MIGRATE)
     open_n = sum(1 for i in ideas.values() if i.is_open)
     return ["Migrated %d ideas from the 0.15 layout: %d open, %d closed, each in its own file as before; %d events "
             "from the Log carried." % (len(ideas), open_n, len(ideas) - open_n, len(events)), TELL % UNDO], "migrated", []

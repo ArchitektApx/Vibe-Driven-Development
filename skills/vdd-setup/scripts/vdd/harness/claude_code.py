@@ -12,6 +12,7 @@ from ..stores import PLUGIN_CACHE, PROJECT, SKILL_STORE, USER, Root, Store, cli_
 class ClaudeCode(Harness):
     name = "claude-code"
     label = "Claude Code"
+    display_name = "Claude Code"
 
     def borrowed_skill(self, skill: str) -> str:
         return "/" + skill
@@ -78,13 +79,23 @@ class ClaudeCode(Harness):
     def respawn_recommendation(self) -> tuple[str | None, str | None]:
         return ("every round", "over 200k")
 
-    def codex_hook_steps(self) -> bool:
+    def reports_subagent_tokens(self) -> bool:
+        return True
+
+    def picks_up_doorbell(self) -> bool:
+        return True
+
+    def runs_sandboxed(self) -> bool:
+        # Claude Code's sandbox sets it in every command it runs sandboxed.
+        return os.environ.get("SANDBOX_RUNTIME") == "1"
+
+    def waits_through_stop_hook(self) -> bool:
         return False
 
     def orchestrator_launch(self, slug: str) -> str:
         return "run claude in a terminal in this repository, then /vdd:vdd-orchestrator %s in that Session" % slug
 
-    def wait_next(self, role: str, wait_command: str, paste_command: str) -> str:
+    def wait_next(self, wait_command: str, paste_command: str) -> str:
         return (
             "Run this in the background with run_in_background set and a timeout of at least 2760000 ms, "
             "then end your turn: %s" % wait_command

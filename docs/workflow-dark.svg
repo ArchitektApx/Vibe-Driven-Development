@@ -74,5 +74,5 @@
   <text x="450" y="692" text-anchor="middle" font-weight="600" font-size="16" fill="#e6edf3">PR-Author</text>
   <text x="450" y="712" text-anchor="middle" fill="#c9d1d9" font-size="13">runs in the Orchestrator's session, on Sign-off</text>
   <text x="450" y="732" text-anchor="middle" fill="#c9d1d9" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">/vdd:vdd-create-pr</text>
-  <text x="450" y="752" text-anchor="middle" fill="#8b949e" font-size="12">You or VDD open the PR</text>
+  <text x="450" y="752" text-anchor="middle" fill="#8b949e" font-size="12">You or VDD open the PR, unless PR: no</text>
 </svg>
