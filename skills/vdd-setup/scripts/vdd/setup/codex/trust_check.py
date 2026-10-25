@@ -8,7 +8,7 @@ import os
 
 from ... import stores, textfile
 from ..report import Report
-from . import fingerprint, installed, trust
+from . import baseline, fingerprint, installed, trust
 
 NOT_TRUSTED_WAIT = "Trust VDD's hook in /hooks, then say so here, or say skip."
 CHANGED_WAIT = "VDD changed since you trusted its hook. Trust it again in /hooks, then say so here, or say skip."
@@ -59,9 +59,20 @@ class Check:
         if entry.trusted_hash is None:
             self.line(NOT_TRUSTED, "%s: not trusted, %s holds no approval for it." % (label, self.config_label))
             return
-        if entry.trusted_content_hash is None:
-            self.unverified(label, "%s holds an approval from before Codex 0.164" % self.config_label)
-            return
+        trusted = entry.trusted_content_hash
+        if trusted is None:
+            legacy = baseline.path(self.home, entry.marketplace)
+            try:
+                pinned = baseline.read(legacy)
+            except OSError as error:
+                self.unverified(label, "the baseline of an approval from before Codex 0.164, %s, could not be read "
+                                "(%s)" % (self.shown(legacy), textfile.reason(error)))
+                return
+            if pinned is None:
+                self.unverified(label, "%s holds an approval from before Codex 0.164 and its baseline %s is missing"
+                                % (self.config_label, self.shown(legacy)))
+                return
+            trusted = pinned.decode("utf-8", "surrogateescape")
         copy = installed.find(self.home, entry.marketplace)
         if copy.root is None and copy.candidates:
             self.unverified(label, "%s holds versions whose order Codex does not fix: %s"
@@ -76,7 +87,7 @@ class Check:
         except fingerprint.Unhashable as error:
             self.unverified(label, unhashable(root, error))
             return
-        if current == entry.trusted_content_hash:
+        if current == trusted:
             self.line(TRUSTED, "%s: trusted, the installed copy at %s is the one you trusted. Passed." % (label, root))
         else:
             self.line(CHANGED, "%s: changed, the installed copy at %s differs from the one you trusted."

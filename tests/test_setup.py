@@ -1,5 +1,6 @@
 """The setup command, driven from outside."""
 
+import hashlib
 import json
 import os
 import shutil
@@ -1122,6 +1123,102 @@ class CodexTrustTest(ToolTest):
                       self.hook_lines(result))
         self.assertIn(SWITCHED_OFF, result.tells())
         self.assertEqual(result.tells().count(CHANGED_WAIT), 1, result)
+
+    # --- approvals from before Codex 0.164 ---
+
+    def baseline(self, text, codex=None, spelled=None, marketplace="mk"):
+        """Write the baseline file Codex keeps for vdd@<marketplace> in codex's
+        .hook-trust/, named from config.toml's path as spelled."""
+        codex = codex or self.codex
+        spelled = os.fsencode(spelled or os.path.join(codex, "config.toml"))
+        plugin = ("vdd@%s" % marketplace).encode("utf-8")
+        name = hashlib.sha256(len(spelled).to_bytes(8, "little") + spelled
+                              + len(plugin).to_bytes(8, "little") + plugin).hexdigest()
+        path = os.path.join(codex, ".hook-trust", name)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as handle:
+            handle.write(text.encode("utf-8"))
+        return path
+
+    def test_a_legacy_approval_is_checked_against_its_baseline(self):
+        """Prevents an approval from before Codex 0.164 from being reported
+        trusted when Codex refuses it, or changed when Codex runs it."""
+        self.cached()
+        self.config(hook_entry(content=None))
+        for text, trusted in ((GOLDEN, True), ("sha256:other", False), (GOLDEN + "\n", False)):
+            with self.subTest(text=text):
+                self.baseline(text)
+                result = self.setup()
+                if trusted:
+                    self.assertTrusted(result)
+                else:
+                    self.assertChanged(result)
+                    self.assertEqual(result.tells().count(CHANGED_WAIT), 1, result)
+
+    def test_a_legacy_approval_without_its_baseline_cannot_be_verified(self):
+        """Prevents a guess about a legacy approval whose baseline is missing:
+        Setup names the file it looked for and asks for nothing."""
+        self.cached()
+        self.config(hook_entry(content=None))
+        missing = self.baseline(GOLDEN)
+        os.remove(missing)
+        result = self.setup()
+        shown = "~/.codex/.hook-trust/" + os.path.basename(missing)
+        self.assertEqual(self.hook_lines(result), [
+            "VDD's Codex hook: could not verify, ~/.codex/config.toml holds an approval from before Codex 0.164 "
+            "and its baseline %s is missing." % shown])
+        self.assertEqual(result.tells().count(COULD_NOT_VERIFY), 1, result)
+        self.assertNotIn(CHANGED_WAIT, result.tells())
+        self.assertNotIn(NOT_TRUSTED_WAIT, result.tells())
+
+    def test_a_current_approval_ignores_the_baseline(self):
+        """Prevents a stale baseline from overruling the content hash Codex
+        compares for a current approval."""
+        self.cached()
+        self.config(hook_entry())
+        self.assertTrusted(self.setup())
+        self.baseline("sha256:stale")
+        self.assertTrusted(self.setup())
+        self.config(hook_entry(content="sha256:other"))
+        self.baseline(GOLDEN)
+        self.assertChanged(self.setup())
+
+    @unittest.skipIf(WINDOWS, "creating a symbolic link needs a privilege on Windows")
+    def test_the_baseline_is_named_from_the_real_codex_home(self):
+        """Prevents Setup from missing a legacy baseline when CODEX_HOME is a
+        symbolic link: Codex names the file from the resolved path."""
+        real = os.path.join(self.box.root, "real-codex")
+        link = os.path.join(self.box.root, "link-codex")
+        shutil.copytree(FIXTURE, os.path.join(real, "plugins", "cache", "mk", "vdd", "1.0.0"))
+        os.symlink(real, link)
+        with open(os.path.join(real, "config.toml"), "w") as handle:
+            handle.write(hook_entry(content=None))
+        env = self.box.env(CODEX_HOME=link)
+        named_from_link = self.baseline(GOLDEN, codex=real, spelled=os.path.join(link, "config.toml"))
+        result = self.setup(env=env)
+        self.assertRegex(self.hook_lines(result)[0], r"^VDD's Codex hook: could not verify, .* is missing\.$")
+        os.remove(named_from_link)
+        self.baseline(GOLDEN, codex=real, spelled=os.path.join(os.path.realpath(real), "config.toml"))
+        self.assertTrusted(self.setup(env=env))
+
+    def test_the_baseline_under_home_without_codex_home(self):
+        """Prevents Setup from missing a legacy baseline when CODEX_HOME is
+        unset: Codex names the file from ~/.codex/config.toml."""
+        self.cached()
+        self.config(hook_entry(content=None))
+        self.baseline(GOLDEN, spelled=os.path.join(self.box.home, ".codex", "config.toml"))
+        self.assertTrusted(self.setup(env=self.box.env(CODEX_HOME=None)))
+
+    def test_setup_creates_no_baseline(self):
+        """Prevents Setup from writing the baseline Codex would otherwise pin
+        on its own, or anything else in the Codex home."""
+        self.cached()
+        self.config(hook_entry(content=None))
+        before = self.codex_home()
+        self.setup()
+        self.setup("--write")
+        self.assertEqual(self.codex_home(), before)
+        self.assertFalse(os.path.exists(os.path.join(self.codex, ".hook-trust")))
 
 
 @unittest.skipIf(WINDOWS, "a stubbed git is a POSIX sh script, as in PreflightTest")
