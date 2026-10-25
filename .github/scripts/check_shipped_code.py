@@ -19,7 +19,7 @@ import sys
 ALLOWED_MODULES = {
     "__future__", "abc", "base64", "binascii", "datetime", "difflib", "errno",
     "fcntl", "glob", "hashlib", "json", "msvcrt", "os", "posixpath", "re",
-    "shutil", "signal", "subprocess", "sys", "textwrap", "time", "types",
+    "shutil", "signal", "stat", "subprocess", "sys", "textwrap", "time", "types",
     "typing",
     "vdd",
 }

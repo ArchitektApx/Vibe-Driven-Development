@@ -638,7 +638,7 @@ USER_GROUP = {"matcher": "", "hooks": [{"type": "command", "command": "notify-se
 
 
 class CodexSetupTest(ToolTest):
-    """Setup on Codex: the hooks.json migration and the trust check."""
+    """Setup on Codex: the hooks.json migration and the Codex home."""
 
     def setUp(self):
         ToolTest.setUp(self)
@@ -677,7 +677,6 @@ class CodexSetupTest(ToolTest):
         self.assertIn("Planned change: ~/.codex/hooks.json removes VDD's old Stop hook entry", result.text)
         self.assertIn("-            \"command\": \"sh \\\"/x/vdd/vdd-codex-stop.sh\\\" || true\",", result.lines)
         self.assertTrue(any("Hooks need review" in t for t in result.tells()), result)
-        self.assertIn("Trust VDD's hook in /hooks.", result.tells())
         self.assertEqual(self.read_hooks(), before)
         result = self.setup("--write")
         self.assertEqual(result.code, 0, result)
@@ -757,103 +756,6 @@ class CodexSetupTest(ToolTest):
         self.config('[[hooks.Stop]]\n[[hooks.Stop.hooks]]\ncommand = "sh /x/vdd-codex-stop.sh"\n')
         self.assertIn("a registration naming vdd-codex-stop stays", self.setup().text)
 
-    def test_trust_key_present_prints_no_trust_line(self):
-        """The trust check looks for the hooks.state key of VDD's hook and
-        never claims the hook is trusted."""
-        for text in (
-            '[hooks.state."vdd@anything:plugin.json#hooks[0]:stop:0:0"]\ntrusted_hash = "sha256:x"\n',
-            '[hooks.state]\n"vdd@mk:plugin.json#hooks[0]:stop:0:0" = { trusted_hash = "sha256:x" }\n',
-            '[hooks]\nstate."vdd@mk:plugin.json#hooks[0]:stop:0:0".trusted_hash = "sha256:x"\n',
-            'model = "o"\n[hooks.state."/x/hooks.json:stop:0:0"]\ntrusted_hash = "a"\n'
-            '[hooks.state."vdd@mk:plugin.json#hooks[0]:stop:0:0"]\ntrusted_hash = "b"\n',
-        ):
-            with self.subTest(text=text):
-                self.config(text)
-                result = self.setup()
-                self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
-                self.assertFalse(any("unknown" in l for l in result.lines), result)
-
-    def test_a_hook_switched_off_in_hooks_is_named(self):
-        """Switching VDD's hook off in /hooks keeps its hooks.state key and
-        adds enabled = false; Setup read that as a trust entry, and on the
-        Windows VM the Codex Doorbells would have waited for a paste."""
-        for text in (
-            '[hooks.state."vdd@vibe-driven-development:plugin.json#hooks[0]:stop:0:0"]\n'
-            'trusted_hash = "sha256:x"\nenabled = false\n',
-            '[hooks.state]\n"vdd@mk:plugin.json#hooks[0]:stop:0:0" = { trusted_hash = "x", enabled = false }\n',
-            '[hooks]\nstate."vdd@mk:plugin.json#hooks[0]:stop:0:0".enabled = false\n',
-        ):
-            with self.subTest(text=text):
-                self.config(text)
-                result = self.setup()
-                self.assertIn("VDD's hook is switched off in Codex: turn it on in /hooks, or every Doorbell "
-                              "waits for a paste.", result.tells())
-                self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
-                self.assertFalse(any("a trust entry is in" in l for l in result.lines), result)
-        self.config('[hooks.state."vdd@mk:plugin.json#hooks[0]:stop:0:0"]\ntrusted_hash = "x"\nenabled = true\n')
-        self.assertIn("a trust entry is in", self.setup().text)
-
-    def test_trust_key_absent_prints_the_trust_line(self):
-        for text in ("", '[hooks.state."/x/hooks.json:stop:0:0"]\ntrusted_hash = "a"\n',
-                     '[hooks.state."other@mk:plugin.json#hooks[0]:stop:0:0"]\n',
-                     'notes = """\n[hooks.state."vdd@mk:plugin.json#hooks[0]:stop:0:0"]\n"""\n'):
-            with self.subTest(text=text):
-                self.config(text)
-                self.assertIn("Trust VDD's hook in /hooks.", self.setup().tells())
-
-    def test_an_unparsable_config_says_unknown_and_asks(self):
-        self.config('[hooks.state\nx = "y\n')
-        result = self.setup()
-        self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
-        self.assertTrue(any("could not tell whether VDD's hook is trusted" in t for t in result.tells()), result)
-
-    def test_an_unreadable_config_toml_is_unknown(self):
-        """Prevents an unreadable config.toml from ending Setup on a bare file
-        error: Setup read it twice, and the first read had no guard, so the
-        trust check's unknown was never reached."""
-        os.mkdir(os.path.join(self.codex, "config.toml"))
-        result = self.setup()
-        self.assertEqual(result.code, 0, result)
-        self.assertIn("VDD's Codex hook: whether it is trusted is unknown, ~/.codex/config.toml could not be read.",
-                      result.lines)
-        self.assertIn("Setup could not tell whether VDD's hook is trusted. Open /hooks and trust VDD's hook if it "
-                      "is listed for review.", result.tells())
-        self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
-
-    def test_a_config_toml_read_but_not_understood_says_so(self):
-        """Prevents a config.toml Setup read but could not follow from being
-        reported as one it could not read."""
-        self.config('skills = [\n  "a",\n')
-        result = self.setup()
-        self.assertIn("VDD's Codex hook: whether it is trusted is unknown, ~/.codex/config.toml was read but not "
-                      "understood.", result.lines)
-        self.assertNotIn("could not be read", result.text)
-
-    TRUST = '[hooks.state."vdd@mk:plugin.json#hooks[0]:stop:0:0"]\ntrusted_hash = "sha256:x"\n'
-    SHAPES = (
-        # (shape, the text staged before the trust entry, whether Setup finds the entry)
-        ("an array on one line", 'model = "o"\nskills = ["a", "b"]\n', True),
-        ("an array on several lines", 'skills = [\n  "a",\n  ["b", "c"],\n]\n', True),
-        ("a ] inside a string", 'skills = [\n  "a]",\n  \'b]]\',\n]\n', True),
-        ("a multi-line string", 'notes = """\nskills = [\n"""\n', True),
-        ("an unbalanced bracket", 'skills = [\n  "a",\n', None),
-    )
-
-    def test_config_toml_shapes_beside_a_trust_entry(self):
-        """Prevents a Codex user's config.toml with arrays from being misread:
-        the trust entry is found after each well-formed shape, and an
-        unbalanced bracket is unknown, never absent."""
-        for shape, before, found in self.SHAPES:
-            with self.subTest(shape=shape):
-                self.config(before + self.TRUST)
-                result = self.setup()
-                if found:
-                    self.assertTrue(any("a trust entry is in" in l for l in result.lines), result)
-                    self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
-                else:
-                    self.assertTrue(any("whether it is trusted is unknown" in l for l in result.lines), result)
-                    self.assertNotIn("Trust VDD's hook in /hooks.", result.tells())
-
     def test_codex_home_moves_the_files(self):
         home = os.path.join(self.box.root, "ch")
         os.makedirs(home)
@@ -882,6 +784,226 @@ class CodexSetupTest(ToolTest):
         result = self.setup(harness="claude-code")
         self.assertNotIn("hooks.json", result.text)
         self.assertNotIn("Trust VDD's hook", result.text)
+
+
+FIXTURE = os.path.join(vddtest.REPO, "tests", "fixtures", "codex-hook-trust", "plugin")
+# Codex's content hash of the fixture's plugin/ directory, written by Codex
+# itself: with / between path parts on macOS and Linux, with \ on Windows.
+GOLDEN = ("sha256:f598068ff9739853b66c1f75651f9d9462cf2205f6883157feddb7fd9de9de89" if WINDOWS
+          else "sha256:373e6197f5e335ea64266fe459e7e0e8b1d7797ccd88bd3ccf2018c07bcf984c")
+EMPTY_DIR_GOLDEN = ("sha256:00f5dfdb596446e0bb999ffc9d646b1cb86d82a2c5571770700992d65bff3c9a" if WINDOWS
+                    else "sha256:b69ea080ca32ef7573b29ee0f1083636676607abd63b715b87f15c3ea1ea6adf")
+NOT_TRUSTED_WAIT = "Trust VDD's hook in /hooks, then say so here, or say skip."
+CHANGED_WAIT = "VDD changed since you trusted its hook. Trust it again in /hooks, then say so here, or say skip."
+COULD_NOT_VERIFY = ("Setup could not verify that Codex trusts VDD's hook. If /hooks lists it for review, "
+                    "trust it there.")
+SWITCHED_OFF = "VDD's hook is switched off in Codex: turn it on in /hooks, or every Doorbell waits for a paste."
+
+
+def hook_key(marketplace="mk"):
+    return '[hooks.state."vdd@%s:plugin.json#hooks[0]:stop:0:0"]\n' % marketplace
+
+
+def hook_entry(marketplace="mk", content=GOLDEN, trusted="sha256:declaration", enabled=None):
+    text = hook_key(marketplace)
+    if trusted is not None:
+        text += 'trusted_hash = "%s"\n' % trusted
+    if content is not None:
+        text += 'trusted_content_hash = "%s"\n' % content
+    if enabled is not None:
+        text += "enabled = %s\n" % ("true" if enabled else "false")
+    return text
+
+
+class CodexTrustTest(ToolTest):
+    """Setup on Codex: whether Codex trusts VDD's hook, the installed copy
+    hashed as Codex hashes it against the hash it stored in config.toml."""
+
+    def setUp(self):
+        ToolTest.setUp(self)
+        subprocess.run(["git", "init", "-q"], cwd=self.box.proj, check=True)
+        self.codex = os.path.join(self.box.home, ".codex")
+        os.makedirs(self.codex)
+        self.settled = False
+
+    def setup(self, *extra, harness="codex", env=None):
+        """A dry run with nothing left to change, so its report lines and its
+        Next: are the final run's."""
+        if not self.settled:
+            self.box.run("setup", "--harness", harness, "--listed", "writing-for-agents", "--glossary-named", "yes",
+                         "--write", env=env)
+            self.settled = True
+        return self.box.run("setup", "--harness", harness, "--listed", "writing-for-agents", "--glossary-named",
+                            "yes", *extra, env=env)
+
+    def config(self, text):
+        with open(os.path.join(self.codex, "config.toml"), "w") as handle:
+            handle.write(text)
+
+    def cached(self, marketplace="mk", version="1.0.0", source=FIXTURE):
+        """The fixture as the installed copy Codex keeps for marketplace."""
+        root = os.path.join(self.codex, "plugins", "cache", marketplace, "vdd", version)
+        shutil.copytree(source, root, symlinks=True)
+        return root
+
+    def hook_lines(self, result):
+        return [line for line in result.lines if line.startswith("VDD's Codex hook")]
+
+    def codex_home(self):
+        """Every entry under the Codex home with its size and modification
+        time."""
+        found = []
+        for directory, dirs, files in os.walk(self.codex):
+            for name in sorted(dirs + files):
+                path = os.path.join(directory, name)
+                info = os.lstat(path)
+                found.append((os.path.relpath(path, self.codex), info.st_size, info.st_mtime_ns))
+        return sorted(found)
+
+    def assertTrusted(self, result):
+        self.assertEqual(len(self.hook_lines(result)), 1, result)
+        self.assertRegex(self.hook_lines(result)[0], r"^VDD's Codex hook: trusted, ", result)
+        self.assertNotIn(CHANGED_WAIT, result.tells())
+        self.assertNotIn(NOT_TRUSTED_WAIT, result.tells())
+        self.assertNotIn(COULD_NOT_VERIFY, result.tells())
+        self.assertIn("Setup is done", result.last, result)
+
+    def assertChanged(self, result):
+        self.assertRegex(self.hook_lines(result)[0], r"^VDD's Codex hook: changed, ", result)
+        self.assertIn(CHANGED_WAIT, result.tells())
+
+    def test_the_fixture_with_its_golden_reports_trusted(self):
+        """Prevents a drift in the port of Codex's content hash: the fixture
+        hashes to the value Codex itself stored on this platform."""
+        self.cached()
+        self.config(hook_entry())
+        self.assertTrusted(self.setup())
+
+    def test_an_empty_directory_is_hashed(self):
+        """Prevents the port from skipping an empty directory Codex hashes."""
+        root = self.cached()
+        os.mkdir(os.path.join(root, "emptydir"))
+        self.config(hook_entry(content=EMPTY_DIR_GOLDEN))
+        self.assertTrusted(self.setup())
+
+    def test_one_byte_appended_reports_changed(self):
+        """Prevents an update of VDD from passing as the copy the user
+        trusted."""
+        root = self.cached()
+        self.config(hook_entry())
+        with open(os.path.join(root, "nested", "deep", "leaf.md"), "ab") as handle:
+            handle.write(b"x")
+        result = self.setup()
+        self.assertChanged(result)
+        self.assertEqual(result.tells().count(CHANGED_WAIT), 1, result)
+
+    def test_entries_codex_skips_change_nothing(self):
+        """Prevents Setup from calling a hook changed for a file Codex leaves
+        out of its hash."""
+        for name in ("extra.pyc", os.path.join("__pycache__", "new.pyc"), os.path.join(".venv", "bin"),
+                     os.path.join("more.egg-info", "PKG-INFO")):
+            with self.subTest(name=name):
+                root = self.cached()
+                self.config(hook_entry())
+                self.box.write(os.path.join(root, name), "x\n")
+                self.assertTrusted(self.setup())
+                shutil.rmtree(os.path.join(self.codex, "plugins"))
+
+    def test_dotfiles_are_hashed(self):
+        """Prevents Setup from calling a copy trusted after a change Codex sees:
+        .git/ and every other dotfile are in Codex's hash."""
+        for name in (os.path.join(".git", "config"), ".DS_Store"):
+            with self.subTest(name=name):
+                root = self.cached()
+                self.config(hook_entry())
+                self.box.write(os.path.join(root, name), "x\n")
+                self.assertChanged(self.setup())
+                shutil.rmtree(os.path.join(self.codex, "plugins"))
+
+    def test_no_entry_asks_to_trust_without_looking_for_a_copy(self):
+        """Prevents a hook the user never trusted from passing silently, and a
+        missing copy from changing what Setup says about it."""
+        for text in ("", '[hooks.state."/x/hooks.json:stop:0:0"]\ntrusted_hash = "a"\n',
+                     '[hooks.state."other@mk:plugin.json#hooks[0]:stop:0:0"]\ntrusted_hash = "a"\n',
+                     'notes = """\n[hooks.state."vdd@mk:plugin.json#hooks[0]:stop:0:0"]\n"""\n',
+                     hook_entry(trusted=None, content=None, enabled=True)):
+            with self.subTest(text=text):
+                self.config(text)
+                without = self.setup()
+                self.assertIn(NOT_TRUSTED_WAIT, without.tells())
+                self.assertRegex(self.hook_lines(without)[0], r"^VDD's Codex hook: not trusted, ", without)
+                self.cached()
+                self.assertEqual(self.setup().text, without.text)
+                shutil.rmtree(os.path.join(self.codex, "plugins"))
+
+    def test_a_hook_switched_off_skips_the_hash(self):
+        """Prevents a hook switched off in /hooks from being reported as
+        changed, or in other words than before."""
+        self.config(hook_entry(marketplace="vibe-driven-development", content="sha256:other", enabled=False))
+        without = self.setup()
+        self.assertEqual(self.hook_lines(without), [
+            "VDD's Codex hook: switched off, ~/.codex/config.toml says enabled = false for it."])
+        self.assertIn(SWITCHED_OFF, without.tells())
+        self.assertNotIn(CHANGED_WAIT, without.tells())
+        self.cached(marketplace="vibe-driven-development")
+        self.assertEqual(self.setup().text, without.text)
+
+    def test_no_installed_copy_cannot_be_verified(self):
+        """Prevents a missing installed copy from being reported as changed or
+        trusted: Setup names the path it searched and asks for nothing."""
+        self.config(hook_entry())
+        result = self.setup()
+        self.assertEqual(self.hook_lines(result),
+                         ["VDD's Codex hook: could not verify, no installed copy at ~/.codex/plugins/cache/mk/vdd."])
+        self.assertEqual(result.tells().count(COULD_NOT_VERIFY), 1, result)
+        self.assertNotIn(CHANGED_WAIT, result.tells())
+        self.assertNotIn(NOT_TRUSTED_WAIT, result.tells())
+
+    def test_setup_writes_nothing_in_the_codex_home(self):
+        """Prevents Setup from changing the installed copy, the baseline files
+        or config.toml, any of which would turn the trusted hook modified."""
+        for content in (GOLDEN, "sha256:other"):
+            with self.subTest(content=content):
+                self.cached()
+                self.config(hook_entry(content=content))
+                before = self.codex_home()
+                self.setup()
+                self.setup("--write")
+                self.assertEqual(self.codex_home(), before)
+                shutil.rmtree(os.path.join(self.codex, "plugins"))
+
+    def test_the_old_trust_entry_line_is_gone(self):
+        """Prevents the line that called a stale approval trusted from coming
+        back."""
+        self.cached()
+        self.config(hook_entry(content="sha256:other"))
+        self.assertNotIn("a trust entry is in", self.setup().text)
+
+    TRUST = hook_entry()
+    SHAPES = (
+        # (shape, the text staged before the trust entry, whether Setup reads the entry)
+        ("an array on one line", 'model = "o"\nskills = ["a", "b"]\n', True),
+        ("an array on several lines", 'skills = [\n  "a",\n  ["b", "c"],\n]\n', True),
+        ("a ] inside a string", 'skills = [\n  "a]",\n  \'b]]\',\n]\n', True),
+        ("a multi-line string", 'notes = """\nskills = [\n"""\n', True),
+        ("an unbalanced bracket", 'skills = [\n  "a",\n', False),
+    )
+
+    def test_config_toml_shapes_beside_a_trust_entry(self):
+        """Prevents a Codex user's config.toml with arrays from being misread:
+        the entry is read after each well-formed shape, and an unbalanced
+        bracket is not understood, never trusted or absent."""
+        self.cached()
+        for shape, before, read in self.SHAPES:
+            with self.subTest(shape=shape):
+                self.config(before + self.TRUST)
+                result = self.setup()
+                if read:
+                    self.assertTrusted(result)
+                else:
+                    self.assertEqual(self.hook_lines(result), [
+                        "VDD's Codex hook: could not verify, ~/.codex/config.toml was read but not understood."])
+                    self.assertNotIn(NOT_TRUSTED_WAIT, result.tells())
 
 
 @unittest.skipIf(WINDOWS, "a stubbed git is a POSIX sh script, as in PreflightTest")
