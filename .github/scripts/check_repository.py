@@ -1,4 +1,4 @@
-"""The repository Invariants in AGENTS.md that are not about a shipped `.py`.
+"""The repository Invariants in CONTRIBUTING.md that are not about a shipped `.py`.
 
 Run from the repository root, or with the repository as the one argument. It
 reads the tracked files and their modes from `git ls-files -s`, so gitignored

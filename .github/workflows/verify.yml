@@ -24,7 +24,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # Every repository Invariant in AGENTS.md that is not about a shipped .py,
+      # Every repository Invariant in CONTRIBUTING.md that is not about a shipped .py,
       # one function each, whose docstring gives its reason. It reads
       # git ls-files -s for paths and modes, so a mode reads the same on every
       # OS, and the shipped-code check reads git ls-files; in both, gitignored
@@ -34,7 +34,7 @@ jobs:
 
       # Shipped code runs on every installer's machine through a named interpreter,
       # so check_shipped_code.py holds it to that promise (the rules are in
-      # AGENTS.md).
+      # CONTRIBUTING.md).
       - name: Shipped code passes the static checks
         run: python3 .github/scripts/check_shipped_code.py
 

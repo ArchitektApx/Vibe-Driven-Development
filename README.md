@@ -306,7 +306,7 @@ It uses Python's standard library only, opens no network connection of its own, 
 
 <div align="center">
 
-Built with its own workflow. Glossary in [`GLOSSARY.md`](GLOSSARY.md), decisions in [`docs/adr/`](docs/adr/), house rules in [`AGENTS.md`](AGENTS.md).
+Built with its own workflow. Glossary in [`GLOSSARY.md`](GLOSSARY.md), decisions in [`docs/adr/`](docs/adr/), how to contribute in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 MIT · [ArchitektApx](https://github.com/ArchitektApx)
 
