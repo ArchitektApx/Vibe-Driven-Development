@@ -1,0 +1,4 @@
+$ vdd doorbell take --role Orchestrator --harness claude-code --slug demo --pasted VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/.
+exit 0
+Doorbell: VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/.
+Next: Run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" orchestrator return --role Planner --slug demo --harness claude-code

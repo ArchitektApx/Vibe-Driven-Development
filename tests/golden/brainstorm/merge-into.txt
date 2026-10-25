@@ -1,0 +1,4 @@
+$ vdd brainstorm merge --idea other --into part-one --reason The same idea. --reopen-when They part. --write
+exit 0
+other is merged into part-one and dropped; 0 open steps moved over.
+Next: Tell the user in one line.

@@ -1,0 +1,6 @@
+$ vdd review check --role Code-Reviewer --slug demo --write
+exit 0
+CODEREVIEW.md: round 1 checked and written.
+SIGNED OFF. Nothing open.
+VDD Code-Reviewer: CODEREVIEW.md SIGNED OFF, round 1.
+Next: End your turn with the Doorbell line above as your whole reply.

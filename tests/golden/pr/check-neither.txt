@@ -1,0 +1,11 @@
+$ vdd pr check --slug demo --harness claude-code
+exit 0
+Base branch: main
+Feature branch: demo
+PR: yes
+Template: none.
+History: none (no merged PR).
+Preflight, can push, remote origin: failed (no remote origin is configured).
+Preflight, can open a PR, remote origin: failed (the remote origin is not on a GitHub host).
+Path: neither
+Next: Write the title and body to .scratch/demo/pr-body.md as your skill says. No PR can be opened from here, so ask nothing: tell the user the check that failed (can push: no remote origin is configured; can open a PR: the remote origin is not on a GitHub host), then run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" loop close --slug demo --write and stop; push nothing.

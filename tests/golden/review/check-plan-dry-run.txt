@@ -1,0 +1,5 @@
+$ vdd review check --role Plan-Reviewer --slug demo
+exit 0
+PLAN-REVIEW.md passes: round 1, 2 new findings, 0 closed.
+Open: 0 blocker, 1 major, 1 minor.
+Next: Run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" review check --role Plan-Reviewer --slug demo --write

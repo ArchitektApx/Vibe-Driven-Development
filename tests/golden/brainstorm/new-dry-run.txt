@@ -1,0 +1,6 @@
+$ vdd brainstorm new --slug second-half --title Second half --tldr The second half.
+exit 0
+Dry run, nothing was written. With --write, brainstorm new would write second-half.md:
+  Captured second-half [idea], file .scratch/_brainstorming/second-half.md.
+No idea in the store, open, closed or removed, looks like this one.
+Next: If this is what the user asked for, run the same command again with --write.

@@ -1,0 +1,8 @@
+$ vdd pr check --slug demo --harness claude-code
+exit 0
+Base branch: main
+Feature branch: demo
+PR: no
+Template: none.
+Path: none (PR: no, no preflight)
+Next: Print "Loop signed off. `PR: no`: `demo` stays local, nothing pushed.", then run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" loop close --slug demo --write and stop.

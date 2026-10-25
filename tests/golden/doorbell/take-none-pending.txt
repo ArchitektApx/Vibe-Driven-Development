@@ -1,0 +1,4 @@
+$ vdd doorbell take --role Orchestrator --harness claude-code --slug demo
+exit 0
+No new Doorbell for the Orchestrator.
+Next: Run this in the background with run_in_background set and a timeout of at least 2760000 ms, then end your turn: <python> "<repo>/skills/vdd-setup/scripts/vdd.py" doorbell wait --role Orchestrator --harness claude-code --slug demo

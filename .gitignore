@@ -1,3 +1,6 @@
 LOOP.md
 .scratch/
 AGENTS.local.md
+.local/
+__pycache__/
+!/tests/fixtures/codex-hook-trust/plugin/__pycache__/

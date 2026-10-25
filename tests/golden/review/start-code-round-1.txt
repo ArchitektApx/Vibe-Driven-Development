@@ -1,0 +1,11 @@
+$ vdd review start --role Code-Reviewer --slug demo --write
+exit 0
+Wrote the frame of .scratch/demo/CODEREVIEW.md.
+Round 1: no finding carried, new findings start at 1.
+Read: .scratch/demo/spec.md, .scratch/demo/issues/, .scratch/demo/FIXES.md
+Minors: fix
+Base branch: main
+Harness file: harness-claude-code.md
+Review range: main...demo, with main as code-review's fixed point and the diff you check against the Tickets.
+Agent documents in the range: none, so the writing-for-agents line is filled.
+Next: Review, write your findings into .scratch/demo/CODEREVIEW.md under the headings it has, then run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" review check --role Code-Reviewer --slug demo --write. Pass --slug demo on every VDD tool call from here on.

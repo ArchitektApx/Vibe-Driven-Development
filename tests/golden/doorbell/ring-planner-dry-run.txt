@@ -1,0 +1,4 @@
+$ vdd doorbell ring --role Planner --harness claude-code --slug demo
+exit 0
+Would append, addressed to the Orchestrator: VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/.
+Next: Run the same command with --write.

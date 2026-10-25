@@ -1,0 +1,27 @@
+$ vdd setup --help
+exit 0
+setup --harness <h> --listed <names> --glossary-named <yes|no|absent> [--user-answer <answer>]
+    [--hook-answer <answer>] [--write]
+
+Checks this repository and this machine for a VDD loop. Run it from the repository root.
+Without --write it changes nothing: it prints every check, every planned change and every line for the user.
+Show the user the planned changes, then run the same command with --write, which makes them and checks each.
+A run with nothing left to change changes nothing.
+
+--harness <h>            The Harness this Session runs in: claude-code, codex, cursor, copilot-cli,
+                         or generic for any other.
+--listed <names>         The skills from Matt Pocock's collection your own skill list shows, named as
+                         it shows them (bare, or with a plugin prefix such as
+                         mattpocock-skills:writing-for-agents), separated by commas; none for none.
+                         Look for: writing-for-agents, grilling, codebase-design, domain-modeling, tdd,
+                         research, prototype, diagnosing-bugs, code-review. Pass code-review only when
+                         its description names the two axes Standards and Spec, or when it carries
+                         the mattpocock-skills: prefix.
+--glossary-named <v>     yes when domain-modeling's description in your skill list names GLOSSARY.md,
+                         no when it does not, absent when domain-modeling is not in your skill list.
+--user-answer <answer>   Only when a run's Next: line asks for it: resolves or does-not-resolve, the
+                         user's answer on whether writing-for-agents ran when they invoked it.
+--hook-answer <answer>   Only when a run's Next: line asks for it: trusted or skip, the user's answer
+                         on Codex when Setup asked them to trust VDD's hook in /hooks.
+--write                  Make the planned changes.
+Next: Run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" setup with the options above, without --write first.

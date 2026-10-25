@@ -1,0 +1,4 @@
+$ vdd brainstorm new --slug second-half --title Second half --tldr The second half. --parent main-idea --write
+exit 0
+Captured second-half [idea] as a part of main-idea, file .scratch/_brainstorming/second-half.md.
+Next: Tell the user in one line what you captured and where it sits, then carry on with them.

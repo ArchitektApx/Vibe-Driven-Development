@@ -1,0 +1,8 @@
+$ vdd coder start --slug demo --write
+exit 0
+On the feature branch demo.
+Wrote the frame of .scratch/demo/FIXES.md.
+Round 2 starts at <sha>.
+Entries: one per open finding, 1.
+Read: .scratch/demo/CODEREVIEW.md, .scratch/demo/spec.md, .scratch/demo/issues/
+Next: Answer every open finding, committing on demo by your skill's rules for commits, and fill each entry of .scratch/demo/FIXES.md. Then run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" coder check --slug demo --write. Pass --slug demo on every VDD tool call from here on.

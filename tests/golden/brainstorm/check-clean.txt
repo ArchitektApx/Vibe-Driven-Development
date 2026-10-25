@@ -1,0 +1,4 @@
+$ vdd brainstorm check
+exit 0
+No problems.
+Next: Tell the user only the problems that matter to what they asked; fix none unasked.

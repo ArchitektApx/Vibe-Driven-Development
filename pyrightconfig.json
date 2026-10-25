@@ -1,0 +1,16 @@
+{
+  "pythonVersion": "3.9",
+  "pythonPlatform": "All",
+  "typeCheckingMode": "standard",
+  "extraPaths": ["skills/vdd-setup/scripts"],
+  "reportUnusedImport": "error",
+  "reportUnusedVariable": "error",
+  "reportUnusedClass": "error",
+  "reportUnusedFunction": "error",
+  "reportUnusedExpression": "error",
+  "reportUnnecessaryComparison": "error",
+  "reportUnnecessaryIsInstance": "error",
+  "reportUnnecessaryCast": "error",
+  "reportUnnecessaryContains": "error",
+  "reportUnreachable": "error"
+}

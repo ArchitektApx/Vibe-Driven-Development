@@ -9,5 +9,9 @@
   against something else.
 - **Typed skill names.** Where you ask the user to invoke a skill, give the
   form they type: `/setup-matt-pocock-skills`, `/vdd:vdd-start-loop`.
+- **A refused command.** When its sandbox refuses a command, Copilot CLI asks
+  the user to rerun it outside the sandbox: run the command as usual and let
+  the user decide. When the user denies it, stop with one line naming the
+  command and what it was for, and return `BLOCKED`.
 
 Trust your live tools over this file when they disagree.

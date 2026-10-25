@@ -1,0 +1,5 @@
+$ vdd doorbell ring --role Orchestrator --harness claude-code --slug demo --write
+exit 0
+Rung: the Doorbell file now holds it, addressed to the Planner.
+Tell the user verbatim: "If the Planner's Session does not wake, paste this into it: VDD Plan-Reviewer: PLAN-REVIEW.md written, round 1: 0 blocker, 1 major, 1 minor. Read it."
+Next: Relay every Tell the user verbatim line above unchanged; only after doing that, take the Doorbell already waiting for you: run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" doorbell take --role Orchestrator --harness claude-code --slug demo

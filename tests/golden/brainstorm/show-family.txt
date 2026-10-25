@@ -1,0 +1,14 @@
+$ vdd brainstorm show --idea main-idea
+exit 0
+main-idea [idea] unknown/unknown/unknown, updated 2026-10-20: The whole thing., file .scratch/_brainstorming/main-idea.md
+Title: Main idea
+Waits on: nothing. Waited on by: nothing.
+Family, every level:
+- main-idea [idea]  <- this idea
+  - part-one [idea]
+Open in main-idea:
+  > [ ] Talk it through with the user.
+Part part-one [idea] unknown/unknown/unknown: The first half.
+    > [ ] Talk it through with the user.
+History: 2026-10-20 created; 2026-10-20 part added part-one
+Next: Answer the user from these lines; Read the file above only when you need its full prose.

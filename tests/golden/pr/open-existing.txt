@@ -1,0 +1,6 @@
+$ vdd pr open --path existing --slug demo --harness claude-code --write
+exit 0
+Pushed demo to origin.
+Tell the user verbatim: "Pushed demo to origin: the PR https://github.com/example/repo/pull/7 has the new commits."
+Closed: the loop demo. Its files stay in .scratch/demo/ as the record.
+Next: Relay every Tell the user verbatim line above unchanged; only after doing that, stop.

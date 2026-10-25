@@ -1,0 +1,8 @@
+$ vdd setup --harness claude-code --listed writing-for-agents --glossary-named yes --write
+exit 0
+Setup, Harness Claude Code (writing).
+Tell the user verbatim: "setup-matt-pocock-skills, grill-with-docs, to-spec, to-tickets, wayfinder, code-review, writing-for-agents, grilling, domain-modeling, research, prototype: Resolvable from a store Setup does not search. Passed."
+Tell the user verbatim: "Invoke /setup-matt-pocock-skills and pick Local markdown when it asks which tracker to use. Until then the Planner (to-spec, to-tickets) and the Code-Reviewer (code-review) are blocked."
+Changed: install the VDD tool (vdd.py and vdd/) in <shared>
+Shared copy of the VDD tool: checked.
+Next: Relay every Tell the user verbatim line above unchanged; only after doing that, give the user a short status report: what passed, what Setup changed, and what the user still has to do. Setup is done. If another skill invoked Setup, go on with that skill's next step in this same turn; otherwise end your turn with the report.

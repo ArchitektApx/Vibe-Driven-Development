@@ -1,0 +1,24 @@
+$ vdd wayfinder start --effort demo --skill-dir <repo>/skills/vdd-wayfinder
+exit 0
+Effort: demo
+Map: .scratch/demo/map.md does not exist.
+wayfinder: <home>/.claude/plugins/cache/mattpocock/mattpocock-skills/1.0.0/skills/wayfinder/SKILL.md
+The briefing, to print unchanged, runs from the next line to the line before Next:.
+Briefing for the wayfinding of demo:
+
+- This project uses Vibe Driven Development (VDD). Each loop is one coherent
+  change: a Planner grills the user and writes a Spec and Tickets, a
+  Plan-Reviewer reviews the plan in rounds, a Coder implements, a
+  Code-Reviewer reviews the code in rounds, each in its own context. Every
+  loop does its own grilling and planning. The wayfinding settles the big
+  picture and nothing about a loop's inner workings.
+- Destination: the handoffs under .scratch/demo/handoffs/, one
+  00-overview.md from <repo>/skills/vdd-wayfinder/references/overview-template.md and one NN-<slug>.md per
+  loop from <repo>/skills/vdd-wayfinder/references/handoff-template.md. The map is done when those files
+  exist and nothing is left to decide before loop 01 starts.
+- Loops are cut by coherence, the way to-tickets cuts tickets: what belongs
+  together lands together. Size is not the cut; a loop that turns out too
+  large is caught by its Planner, who asks the user to split it.
+- Carry these three points into the map's Notes section, so every later
+  wayfinding session reads them.
+Next: Ask the user what the effort is: a loose idea in text, a goals file, or a decided idea file from the Brainstormer. Read what they name, print the briefing above unchanged, then tell the user to invoke wayfinder with the idea or file you read. You are done.

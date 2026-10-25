@@ -1,0 +1,4 @@
+$ vdd loop reopen --slug demo --write
+exit 0
+Reopened: the loop demo is open again.
+Next: Go on as the user directs, passing --slug demo.

@@ -1,0 +1,6 @@
+$ vdd loop aside --slug demo --write
+exit 0
+Closed the loop demo.
+Moved: .scratch/demo/ is now .scratch/demo-2/. Nothing was deleted.
+Tell the user verbatim: "The earlier Workflow's files are now in .scratch/demo-2/."
+Next: Relay every Tell the user verbatim line above unchanged; only after doing that, run the loop new command that reported the leftover again: .scratch/demo/ is free now.

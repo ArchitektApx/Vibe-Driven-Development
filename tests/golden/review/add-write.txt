@@ -1,0 +1,8 @@
+$ vdd review add --slug demo --from findings.md --write
+exit 0
+Wrote .scratch/demo/CODEREVIEW.md.
+Wrote .scratch/demo/RECAP.md.
+Recorded in .scratch/demo/loop-state: code 1 user open 1,2 counts 0 1 1 next 3 new 2
+Reopened the loop demo.
+Findings 1 and 2 open: 0 blocker, 1 major, 1 minor.
+Next: Tell the Orchestrator the loop has your findings; it carries on with orchestrator start.

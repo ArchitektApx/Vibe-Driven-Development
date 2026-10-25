@@ -1,0 +1,12 @@
+$ vdd pr check --slug demo --harness claude-code
+exit 0
+Base branch: main
+Feature branch: demo
+PR: yes
+Template: none.
+History: none (no merged PR).
+Preflight, can push, remote origin: passed.
+Preflight, can open a PR, remote origin: passed.
+Existing PR: none.
+Path: open
+Next: Write the title and body to .scratch/demo/pr-body.md as your skill says, then show the user the title and body and wait for one confirmation before any push, writing an amendment back to .scratch/demo/pr-body.md; then run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" pr open --path open --slug demo --harness claude-code --write and do what its Next: line says.

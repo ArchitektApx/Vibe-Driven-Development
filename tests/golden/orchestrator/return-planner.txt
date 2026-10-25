@@ -1,0 +1,7 @@
+$ vdd orchestrator return --role Planner --slug demo --harness claude-code
+exit 0
+Plan Loop: the Planner rang round 1.
+Spawning Plan-Reviewer, <model>, round 1.
+Read: .scratch/demo/spec.md, .scratch/demo/issues/
+Write: .scratch/demo/PLAN-REVIEW.md
+Next: Print the Spawning line above in your reply, <model> filled in from Model approval, then spawn a fresh Plan-Reviewer with the Spawn prompt, the slug demo, round 1 and the Read and Write lists above. When it returns, put a last line that starts QUESTION: or BLOCKED: to the user as your skill says for a Role's return; for anything else, run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" orchestrator return --role Plan-Reviewer --slug demo --harness claude-code

@@ -1,0 +1,12 @@
+{
+  "name": "vdd-hooktrust",
+  "plugins": [
+    {
+      "name": "hooktrust",
+      "source": {
+        "source": "local",
+        "path": "./plugin"
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+$ vdd loop new --slug demo --harness claude-code
+exit 0
+Slug: demo
+Base branch: main (from the checked-out branch).
+Feature branch: demo (proposed: the slug).
+Harness: Claude Code.
+Question 1, feature branch: The feature branch is demo, the slug itself. Keep it, or name another branch, which must differ from main. (Another branch: --branch <name>.)
+Question 2, Minors: Does an open minor finding hold up Sign-off? Answers, in this order: "Leave them" (--minors leave): a reviewer signs off with the open minors listed. "Fix them" (--minors fix): both Loops run until no minor is open.
+Question 3, PR: Should VDD open the pull request at the end of the Workflow? Answers, in this order: "Open it" (--pr yes). "Ask at Sign-off" (--pr "ask at sign-off"). "Manual" (--pr manual): VDD prints the body and you open the PR. "No PR" (--pr no): the branch stays local and no body is printed.
+Next: Ask the user each Question line above, one at a time and in order, with its answers as written. Then run: <python> "<repo>/skills/vdd-setup/scripts/vdd.py" loop new --slug demo --harness claude-code --base main --branch demo --minors "<answer>" --pr "<answer>" --write

@@ -1,0 +1,14 @@
+$ vdd loop new --slug demo --harness claude-code --minors fix --pr ask at sign-off --write
+exit 0
+Written: .scratch/demo/loop.md, and the loop is open.
+Format: 2
+Feature: demo
+Base branch: main
+Feature branch: demo
+Minors: fix
+PR: ask at sign-off
+Harness: Claude Code
+Tell the user verbatim: "The loop's slug is demo. The Orchestrator's launch line will carry it."
+Tell the user verbatim: "The Harness is Claude Code. If that is wrong, say so and it will be corrected."
+Tell the user verbatim: "You can ask the Orchestrator to respawn any hosted Role at any round."
+Next: Relay every Tell the user verbatim line above unchanged; only after doing that, invoke the vdd-planner skill in this same Session, or tell the user to invoke it if you cannot invoke skills. The loop's slug is demo: pass --slug demo on every VDD tool call from here on.

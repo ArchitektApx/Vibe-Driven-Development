@@ -17,7 +17,7 @@
   <!-- Planner (your session) -->
   <rect x="210" y="80" width="480" height="150" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
   <text x="450" y="106" text-anchor="middle" font-weight="600" font-size="16" fill="#1e3a8a">Planner: your session</text>
-  <text x="450" y="126" text-anchor="middle" fill="#1e40af" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">/vdd:vdd-start-loop  →  writes LOOP.md</text>
+  <text x="450" y="126" text-anchor="middle" fill="#1e40af" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">/vdd:vdd-start-loop  →  writes the Loop file</text>
   <text x="450" y="146" text-anchor="middle" fill="#1f2937">grills you until the work is agreed,</text>
   <text x="450" y="164" text-anchor="middle" fill="#1f2937">then hands you /to-spec and /to-tickets</text>
   <text x="450" y="190" text-anchor="middle" fill="#1e40af" font-size="12">writes: .scratch/&lt;slug&gt;/spec.md + issues/</text>
@@ -74,5 +74,5 @@
   <text x="450" y="692" text-anchor="middle" font-weight="600" font-size="16" fill="#111827">PR-Author</text>
   <text x="450" y="712" text-anchor="middle" fill="#374151" font-size="13">runs in the Orchestrator's session, on Sign-off</text>
   <text x="450" y="732" text-anchor="middle" fill="#374151" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">/vdd:vdd-create-pr</text>
-  <text x="450" y="752" text-anchor="middle" fill="#6b7280" font-size="12">You or VDD open the PR</text>
+  <text x="450" y="752" text-anchor="middle" fill="#6b7280" font-size="12">You or VDD open the PR, unless PR: no</text>
 </svg>

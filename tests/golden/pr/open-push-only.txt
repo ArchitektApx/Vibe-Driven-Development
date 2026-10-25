@@ -1,0 +1,6 @@
+$ vdd pr open --path push-only --slug demo --harness claude-code --write
+exit 0
+Pushed demo to origin.
+Tell the user verbatim: "Pushed demo to origin. gh cannot open the PR here (gh is not on PATH): open it in the web UI with the title and body in .scratch/demo/pr-body.md."
+Closed: the loop demo. Its files stay in .scratch/demo/ as the record.
+Next: Relay every Tell the user verbatim line above unchanged; only after doing that, stop.

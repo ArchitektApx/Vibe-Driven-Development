@@ -1,0 +1,6 @@
+$ vdd orchestrator start --slug demo --harness claude-code
+exit 0
+Loop: demo, open. Harness: Claude Code. Read harness-claude-code.md, the Harness file this skill's Harnesses index links, now, once.
+Plan Loop: round 1 reviewed, 0 blocker, 1 major, 1 minor open; the Planner owns the next move. Code Loop: not started.
+Respawn policies: Coder never, Plan-Reviewer never, Code-Reviewer never.
+Next: Relay the last plan review to the Planner: run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" doorbell ring --role Orchestrator --harness claude-code --slug demo --write in the foreground, then do what its Next: line says: it names the wait for the Planner's next Doorbell.

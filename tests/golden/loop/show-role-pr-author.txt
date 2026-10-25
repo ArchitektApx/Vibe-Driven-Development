@@ -1,0 +1,10 @@
+$ vdd loop show --slug demo --role PR-Author
+exit 0
+Slug: demo
+State: open
+Base branch: main
+Feature branch: demo
+PR: ask at sign-off
+Harness: Claude Code
+Harness file: harness-claude-code.md
+Next: Pass --slug demo on every VDD tool call from here on. Then run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" pr check --slug demo --harness claude-code
