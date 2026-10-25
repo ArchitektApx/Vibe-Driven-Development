@@ -423,8 +423,12 @@ TABLES = {
         ("missing", R.repo, ("setup", *CC), "Missing: --listed, --glossary-named", "setup " + USAGE, None, False),
         ("glossary-named-not-a-choice", R.repo, ("setup", *CC, "--listed", "none", "--glossary-named", "maybe"),
          "--glossary-named takes yes, no or absent, not maybe.", "setup " + USAGE, None, False),
+        ("hook-answer-not-a-choice", R.repo,
+         ("setup", *CC, "--listed", "none", "--glossary-named", "yes", "--hook-answer", "maybe"),
+         "--hook-answer takes trusted or skip, not maybe.", "setup " + USAGE, None, False),
         ("option-of-loop", R.repo, ("setup", *CC, "--listed", "none", "--glossary-named", "yes", *SLUG),
-         unknown("slug", ("glossary-named", "harness", "listed", "user-answer", "write")), AGAIN, None, False),
+         unknown("slug", ("glossary-named", "harness", "hook-answer", "listed", "user-answer", "write")), AGAIN,
+         None, False),
     ],
     "brainstorm": [
         ("unknown-idea", R.store, ("brainstorm", "show", "--idea", "main-ide"), "No idea named main-ide",

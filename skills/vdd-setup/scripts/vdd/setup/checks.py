@@ -18,7 +18,7 @@ MIGRATION_URL = "https://github.com/ArchitektApx/Vibe-Driven-Development/blob/ma
 
 
 def run(report: Report, harness: Harness, cwd: str, listed: str, glossary_named: str,
-        user_answer: str | None) -> None:
+        user_answer: str | None, hook_answer: str | None) -> None:
     borrowed_check.check(report, harness, cwd, listed, glossary_named, user_answer)
     tracker(report, harness, cwd)
     glossary_rename(report, cwd)
@@ -27,7 +27,7 @@ def run(report: Report, harness: Harness, cwd: str, listed: str, glossary_named:
     root_loop_file(report, cwd)
     shared_copy(report)
     if harness.waits_through_stop_hook():
-        codex(report, cwd)
+        codex(report, cwd, hook_answer)
 
 
 # --- the tracker ---
@@ -241,7 +241,7 @@ def shared_copy(report: Report) -> None:
 
 # --- Codex: VDD's old hooks.json entry and the hook's trust ---
 
-def codex(report: Report, cwd: str) -> None:
+def codex(report: Report, cwd: str, hook_answer: str | None) -> None:
     out = report.out
     home = codex_harness.home()
     hooks_path = os.path.join(home, "hooks.json")
@@ -282,4 +282,4 @@ def codex(report: Report, cwd: str) -> None:
     text = trust.read(config)
     if text and "vdd-codex-stop" in text:
         out.line("%s: a registration naming vdd-codex-stop stays; Setup does not edit this file." % config_label)
-    trust_check.check(report, home, cwd, text)
+    trust_check.check(report, home, cwd, text, hook_answer)

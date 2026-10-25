@@ -1237,7 +1237,7 @@ class CodexTrustTest(ToolTest):
         """Prevents an unreadable config.toml from ending Setup or from being
         read as no approval at all."""
         self.cached()
-        self.config("")
+        self.config(hook_entry())
         readable = self.setup()
         os.remove(os.path.join(self.codex, "config.toml"))
         os.mkdir(os.path.join(self.codex, "config.toml"))
@@ -1324,6 +1324,131 @@ class CodexTrustTest(ToolTest):
         self.assertRegex(lines[3], r"^VDD's Codex hook for vdd@two: changed, ")
         self.assertEqual(result.tells().count(COULD_NOT_VERIFY), 1, result)
         self.assertEqual(result.tells().count(CHANGED_WAIT), 1, result)
+
+    # --- the wait and --hook-answer ---
+
+    SKIPPED = "VDD's hook is not trusted: every Doorbell waits for you to paste it."
+
+    def run_setup(self, *extra, harness="codex", listed="writing-for-agents"):
+        """One Setup run, without settling first."""
+        return self.box.run("setup", "--harness", harness, "--listed", listed, "--glossary-named", "yes", *extra)
+
+    def assertWaits(self, result, wait):
+        self.assertEqual(result.tells().count(wait), 1, result)
+        self.assertNotIn(CHANGED_WAIT if wait == NOT_TRUSTED_WAIT else NOT_TRUSTED_WAIT, result.tells())
+        self.assertNext(result, "end your turn and wait for the user's answer", "--hook-answer trusted",
+                        "--hook-answer skip")
+        self.assertNotIn("--write", result.last)
+        self.assertNotIn("Setup is done", result.last)
+
+    def assertNext(self, result, *fragments):
+        self.assertTrue(result.last.startswith("Next: "), result)
+        for fragment in fragments:
+            self.assertIn(fragment, result.last, result)
+
+    def test_the_wait_comes_with_the_run_that_ends_setup(self):
+        """Prevents the user from being asked to trust the hook on the dry run
+        and again on the write: only the final run asks."""
+        self.config("")
+        result = self.run_setup()
+        self.assertRegex(self.hook_lines(result)[0], r"^VDD's Codex hook: not trusted, ")
+        self.assertNotIn(NOT_TRUSTED_WAIT, result.tells())
+        self.assertNext(result, "--write")
+        self.assertNotIn("--hook-answer", result.last)
+        result = self.run_setup("--write")
+        self.assertWaits(result, NOT_TRUSTED_WAIT)
+
+    def test_a_dry_run_with_nothing_to_change_is_the_final_run(self):
+        """Prevents a changed hook from going unasked when Setup has nothing
+        else to change."""
+        self.cached()
+        self.config(hook_entry(content="sha256:other"))
+        result = self.setup()
+        self.assertChanged(result)
+        self.assertWaits(result, CHANGED_WAIT)
+
+    def test_the_answer_trusted_rechecks(self):
+        """Prevents a user who trusted the hook in /hooks from being left
+        without knowing whether it worked."""
+        self.cached()
+        self.config(hook_entry(content="sha256:other"))
+        self.assertWaits(self.setup(), CHANGED_WAIT)
+        self.config(hook_entry())
+        result = self.setup("--hook-answer", "trusted")
+        self.assertTrusted(result)
+        self.assertEqual([t for t in result.tells() if "hook" in t], [], result)
+
+    def test_the_answer_trusted_with_nothing_new_cannot_be_verified(self):
+        """Prevents a loop of asks: a recheck that still differs, or an entry
+        still missing, says once that Setup could not verify, and Setup ends."""
+        self.cached()
+        for text, line in ((hook_entry(content="sha256:other"),
+                            "VDD's Codex hook: could not verify, the installed copy at "
+                            "~/.codex/plugins/cache/mk/vdd/1.0.0 still differs from the one you trusted."),
+                           ("", "VDD's Codex hook: could not verify, ~/.codex/config.toml still has no entry for it."),
+                           (hook_entry(trusted=None, content=None, enabled=True),
+                            "VDD's Codex hook: could not verify, ~/.codex/config.toml still holds no approval for "
+                            "it.")):
+            with self.subTest(line=line):
+                self.config(text)
+                result = self.setup("--hook-answer", "trusted")
+                self.assertUnverified(result, line)
+                self.assertIn("Setup is done", result.last, result)
+
+    def test_the_answer_skip_ends_setup_with_the_cost(self):
+        """Prevents a user who skipped from finishing Setup without learning
+        that every Doorbell waits for a paste."""
+        self.cached()
+        self.config(hook_entry(content="sha256:other"))
+        result = self.setup("--hook-answer", "skip")
+        self.assertEqual(result.tells().count(self.SKIPPED), 1, result)
+        self.assertNotIn(CHANGED_WAIT, result.tells())
+        self.assertIn("Setup is done", result.last, result)
+
+    def test_one_answer_applies_to_every_entry(self):
+        """Prevents a second ask when one of several entries still differs
+        after the user trusted the hook."""
+        self.cached("one")
+        self.cached("two")
+        self.config(hook_entry("one") + hook_entry("two", content="sha256:other"))
+        result = self.setup("--hook-answer", "trusted")
+        lines = self.hook_lines(result)
+        self.assertRegex(lines[0], r"^VDD's Codex hook for vdd@one: trusted, ")
+        self.assertRegex(lines[1], r"^VDD's Codex hook for vdd@two: could not verify, the installed copy at .* still "
+                                   r"differs from the one you trusted\.$")
+        self.assertEqual(result.tells().count(COULD_NOT_VERIFY), 1, result)
+        self.assertIn("Setup is done", result.last, result)
+
+    def test_the_answer_changes_nothing_where_nothing_waits(self):
+        """Prevents --hook-answer from changing a run on another Harness, or on
+        Codex when the hook is trusted or switched off."""
+        self.cached()
+        for harness, text in (("claude-code", hook_entry(content="sha256:other")), ("codex", hook_entry()),
+                              ("codex", hook_entry(content="sha256:other", enabled=False))):
+            for answer in ("trusted", "skip"):
+                with self.subTest(harness=harness, text=text, answer=answer):
+                    self.config(text)
+                    self.run_setup("--write", harness=harness)
+                    without = self.run_setup(harness=harness)
+                    self.assertEqual(self.run_setup("--hook-answer", answer, harness=harness).text, without.text)
+
+    def test_the_wait_waits_for_the_user_answer(self):
+        """Prevents a run that still needs the --user-answer from also asking
+        about the hook: the rerun it asks for is the run that waits."""
+        self.box.write(os.path.join(self.box.home, ".agents", "skills", "writing-for-agents", "SKILL.md"),
+                       "---\nname: writing-for-agents\n---\n")
+        self.cached()
+        self.config(hook_entry(content="sha256:other"))
+        self.run_setup("--write", listed="none")
+        result = self.run_setup(listed="none")
+        self.assertRegex(self.hook_lines(result)[0], r"^VDD's Codex hook: changed, ")
+        self.assertNotIn(CHANGED_WAIT, result.tells())
+        self.assertNext(result, "--user-answer resolves")
+        self.assertNotIn("--hook-answer", result.last)
+        result = self.run_setup("--user-answer", "resolves", listed="none")
+        self.assertWaits(result, CHANGED_WAIT)
+        self.assertNext(result, "--user-answer resolves --hook-answer trusted",
+                        "--user-answer resolves --hook-answer skip")
 
 
 @unittest.skipIf(WINDOWS, "a stubbed git is a POSIX sh script, as in PreflightTest")

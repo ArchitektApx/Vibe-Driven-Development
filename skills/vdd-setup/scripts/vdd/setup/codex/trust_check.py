@@ -14,6 +14,7 @@ NOT_TRUSTED_WAIT = "Trust VDD's hook in /hooks, then say so here, or say skip."
 CHANGED_WAIT = "VDD changed since you trusted its hook. Trust it again in /hooks, then say so here, or say skip."
 COULD_NOT_VERIFY = ("Setup could not verify that Codex trusts VDD's hook. If /hooks lists it for review, "
                     "trust it there.")
+SKIPPED = "VDD's hook is not trusted: every Doorbell waits for you to paste it."
 SWITCHED_OFF = "VDD's hook is switched off in Codex: turn it on in /hooks, or every Doorbell waits for a paste."
 
 TRUSTED = "trusted"
@@ -24,11 +25,13 @@ UNVERIFIED = "could not verify"
 
 
 class Check:
-    """One run's trust check: the Codex home, config.toml and how the report
-    shows paths."""
+    """One run's trust check: the Codex home, config.toml, how the report
+    shows paths, and answer, the user's --hook-answer: trusted or skip after
+    Setup asked them to trust the hook, or None."""
 
-    def __init__(self, report: Report, home: str, cwd: str) -> None:
+    def __init__(self, report: Report, home: str, cwd: str, answer: str | None) -> None:
         self.report = report
+        self.answer = answer
         self.home = home
         self.cwd = cwd
         self.config = os.path.join(home, "config.toml")
@@ -45,7 +48,8 @@ class Check:
         elif found == trust.NOT_UNDERSTOOD:
             self.unverified("VDD's Codex hook", "%s was read but not understood" % self.config_label)
         elif not found:
-            self.line(NOT_TRUSTED, "VDD's Codex hook: not trusted, %s has no entry for it." % self.config_label)
+            self.waiting(NOT_TRUSTED, "VDD's Codex hook", "not trusted, %s has no entry for it" % self.config_label,
+                         "%s still has no entry for it" % self.config_label)
         else:
             for entry in found:
                 label = "VDD's Codex hook" if len(found) == 1 else "VDD's Codex hook for vdd@%s" % entry.marketplace
@@ -57,7 +61,8 @@ class Check:
             self.line(OFF, "%s: switched off, %s says enabled = false for it." % (label, self.config_label))
             return
         if entry.trusted_hash is None:
-            self.line(NOT_TRUSTED, "%s: not trusted, %s holds no approval for it." % (label, self.config_label))
+            self.waiting(NOT_TRUSTED, label, "not trusted, %s holds no approval for it" % self.config_label,
+                         "%s still holds no approval for it" % self.config_label)
             return
         trusted = entry.trusted_content_hash
         if trusted is None:
@@ -90,12 +95,20 @@ class Check:
         if current == trusted:
             self.line(TRUSTED, "%s: trusted, the installed copy at %s is the one you trusted. Passed." % (label, root))
         else:
-            self.line(CHANGED, "%s: changed, the installed copy at %s differs from the one you trusted."
-                      % (label, root))
+            self.waiting(CHANGED, label, "changed, the installed copy at %s differs from the one you trusted" % root,
+                         "the installed copy at %s still differs from the one you trusted" % root)
 
     def line(self, state: str, text: str) -> None:
         self.states.append(state)
         self.report.out.line(text)
+
+    def waiting(self, state: str, label: str, verdict: str, still: str) -> None:
+        """A verdict that asks the user to trust the hook in /hooks; after they
+        said they did, one Setup could not verify."""
+        if self.answer == "trusted":
+            self.unverified(label, still)
+        else:
+            self.line(state, "%s: %s." % (label, verdict))
 
     def unverified(self, label: str, cause: str) -> None:
         self.line(UNVERIFIED, "%s: could not verify, %s." % (label, cause))
@@ -106,10 +119,12 @@ class Check:
             out.tell(SWITCHED_OFF)
         if UNVERIFIED in self.states:
             out.tell(COULD_NOT_VERIFY)
-        if CHANGED in self.states:
-            out.tell(CHANGED_WAIT)
-        elif NOT_TRUSTED in self.states:
-            out.tell(NOT_TRUSTED_WAIT)
+        if CHANGED not in self.states and NOT_TRUSTED not in self.states:
+            return
+        if self.answer == "skip":
+            out.tell(SKIPPED)
+        else:
+            self.report.hook_wait = CHANGED_WAIT if CHANGED in self.states else NOT_TRUSTED_WAIT
 
 
 def unhashable(root: str, error: fingerprint.Unhashable) -> str:
@@ -122,7 +137,8 @@ def unhashable(root: str, error: fingerprint.Unhashable) -> str:
     return "the installed copy at %s holds an entry Setup cannot hash, %s: %s" % (root, error.relative, why)
 
 
-def check(report: Report, home: str, cwd: str, text: str | None) -> None:
+def check(report: Report, home: str, cwd: str, text: str | None, answer: str | None) -> None:
     """Report the trust of every VDD hook entry in config.toml, whose text
-    trust.read() gave."""
-    Check(report, home, cwd).run(text)
+    trust.read() gave, and set the report's hook_wait when the user has to
+    trust the hook in /hooks; Setup's finish asks them."""
+    Check(report, home, cwd, answer).run(text)

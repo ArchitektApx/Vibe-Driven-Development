@@ -46,7 +46,7 @@ TAKES = {
     ("brainstorm", "rename"): "idea to write",
     ("brainstorm", "cleanup"): "idea older status write",
     ("brainstorm", "migrate"): "event write",
-    ("setup",): "glossary-named harness listed user-answer write",
+    ("setup",): "glossary-named harness hook-answer listed user-answer write",
 }
 
 

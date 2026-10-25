@@ -1,6 +1,7 @@
 $ vdd setup --help
 exit 0
-setup --harness <h> --listed <names> --glossary-named <yes|no|absent> [--user-answer <answer>] [--write]
+setup --harness <h> --listed <names> --glossary-named <yes|no|absent> [--user-answer <answer>]
+    [--hook-answer <answer>] [--write]
 
 Checks this repository and this machine for a VDD loop. Run it from the repository root.
 Without --write it changes nothing: it prints every check, every planned change and every line for the user.
@@ -20,5 +21,7 @@ A run with nothing left to change changes nothing.
                          no when it does not, absent when domain-modeling is not in your skill list.
 --user-answer <answer>   Only when a run's Next: line asks for it: resolves or does-not-resolve, the
                          user's answer on whether writing-for-agents ran when they invoked it.
+--hook-answer <answer>   Only when a run's Next: line asks for it: trusted or skip, the user's answer
+                         on Codex when Setup asked them to trust VDD's hook in /hooks.
 --write                  Make the planned changes.
 Next: Run <python> "<repo>/skills/vdd-setup/scripts/vdd.py" setup with the options above, without --write first.
