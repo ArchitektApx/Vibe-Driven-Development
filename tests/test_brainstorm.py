@@ -70,7 +70,7 @@ class BrainstormTest(ToolTest):
         there."""
         base = base or self.box.path(S)
         out = {}
-        for root, dirs, files in os.walk(base):
+        for root, _, files in os.walk(base):
             for name in files:
                 path = os.path.join(root, name)
                 if name in ("lock", "_brainstorming.lock"):

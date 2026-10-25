@@ -19,8 +19,10 @@ class Recorder:
     def __init__(self, report: Report) -> None:
         self.report = report
 
-    def line(self, text: str = "") -> None:
-        self.report.effects.append(runner.Effect(dry=[one_line(text)]))
+    def line(self, text: str = "", on_write: bool = False) -> None:
+        """A check's line; with on_write, it prints on the write too."""
+        shown = [one_line(text)]
+        self.report.effects.append(runner.Effect(dry=shown, done=shown if on_write else []))
 
     def tell(self, text: str) -> None:
         told = TELL % one_line(text)
@@ -68,6 +70,12 @@ class Report:
         self.failed: list[str] = []          # the keys of changes whose write did not land
         self.git_too_old: str | None = None  # the version found, when git is older than VDD needs
         self.user_answer_needed = False      # whether writing-for-agents' answer has to come from the user
+        self.hook_wait: str | None = None    # the words that ask the user to trust VDD's Codex hook
+
+    def blocked(self) -> bool:
+        """Whether this run's Next: stops, escalates or asks for
+        --user-answer, so the run does not end Setup."""
+        return bool(self.git_too_old or self.failed or self.user_answer_needed)
 
     def change(self, key: str, what: str, texts: Sequence[str], write: Callable[[], list[str]],
                extra: Sequence[str] = ()) -> None:

@@ -170,7 +170,8 @@ COMMANDS: Dict[str, Dict[str, Command]] = {
 SINGLE: Dict[str, Command] = {
     "setup": Command("setup", "", HARNESS, value("listed", required=True),
                      value("glossary-named", required=True, choices=("yes", "no", "absent")),
-                     value("user-answer", choices=("resolves", "does-not-resolve")), WRITE),
+                     value("user-answer", choices=("resolves", "does-not-resolve")),
+                     value("hook-answer", choices=("trusted", "skip")), WRITE),
 }
 
 # codex-stop has its own entry and is not parsed here: it exits 0 on every

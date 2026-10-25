@@ -3,8 +3,9 @@ plan of effects; the runner prints the plan as the dry run or applies it
 through the record step. The plan and its effect kinds, the precondition
 kinds and the runner each sit in a module of their own."""
 
+# pyright: reportUnusedImport=false
+
 from .effects import (  # noqa: F401
-    DeleteArmed,
     RenderRecap,
     SaveRecords,
     StateLines,

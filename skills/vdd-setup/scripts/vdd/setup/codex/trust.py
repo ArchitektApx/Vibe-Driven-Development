@@ -1,9 +1,11 @@
-"""Whether the user trusted VDD's Codex hook: a narrow standard-library read
-of ~/.codex/config.toml for the hooks.state key of the hook the plugin ships.
+"""VDD's Codex hook entries in config.toml: a narrow standard-library read of
+the hooks.state table of the hook the plugin ships, once per vdd@<marketplace>.
 
-Setup reads the file once with read() and hands its text to state(), so a
+Setup reads the file once with read() and hands its text to entries(), so a
 file it could not read and a file it read but could not follow are told
-apart.
+apart. Values are read only from the table form Codex's own writer produces;
+VDD's entry written as an inline table or with dotted keys is not
+understood.
 """
 
 from __future__ import annotations
@@ -12,14 +14,24 @@ import re
 
 from ... import textfile
 
-TRUST_KEY = re.compile(r"^vdd@[^:]+:plugin\.json#hooks\[0\]:stop:0:0$")
-DISABLED = re.compile(r"\benabled\s*=\s*false\b")
+TRUST_KEY = re.compile(r"vdd@([^:]+):plugin\.json#hooks\[0\]:stop:0:0")
+HASHES = ("trusted_hash", "trusted_content_hash")
 
-PRESENT = "present"
-DISABLED_STATE = "disabled"
-ABSENT = "absent"
+ESCAPES = {'"': '"', "\\": "\\", "b": "\b", "t": "\t", "n": "\n", "f": "\f", "r": "\r"}
+
 NOT_UNDERSTOOD = "not understood"
 UNREADABLE = "unreadable"
+
+
+class Entry:
+    """One vdd@<marketplace> table: the hashes Codex stored when the user
+    trusted the hook, and enabled, False when it is switched off in /hooks."""
+
+    def __init__(self, marketplace: str) -> None:
+        self.marketplace = marketplace
+        self.trusted_hash: str | None = None
+        self.trusted_content_hash: str | None = None
+        self.enabled: bool | None = None
 
 
 def read(path: str) -> str | None:
@@ -33,16 +45,15 @@ def read(path: str) -> str | None:
         return None
 
 
-def state(text: str | None) -> str:
-    """PRESENT, DISABLED_STATE, ABSENT, NOT_UNDERSTOOD or UNREADABLE (text is
-    None): whether config.toml holds the hooks.state key of VDD's hook, and
-    whether that key says enabled = false (a hook switched off in /hooks
-    keeps its key). A table header or dotted key the reader cannot follow is
-    NOT_UNDERSTOOD."""
+def entries(text: str | None) -> list[Entry] | str:
+    """Every VDD hook entry in config.toml, in file order, or UNREADABLE (text
+    is None) or NOT_UNDERSTOOD: a table header or key the reader cannot
+    follow, or VDD's entry in a form other than its own table."""
     if text is None:
         return UNREADABLE
+    found: list[Entry] = []
+    current: Entry | None = None
     table: list[str] = []
-    found = disabled = False
     pending: str | tuple[str, int] | None = None  # an open multi-line string or array
     for line in text.split("\n"):
         if pending:
@@ -54,15 +65,17 @@ def state(text: str | None) -> str:
         if not stripped or stripped.startswith("#"):
             continue
         if stripped.startswith("["):
-            inner = stripped[2:] if stripped.startswith("[[") else stripped[1:]
-            keys, rest = parse_key(inner)
-            if keys is None:
-                return NOT_UNDERSTOOD
-            close = "]]" if stripped.startswith("[[") else "]"
-            if not rest.strip().startswith(close):
+            array = stripped.startswith("[[")
+            keys, rest = parse_key(stripped[2:] if array else stripped[1:])
+            if keys is None or not rest.strip().startswith("]]" if array else "]"):
                 return NOT_UNDERSTOOD
             table = keys
-            found = found or has_key(table)
+            current = None
+            if has_key(table):
+                if array or len(table) > 3 or any(e.marketplace == marketplace(table) for e in found):
+                    return NOT_UNDERSTOOD
+                current = Entry(marketplace(table))
+                found.append(current)
             continue
         keys, rest = parse_key(stripped)
         if keys is None or not rest.lstrip().startswith("="):
@@ -72,25 +85,79 @@ def state(text: str | None) -> str:
         pending = open_value(value)
         if pending == "bad":
             return NOT_UNDERSTOOD
-        if has_key(full):
-            found = True
-            if full[3:] == ["enabled"] and value.startswith("false"):
-                disabled = True
-            elif len(full) == 3 and value.startswith("{") and DISABLED.search(value):
-                disabled = True
-        elif value.startswith("{") and full in (["hooks"], ["hooks", "state"]):
-            for key in re.findall(r'"((?:[^"\\]|\\.)*)"|\'([^\']*)\'', value):
-                if TRUST_KEY.match(key[0] or key[1]):
-                    found = True
+        if current is not None:
+            if len(keys) > 1 or not field(current, keys[0], value):
+                return NOT_UNDERSTOOD
+        elif has_key(full) or (value.startswith("{") and full in (["hooks"], ["hooks", "state"])
+                               and names_vdd(value)):
+            return NOT_UNDERSTOOD
     if pending:
         return NOT_UNDERSTOOD
-    if disabled:
-        return DISABLED_STATE
-    return PRESENT if found else ABSENT
+    return found
+
+
+def marketplace(path: list[str]) -> str:
+    match = TRUST_KEY.fullmatch(path[2])
+    return match.group(1) if match else ""
+
+
+def names_vdd(value: str) -> bool:
+    """Whether an inline table holds a key of VDD's hook."""
+    return any(TRUST_KEY.fullmatch(key[0] or key[1])
+               for key in re.findall(r'"((?:[^"\\]|\\.)*)"|\'([^\']*)\'', value))
+
+
+def field(entry: Entry, name: str, value: str) -> bool:
+    """Set the field name of entry from its value; False when the value is
+    not the type Codex writes for it. A field Setup does not read is left."""
+    if name in HASHES:
+        text = string_value(value)
+        if text is None:
+            return False
+        setattr(entry, name, text)
+    elif name == "enabled":
+        match = re.match(r"(true|false)\s*(#.*)?$", value)
+        if not match:
+            return False
+        entry.enabled = match.group(1) == "true"
+    return True
+
+
+def string_value(value: str) -> str | None:
+    """A one-line TOML basic or literal string and nothing after it but a
+    comment, as its text; None for any other value."""
+    if value.startswith("'") and not value.startswith("'''"):
+        end = value.find("'", 1)
+        text, rest = (value[1:end], value[end + 1:]) if end > 0 else (None, "")
+    elif value.startswith('"') and not value.startswith('"""'):
+        chars: list[str] = []
+        i = 1
+        text = None
+        while i < len(value):
+            c = value[i]
+            if c == "\\":
+                escaped = ESCAPES.get(value[i + 1:i + 2])
+                if escaped is None:
+                    return None
+                chars.append(escaped)
+                i += 2
+                continue
+            if c == '"':
+                text = "".join(chars)
+                break
+            chars.append(c)
+            i += 1
+        rest = value[i + 1:]
+    else:
+        return None
+    if text is None or not re.match(r"\s*(#.*)?$", rest):
+        return None
+    return text
+
 
 
 def has_key(path: list[str]) -> bool:
-    return len(path) >= 3 and path[0] == "hooks" and path[1] == "state" and TRUST_KEY.match(path[2]) is not None
+    return len(path) >= 3 and path[0] == "hooks" and path[1] == "state" and TRUST_KEY.fullmatch(path[2]) is not None
 
 
 def parse_key(text: str) -> tuple[list[str] | None, str]:

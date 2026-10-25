@@ -9,12 +9,13 @@ from typing import Any
 
 from .. import catalog, gitcmd, harness as harnesses, places, runner
 from ..harness import Harness
-from ..out import Failure, escalate
+from ..out import TELL, Failure, escalate
 from . import borrowed, checks, install
 from .report import Report
 
 HELP = [
-    "setup --harness <h> --listed <names> --glossary-named <yes|no|absent> [--user-answer <answer>] [--write]",
+    "setup --harness <h> --listed <names> --glossary-named <yes|no|absent> [--user-answer <answer>]",
+    "    [--hook-answer <answer>] [--write]",
     "",
     "Checks this repository and this machine for a VDD loop. Run it from the repository root.",
     "Without --write it changes nothing: it prints every check, every planned change and every line for the user.",
@@ -35,6 +36,8 @@ HELP = [
     "                         no when it does not, absent when domain-modeling is not in your skill list.",
     "--user-answer <answer>   Only when a run's Next: line asks for it: resolves or does-not-resolve, the",
     "                         user's answer on whether writing-for-agents ran when they invoked it.",
+    "--hook-answer <answer>   Only when a run's Next: line asks for it: trusted or skip, the user's answer",
+    "                         on Codex when Setup asked them to trust VDD's hook in /hooks.",
     "--write                  Make the planned changes.",
 ]
 
@@ -58,21 +61,41 @@ def setup(ctx: catalog.Context) -> int:
 def plan(report: Report, harness: Harness, values: dict[str, Any], cwd: str) -> runner.Plan:
     """Setup as a plan: every check's lines and planned changes in the order
     they print, the dry run's Next: and the write's."""
-    checks.run(report, harness, cwd, values["listed"], values["glossary-named"], values["user-answer"])
+    checks.run(report, harness, cwd, values["listed"], values["glossary-named"], values["user-answer"],
+               values["hook-answer"])
     effects = list(report.effects)
     if not report.changes:
         effects.append(runner.Effect(done=["Nothing left to change."]))
+    if report.hook_wait:
+        effects.append(HookWait(report))
     return runner.Plan(effects, lambda: finish(report, harness, values, write=True),
                        dry_next=finish(report, harness, values, write=False), lines=[report.header],
                        code=lambda: 1 if report.git_too_old or report.failed else 0)
 
 
+class HookWait(runner.Effect):
+    """The Tell that asks the user to trust VDD's hook in /hooks. It prints
+    only on the run that ends Setup, a write or a dry run with nothing left
+    to change, so the user is asked once; never on a run whose Next: stops,
+    escalates or asks for --user-answer."""
+
+    def __init__(self, report: Report) -> None:
+        told = TELL % report.hook_wait
+        final = not (report.changes or report.questions or report.blocked())
+        runner.Effect.__init__(self, dry=[told] if final else [], done=[told])
+        self.report = report
+
+    def apply(self) -> list[str]:
+        return [] if self.report.blocked() else list(self.done)
+
+
 def command(harness: Harness, values: dict[str, Any], write: bool, entry: str | None = None) -> str:
     """The setup command line this run names, with or without --write, on
     the copy of the tool at entry (the running one by default)."""
+    hook_answer = values["hook-answer"] if harness.waits_through_stop_hook() else None
     return catalog.line("setup", entry=entry, harness=harness.name, listed=quote(values["listed"]),
                         glossary_named=values["glossary-named"], user_answer=values["user-answer"] or None,
-                        write=write)
+                        hook_answer=hook_answer or None, write=write)
 
 
 def require_shipped(harness: Harness, values: dict[str, Any]) -> None:
@@ -135,6 +158,12 @@ def finish(report: Report, harness: Harness, values: dict[str, Any], write: bool
             steps.append("Show the user the planned changes above; showing them is the consent step.")
         steps.append("Then run: %s" % command(harness, values, write=True))
         return " ".join(steps)
+    if report.hook_wait:
+        again = command(harness, values, write=False)
+        return (
+            "end your turn and wait for the user's answer. When they say they trusted VDD's hook in /hooks, run: "
+            "%s --hook-answer trusted, and when they say skip, run: %s --hook-answer skip." % (again, again)
+        )
     return (
         "Give the user a short status report: what passed, what Setup changed, and what the user "
         "still has to do. Setup is done. If another "

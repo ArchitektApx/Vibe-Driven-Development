@@ -29,13 +29,13 @@ import os
 import sys
 
 # Every module the hook reaches after its claim, imported here, at start.
-from . import armed, doorbells, loopfile, places, runner, seams, textfile  # noqa: F401
-from .catalog import builder as _builder  # noqa: F401
-from .doorbells import commands as _commands, files as _files, lines as _lines, wait as _wait  # noqa: F401
+from . import armed, doorbells, loopfile, places, runner, seams, textfile  # noqa: F401  # pyright: ignore[reportUnusedImport]
+from .catalog import builder as _builder  # noqa: F401  # pyright: ignore[reportUnusedImport]
+from .doorbells import commands as _commands, files as _files, lines as _lines, wait as _wait  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from .harness import codex as codex_harness
-from .loopfile import format as _format  # noqa: F401
+from .loopfile import format as _format  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from .out import Failure, Output
-from .runner import effects as _effects, plan as _plan, runner as _runner  # noqa: F401
+from .runner import effects as _effects, plan as _plan, runner as _runner  # noqa: F401  # pyright: ignore[reportUnusedImport]
 
 
 def run(argv: list[str]) -> int:

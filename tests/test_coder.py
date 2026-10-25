@@ -260,7 +260,7 @@ class CheckTest(CoderTest):
         self.assertEqual(result.code, 0, result)
         return result
 
-    def refused(self, *fragments):
+    def check_refused(self, *fragments):
         result = LoopRepoTest.refused(self, ("coder", "check", "--slug", "demo", "--write"),
                                   ("FIXES.md", "loop-state", "RECAP.md"), *fragments)
         self.assertNext(result, "coder check --slug demo --write", "again")
@@ -271,7 +271,7 @@ class CheckTest(CoderTest):
         self.started()
         text = filled_round_one(self.read("FIXES.md")).replace("Verified: the test passed.", "Verified:", 1)
         self.put("FIXES.md", text)
-        self.refused("Ticket 01's Verified: is empty", "the result of each check you ran, not its output",
+        self.check_refused("Ticket 01's Verified: is empty", "the result of each check you ran, not its output",
                      "FIXES.md line ")
 
     def test_a_missing_ticket_entry_is_refused(self):
@@ -281,7 +281,7 @@ class CheckTest(CoderTest):
         text = filled_round_one(self.read("FIXES.md"))
         text = text.split("## Ticket 02")[0]
         self.put("FIXES.md", text)
-        self.refused("Ticket 02's entry \"## Ticket 02: 02-two.md\" is missing")
+        self.check_refused("Ticket 02's entry \"## Ticket 02: 02-two.md\" is missing")
 
     def test_an_unclosed_fence_is_refused_at_its_line(self):
         """A fence left open turned every later line into prose, so the entries
@@ -290,7 +290,7 @@ class CheckTest(CoderTest):
         text = filled_round_one(self.read("FIXES.md")).replace("Change: wrote a.", "Change: wrote a.\n\n~~~\nx", 1)
         self.put("FIXES.md", text)
         number = text.split("\n").index("~~~") + 1
-        self.refused("FIXES.md line %d: the code fence that opens here is never closed" % number,
+        self.check_refused("FIXES.md line %d: the code fence that opens here is never closed" % number,
                      "Close it with a line holding ~~~.")
 
     def test_a_modified_tracked_file_is_refused_by_name(self):
@@ -299,7 +299,7 @@ class CheckTest(CoderTest):
         self.started()
         self.put("FIXES.md", filled_round_one(self.read("FIXES.md")))
         self.box.write("a.txt", "changed\n")
-        self.refused("uncommitted changes to tracked files: a.txt")
+        self.check_refused("uncommitted changes to tracked files: a.txt")
 
     def test_a_new_untracked_file_is_refused_by_name(self):
         """A file the Coder creates and never adds passed coder check, so it
@@ -307,7 +307,7 @@ class CheckTest(CoderTest):
         self.started()
         self.put("FIXES.md", filled_round_one(self.read("FIXES.md")))
         self.box.write("made.txt", "never added\n")
-        result = self.refused("untracked files", "made.txt", "commit it with git if it belongs to the work",
+        result = self.check_refused("untracked files", "made.txt", "commit it with git if it belongs to the work",
                               "delete it if it is a by-product")
         self.assertNotIn("code 1 end", self.state())
         self.assertEqual(result.text.count("made.txt"), 1, result)
@@ -399,7 +399,7 @@ class CheckTest(CoderTest):
         """The answer is fixed or pushback, and a pushback needs its reason."""
         self.later()
         self.answer("Answer: done\nWhy:", "Answer: pushback\nWhy:", "Answer: fixed\nWhy:")
-        self.refused("finding 1: \"Answer: done\": the answer is fixed or pushback",
+        self.check_refused("finding 1: \"Answer: done\": the answer is fixed or pushback",
                      "finding 2 answers pushback with no Why:")
 
     def test_an_answer_that_runs_on_names_the_labels_and_where_the_rest_goes(self):
@@ -409,7 +409,7 @@ class CheckTest(CoderTest):
         self.later()
         self.answer("Answer: fixed\nFiles: src/a.py\nChange: one line.\nVerified: the test passed.\nWhy:",
                     "Answer: fixed\nWhy:", "Answer: fixed\nWhy:")
-        self.refused('finding 1: Answer: runs on past fixed into "Files: src/a.py Change: one line. '
+        self.check_refused('finding 1: Answer: runs on past fixed into "Files: src/a.py Change: one line. '
                      'Verified: the test passed."',
                      "A finding's entry holds two labels, Answer: and Why:",
                      "Put Answer: fixed alone on its line and move the rest below a Why: line")
@@ -425,7 +425,7 @@ class CheckTest(CoderTest):
         self.answer("Answer: fixed\nWhy:", "Answer: fixed\nWhy:", "Answer: fixed\nWhy:")
         text = self.read("FIXES.md")
         self.put("FIXES.md", text.replace("## Finding 2. minor: src/b.py:9\n\nAnswer: fixed\nWhy:\n", ""))
-        self.refused('finding 2\'s entry is missing. Put back "## Finding 2. minor: src/b.py:9" as the tool wrote it')
+        self.check_refused('finding 2\'s entry is missing. Put back "## Finding 2. minor: src/b.py:9" as the tool wrote it')
 
     def test_a_later_round_accepts_fixed_with_no_why(self):
         self.later()
@@ -445,7 +445,7 @@ class CheckTest(CoderTest):
         self.box.write("a.txt", "fix\n")
         self.box.git("commit", "-q", "--amend", "--no-edit", "-a")
         self.answer("Answer: fixed", "Answer: fixed", "Answer: fixed")
-        result = self.refused("Round 2 started at %s" % start, "no longer in demo's history",
+        result = self.check_refused("Round 2 started at %s" % start, "no longer in demo's history",
                               "amended, rebased or reset", "git reset --soft %s" % start,
                               "commit the change as a new commit.")
         self.assertNotIn("Never amend", result.text)

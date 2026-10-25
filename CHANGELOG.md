@@ -24,9 +24,9 @@ and it offers to hand a decided idea to the next Role.
    Command Line Tools that bring git bring one. On Windows, VDD runs it as
    `py -3`, which every python.org install provides. Without it, a Role says
    so and stops.
-2. **On Codex, trust VDD's hook once in `/hooks`.** It now ships with the
-   plugin, and Setup migrates the 0.15 hook. If you trusted it on an earlier
-   0.16 beta, Codex asks once more, because the hook changed.
+2. **On Codex, trust VDD's hook in `/hooks` when Setup asks.** It now ships
+   with the plugin, and Setup migrates the 0.15 hook. Codex asks again after
+   every update, because the plugin you trusted changed.
 3. **Optionally, delete the old scripts** `doorbell-wait.*` and
    `vdd-codex-stop.*` in `~/.local/share/vdd/` (`%LOCALAPPDATA%\vdd\` on
    Windows) once no loop on an older VDD is running.
@@ -79,6 +79,11 @@ and it offers to hand a decided idea to the next Role.
 - **Setup runs in the VDD tool.** It is faster and more precise: it shows
   the exact changes before it makes them, and its repair advice is the exact
   commands for your agent.
+- **Setup notices when Codex stops trusting VDD's hook.** Codex trusts the
+  exact copy of VDD you approved, so after an update it stops running the
+  hook and every Doorbell waits for you to paste it. Setup now checks the
+  trust on Codex and asks you to trust the hook again in `/hooks`, or to say
+  skip and go on without it.
 - **Doorbells run in the VDD tool.** It keeps track of what each Role has
   handled, so a Doorbell is acted on once, even when it arrives twice or a
   session restarts, and a mistyped one is refused before the other session

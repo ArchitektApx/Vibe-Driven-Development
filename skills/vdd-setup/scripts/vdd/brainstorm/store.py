@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import datetime
 import os
-import re
 from typing import Callable
 
 from .. import textfile

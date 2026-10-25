@@ -132,7 +132,7 @@ Start a new Codex session in your repository with `codex --no-daemon`, so it pic
 npx skills@latest add -g mattpocock/skills
 ```
 
-A Codex session cannot be woken by a background shell, so on Codex a waiting Role waits in a `Stop` hook. The hook ships with the plugin, and only Codex reads it; it does nothing in a repository without a VDD loop. Codex runs no hook you have not trusted, so trust VDD's hook once in `/hooks` when Setup asks; the trust holds across updates.
+A Codex session cannot be woken by a background shell, so on Codex a waiting Role waits in a `Stop` hook. The hook ships with the plugin, and only Codex reads it; it does nothing in a repository without a VDD loop. Codex runs no hook you have not trusted, and each update changes the copy you trusted, so trust VDD's hook in `/hooks` when Setup asks: Setup checks the trust and asks again after an update.
 
 > ⚠️ **Warning**
 >

@@ -543,7 +543,7 @@ class LeftOut(Staged):
 
 
 class NoTraceback(Staged):
-    def refused(self, argv, fragment):
+    def refused_with(self, argv, fragment):
         result = self.box.run(*argv, env=self.env())
         self.assertEqual(result.code, 1, result)
         self.assertIn(fragment, result.text)
@@ -554,13 +554,13 @@ class NoTraceback(Staged):
     def test_a_page_that_is_not_ascii_digits(self):
         """Prevents --page ² passing a digit check and crashing int()."""
         self.store()
-        self.refused(("brainstorm", "start", "--page", "²"), "is not a number")
+        self.refused_with(("brainstorm", "start", "--page", "²"), "is not a number")
 
     def test_tokens_that_are_not_ascii_digits(self):
         """Prevents --tokens ² passing a digit check and crashing int()."""
         self.plan()
         self.stage("respawn Coder never", "orchestrator session 1", "spawn Coder 1 session 1")
-        self.refused(("orchestrator", "tokens", "--role", "Coder", "--tokens", "²", *SLUG),
+        self.refused_with(("orchestrator", "tokens", "--role", "Coder", "--tokens", "²", *SLUG),
                      "--tokens takes a whole number")
 
     def test_an_internal_error_ends_in_a_next_line(self):
@@ -568,7 +568,7 @@ class NoTraceback(Staged):
         no Next: line: the Role always learns what to do."""
         self.plan()
         self.put("loop.md", self.read("loop.md").replace("Format: 2", "Format: ²"))
-        result = self.refused(("loop", "show", *SLUG), "The VDD tool hit an internal error: ValueError")
+        result = self.refused_with(("loop", "show", *SLUG), "The VDD tool hit an internal error: ValueError")
         self.assertNext(result, "internal error")
 
 

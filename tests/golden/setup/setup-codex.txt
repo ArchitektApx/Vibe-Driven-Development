@@ -19,5 +19,5 @@ Git repository: passed.
 .gitignore: covers .scratch/. Passed.
 Planned change: install the VDD tool (vdd.py and vdd/) in <shared>
 ~/.codex/hooks.json: no Stop entry from an older VDD. Passed.
-Tell the user verbatim: "Trust VDD's hook in /hooks."
+VDD's Codex hook: not trusted, ~/.codex/config.toml has no entry for it.
 Next: Relay every Tell the user verbatim line above unchanged; only after doing that, show the user the planned changes above; showing them is the consent step. Then run: <python> "<repo>/skills/vdd-setup/scripts/vdd.py" setup --harness codex --listed none --glossary-named absent --write

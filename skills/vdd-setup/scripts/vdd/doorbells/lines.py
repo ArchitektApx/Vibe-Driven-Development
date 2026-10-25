@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from ..catalog.specs import DOORBELL_ROLES as ROLES  # noqa: F401 - the Roles a Doorbell is addressed to
+from ..catalog.specs import DOORBELL_ROLES as ROLES  # noqa: F401  # pyright: ignore[reportUnusedImport] - the Roles a Doorbell is addressed to
 
 if TYPE_CHECKING:
     from ..loopstate import Review

@@ -287,17 +287,21 @@ def open_plan(loop: loopfile.Loop, state: loopstate.State, harness: Harness, wan
         found = [line.strip() for line in created.out.split("\n") if line.strip()]
         return [told("Opened the PR: %s" % (found[-1] if found else "(gh printed no URL)"))]
 
-    if wanted == EXISTING:
-        after = told("Pushed %s to %s: the PR %s has the new commits." % (branch, remote, path.url))
-    elif wanted == PUSH_ONLY:
+    if wanted == OPEN:
+        last: runner.Effect = runner.Step(create, keep=True)
+    elif wanted == EXISTING:
+        last = runner.Effect(done=[told("Pushed %s to %s: the PR %s has the new commits."
+                                        % (branch, remote, path.url))], keep=True)
+    else:
         failed = path.failed()
-        after = told("Pushed %s to %s. gh cannot open the PR here (%s): open it in the web UI with the title and "
-                     "body in %s." % (branch, remote, failed[0].why if failed else "the open-a-PR check failed",
-                                      pr_body))
+        last = runner.Effect(done=[told("Pushed %s to %s. gh cannot open the PR here (%s): open it in the web UI "
+                                        "with the title and body in %s."
+                                        % (branch, remote, failed[0].why if failed else "the open-a-PR check failed",
+                                           pr_body))], keep=True)
     what = {OPEN: " and open the PR into %s" % base, EXISTING: ", to the PR %s" % path.url}.get(wanted, "")
     effects: list[runner.Effect] = [
         runner.Step(push, dry=["Would push %s to %s%s, then close the loop." % (branch, remote, what)], keep=True),
-        runner.Step(create, keep=True) if wanted == OPEN else runner.Effect(done=[after], keep=True),
+        last,
     ]
 
     def refuse(error: OSError) -> Failure:

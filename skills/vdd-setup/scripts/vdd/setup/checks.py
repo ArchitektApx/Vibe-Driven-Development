@@ -9,7 +9,7 @@ import re
 from .. import gitcmd, loopfile, places, stores, textfile
 from ..harness import Harness, codex as codex_harness
 from . import borrowed_check, install
-from .codex import hooks, trust
+from .codex import hooks, trust, trust_check
 from .report import Report
 
 RETIRED = ("PLAN.md", "PLAN-REVIEW.md", "FIXES.md", "CODEREVIEW.md")
@@ -18,7 +18,7 @@ MIGRATION_URL = "https://github.com/ArchitektApx/Vibe-Driven-Development/blob/ma
 
 
 def run(report: Report, harness: Harness, cwd: str, listed: str, glossary_named: str,
-        user_answer: str | None) -> None:
+        user_answer: str | None, hook_answer: str | None) -> None:
     borrowed_check.check(report, harness, cwd, listed, glossary_named, user_answer)
     tracker(report, harness, cwd)
     glossary_rename(report, cwd)
@@ -27,7 +27,7 @@ def run(report: Report, harness: Harness, cwd: str, listed: str, glossary_named:
     root_loop_file(report, cwd)
     shared_copy(report)
     if harness.waits_through_stop_hook():
-        codex(report, cwd)
+        codex(report, cwd, hook_answer)
 
 
 # --- the tracker ---
@@ -241,7 +241,7 @@ def shared_copy(report: Report) -> None:
 
 # --- Codex: VDD's old hooks.json entry and the hook's trust ---
 
-def codex(report: Report, cwd: str) -> None:
+def codex(report: Report, cwd: str, hook_answer: str | None) -> None:
     out = report.out
     home = codex_harness.home()
     hooks_path = os.path.join(home, "hooks.json")
@@ -282,18 +282,4 @@ def codex(report: Report, cwd: str) -> None:
     text = trust.read(config)
     if text and "vdd-codex-stop" in text:
         out.line("%s: a registration naming vdd-codex-stop stays; Setup does not edit this file." % config_label)
-    state = trust.state(text)
-    if state == trust.PRESENT:
-        out.line("VDD's Codex hook: a trust entry is in %s." % config_label)
-    elif state == trust.DISABLED_STATE:
-        out.line("VDD's Codex hook: switched off, %s says enabled = false for it." % config_label)
-        out.tell("VDD's hook is switched off in Codex: turn it on in /hooks, or every Doorbell waits for a paste.")
-    elif state == trust.ABSENT:
-        out.tell("Trust VDD's hook in /hooks.")
-    else:
-        why = "could not be read" if state == trust.UNREADABLE else "was read but not understood"
-        out.line("VDD's Codex hook: whether it is trusted is unknown, %s %s." % (config_label, why))
-        out.tell(
-            "Setup could not tell whether VDD's hook is trusted. Open /hooks and trust VDD's hook if it "
-            "is listed for review."
-        )
+    trust_check.check(report, home, cwd, text, hook_answer)

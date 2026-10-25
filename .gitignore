@@ -3,3 +3,4 @@ LOOP.md
 AGENTS.local.md
 .local/
 __pycache__/
+!/tests/fixtures/codex-hook-trust/plugin/__pycache__/

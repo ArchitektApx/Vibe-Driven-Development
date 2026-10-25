@@ -68,7 +68,7 @@ class ReviewTest(SceneTest):
         self.assertEqual(started.code, 0, started)
         return started
 
-    def snapshot(self):
+    def review_files(self):
         return LoopRepoTest.snapshot(self, ("PLAN-REVIEW.md", "RECAP.md", "loop-state"))
 
 
@@ -124,10 +124,10 @@ class StartTest(ReviewTest):
         wipe the round's work."""
         self.ring()
         first = self.start()
-        before = self.snapshot()
+        before = self.review_files()
         second = self.start()
         self.assertEqual(second.code, 0, second)
-        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.review_files(), before)
         self.assertIn("Nothing was written", second.lines[0])
         self.assertEqual(second.lines[1:], first.lines[1:])
 
@@ -138,10 +138,10 @@ class StartTest(ReviewTest):
         self.ring()
         self.start()
         self.put("PLAN-REVIEW.md", ROUND_1)
-        before = self.snapshot()
+        before = self.review_files()
         second = self.start()
         self.assertEqual(second.code, 0, second)
-        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.review_files(), before)
         self.assertIn("Round 1: no finding carried; .scratch/demo/PLAN-REVIEW.md already holds new findings 1 and 2 "
                       "from an earlier start of this round. Keep them, and number your new findings from 3.",
                       second.lines)
@@ -168,10 +168,10 @@ class StartTest(ReviewTest):
         second start leaves both files."""
         first = self.round_two()
         self.put("PLAN-REVIEW.md", self.read("PLAN-REVIEW.md").replace("(open): Ticket 02", "(fixed): Ticket 02"))
-        before = (self.snapshot(), self.read("carried-plan.md"))
+        before = (self.review_files(), self.read("carried-plan.md"))
         second = self.start()
         self.assertEqual(second.code, 0, second)
-        self.assertEqual((self.snapshot(), self.read("carried-plan.md")), before)
+        self.assertEqual((self.review_files(), self.read("carried-plan.md")), before)
         self.assertEqual(second.lines[1:], first.lines[1:])
 
 
@@ -179,7 +179,7 @@ class LintTest(ReviewTest):
     """Every refusal of review check names the file, the line and the fix,
     exits non-zero, writes nothing and reruns the check."""
 
-    def refused(self, text, *fragments):
+    def lint_refused(self, text, *fragments):
         self.round_one(text)
         result = LoopRepoTest.refused(self, ("review", "check", "--role", "Plan-Reviewer", "--slug", "demo", "--write"),
                                   ("PLAN-REVIEW.md", "RECAP.md", "loop-state"), *fragments)
@@ -189,12 +189,12 @@ class LintTest(ReviewTest):
 
     def test_a_severity_outside_the_three(self):
         """The severity is blocker, major or minor, in lower case."""
-        self.refused(ROUND_1.replace("### 2. minor", "### 2. Minor"),
+        self.lint_refused(ROUND_1.replace("### 2. minor", "### 2. Minor"),
                      "PLAN-REVIEW.md line 15:", "the severity is blocker, major or minor, in lower case")
 
     def test_a_state_outside_the_three(self):
         """The state is open, fixed or accepted."""
-        self.refused(ROUND_1.replace("minor (open)", "minor (rejected)"),
+        self.lint_refused(ROUND_1.replace("minor (open)", "minor (rejected)"),
                      "PLAN-REVIEW.md line 15:", "the state is open, fixed or accepted")
 
     def test_a_closed_finding_without_a_resolution(self):
@@ -202,12 +202,12 @@ class LintTest(ReviewTest):
         self.round_two()
         text = self.read("PLAN-REVIEW.md").replace("major (open)", "major (fixed)")
         self.put("PLAN-REVIEW.md", text)
-        before = self.snapshot()
+        before = self.review_files()
         result = self.check()
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("finding 1 is fixed but has no Resolution: line", result.text)
         self.assertRegex(result.text, r"PLAN-REVIEW\.md line [0-9]+:")
-        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.review_files(), before)
         self.assertNext(result, "review check", "again")
 
     def test_a_missing_carried_finding_prints_its_block(self):
@@ -215,20 +215,20 @@ class LintTest(ReviewTest):
         word for word, from carried-plan.md."""
         self.round_two()
         text = self.read("PLAN-REVIEW.md")
-        head, tail = text.split("### 2. minor (open): Ticket 02")
+        head, _ = text.split("### 2. minor (open): Ticket 02")
         self.put("PLAN-REVIEW.md", head + "## New findings\n")
         self.put("PLAN-REVIEW.md", head.rstrip() + "\n\n## New findings\n")
-        before = self.snapshot()
+        before = self.review_files()
         result = self.check()
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("finding 2 was open at the start of round 2 and is missing", result.text)
         self.assertIn("### 2. minor (open): Ticket 02", result.lines)
         self.assertIn("Ticket 02 leaves `summary` out.", result.lines)
-        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.review_files(), before)
 
     def test_new_findings_that_skip_a_number(self):
         """New findings start at the printed number and run without gaps."""
-        self.refused(ROUND_1.replace("### 2. minor", "### 3. minor"),
+        self.lint_refused(ROUND_1.replace("### 2. minor", "### 3. minor"),
                      "PLAN-REVIEW.md line 15:", "finding 2 is numbered 3; new findings this round start at 1")
 
     def test_a_new_finding_under_open_findings(self):
@@ -247,24 +247,24 @@ class LintTest(ReviewTest):
         after it was dropped from the counts, the state and the Doorbell."""
         tail = "\n### 3. blocker (open): Ticket 01\n\nTicket 01 deletes the database.\n"
         fenced = ROUND_1.replace("leaves `summary` out.", "leaves `summary` out:\n\n```python\nx = 1\n") + tail
-        self.refused(fenced, "PLAN-REVIEW.md line 19:", "the code fence that opens here is never closed",
+        self.lint_refused(fenced, "PLAN-REVIEW.md line 19:", "the code fence that opens here is never closed",
                      "Close it with a line holding ```.")
         self.box.cleanup()
         self.setUp()
         commented = ROUND_1.replace("leaves `summary` out.", "leaves `summary` out.\n\n<!-- a note") + tail
-        self.refused(commented, "PLAN-REVIEW.md line 19:", "the comment that opens here is never closed")
+        self.lint_refused(commented, "PLAN-REVIEW.md line 19:", "the comment that opens here is never closed")
 
     def test_a_round_one_finding_outside_new_findings_names_that_heading(self):
         """Round 1 has no ## Open findings, so the refusal names ## New
         findings alone."""
-        result = self.refused(ROUND_1.replace("writing-for-agents: ran\n",
+        result = self.lint_refused(ROUND_1.replace("writing-for-agents: ran\n",
                                               "writing-for-agents: ran\n\n### 3. minor (open): Ticket 01\n\nX.\n"),
                               "a finding heading belongs under ## New findings.")
         self.assertNotIn("## Open findings", result.text)
 
     def test_an_unfilled_checks_line(self):
         """An unfilled Checks line is refused."""
-        self.refused(ROUND_1.replace("writing-for-agents: ran", "writing-for-agents: " + WFA),
+        self.lint_refused(ROUND_1.replace("writing-for-agents: ran", "writing-for-agents: " + WFA),
                      "PLAN-REVIEW.md line 7:", "is not filled in")
 
 
@@ -284,12 +284,12 @@ class NotNeededTest(ReviewTest):
         """Prevents a 'not needed' skip without a reason: the user sees why
         each check was skipped."""
         self.round_one(ROUND_1.replace("writing-for-agents: ran", "writing-for-agents: not needed,"))
-        before = self.snapshot()
+        before = self.review_files()
         result = self.check()
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("PLAN-REVIEW.md line 7:", result.text)
         self.assertIn("gives no reason", result.text)
-        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.review_files(), before)
 
 
 class CheckTest(ReviewTest):
@@ -357,13 +357,13 @@ class CheckTest(ReviewTest):
     def test_a_second_check_after_the_write_reprints_the_doorbell(self):
         self.round_one()
         self.check()
-        before = self.snapshot()
+        before = self.review_files()
         again = self.check()
         self.assertEqual(again.code, 0, again)
         self.assertIn("already recorded", again.text)
         self.assertIn("VDD Plan-Reviewer: PLAN-REVIEW.md written, round 1: 0 blocker, 1 major, 1 minor. Read it.",
                       again.lines)
-        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.review_files(), before)
 
     def test_a_finding_line_that_reads_like_a_status_line_stays(self):
         """The write dropped every line starting "Open: " or "SIGNED OFF."

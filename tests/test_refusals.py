@@ -157,7 +157,7 @@ class Refusals(Staged):
         self.stage("loop closed")
         self.box.write("findings.md", FINDINGS)
 
-    def snapshot(self):
+    def project_snapshot(self):
         """The staged project as a refusal must leave it: every file and
         directory outside .git, with its bytes, and the checked-out branch
         and HEAD when the project is a repository. The idea store's lock
@@ -200,14 +200,14 @@ class Refusals(Staged):
         state file a newer VDD wrote, and its dry run promising a run that
         --write then refuses."""
         self.newer_state_alone()
-        before = self.snapshot()
+        before = self.project_snapshot()
         for write in ([], ["--write"]):
             with self.subTest(write=bool(write)):
                 result = self.box.run("loop", "new", *SLUG, *CC, "--leftover", "continue", "--minors", "fix",
                                       "--pr", "ask at sign-off", *write, env=self.env())
                 self.assertEqual(result.code, 1, result)
                 self.assertIn("format version 9", result.lines[0], result)
-                self.assertEqual(self.snapshot(), before, result)
+                self.assertEqual(self.project_snapshot(), before, result)
 
     def check(self, row):
         _, case, scene, argv, first, following, env, posix = row
@@ -220,10 +220,10 @@ class Refusals(Staged):
             extra = env(self)
         values = dict(extra) if isinstance(extra, dict) else {}
         values.update(env if isinstance(env, dict) else {})
-        before = self.snapshot()
+        before = self.project_snapshot()
         result = self.box.run(*argv, env=self.env(values))
         label = "row %s %s" % (row[0], case)
-        self.assertEqual(self.snapshot(), before, "%s: the refusal left a trace\n%r" % (label, result))
+        self.assertEqual(self.project_snapshot(), before, "%s: the refusal left a trace\n%r" % (label, result))
         if case.startswith("version-1"):
             tells = result.tells()
             self.assertTrue(tells and "loop aside --slug demo --write" in tells[0] and "vdd-start-loop" in tells[0],
@@ -423,8 +423,12 @@ TABLES = {
         ("missing", R.repo, ("setup", *CC), "Missing: --listed, --glossary-named", "setup " + USAGE, None, False),
         ("glossary-named-not-a-choice", R.repo, ("setup", *CC, "--listed", "none", "--glossary-named", "maybe"),
          "--glossary-named takes yes, no or absent, not maybe.", "setup " + USAGE, None, False),
+        ("hook-answer-not-a-choice", R.repo,
+         ("setup", *CC, "--listed", "none", "--glossary-named", "yes", "--hook-answer", "maybe"),
+         "--hook-answer takes trusted or skip, not maybe.", "setup " + USAGE, None, False),
         ("option-of-loop", R.repo, ("setup", *CC, "--listed", "none", "--glossary-named", "yes", *SLUG),
-         unknown("slug", ("glossary-named", "harness", "listed", "user-answer", "write")), AGAIN, None, False),
+         unknown("slug", ("glossary-named", "harness", "hook-answer", "listed", "user-answer", "write")), AGAIN,
+         None, False),
     ],
     "brainstorm": [
         ("unknown-idea", R.store, ("brainstorm", "show", "--idea", "main-ide"), "No idea named main-ide",
