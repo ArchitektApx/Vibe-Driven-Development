@@ -4,11 +4,8 @@ and the Recap and its records (recap and records, imported by their
 users)."""
 
 from .lines import (  # noqa: F401
-    STATE_PREFIX,
-    STATE_VERSION,
     code_mark_line,
     folded_line,
-    header_line,
     loop_line,
     respawn_line,
     respawn_once_line,
@@ -31,13 +28,11 @@ from .position import (  # noqa: F401
     position,
     pr_step,
     require_code_sign_off,
-    sign_off_blocker,
 
 )
 from .state import (  # noqa: F401
     CLOSED,
     Damaged,
-    Fold,
     OPEN,
     Review,
     SEVERITIES,

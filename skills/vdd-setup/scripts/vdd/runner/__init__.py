@@ -4,7 +4,6 @@ through the record step. The plan and its effect kinds, the precondition
 kinds and the runner each sit in a module of their own."""
 
 from .effects import (  # noqa: F401
-    DeleteArmed,
     RenderRecap,
     SaveRecords,
     StateLines,
