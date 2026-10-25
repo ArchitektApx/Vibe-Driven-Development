@@ -98,8 +98,10 @@ class Check:
                          "the installed copy at %s still differs from the one you trusted" % root)
 
     def line(self, state: str, text: str) -> None:
+        """A run with the user's answer is the recheck, so its verdict prints
+        even when the Role kept --write."""
         self.states.append(state)
-        self.report.out.line(text)
+        self.report.out.line(text, on_write=self.answer is not None)
 
     def waiting(self, state: str, label: str, verdict: str, still: str) -> None:
         """A verdict that asks the user to trust the hook in /hooks; after they

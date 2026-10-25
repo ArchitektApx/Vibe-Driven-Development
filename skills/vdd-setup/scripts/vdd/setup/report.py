@@ -19,8 +19,10 @@ class Recorder:
     def __init__(self, report: Report) -> None:
         self.report = report
 
-    def line(self, text: str = "") -> None:
-        self.report.effects.append(runner.Effect(dry=[one_line(text)]))
+    def line(self, text: str = "", on_write: bool = False) -> None:
+        """A check's line; with on_write, it prints on the write too."""
+        shown = [one_line(text)]
+        self.report.effects.append(runner.Effect(dry=shown, done=shown if on_write else []))
 
     def tell(self, text: str) -> None:
         told = TELL % one_line(text)

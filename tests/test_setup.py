@@ -1381,6 +1381,22 @@ class CodexTrustTest(ToolTest):
         self.assertTrusted(result)
         self.assertEqual([t for t in result.tells() if "hook" in t], [], result)
 
+    def test_a_recheck_that_kept_write_still_prints_its_verdict(self):
+        """Prevents a Role that reran its last --write command with the
+        answer added from telling the user the trust worked when Setup never
+        said so: a run with --hook-answer prints the hook's line on a write
+        too."""
+        self.cached()
+        self.config(hook_entry(content="sha256:other"))
+        self.assertWaits(self.setup(), CHANGED_WAIT)
+        self.config(hook_entry())
+        result = self.setup("--hook-answer", "trusted", "--write")
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(self.hook_lines(result),
+                         ["VDD's Codex hook: trusted, the installed copy at ~/.codex/plugins/cache/mk/vdd/1.0.0 is "
+                          "the one you trusted. Passed."], result)
+        self.assertNotIn("Codex hook", self.setup("--write").text)
+
     def test_the_answer_trusted_with_nothing_new_cannot_be_verified(self):
         """Prevents a loop of asks: a recheck that still differs, or an entry
         still missing, says once that Setup could not verify, and Setup ends."""
