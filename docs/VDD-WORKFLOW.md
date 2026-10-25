@@ -22,7 +22,7 @@ The commands on this page are Claude Code's. On the other Harnesses:
 |-|-------------|-------|--------|-------------|
 | Skill | `/vdd:vdd-start-loop` | `$vdd:vdd-start-loop` | `/vdd-start-loop` | `/vdd:vdd-start-loop` |
 | Open the Orchestrator | `claude` | `codex --no-daemon` | a new chat, or `agent` | `copilot` |
-| Doorbell | rings by itself | rings by itself once you trust VDD's hook in `/hooks` | rings by itself | rings by itself |
+| Doorbell | rings by itself | rings by itself once you trust VDD's hook in `/hooks`, and again after an update | rings by itself | rings by itself |
 
 If the other session does not wake, paste the line the Role prints.
 

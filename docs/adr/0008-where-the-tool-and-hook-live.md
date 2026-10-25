@@ -6,10 +6,11 @@ Roles run that copy. Setup does this at every loop start without asking,
 after showing what it writes, because it has nowhere to keep a decline.
 
 The Codex `Stop` hook ships inline in `.codex-plugin/plugin.json`, a manifest
-only Codex reads. Codex asks the user to trust it once and keeps that trust
-across updates, and the hook leaves with the plugin. It exits 0 on every
-path, because Codex reads exit 2, Python's code for a missing script, as a
-block it repeats. Setup removes the entry an older VDD wrote into
+only Codex reads, and it leaves with the plugin. It exits 0 on every path,
+because Codex reads exit 2, Python's code for a missing script, as a block it
+repeats. Codex runs it only while the user trusts the installed copy, so
+after an update Setup checks that trust and asks the user to trust the hook
+again in `/hooks`. Setup removes the entry an older VDD wrote into
 `~/.codex/hooks.json`, so two hooks never race for one wake.
 
 ## Considered options
