@@ -4,7 +4,7 @@ Plain text, one fact per line, written to standard output as UTF-8 bytes with
 LF line ends and every CR removed, whatever the console's code page. The last
 line is "Next: <command or action>". A line the user must see is
 'Tell the user verbatim: "<text>"', and the Next: line after one opens with
-the step that relays it, or, when that step starts a wait, ends with it. The exit code is zero or not; the reason
+the step that relays it, or, when its step starts a wait, ends with it. The exit code is zero or not; the reason
 is always in the text.
 """
 
@@ -17,10 +17,10 @@ from typing import Iterable
 TELL = 'Tell the user verbatim: "%s"'
 TELL_START = TELL.split('"')[0]
 RELAY = "Relay every Tell the user verbatim line above unchanged; only after doing that, "
-# The relay of a Tell that hands the user a step only they can take, on an
-# output whose step starts a wait and ends the turn: a relay asked for before
-# the wait is dropped by a model that writes its text at the end of a turn.
-# A step that holds RELAY_HELD words its own relay of the Tell lines.
+# The relay of the Tell lines on an output whose step starts a wait and ends
+# the turn: a model does either the relay or the call last and drops the
+# other, so the wait comes first and the reply that ends the turn holds the
+# Tells. A step that holds RELAY_HELD words its own relay of the Tell lines.
 RELAY_HELD = "holds every Tell the user verbatim line above, unchanged"
 RELAY_LAST = ("Start the wait before you write anything to the user; the reply that ends your turn comes after "
               "it and %s." % RELAY_HELD)
@@ -102,11 +102,14 @@ class Output:
         return failure
 
     def finish(self, next_step: str, code: int = 0) -> int:
-        """Print the lines and the Next: line, which opens with RELAY when
-        a Tell line printed, unless the step words its own relay, as one
-        that holds RELAY_HELD does."""
+        """Print the lines and the Next: line. When a Tell line printed, a
+        Wait step gives way to its relayed form, and any other step opens
+        with RELAY unless it words its own relay, as one that holds
+        RELAY_HELD does."""
         told = any(line.startswith(TELL_START) for line in NOTICES + self.lines)
-        if told and RELAY_HELD not in next_step:
+        if told and isinstance(next_step, Wait):
+            next_step = next_step.relayed
+        elif told and RELAY_HELD not in next_step:
             next_step = RELAY + lower_first(next_step)
         self.lines.append("Next: " + one_line(next_step))
         write(NOTICES + self.lines)
@@ -127,6 +130,19 @@ class Failure(Exception):
         for text in self.lines:
             out.line(text)
         return out.finish(self.next_step, 1)
+
+
+class Wait(str):
+    """A Next: step that starts a wait, or arms the Codex Stop hook, and ends
+    the turn, and relayed, its form after Tell lines: the wait first, then
+    the reply that ends the turn, holding the Tells."""
+
+    relayed: str
+
+    def __new__(cls, step: str, relayed: str) -> "Wait":
+        self = str.__new__(cls, step)
+        self.relayed = relayed
+        return self
 
 
 def relay_last(wait_step: str) -> str:

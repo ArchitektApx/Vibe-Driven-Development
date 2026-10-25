@@ -166,29 +166,55 @@ class DoorbellTest(LoopRepoTest):
         result = self.ring("Orchestrator", "VDD Plan-Reviewer: PLAN-REVIEW.md written, round 2: 0 blocker, 1 major, 0 minor. Read it.")
         self.assertNext(result, "doorbell take --role Orchestrator")
 
-    def test_a_ring_that_hands_the_user_a_step_starts_the_wait_before_the_relay(self):
-        """Prevents a launch line the user never reads: a model that writes
-        its text at the end of a turn ran the wait a relay-first Next: named
-        and ended its turn on its own summary, so the user never learned how
-        to start the Orchestrator. After a Tell that hands the user a step,
-        the wait comes first and the reply that ends the turn holds the
-        Tells; other rings keep the relay first."""
+    def test_every_output_with_tells_starts_its_wait_before_the_relay(self):
+        """Prevents a Tell the user never reads, or a wait that never starts:
+        a model does either the relay or the call last and drops the other.
+        A relay-first Next: lost the launch line to a Role that ran the wait
+        and ended on its own summary, and lost the arm to a Codex Role that
+        relayed and ended its turn. Every output that prints Tells and then
+        starts a wait names the wait first and the reply that ends the turn
+        holds the Tells, on every Harness; an output with no Tell names the
+        wait alone, and one whose step is not a wait keeps the relay first."""
         relay_last = "holds every Tell the user verbatim line above, unchanged"
-        for harness in ("claude-code", "codex", "cursor", "copilot-cli", "generic"):
+        harnesses = ("claude-code", "codex", "cursor", "copilot-cli", "generic")
+
+        def assert_wait_first(result, role, harness):
+            self.assertFalse(result.last.startswith("Next: Relay"), result.last)
+            self.assertNext(result, "doorbell wait --role %s --harness %s" % (role, harness), relay_last)
+            self.assertLess(result.last.index("doorbell wait"), result.last.index(relay_last))
+
+        for harness in harnesses:
             with self.subTest(harness=harness, ring="Planner round 1"):
                 if os.path.exists(self.box.path(".scratch", "x", "doorbells")):
                     os.remove(self.box.path(".scratch", "x", "doorbells"))
-                result = self.ring("Planner", P1, harness=harness)
-                self.assertFalse(result.last.startswith("Next: Relay"), result.last)
-                self.assertNext(result, "doorbell wait --role Planner --harness " + harness, relay_last)
-                self.assertLess(result.last.index("doorbell wait"), result.last.index(relay_last))
+                assert_wait_first(self.ring("Planner", P1, harness=harness), "Planner", harness)
         self.take("Orchestrator")
-        for number, (harness, first) in enumerate((("claude-code", True), ("generic", False)), 1):
+        for number, harness in enumerate(harnesses, 1):
+            review = "VDD Plan-Reviewer: PLAN-REVIEW.md written, round %d: 0 blocker, 1 major, 0 minor. Read it." % number
             with self.subTest(harness=harness, ring="Orchestrator"):
-                line = "VDD Plan-Reviewer: PLAN-REVIEW.md written, round %d: 0 blocker, 1 major, 0 minor. Read it." % number
-                result = self.ring("Orchestrator", line, harness=harness)
-                self.assertEqual(result.last.startswith("Next: Relay every Tell"), first, result.last)
-                self.assertEqual(relay_last in result.last, not first, result.last)
+                assert_wait_first(self.ring("Orchestrator", review, harness=harness), "Orchestrator", harness)
+            self.take("Planner")
+            with self.subTest(harness=harness, ring="Planner round %d" % (number + 1)):
+                planner = "VDD Planner: .scratch/x/ ready, round %d. Read spec.md and issues/." % (number + 1)
+                assert_wait_first(self.ring("Planner", planner, harness=harness), "Planner", harness)
+            self.take("Orchestrator")
+        with self.subTest(take="a pasted line that is not a Doorbell"):
+            assert_wait_first(self.db("take", "--role", "Planner", "--pasted", "hello", harness="codex"),
+                              "Planner", "codex")
+        with self.subTest(take="nothing new, no Tell"):
+            result = self.db("take", "--role", "Planner", harness="codex")
+            self.assertEqual(result.tells(), [])
+            self.assertNext(result, "Run this, which arms the Stop hook, then end your turn:",
+                            "doorbell wait --role Planner --harness codex")
+            self.assertNotIn(relay_last, result.last)
+        with self.subTest(ring="a Doorbell already pending"):
+            self.ring("Orchestrator", R1)
+            self.ring("Planner", "VDD Planner: .scratch/x/ ready, round 9. Read spec.md and issues/.")
+            result = self.ring("Orchestrator", "VDD Plan-Reviewer: PLAN-REVIEW.md written, round 9: 0 blocker, "
+                                               "1 major, 0 minor. Read it.")
+            self.assertTrue(result.tells())
+            self.assertTrue(result.last.startswith("Next: Relay every Tell"), result.last)
+            self.assertNext(result, "doorbell take --role Orchestrator")
 
     def test_the_generic_ring_relays_in_each_branch_of_its_wait(self):
         """Prevents a Session blocked in the foreground: the generic Harness

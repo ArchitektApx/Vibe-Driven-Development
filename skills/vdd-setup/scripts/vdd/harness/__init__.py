@@ -99,10 +99,10 @@ class Harness(abc.ABC):
         wait_command on this Harness, or hand relay through paste_command."""
 
     def relayed_wait_next(self, wait_command: str, paste_command: str) -> str:
-        """wait_next after Tell lines that hand the user a step: the wait
-        starts before the reply that ends the turn, and that reply holds the
-        Tells. A Harness whose wait_next offers a branch with no wait words
-        the relay into each branch."""
+        """wait_next after Tell lines: the wait starts before the reply that
+        ends the turn, and that reply holds the Tells. A Harness whose
+        wait_next offers a branch with no wait words the relay into each
+        branch."""
         return relay_last(self.wait_next(wait_command, paste_command))
 
 
