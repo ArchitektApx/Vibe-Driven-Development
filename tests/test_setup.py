@@ -1220,6 +1220,111 @@ class CodexTrustTest(ToolTest):
         self.assertEqual(self.codex_home(), before)
         self.assertFalse(os.path.exists(os.path.join(self.codex, ".hook-trust")))
 
+    # --- could not verify ---
+
+    def assertUnverified(self, result, line):
+        self.assertEqual(self.hook_lines(result), [line], result)
+        self.assertEqual(result.tells().count(COULD_NOT_VERIFY), 1, result)
+        self.assertNotIn(CHANGED_WAIT, result.tells())
+        self.assertNotIn(NOT_TRUSTED_WAIT, result.tells())
+
+    def others(self, result):
+        """The run's lines other than the hook's."""
+        return [line for line in result.lines if not line.startswith("VDD's Codex hook")
+                and COULD_NOT_VERIFY not in line and NOT_TRUSTED_WAIT not in line]
+
+    def test_an_unreadable_config_toml_cannot_be_verified(self):
+        """Prevents an unreadable config.toml from ending Setup or from being
+        read as no approval at all."""
+        self.cached()
+        self.config("")
+        readable = self.setup()
+        os.remove(os.path.join(self.codex, "config.toml"))
+        os.mkdir(os.path.join(self.codex, "config.toml"))
+        result = self.setup()
+        self.assertEqual(result.code, 0, result)
+        self.assertUnverified(result, "VDD's Codex hook: could not verify, ~/.codex/config.toml could not be read.")
+        self.assertEqual(self.others(result), self.others(readable))
+
+    def test_a_config_toml_not_understood_cannot_be_verified(self):
+        """Prevents a config.toml the reader cannot follow, or VDD's entry in a
+        form Codex's writer does not produce, from being guessed at: an
+        approval written inline or with dotted keys is not read for values."""
+        self.cached()
+        key = '"vdd@mk:plugin.json#hooks[0]:stop:0:0"'
+        for text in ('[hooks.state\nx = "y\n',
+                     'hooks.state = { %s = { trusted_hash = "x" } }\n' % key,
+                     'hooks.state.%s.trusted_hash = "x"\n' % key,
+                     '[hooks.state]\n%s = { trusted_hash = "x", enabled = false }\n' % key,
+                     '[hooks]\nstate.%s.enabled = false\n' % key,
+                     hook_entry() + "notes.extra = 1\n",
+                     hook_entry() + 'trusted_hash = """x"""\n',
+                     hook_entry() + hook_entry(),
+                     "[[hooks.state.%s]]\ntrusted_hash = \"x\"\n" % key):
+            with self.subTest(text=text):
+                self.config(text)
+                self.assertUnverified(self.setup(), "VDD's Codex hook: could not verify, ~/.codex/config.toml was "
+                                                    "read but not understood.")
+
+    @unittest.skipIf(WINDOWS, "creating a symbolic link needs a privilege on Windows")
+    def test_a_symbolic_link_in_the_copy_cannot_be_verified(self):
+        """Prevents an installed copy Codex cannot hash from being reported
+        trusted or changed: Codex drops such a hook from /hooks."""
+        root = self.cached()
+        os.symlink(os.path.join(root, "zz.md"), os.path.join(root, "nested", "link.md"))
+        self.config(hook_entry())
+        self.assertUnverified(self.setup(), "VDD's Codex hook: could not verify, the installed copy at "
+                                            "~/.codex/plugins/cache/mk/vdd/1.0.0 holds an entry Setup cannot hash, "
+                                            "nested/link.md: it is not a plain file or directory.")
+
+    @unittest.skipIf(WINDOWS or (hasattr(os, "geteuid") and os.geteuid() == 0),
+                     "a file mode cannot make a file unreadable on Windows or for root")
+    def test_an_unreadable_file_in_the_copy_cannot_be_verified(self):
+        """Prevents a file Setup cannot read from ending Setup or from being
+        hashed as something it is not."""
+        root = self.cached()
+        locked = os.path.join(root, "nested", "note.md")
+        os.chmod(locked, 0)
+        self.addCleanup(os.chmod, locked, 0o644)
+        self.config(hook_entry())
+        result = self.setup()
+        self.assertEqual(result.code, 0, result)
+        self.assertEqual(len(self.hook_lines(result)), 1, result)
+        self.assertRegex(self.hook_lines(result)[0], r"^VDD's Codex hook: could not verify, the installed copy at "
+                                                     r"~/\.codex/plugins/cache/mk/vdd/1\.0\.0 holds an entry Setup "
+                                                     r"cannot hash, nested/note\.md: it could not be read \([^()]+\)\.$")
+        self.assertEqual(result.tells().count(COULD_NOT_VERIFY), 1, result)
+
+    @unittest.skipUnless(WINDOWS, "a junction is a Windows reparse point")
+    def test_a_junction_in_the_copy_cannot_be_verified(self):
+        """Prevents a junction, which Python can report as a plain directory,
+        from being hashed where Codex refuses it."""
+        root = self.cached()
+        subprocess.run(["cmd", "/c", "mklink", "/J", os.path.join(root, "joined"), os.path.join(root, "nested")],
+                       check=True, stdout=subprocess.DEVNULL)
+        self.config(hook_entry())
+        self.assertUnverified(self.setup(), "VDD's Codex hook: could not verify, the installed copy at "
+                                            "~/.codex/plugins/cache/mk/vdd/1.0.0 holds an entry Setup cannot hash, "
+                                            "joined: it is not a plain file or directory.")
+
+    def test_the_fixed_message_prints_once(self):
+        """Prevents several entries Setup cannot verify from repeating the
+        message, and from hiding the verdict or the wait of an entry beside
+        them."""
+        self.cached("one")
+        self.cached("two")
+        self.config(hook_entry("gone") + hook_entry("lost", content=None) + hook_entry("one")
+                    + hook_entry("two", content="sha256:other"))
+        result = self.setup()
+        lines = self.hook_lines(result)
+        self.assertEqual(len(lines), 4, result)
+        self.assertRegex(lines[0], r"^VDD's Codex hook for vdd@gone: could not verify, ")
+        self.assertRegex(lines[1], r"^VDD's Codex hook for vdd@lost: could not verify, ")
+        self.assertRegex(lines[2], r"^VDD's Codex hook for vdd@one: trusted, ")
+        self.assertRegex(lines[3], r"^VDD's Codex hook for vdd@two: changed, ")
+        self.assertEqual(result.tells().count(COULD_NOT_VERIFY), 1, result)
+        self.assertEqual(result.tells().count(CHANGED_WAIT), 1, result)
+
 
 @unittest.skipIf(WINDOWS, "a stubbed git is a POSIX sh script, as in PreflightTest")
 class GitVersionTest(ToolTest):
