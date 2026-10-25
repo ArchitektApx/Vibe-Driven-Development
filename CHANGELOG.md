@@ -7,295 +7,123 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**TL;DR:** VDD now needs Python 3.9 or newer: Setup and the Doorbell run in
-the VDD tool, a small program VDD ships, which makes both faster and more
-reliable. The Codex hook ships with the plugin, the Orchestrator recommends
-how the Coder restarts for the least cost on your agent, and code reviews on
-Claude Code and Codex are fixed. Each loop keeps its settings in its own
-directory, every loop starts with Start-Loop, and a finished loop leaves a
-`RECAP.md` that says how it went. VDD also needs git 2.40 or newer: it folds
-each loop's fixes into the commits they fix, at every Sign-off. The
-Brainstormer keeps one file per idea with no index, so it needs Setup too,
-and it offers to hand a decided idea to the next Role.
+**TL;DR:** VDD's routine work, such as Setup, the Doorbells and the review
+files, now runs in the VDD tool, a Python program that ships with the plugin
+and does the same thing on every run. Shaped by 2,700 past sessions and
+hundreds of test runs across every supported agent and several models on
+each, 0.16 cuts what the Roles read by up to 80%, and by about 45% over a
+whole loop, all while working better than ever, even on low-tier models.
+Every loop now ends with a recap and a tidy branch with one commit per
+ticket, and you can send your own findings back after Sign-off. The
+Brainstormer keeps one file per idea. VDD now needs Python 3.9 and git 2.40
+or newer.
 
 ### Migrating from 0.15
 
-1. **Install Python 3.9 or newer** if your machine has none. On a Mac, the
-   Command Line Tools that bring git bring one. On Windows, VDD runs it as
-   `py -3`, which every python.org install provides. Without it, a Role says
-   so and stops.
-2. **On Codex, trust VDD's hook in `/hooks` when Setup asks.** It now ships
-   with the plugin, and Setup migrates the 0.15 hook. Codex asks again after
-   every update, because the plugin you trusted changed.
-3. **Optionally, delete the old scripts** `doorbell-wait.*` and
+1. **Install Python 3.9 or newer and git 2.40 or newer** if your machine
+   lacks them. Setup checks both and tells you what is missing. On a Mac,
+   the Command Line Tools bring both, though an older Xcode brings an older
+   git. On Windows, VDD runs Python as `py -3`, which every python.org
+   install provides.
+2. **On Codex, trust VDD's hook in `/hooks` when Setup asks.** The hook now
+   ships with the plugin, and Setup moves you off the 0.15 one. Codex asks
+   again after every update, because the plugin you trusted has changed.
+3. **Finish or restart a loop in flight.** VDD no longer reads `LOOP.md` at
+   the repository root, and every Role stops while it is there. Delete it,
+   then run `/vdd:vdd-start-loop` with the loop's slug and answer continue.
+4. **Say yes when the Brainstormer offers to convert your idea store.** It
+   explains the change before writing anything and first keeps your whole
+   store as a backup in `.scratch/_brainstorming.pre-0.16/`. To undo it,
+   delete the new `.scratch/_brainstorming/`, rename the backup back, and
+   use a 0.15 plugin. Until you say yes, the Brainstormer cannot work on the
+   old store.
+5. **Optionally, delete the old scripts** `doorbell-wait.*` and
    `vdd-codex-stop.*` in `~/.local/share/vdd/` (`%LOCALAPPDATA%\vdd\` on
    Windows) once no loop on an older VDD is running.
-4. **Finish or restart a loop in flight.** A loop now keeps its settings in
-   its own directory, and VDD no longer reads `LOOP.md` at the repository
-   root: every Role stops while it is there, and Setup tells you so. Delete
-   `LOOP.md`. To carry on the loop it belonged to, run `/vdd:vdd-start-loop`
-   with its slug and answer continue.
-5. **On a 0.16 beta, finish a loop you started on 0.16.0-beta.3 with that
-   version.** The Planner, the reviewers, the Coder and the PR-Author
-   refuse it on this one and say so.
-   Reinstall 0.16.0-beta.3 to finish it, or move it aside with the command
-   they print and start the loop again.
-6. **Install git 2.40 or newer** if yours is older. Setup checks it and
-   stops until it is. On a Mac, git comes with the Command Line Tools, and
-   older Xcode releases bring an older one.
-7. **A loop started on an earlier 0.16 beta finishes with its branch
-   unfolded.** Its commits stay as its Coder made them, and the Orchestrator
-   tells you so before the PR.
-8. **Your first Brainstormer session converts a 0.15 idea store on your
-   yes.** It says what the migration does before anything is written, and
-   first keeps your whole store as a backup in
-   `.scratch/_brainstorming.pre-0.16/`. To undo it, delete the migrated
-   `.scratch/_brainstorming/`, rename the backup back to
-   `.scratch/_brainstorming/`, and use a 0.15 plugin. On 0.16 a restored
-   store is offered the migration again. Until you say yes, the Brainstormer
-   cannot work on the old store.
+
+### Added
+
+- **A recap of every loop.** `.scratch/<slug>/RECAP.md` lists the rounds,
+  the tickets, every closed finding with how it was fixed, and the final
+  commits.
+- **A tidy branch at every Sign-off.** VDD folds each later fix into the
+  commit it fixes, so the branch reads as one commit per ticket. A branch
+  that was already pushed stays as it is, and VDD tells you why.
+- **Your own findings after Sign-off.** Write them in a file and run
+  `review add`: the loop opens again, a fresh Coder fixes them and the
+  Code-Reviewer checks the fixes. [The workflow page](docs/VDD-WORKFLOW.md)
+  shows how.
+- **Ideas with parts.** Split, nest, merge or rename ideas, up to three
+  levels deep. Before a new idea is written, the Brainstormer shows you
+  similar ones.
+- **Clean up old ideas.** The Brainstormer removes done or dropped ideas on
+  your yes and keeps a one-line record of each.
+- **From idea to loop.** When you agree on an idea, the Brainstormer gives
+  you the line to start a loop or the Wayfinder with it.
+- **Setup checks Codex's trust in VDD's hook.** After an update Codex stops
+  running the hook until you trust it again, and Setup asks you to.
+- **The Coder cannot forget a new file.** VDD refuses a round that leaves a
+  new file uncommitted, and names it.
 
 ### Changed
 
-- **The Brainstormer keeps one file per idea, with no index or Log.** Every
-  idea, open or closed, stays in one folder, and each file ends with a
-  History of what happened to it. The Brainstormer's first look shows every
-  open idea, so it answers your first message at once. Each move you ask for
-  is one command of the VDD tool, so the files stay consistent and a session
-  costs far fewer calls. The Brainstormer now needs `/vdd:vdd-setup` once
-  per machine.
-- **Ideas have parts.** Split an idea into parts, file one idea under
-  another, merge two ideas into one, or rename one; a family goes three
-  levels deep. Before a new idea is written, the Brainstormer shows you the
-  ideas it looks like, closed ones included.
-- **Clean up closed ideas.** Ask the Brainstormer to remove done or dropped
-  ideas, by status, age or name. It lists them first and removes them on your
-  yes, keeping a one-line record of each, so "didn't we talk about this"
-  still finds it. Research folders stay.
-- **The Brainstormer offers the next Role.** When a grilling ends in
-  agreement, it asks whether to keep brainstorming or take the idea on, with
-  `/vdd:vdd-start-loop` for one loop or `/vdd:vdd-wayfinder` for more, and
-  gives you the line to start it.
-- **Setup runs in the VDD tool.** It is faster and more precise: it shows
-  the exact changes before it makes them, and its repair advice is the exact
-  commands for your agent.
-- **Setup notices when Codex stops trusting VDD's hook.** Codex trusts the
-  exact copy of VDD you approved, so after an update it stops running the
-  hook and every Doorbell waits for you to paste it. Setup now checks the
-  trust on Codex and asks you to trust the hook again in `/hooks`, or to say
-  skip and go on without it.
-- **Doorbells run in the VDD tool.** It keeps track of what each Role has
-  handled, so a Doorbell is acted on once, even when it arrives twice or a
-  session restarts, and a mistyped one is refused before the other session
-  sees it.
-- **Coder restarts tuned to your agent.** With Model approval, the
-  Orchestrator asks once per loop how the Coder continues between rounds,
-  and recommends what costs least with your agent's cache: a fresh Coder
-  every round on Claude Code, Cursor and Copilot CLI, one Coder for all
-  rounds on Codex. On Claude Code you can also restart it once its token
-  count passes a limit. Start-Loop no longer asks. At any round you can ask
-  the Orchestrator to restart any Role every round, or once.
-- **Review files hold what is still open.** `PLAN-REVIEW.md` and
-  `CODEREVIEW.md` list only the open findings, each code finding with the
-  Coder's answer under it, and `FIXES.md` holds the current round only. A
-  miscounted or skipped finding is caught in the Role's own turn. The
-  Code-Reviewer no longer pastes the `code-review` reports; each problem
-  they raise becomes a finding or one line saying why not.
-- **`RECAP.md` after the loop.** `.scratch/<slug>/RECAP.md` records how the
-  loop went: the rounds, each ticket, every closed finding with what was
-  wrong and how it was resolved, and the review notes the Code-Reviewer did
-  not carry. The PR-Author reads it only for a testing or review section
-  your PR template or your past PRs ask for.
-- **A restarted Orchestrator picks up where the loop stood.** It starts or
-  resumes the right Role with the right files, and a Role that ends a round
-  without finishing it is sent back once before you are asked. Say "pause"
+- **Setup and the Doorbells run in the VDD tool.** Setup shows what it will
+  change before it changes anything, and a Doorbell is acted on once, even
+  after a restart.
+- **Roles stay on track.** The skills are shorter, and after every step the
+  VDD tool tells the Role its exact next step and what to tell you.
+- **The Brainstormer keeps one file per idea,** each with a history of what
+  happened to it, and no index. It now needs `/vdd:vdd-setup` once per
+  machine.
+- **The Coder's restarts suit your agent.** The Orchestrator asks once per
+  loop whether the Coder starts fresh each round, and recommends the
+  cheapest choice for your agent. Start-Loop no longer asks.
+- **Review files list only what is still open,** and a later code round is
+  reviewed on its own fixes.
+- **A restarted Orchestrator picks up where the loop stood.** Say "pause"
   between rounds and it stops before the next step.
-- **Each loop keeps its settings in its own directory.** VDD writes and reads
-  them in `.scratch/<slug>/` for you, so two loops in one repository never
-  share them, and there is no `LOOP.md` to delete after a loop. A finished
-  loop is closed and its files stay as its record. To fix something before
-  you merge, send it back with `review add`.
-- **Start-Loop asks less.** It no longer asks whether to delete an old
-  `LOOP.md`. When an earlier loop used your slug, it offers only what fits:
-  continue an interrupted loop, start fresh with the old files moved aside
-  and nothing deleted, or pick another slug.
-- **Every loop starts with `/vdd:vdd-start-loop`.** The Planner, the
-  Plan-Reviewer, the Coder and the Code-Reviewer stop with one line when you
-  start them by hand, and Claude Code and Copilot CLI no longer list them in
-  the `/` menu. You can still start the PR-Author by hand after Sign-off.
-- **The Planner asks for the problem.** Started with nothing described, it
-  asks what problem the loop solves. `improve-codebase-architecture` is yours
-  to run before a loop or the Wayfinder, and Setup no longer requires it or
-  `codebase-design`.
-- **Commits no longer carry `Ticket NN`.** The Coder commits in your
-  repository's own style: one commit per ticket, then its fixes as plain
-  commits in later rounds.
-- **The branch is folded at each Sign-off, by VDD.** After the code review
-  signs off, each later round's fix moves into the commit that wrote the
-  lines it changes, so the branch reads as one commit per ticket plus any
-  commit no ticket owned. A fix that would clash stays as its own commit.
-  The branch moves only when it holds exactly what was reviewed, and never
-  once it was pushed; otherwise it stays as reviewed and you are told
-  why. When your findings reopen the loop, the next Sign-off folds again.
-  `RECAP.md` lists each final commit and what it was built from.
-- **Findings you add after Sign-off reopen the loop.** Put them in a file and
-  run `review add`: it numbers them, you set each one's severity, and a
-  fresh Coder takes them in the next round. The Code-Reviewer reviews only
-  that round's fixes, and `RECAP.md` shows your findings in a row of their
-  own, apart from the reviewers' rounds. Minors that a `Minors: leave`
-  Sign-off left open do not come back unless you list them. When the PR is
-  already open, the PR-Author pushes the fixes to it as new commits. The
-  workflow page shows the call.
-- **Start-Loop shows you its warnings and summary.** The slug, the Harness
-  and how to correct it, and the warnings about a push or a PR that will fail
-  are printed by VDD and relayed to you before the Planner starts. They were
-  dropped in every Claude Code Start-Loop since 2026-10-17.
-- **The Coder cannot leave a new file out of the commits.** When a round ends
-  with a file the Coder created and never added, VDD refuses it and names the
-  file. A file that was already untracked when the round started, and an
-  ignored one, pass.
-- **A later round is reviewed on its own diff.** The Code-Reviewer reviews
-  the fixes since its last round instead of the whole branch again, and
-  still reruns the verification on the whole branch. A reviewer who skips a
-  check now says so, with the reason, and `RECAP.md` shows it.
-- **VDD opens the PR itself, so a title keeps its quotes.** The PR-Author
-  shows you the title and body, and after your confirmation one VDD command
-  pushes the branch, opens the PR and closes the loop. A title with a double
-  quote or an apostrophe reaches GitHub as you confirmed it, on Windows too,
-  and the body stays in `.scratch/<slug>/pr-body.md`. A sandbox that blocks
-  reading your PR history no longer passes for a repository without one.
-- **The Wayfinder finds Matt Pocock's `wayfinder` for you** and fills in its
-  briefing, on every agent.
-- **The Codex hook starts Python only for a wait.** Outside a Codex
-  session's wait for a Doorbell it ends at once, under zsh too.
-- **A mistyped option names its fix.** When a VDD command gets an option it
-  does not take, it refuses it instead of ignoring it, lists the options the
-  command takes and names the closest one. When none is close and the skill itself writes that option,
-  your copy of the VDD tool is older than the skill, and the Role asks you to
-  rerun Setup.
-- **A value Windows PowerShell 5.1 mangled is refused.** When a
-  value ends in a backslash, PowerShell 5.1 pulls the options after it into
-  that value. VDD now refuses such a value and says why, and the Role runs
-  the command again without the backslash.
-
-- **A file VDD may not read or write is reported at once on macOS and
-  Linux**, instead of after two seconds of retrying; Windows still retries a
-  file another program holds for a moment. A refusal names a loop's state
-  file by its `.scratch/<slug>/` path, as every other line does.
-- **The plan Sign-off fixes the Spec for the code loop.** Once the plan
-  review signs off, the Planner's work is done: VDD refuses a further
-  Planner round, the Spec and the Tickets stay as signed off, and no
-  reviewer starts that would only stop. A change you still want goes in as
-  a finding with `review add` once the code loop signs off.
-- **The PR step asks only what your `PR:` line leaves open.**
-  On `PR: ask at sign-off` it asks whether to open the PR or leave it to
-  you; on `PR: yes` you confirm the title and body once before anything is
-  pushed. When VDD can push but cannot open a PR, it asks once whether to
-  push the branch so you can open the PR yourself. When it can do neither,
-  it names the check that failed and asks nothing. Except on `PR: no`, VDD
-  prints the title and body when it closes the loop without a push, so you
-  have them to open the PR from; on `PR: no` VDD prints no body and
-  makes no `gh` call.
-- **Each step is shown once.** A dry run shows exactly what the real run
-  will do, and the real run names what it did without repeating it. After
-  your yes, Setup reports only what it changed and the check of each change.
-  Every line meant for you still reaches you.
-- **Roles read less.** The skills are shorter: a Role looks up a VDD
-  command's usage with that command's own `--help` when it needs it, and each
-  step VDD prints names the next call.
-- **The Orchestrator's first start prints nothing twice.** It asks how the
-  Coder continues between rounds first, and your answer starts the loop.
-
-#### Internal
-
-- CI runs the VDD tool's tests on macOS, Linux and Windows against Python
-  3.9 and the newest 3.x, in parallel, and checks the shipped code for shell
-  calls, network modules, computed imports and imports outside an allowlist.
-  The tests pin every command's whole output.
+- **Each loop keeps its settings in its own folder,** `.scratch/<slug>/`, so
+  two loops never mix them up and nothing is left to delete afterwards.
+- **Every loop starts with `/vdd:vdd-start-loop`.** The other Roles stop when
+  started by hand, except the PR-Author after Sign-off.
+- **The Planner asks for the problem** when you bring none.
+  `improve-codebase-architecture` and `codebase-design` are no longer
+  required.
+- **Commits follow your repository's style** and no longer carry
+  `Ticket NN`.
+- **The plan is fixed once it signs off.** A later change goes in with
+  `review add`.
+- **VDD opens the PR itself** after you confirm the title and body, and asks
+  only what your `PR:` answer left open.
+- **The Wayfinder finds Matt Pocock's `wayfinder` for you** on every agent.
 
 ### Fixed
 
-- **The idea store on an earlier 0.16 beta.** Two sessions or subagents
-  writing ideas at the same moment were often refused; one now waits for the
-  other. A write could drop text it could not read from an idea you edited
-  by hand, such as a folded line or a comment. It now refuses before it
-  writes and names the file and line. Your next Brainstormer session updates
-  a store an earlier beta wrote and tells you so; every idea keeps the date
-  it shows.
-- **VDD calls refused on Codex for Windows.** On an earlier 0.16 beta,
-  Codex's Windows sandbox could not read the copy of the VDD tool Setup
-  installs, so every call was refused once and rerun outside the sandbox.
-  The next Setup replaces the copy.
-- **Sandbox refusals on a git set to another language.** git translates its
-  messages, so on a system in another language a sandbox that refused git
-  read as a plain failure instead of asking to rerun outside the sandbox.
-  VDD now runs git in English.
-- **A fold the sandbox kept from signing.** Inside Claude Code's or Codex's
-  sandbox, signing the folded commits could fail, and VDD recorded the fold
-  as skipped, so the rerun outside the sandbox left the branch unfolded. VDD
-  now asks for that rerun first, and skips the fold only if you refuse it or
-  signing fails outside the sandbox too.
-- **Messages for you lost before the next call.** When VDD printed a line for
-  you and then named a command to run, the agent could run it and end its
-  turn without passing the line on: the Planner did not tell you to start
-  the Orchestrator, and the loop waited. VDD now has the agent pass on every
-  line meant for you before the next step.
-- **Late or polled code reviews on Claude Code.** The Code-Reviewer's two
-  review passes sometimes reported late, or the Code-Reviewer spent tokens
-  polling for them. Both are fixed.
-- **Roles on Codex started as forks of their parent.** Codex starts a
-  subagent as a fork carrying its parent's whole conversation by default, so
-  every Role the Orchestrator started, and the Code-Reviewer's review
-  passes, carried context that was not theirs: the reviews were less
-  independent and cost more
+- **Roles on Codex carried their parent's conversation.** Codex starts a
+  subagent with a copy of its parent's whole conversation unless told
+  otherwise, so every Role the Orchestrator started saw context that was not
+  its own: reviews were less independent and cost more
   ([mattpocock/skills#1257](https://github.com/mattpocock/skills/issues/1257)).
-  VDD now starts each from its own instructions alone.
-- **A step that failed halfway finishes when run again.** If a review, the
-  Coder's check, `review add` or the fold failed while recording its round,
-  running it again could lose a reviewer's resolution, list a ticket twice in
-  `RECAP.md`, add your findings twice under new numbers, or report a folded
-  branch as moved. Each round is now recorded in one step, and running the
-  same command again finishes it. VDD keeps the Recap's records in
-  `.scratch/<slug>/recap.json` and writes `RECAP.md` whole from them, which
-  reads as before. A loop open across the update keeps everything its
-  `RECAP.md` held.
-- **After `review add`, the Code-Reviewer never answers with your counts.**
-  It sent your findings' counts back as if its own review had recorded them.
-- **A dry run refuses where the real run would.** The Coder's start on the
-  wrong branch and a reviewer's start with a finding gone from the review
-  file passed without `--write` and refused only with it. A Brainstormer dry
-  run first finishes a write an earlier session left half done.
-- **A failed PR step still tells you what it did.** When the loop could not
-  be closed after the push, VDD hid that the branch was pushed and the PR
-  opened. It now prints both, with the PR's link, before the error.
-- **A loop a newer VDD started is named when it is left out.** A command
-  run without `--slug` passed over it without a word; it now names the loop
-  and why.
-- **No more Python tracebacks.** An unexpected error now ends with a line
-  naming it and what to do, and a `--page` or `--tokens` value that is not
-  plain digits is refused.
-- **A git command that hangs is stopped.** A signing prompt a hidden session
-  never shows could hold the fold for ever. A git call that hangs now ends
-  after a few minutes, and the fold then leaves the branch as reviewed and
-  says why.
-- **The refusal for a loop started on 0.16.0-beta.3 offers only what works:**
-  move the loop aside and start it again.
-- **A Codex wait that fails says so.** When the hook's wait for a Doorbell
-  failed after it started, the session sat idle without a word. It now says
-  what failed and gives you the line to paste.
-- **Setup keeps its report when a file cannot be read.** It shows every
-  check that passed and names the file it could not read. A Codex
-  `config.toml` it cannot read is reported as unknown, and one it read but
-  could not make sense of says so.
-- **The Wayfinder finds `wayfinder` wherever Setup does.** It could tell you
-  to stop for a skill Setup reported as installed.
-- **The PR step never runs on an unfolded branch.** While a fold is owed,
-  VDD names the fold to run first.
-- **A Brainstormer store that cannot be renamed on Windows says why.** VDD
-  names what can hold `.scratch/_brainstorming/` open, an editor or a shell
-  inside it, and the Brainstormer tells you what holds it and waits for
-  your word.
-- **Piping VDD's output into `head` ends quietly**, with no Python error.
+  Each Role now starts from its own instructions alone.
+- **Late or polled code reviews on Claude Code.** The Code-Reviewer's two
+  review passes sometimes reported late, or it spent tokens checking on them.
+- **PR titles with quotes.** A title with a double quote or an apostrophe now
+  reaches GitHub exactly as you confirmed it, on Windows too.
+- **A blocked PR history.** A sandbox that kept VDD from reading your past
+  PRs no longer looks like a repository without any.
+
+### If you used a 0.16 beta
+
+Skip this when you update from 0.15.
+
+- **A loop started on 0.16.0-beta.3** cannot continue. Move it aside with the
+  command the Role prints and start it again.
+- **A loop started on an earlier beta** finishes without the tidy branch.
+- **An idea store an earlier beta wrote** is updated in your next
+  Brainstormer session.
+- **Many fixes to the betas' new parts:** the idea store, the fold,
+  `review add`, the PR step, Setup and the Codex wait. An unexpected error
+  now ends with what to do instead of a Python traceback.
 
 ## [0.15.0] - 2026-10-07
 
