@@ -63,6 +63,10 @@ class Check:
             self.unverified(label, "%s holds an approval from before Codex 0.164" % self.config_label)
             return
         copy = installed.find(self.home, entry.marketplace)
+        if copy.root is None and copy.candidates:
+            self.unverified(label, "%s holds versions whose order Codex does not fix: %s"
+                            % (self.shown(copy.directory), ", ".join(copy.candidates)))
+            return
         if copy.root is None:
             self.unverified(label, "no installed copy at %s" % self.shown(copy.directory))
             return

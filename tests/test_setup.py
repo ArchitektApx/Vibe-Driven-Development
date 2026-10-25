@@ -1005,6 +1005,124 @@ class CodexTrustTest(ToolTest):
                         "VDD's Codex hook: could not verify, ~/.codex/config.toml was read but not understood."])
                     self.assertNotIn(NOT_TRUSTED_WAIT, result.tells())
 
+    # --- which installed copy Setup hashes ---
+
+    def versions(self, active, others, marketplace="mk"):
+        """The fixture as the active version, and as each other version with
+        an empty directory added, so it hashes to EMPTY_DIR_GOLDEN."""
+        self.cached(marketplace, active)
+        for version in others:
+            os.mkdir(os.path.join(self.cached(marketplace, version), "emptydir"))
+
+    def assertPicks(self, active, others):
+        self.versions(active, others)
+        self.config(hook_entry(content=GOLDEN))
+        self.assertTrusted(self.setup())
+        self.config(hook_entry(content=EMPTY_DIR_GOLDEN))
+        self.assertChanged(self.setup())
+        shutil.rmtree(os.path.join(self.codex, "plugins"))
+
+    def test_the_highest_version_is_hashed(self):
+        """Prevents Setup from hashing an older copy than the one Codex runs:
+        versions compare as versions, a release above its prereleases."""
+        for active, others in (("1.10.0", ["1.2.0"]), ("0.16.0", ["0.16.0-beta.9", "0.16.0-beta.13"]),
+                               ("0.16.0-beta.13", ["0.16.0-beta.9"]), ("1.0.0-rc.1", ["1.0.0-beta", "1.0.0-alpha.1"]),
+                               ("1.0.0-alpha.beta", ["1.0.0-alpha.1", "1.0.0-alpha"])):
+            with self.subTest(active=active):
+                self.assertPicks(active, others)
+
+    def test_a_local_directory_wins(self):
+        """Prevents Setup from hashing a version directory when Codex runs the
+        local one."""
+        self.assertPicks("local", ["1.10.0"])
+
+    def test_names_codex_does_not_count_are_ignored(self):
+        """Prevents a stray directory or file beside the version from making
+        the copy unverifiable or hashing the wrong one, a name that ends in a
+        newline included."""
+        self.versions("1.0.0", ["9.9.9 copy", "_x y"] + ([] if WINDOWS else ["9.9.9\n"]))
+        self.box.write(os.path.join(self.codex, "plugins", "cache", "mk", "vdd", "9.9.9"), "a file\n")
+        self.config(hook_entry())
+        self.assertTrusted(self.setup())
+
+    def test_versions_codex_cannot_order_cannot_be_verified(self):
+        """Prevents Setup from guessing between versions Codex orders by a
+        comparison that is not a total order: a name that is not SemVer, or
+        one with a build part, beside another version."""
+        for active, others in (("1.9.0", ["1.9"]), ("1.0.0", ["beta"]), ("1.0.0", ["1.0.1+build.1"])):
+            with self.subTest(names=[active] + others):
+                self.versions(active, others)
+                self.config(hook_entry())
+                result = self.setup()
+                names = ", ".join(sorted([active] + others))
+                self.assertEqual(self.hook_lines(result), [
+                    "VDD's Codex hook: could not verify, ~/.codex/plugins/cache/mk/vdd holds versions whose order "
+                    "Codex does not fix: %s." % names])
+                self.assertEqual(result.tells().count(COULD_NOT_VERIFY), 1, result)
+                self.assertNotIn(CHANGED_WAIT, result.tells())
+                shutil.rmtree(os.path.join(self.codex, "plugins"))
+
+    def test_each_entry_gets_its_own_line(self):
+        """Prevents a user with VDD from two marketplaces from seeing one
+        verdict for both."""
+        self.cached("one")
+        self.cached("two")
+        os.mkdir(os.path.join(self.cached("three"), "emptydir"))
+        self.config(hook_entry("one") + hook_entry("two", content="sha256:other") + hook_entry("three", enabled=False))
+        result = self.setup()
+        lines = self.hook_lines(result)
+        self.assertEqual(len(lines), 3, result)
+        self.assertRegex(lines[0], r"^VDD's Codex hook for vdd@one: trusted, the installed copy at "
+                                   r"~/\.codex/plugins/cache/one/vdd/1\.0\.0 ")
+        self.assertRegex(lines[1], r"^VDD's Codex hook for vdd@two: changed, ")
+        self.assertEqual(lines[2], "VDD's Codex hook for vdd@three: switched off, ~/.codex/config.toml says "
+                                   "enabled = false for it.")
+        self.assertIn(SWITCHED_OFF, result.tells())
+        self.assertEqual(result.tells().count(CHANGED_WAIT), 1, result)
+
+    def test_one_wait_message_in_the_words_for_the_worse_state(self):
+        """Prevents a user with two entries from being asked twice, or in the
+        words for the milder state."""
+        for one, two, wait in ((hook_entry("one"), hook_entry("two", content="sha256:other"), CHANGED_WAIT),
+                               (hook_entry("one", trusted=None, content=None, enabled=True),
+                                hook_entry("two", content="sha256:other"), CHANGED_WAIT),
+                               (hook_entry("one"), hook_entry("two", trusted=None, content=None, enabled=True),
+                                NOT_TRUSTED_WAIT)):
+            with self.subTest(wait=wait, one=one):
+                self.cached("one")
+                self.cached("two")
+                self.config(one + two)
+                tells = self.setup().tells()
+                self.assertEqual(tells.count(wait), 1, tells)
+                self.assertEqual(tells.count(CHANGED_WAIT) + tells.count(NOT_TRUSTED_WAIT), 1, tells)
+                shutil.rmtree(os.path.join(self.codex, "plugins"))
+
+    def test_a_marketplace_without_a_copy_never_waits(self):
+        """Prevents an entry left from a removed marketplace from asking the
+        user to trust a hook, or from hiding the entry beside it."""
+        self.cached("one")
+        self.config(hook_entry("one") + hook_entry("gone"))
+        result = self.setup()
+        lines = self.hook_lines(result)
+        self.assertRegex(lines[0], r"^VDD's Codex hook for vdd@one: trusted, ")
+        self.assertEqual(lines[1], "VDD's Codex hook for vdd@gone: could not verify, no installed copy at "
+                                   "~/.codex/plugins/cache/gone/vdd.")
+        self.assertEqual(result.tells().count(COULD_NOT_VERIFY), 1, result)
+        self.assertNotIn(CHANGED_WAIT, result.tells())
+        self.assertNotIn(NOT_TRUSTED_WAIT, result.tells())
+
+    def test_a_switched_off_entry_beside_a_changed_one(self):
+        """Prevents a switched-off entry from silencing the wait another entry
+        needs."""
+        self.cached("one")
+        self.cached("two")
+        self.config(hook_entry("one", enabled=False) + hook_entry("two", content="sha256:other"))
+        result = self.setup()
+        self.assertIn("VDD's Codex hook for vdd@one: switched off, ~/.codex/config.toml says enabled = false for it.",
+                      self.hook_lines(result))
+        self.assertIn(SWITCHED_OFF, result.tells())
+        self.assertEqual(result.tells().count(CHANGED_WAIT), 1, result)
+
 
 @unittest.skipIf(WINDOWS, "a stubbed git is a POSIX sh script, as in PreflightTest")
 class GitVersionTest(ToolTest):
