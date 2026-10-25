@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import unittest
 
-from vddtest import PLAN_SIGNED, WINDOWS, LoopRepoTest, SceneTest
+from vddtest import PLAN_SIGNED, WINDOWS, SceneTest
 
 README = (
     "# Ledger\n"

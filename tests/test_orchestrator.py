@@ -6,7 +6,7 @@ import re
 import subprocess
 import unittest
 
-from vddtest import PLAN_SIGNED, PLAN_SIGNED_2, CODE_SIGNED_2, REPO, LoopRepoTest, SceneTest, tool_command
+from vddtest import PLAN_SIGNED, PLAN_SIGNED_2, CODE_SIGNED_2, REPO, SceneTest, tool_command
 
 P1 = "VDD Planner: .scratch/demo/ ready, round 1. Read spec.md and issues/."
 P2 = "VDD Planner: .scratch/demo/ ready, round 2. Read spec.md and issues/."

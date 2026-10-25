@@ -6,7 +6,7 @@ import subprocess
 import sys
 import unittest
 
-from vddtest import ENTRY, SCRIPTS, Sandbox, ToolTest
+from vddtest import ENTRY, SCRIPTS, ToolTest
 
 # Every command and the options it takes, as its unknown-option refusal lists
 # them. An option another command of the group reads is refused here.
@@ -305,7 +305,7 @@ class EntryTest(ToolTest):
         result = self.box.run("--help", entry=os.path.join(copy, "vdd.py"),
                               env=self.box.env(PYTHONPYCACHEPREFIX=None))
         self.assertEqual(result.code, 0, result)
-        found = [d for d, dirs, files in os.walk(copy) if "__pycache__" in dirs]
+        found = [d for d, dirs, _ in os.walk(copy) if "__pycache__" in dirs]
         self.assertEqual(found, [])
 
 

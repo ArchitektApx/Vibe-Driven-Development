@@ -535,7 +535,7 @@ class HookStringTest(ToolTest):
     @unittest.skipUnless(WINDOWS, "Codex runs commandWindows on native Windows")
     def test_command_windows_missing_script_exits_zero(self):
         self.ready()
-        code, out = self.powershell(os.path.join(self.box.root, "gone"))
+        code, _ = self.powershell(os.path.join(self.box.root, "gone"))
         self.assertEqual(code, 0)
 
     @unittest.skipUnless(WINDOWS, "Codex runs commandWindows on native Windows")

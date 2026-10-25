@@ -215,7 +215,7 @@ class LintTest(ReviewTest):
         word for word, from carried-plan.md."""
         self.round_two()
         text = self.read("PLAN-REVIEW.md")
-        head, tail = text.split("### 2. minor (open): Ticket 02")
+        head, _ = text.split("### 2. minor (open): Ticket 02")
         self.put("PLAN-REVIEW.md", head + "## New findings\n")
         self.put("PLAN-REVIEW.md", head.rstrip() + "\n\n## New findings\n")
         before = self.snapshot()

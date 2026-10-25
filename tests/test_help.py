@@ -193,7 +193,7 @@ class HelpTest(ToolTest):
         lines left it out. Every option a command takes is on its usage
         line, or left out by a sentence the help says it in."""
         for group, names in COMMANDS.items():
-            blocks, tail = self.blocks(group)
+            blocks, _ = self.blocks(group)
             text = prose(body(self.help(group)))
             for name in names:
                 with self.subTest(command="%s %s" % (group, name)):

@@ -14,7 +14,7 @@ import subprocess
 import sys
 import unittest
 
-from vddtest import GH, PLAN_SIGNED, URL, WINDOWS, LoopRepoTest, SceneTest, init_bare, tool_command
+from vddtest import GH, PLAN_SIGNED, URL, WINDOWS, SceneTest, init_bare, tool_command
 
 HOSTS_REFUSED = "failed to read configuration: open ~/.config/gh/hosts.yml: operation not permitted"
 
