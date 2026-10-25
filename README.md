@@ -4,6 +4,8 @@
 
 **Separate agent sessions that plan, review the plan, implement, and review the code. Each one grades the other's homework and never its own work.**
 
+**tl;dr:** an opinionated wrapper around Matt Pocock's [skills](https://github.com/mattpocock/skills), for Claude Code, Codex, Cursor and GitHub Copilot CLI.
+
 [![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FArchitektApx%2FVibe-Driven-Development%2Fmaster%2F.claude-plugin%2Fplugin.json&query=%24.version&prefix=v&label=plugin&color=blue)](.claude-plugin/plugin.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Built on mattpocock/skills](https://img.shields.io/badge/built_on-mattpocock%2Fskills-8250df)](https://github.com/mattpocock/skills)
@@ -28,8 +30,6 @@ Works on <br>
 
 </div>
 
-**tl;dr:** an opinionated wrapper around Matt Pocock's [skills](https://github.com/mattpocock/skills). It splits planning, plan review, implementation and code review across separate Claude Code / Codex / Cursor / GitHub Copilot CLI sessions that adversarially check each other's work.
-
 > [!IMPORTANT]
 > Matt Pocock's skill collection, v1.3.1 or later, is a hard requirement: without it the Planner stops at its first handoff. See [Install](#-install). Updating from an older VDD? When an update needs anything from you, its entry in the [changelog](CHANGELOG.md) says what.
 
@@ -45,13 +45,11 @@ Works on <br>
 
 ## 🎯 Why this works
 
-A single agent session grades its own homework. It plans, implements and reviews with the same context and the same incentive to declare itself done. Splitting the work across separate sessions fixes that:
+A single agent session plans, implements and reviews with the same context and the same incentive to declare itself done. Separate sessions fix that:
 
 - **🧊 Fresh context.** The reviewer has not seen the planner's reasoning, so it has to verify claims against the actual codebase instead of nodding along.
-- **🥊 Adversarial framing.** A session prompted to find problems finds problems. A session prompted to "implement and review" finds excuses.
-- **📄 Written handoffs.** Forcing the spec, the implementation notes, and the review into files makes every claim checkable and keeps each session's context small.
-
-The loop that comes out of this converges: plan, push back, revise, sign off, implement, push back, fix, sign off.
+- **🥊 Adversarial framing.** A session told to find problems looks for them, while one told to review its own work tends to approve it.
+- **📄 Written handoffs.** The spec, the implementation notes and the review live in files, so every claim can be checked and each session's context stays small.
 
 ## ⚡️ Quickstart
 
@@ -65,19 +63,19 @@ In Codex, type `$vdd:vdd-start-loop` instead, and in Cursor `/vdd-start-loop`. G
 
 That one command runs the environment check, walks you through anything the check finds missing, and starts the loop with you and the Planner.
 
-VDD and the Matt Pocock skills create multiple working files along the way that are not gitignored by default (`docs/agents/`, `docs/adr/`, `GLOSSARY.md`, appending to `AGENTS.md`/`CLAUDE.md`). To keep them out of your history, add them to `.gitignore` and prune the additions to your `AGENTS.md`/`CLAUDE.md`.
+VDD and Matt Pocock's skills add files that are not gitignored by default: `docs/agents/`, `docs/adr/`, `GLOSSARY.md`, and additions to `AGENTS.md` or `CLAUDE.md`. To keep them out of your history, gitignore the files and prune the additions.
 
 ## 🔌 Install
 
-VDD ships as a plugin from this repository's marketplace. Check the requirements, then open the section for your agent.
+VDD ships as a plugin from this repository's marketplace.
 
 <details>
 <summary><b>Requirements</b></summary>
 
 - A repository to work in
-- Python 3.9 or newer, run as `python3` on macOS and Linux and as `py -3` on native Windows. On a Mac, the Command Line Tools that bring git bring a `python3` that is new enough. VDD needs no Python packages.
-- git 2.40 or newer: VDD folds a loop's commits at its end with git commands that older releases lack, and Setup stops on an older git. On a Mac, git comes with the Command Line Tools, and older Xcode releases bring an older one.
-- The ability to run two agent sessions side by side (two terminals is enough): the Planner, in your foreground, and the Orchestrator, which runs the rest.
+- Python 3.9 or newer, run as `python3` on macOS and Linux and as `py -3` on native Windows. VDD needs no Python packages.
+- git 2.40 or newer. Setup checks both.
+- The ability to run two agent sessions side by side (two terminals is enough): the Planner and the Orchestrator
 - A coding agent with subagents: Claude Code, Codex, Cursor or GitHub Copilot CLI. If your agent asks for approval per command, grant session approval before you start a loop, so you are not answering prompts through the whole run.
 - Matt Pocock's [skills](https://github.com/mattpocock/skills), the whole collection, v1.3.1 or later. In Claude Code: Matt Pocock's own marketplace, `/plugin marketplace add mattpocock/skills` then `/plugin install mattpocock-skills@mattpocock`. In Codex, Cursor, GitHub Copilot CLI and any other agent: `npx skills@latest add -g mattpocock/skills`, selecting your agent when it asks. The Roles borrow these:
 
@@ -88,14 +86,7 @@ VDD ships as a plugin from this repository's marketplace. Check the requirements
   | `to-spec` | 🧑 you, when the Planner asks |
   | `to-tickets` | 🧑 you, when the Planner asks |
   | `wayfinder` | 🧑 you, when the Wayfinder asks |
-  | `code-review` | 🤖 the Role itself |
-  | `writing-for-agents` | 🤖 the Role itself |
-  | `grilling` | 🤖 the Role itself |
-  | `domain-modeling` | 🤖 the Role itself |
-  | `research` | 🤖 the Role itself |
-  | `prototype` | 🤖 the Role itself |
-
-  `improve-codebase-architecture` is yours to run when you want the codebase reviewed: take the candidates you keep to `vdd-wayfinder` when there are many or the change is large, or to a loop when it is focused.
+  | `code-review`, `writing-for-agents`, `grilling`, `domain-modeling`, `research`, `prototype` | 🤖 a Role or another skill, on its own |
 
 </details>
 
@@ -132,15 +123,13 @@ Start a new Codex session in your repository with `codex --no-daemon`, so it pic
 npx skills@latest add -g mattpocock/skills
 ```
 
-A Codex session cannot be woken by a background shell, so on Codex a waiting Role waits in a `Stop` hook. The hook ships with the plugin, and only Codex reads it; it does nothing in a repository without a VDD loop. Codex runs no hook you have not trusted, and each update changes the copy you trusted, so trust VDD's hook in `/hooks` when Setup asks: Setup checks the trust and asks again after an update.
+On Codex a waiting Role waits in a `Stop` hook that ships with the plugin and does nothing in a repository without a VDD loop. Codex runs only hooks you trust, and each update changes the hook, so trust it in `/hooks` whenever Setup asks. The hook goes with the plugin when you uninstall it.
 
 > ⚠️ **Warning**
 >
 > Start every VDD session on Codex with `codex --no-daemon`, and resume one with `codex resume --no-daemon`. Since 0.158, plain `codex` runs its sessions in a shared background server, and quitting the terminal only disconnects you ("Any running work continues"). A quit Orchestrator then keeps running the Coder and the Code-Reviewer, spending tokens you do not see. `--no-daemon` keeps the session in your terminal, so quitting stops it.
 >
 > Apps that run Codex on their own app server, such as T3 Code, stop a session when you close it and need no flag.
-
-The hook goes with the plugin when you uninstall it.
 
 </details>
 
@@ -155,7 +144,7 @@ agent plugin marketplace add https://github.com/ArchitektApx/Vibe-Driven-Develop
 
 Then run `/plugin` inside `agent` and install `vdd`.
 
-Cursor also loads VDD you installed for Claude Code, as a plugin, or for Codex, from a skills directory. Type `/vdd` in Cursor first, and install only if nothing shows. Cursor lists every Role unprefixed, as `/vdd-<role>`. Install Matt Pocock's collection with the skills CLI and select Cursor when it asks which agents to install for:
+Cursor also picks up a VDD you installed for Claude Code or Codex, so type `/vdd` in Cursor first and install only if nothing shows. Cursor lists every Role unprefixed, as `/vdd-<role>`. Install Matt Pocock's collection with the skills CLI and select Cursor when it asks which agents to install for:
 
 ```bash
 npx skills@latest add -g mattpocock/skills
@@ -207,7 +196,7 @@ You type five commands yourself. Every other Role is started by the loop.
 | 💡 Brainstormer | `/vdd:vdd-brainstormer` | `$vdd:vdd-brainstormer` | `/vdd-brainstormer` | `/vdd:vdd-brainstormer` |
 | 🗺 Wayfinder | `/vdd:vdd-wayfinder` | `$vdd:vdd-wayfinder` | `/vdd-wayfinder` | `/vdd:vdd-wayfinder` |
 
-Start a loop opens the Planner in your session. Open the Orchestrator in a second session when the Planner asks you to; it runs the rest of the loop. Starting a loop runs the environment check for you, so run it by hand only to check a repository before its first loop, or once per machine before you first use the Brainstormer. The Brainstormer and the Wayfinder are optional and come before the loop; see [Before the loop](#-before-the-loop).
+`vdd-start-loop` runs the setup and opens the Planner in your session. Open the Orchestrator in a second session when the Planner asks you to; it runs the rest of the loop. The Brainstormer and the Wayfinder are optional and come before the loop (see [Before the loop](#-before-the-loop)).
 
 ## 🧪 Beta channel
 
@@ -281,11 +270,11 @@ Back to the release: `copilot plugin marketplace remove --force vibe-driven-deve
 
 The loop runs in three phases: the Planner and the Plan-Reviewer argue the spec into shape, the Coder and the Code-Reviewer do the same with the code, and the PR-Author ships it. [**docs/VDD-WORKFLOW.md**](docs/VDD-WORKFLOW.md#-the-vibe-driven-development-workflow) walks a loop round by round: what each Role does, what it asks of you, the model recommendations and the tips that keep loops converging.
 
-Before its first spawn the Orchestrator asks you to approve a model for each Role, and with that Model approval, once per loop, whether the Coder starts fresh each round. When the loop is done, `.scratch/<slug>/RECAP.md` is its record: each ticket, and every closed finding with what was wrong and how it was resolved.
+When a loop is done, `.scratch/<slug>/RECAP.md` records how it went.
 
 ## 🧭 Before the loop
 
-Two optional Roles come before the loop. Both run in your own session, outside any loop, and end in files, never in code. For one change you already understand, skip both and run `/vdd:vdd-start-loop`.
+Two optional Roles come before the loop. Both run in your own session, outside any loop, and write planning files only. For one change you already understand, skip both and run `/vdd:vdd-start-loop`.
 
 <div align="center">
 
