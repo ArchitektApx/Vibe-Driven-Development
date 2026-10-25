@@ -21,7 +21,6 @@ from .. import textfile
 from ..out import TELL, Failure, refused
 from . import printed
 from .ideafile import CLOSED, Idea, fenced, real_date, split_frontmatter, today
-from .lock import Lock
 from .store import LAYOUT_FILE, STORE, layout, read_once, set_file_day
 
 # The layout this step reads and the one it leaves.
@@ -320,16 +319,9 @@ def build_staging(store: str, staging: str, ideas: dict[str, Idea], old: dict[st
 
 def run(root: str, events_raw: list[str], write: bool) -> Result:
     """The step's lines and what happened: "dry", "dry-half", "finished",
-    "migrated", or "moved" when another Session took the store past
-    layout 1 meanwhile. A write holds the migration lock from the first look
-    at the store to the last rename, so a second migration waits for it and
-    then finds the store migrated instead of migrating it a second time."""
-    if not write:
-        return step(root, events_raw, False)
-    os.makedirs(os.path.join(root, ".scratch"), exist_ok=True)
-    with Lock(root, path=os.path.join(root, LOCK), doing="migrating the idea store") as lock:
-        lines, what, would = step(root, events_raw, True)
-    return lock.lines + lines, what, would
+    "migrated", or "moved" when the store is past layout 1. A write runs
+    under the migration lock migrate holds."""
+    return step(root, events_raw, write)
 
 
 def step(root: str, events_raw: list[str], write: bool) -> Result:

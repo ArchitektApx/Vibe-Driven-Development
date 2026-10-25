@@ -147,7 +147,19 @@ def migrate(root: str, events_raw: list[str], write: bool) -> Result:
     """The migration's lines and what happened first: "dry", "dry-half",
     "noop", "dry-repair", "repaired", "finished", "migrated" or "updated".
     A dry run shows the first step and the plan of the steps after it; a
-    write runs every step to the current layout."""
+    write runs every step to the current layout under the migration lock,
+    held from the first look at the store to the last step, so a second
+    migration waits for it and then finds the store migrated."""
+    store = os.path.join(root, STORE)
+    if not write or (os.path.isdir(store) and not layout1.half(root) and layout(root) == LAYOUT):
+        return run_steps(root, events_raw, write)
+    os.makedirs(os.path.join(root, ".scratch"), exist_ok=True)
+    with Lock(root, path=os.path.join(root, layout1.LOCK), doing="migrating the idea store") as lock:
+        lines, what, would = run_steps(root, events_raw, write)
+    return lock.lines + lines, what, would
+
+
+def run_steps(root: str, events_raw: list[str], write: bool) -> Result:
     lines: list[str] = []
     whats: list[str] = []
     would: list[str] = []
