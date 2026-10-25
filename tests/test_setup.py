@@ -1,5 +1,7 @@
 """The setup command, driven from outside."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os
@@ -805,7 +807,8 @@ def hook_key(marketplace="mk"):
     return '[hooks.state."vdd@%s:plugin.json#hooks[0]:stop:0:0"]\n' % marketplace
 
 
-def hook_entry(marketplace="mk", content=GOLDEN, trusted="sha256:declaration", enabled=None):
+def hook_entry(marketplace="mk", content: str | None = GOLDEN, trusted: str | None = "sha256:declaration",
+               enabled=None):
     text = hook_key(marketplace)
     if trusted is not None:
         text += 'trusted_hash = "%s"\n' % trusted

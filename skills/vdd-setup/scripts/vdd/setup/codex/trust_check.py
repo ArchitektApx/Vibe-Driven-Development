@@ -43,10 +43,9 @@ class Check:
 
     def run(self, text: str | None) -> None:
         found = trust.entries(text)
-        if found == trust.UNREADABLE:
-            self.unverified("VDD's Codex hook", "%s could not be read" % self.config_label)
-        elif found == trust.NOT_UNDERSTOOD:
-            self.unverified("VDD's Codex hook", "%s was read but not understood" % self.config_label)
+        if isinstance(found, str):
+            why = "could not be read" if found == trust.UNREADABLE else "was read but not understood"
+            self.unverified("VDD's Codex hook", "%s %s" % (self.config_label, why))
         elif not found:
             self.waiting(NOT_TRUSTED, "VDD's Codex hook", "not trusted, %s has no entry for it" % self.config_label,
                          "%s still has no entry for it" % self.config_label)
