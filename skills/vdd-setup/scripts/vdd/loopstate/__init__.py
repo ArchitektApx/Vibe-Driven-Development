@@ -3,6 +3,8 @@ builder per state-line kind (lines), where the Workflow stands (position),
 and the Recap and its records (recap and records, imported by their
 users)."""
 
+# pyright: reportUnusedImport=false
+
 from .lines import (  # noqa: F401
     code_mark_line,
     folded_line,

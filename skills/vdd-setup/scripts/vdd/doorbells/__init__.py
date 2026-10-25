@@ -5,6 +5,8 @@ lines a Role is told to run (commands), and the wait, its marker and arming a
 Codex wait (wait). The model carries no count, no record and no wait.
 """
 
+# pyright: reportUnusedImport=false
+
 from .commands import (  # noqa: F401
     ring_command,
     take_command,

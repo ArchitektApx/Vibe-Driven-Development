@@ -77,15 +77,15 @@ class AddTest(SceneTest):
 
     # --- staging ---
 
-    def coder_round(self, number, name=None):
+    def numbered_round(self, number, name=None):
         LoopRepoTest.coder_round(self, number, name, "x%d\n" % number)
 
     def signed_loop(self, minors_open="-", counts="0 0 0", review=SIGNED_REVIEW, extra=(), next_number=13):
         """Code round 1 reviewed with a finding open, round 2 signed off and
         folded, the Loop file closed, as a Sign-off leaves a loop."""
-        self.coder_round(1)
+        self.numbered_round(1)
         self.stage("code 1 reviewed open 1 counts 0 1 0 next 13 new 12 closed 0 checks code-review ran")
-        self.coder_round(2)
+        self.numbered_round(2)
         self.stage("code 2 reviewed signed-off %s counts %s next %d new 0 closed 1 checks code-review ran"
                    % (minors_open, counts, next_number), *extra)
         self.stage("fold folded %s signed %s" % (self.sha(), self.sha()))
@@ -100,7 +100,7 @@ class AddTest(SceneTest):
 
     SNAPSHOT = ("CODEREVIEW.md", "RECAP.md", "loop-state", "FIXES.md")
 
-    def snapshot(self):
+    def add_files(self):
         return LoopRepoTest.snapshot(self, self.SNAPSHOT)
 
     def add_refused(self, *fragments, source="findings.md"):
@@ -119,7 +119,7 @@ class DryRunAndWriteTest(AddTest):
     def test_the_dry_run_numbers_from_the_states_next_and_changes_nothing(self):
         self.signed_loop()
         self.findings()
-        before = self.snapshot()
+        before = self.add_files()
         result = self.add(write=False)
         self.assertEqual(result.code, 0, result)
         self.assertContract(result)
@@ -129,7 +129,7 @@ class DryRunAndWriteTest(AddTest):
         self.assertIn("Would reopen the closed loop demo.", result.lines)
         self.assertTrue(any("CODEREVIEW.md" in line and line.startswith("Would") for line in result.lines), result)
         self.assertNext(result, "review add --slug demo --from findings.md --write")
-        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.add_files(), before)
         self.assertEqual(self.read("loop-state").count("loop open"), 1)
 
     def test_write_rewrites_the_review_records_the_line_reopens_and_writes_the_recap(self):
@@ -156,9 +156,9 @@ class DryRunAndWriteTest(AddTest):
     def unfolded(self, *lines):
         """A signed-off code Loop whose fold has not run, as signed_loop
         leaves it without the fold line."""
-        self.coder_round(1)
+        self.numbered_round(1)
         self.stage("code 1 reviewed open 1 counts 0 1 0 next 13 new 12 closed 0 checks code-review ran")
-        self.coder_round(2)
+        self.numbered_round(2)
         self.stage("code 2 reviewed signed-off - counts 0 0 0 next 13 new 0 closed 1 checks code-review ran", *lines)
         self.put("CODEREVIEW.md", SIGNED_REVIEW)
         self.findings()
@@ -210,7 +210,7 @@ class DryRunAndWriteTest(AddTest):
 
 
 class LintTest(AddTest):
-    def refused(self, text, *fragments):
+    def lint_refused(self, text, *fragments):
         """A malformed file is refused with the line and the fix, and nothing
         changes, so a slip is not found only rounds later, at review
         start."""
@@ -219,57 +219,57 @@ class LintTest(AddTest):
         return self.add_refused("Nothing was written.", *fragments)
 
     def test_text_before_the_first_finding(self):
-        self.refused("My notes.\n\n### major: a.py:1\n\nBody.\n", "findings.md line 1: text before the first finding",
+        self.lint_refused("My notes.\n\n### major: a.py:1\n\nBody.\n", "findings.md line 1: text before the first finding",
                      "Move this text into a finding's body")
 
     def test_an_unknown_severity(self):
-        self.refused("### urgent: a.py:1\n\nBody.\n", "findings.md line 1:", "the severity is blocker, major or minor")
+        self.lint_refused("### urgent: a.py:1\n\nBody.\n", "findings.md line 1:", "the severity is blocker, major or minor")
 
     def test_an_upper_case_severity(self):
-        self.refused("### Major: a.py:1\n\nBody.\n", "findings.md line 1:", "in lower case")
+        self.lint_refused("### Major: a.py:1\n\nBody.\n", "findings.md line 1:", "in lower case")
 
     def test_a_numbered_heading(self):
-        self.refused("### 3. major: a.py:1\n\nBody.\n", "findings.md line 1:", "carries a number",
+        self.lint_refused("### 3. major: a.py:1\n\nBody.\n", "findings.md line 1:", "carries a number",
                      "The tool numbers the findings")
 
     def test_a_heading_with_no_colon(self):
-        self.refused("### major a.py\n\nBody.\n", "findings.md line 1:", "is not a finding heading")
+        self.lint_refused("### major a.py\n\nBody.\n", "findings.md line 1:", "is not a finding heading")
 
     def test_an_empty_reference(self):
-        self.refused("### major:\n\nBody.\n", "findings.md line 1:", "has no reference")
+        self.lint_refused("### major:\n\nBody.\n", "findings.md line 1:", "has no reference")
 
     def test_an_empty_body(self):
-        self.refused("### major: a.py:1\n\n### minor: b.py:2\n\nBody.\n", "findings.md line 1: this finding has no body")
+        self.lint_refused("### major: a.py:1\n\n### minor: b.py:2\n\nBody.\n", "findings.md line 1: this finding has no body")
 
     def test_a_title_or_section_heading_in_a_body(self):
         for heading in ("# Title", "## Section"):
             with self.subTest(heading=heading):
                 self.setUp()
-                self.refused("### major: a.py:1\n\nBody.\n\n%s\n\nMore.\n" % heading, "findings.md line 5:",
+                self.lint_refused("### major: a.py:1\n\nBody.\n\n%s\n\nMore.\n" % heading, "findings.md line 5:",
                              "would break CODEREVIEW.md's sections")
 
     def test_no_finding(self):
-        self.refused("", "findings.md holds no finding")
+        self.lint_refused("", "findings.md holds no finding")
 
     def test_an_unclosed_fence(self):
-        self.refused("### major: a.py:1\n\n```\ncode\n", "findings.md line 3:", "never closed")
+        self.lint_refused("### major: a.py:1\n\n```\ncode\n", "findings.md line 3:", "never closed")
 
     def test_an_unreadable_file(self):
         self.signed_loop()
-        before = self.snapshot()
+        before = self.add_files()
         result = self.add("missing.md")
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("--from missing.md cannot be read", result.text)
-        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.add_files(), before)
 
     def test_every_slip_is_listed_in_one_run(self):
-        result = self.refused("### urgent: a.py:1\n\nBody.\n\n### 3. major: b.py:1\n\nBody.\n",
+        result = self.lint_refused("### urgent: a.py:1\n\nBody.\n\n### 3. major: b.py:1\n\nBody.\n",
                               "findings.md line 1:", "findings.md line 5:")
         self.assertEqual(len([l for l in result.lines if l.startswith("findings.md line")]), 2, result)
 
 
 class RefusalTest(AddTest):
-    def refused(self, *fragments):
+    def findings_refused(self, *fragments):
         self.findings()
         return self.add_refused(*fragments)
 
@@ -278,7 +278,7 @@ class RefusalTest(AddTest):
         self.findings()
         self.assertEqual(self.add().code, 0)
         self.stage("code 3 start %s" % self.sha())
-        self.refused("The Coder has started code round 3", "review add waits for the next code Sign-off")
+        self.findings_refused("The Coder has started code round 3", "review add waits for the next code Sign-off")
 
 
 class JoinTest(AddTest):
@@ -314,11 +314,11 @@ class JoinTest(AddTest):
         text = self.read("CODEREVIEW.md").replace("### 14. minor (open)", "### minor (open)")
         self.put("CODEREVIEW.md", text)
         self.findings("### blocker: c.py:9\n\nThird.\n", "more.md")
-        before = self.snapshot()
+        before = self.add_files()
         result = self.add("more.md")
         self.assertNotEqual(result.code, 0, result)
         self.assertIn("no longer holds the heading of finding 14", result.text)
-        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.add_files(), before)
 
 
 class MinorsLeaveTest(AddTest):

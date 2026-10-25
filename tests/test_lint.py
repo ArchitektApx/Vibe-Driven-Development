@@ -10,7 +10,7 @@ class MissingFinding(Staged):
     """Each command words its own refusal for an open finding whose text the
     review file and the carried file have both lost."""
 
-    def refused(self, argv, fragment):
+    def refused_with(self, argv, fragment):
         result = self.box.run(*argv, env=self.env())
         self.assertEqual(result.code, 1, result)
         self.assertIn(fragment, result.lines[0])
@@ -22,13 +22,13 @@ class MissingFinding(Staged):
         finding."""
         self.round_two()
         self.put("CODEREVIEW.md", self.read("CODEREVIEW.md").replace("### 1. major (open): a.txt:1\n", ""))
-        self.refused(("coder", "start", *SLUG, "--write"), "CODEREVIEW.md has no heading for finding 1")
+        self.refused_with(("coder", "start", *SLUG, "--write"), "CODEREVIEW.md has no heading for finding 1")
 
     def test_review_start(self):
         """Prevents review start carrying a finding whose text is gone."""
         self.code_round_two_answered()
         self.put("CODEREVIEW.md", self.read("CODEREVIEW.md").replace("### 1. major (open): a.txt:1\n", ""))
-        self.refused(("review", "start", "--role", "Code-Reviewer", *SLUG, "--write"),
+        self.refused_with(("review", "start", "--role", "Code-Reviewer", *SLUG, "--write"),
                      ".scratch/demo/CODEREVIEW.md no longer holds finding 1")
 
     def test_review_add(self):
@@ -39,7 +39,7 @@ class MissingFinding(Staged):
         self.run_ok("review", "add", *SLUG, "--from", "findings.md", "--write")
         self.put("CODEREVIEW.md", self.read("CODEREVIEW.md").replace("### 1. major (open): docs/a.md:3\n", ""))
         self.box.write("more.md", "### blocker: src/c.py:1\n\nIt crashes.\n")
-        self.refused(("review", "add", *SLUG, "--from", "more.md", "--write"),
+        self.refused_with(("review", "add", *SLUG, "--from", "more.md", "--write"),
                      ".scratch/demo/CODEREVIEW.md no longer holds the heading of finding 1")
 
 

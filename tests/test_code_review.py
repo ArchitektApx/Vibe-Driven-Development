@@ -351,7 +351,7 @@ class ChecksValuesTest(CodeReviewTest):
 
     SKIP = "code-review: not needed, round 1 reviewed the branch; this round's fix is two lines"
 
-    def refused(self, *fragments):
+    def check_refused(self, *fragments):
         return LoopRepoTest.refused(self, ("review", "check", "--role", "Code-Reviewer", "--slug", "demo", "--write"),
                                 ("CODEREVIEW.md", "loop-state", "RECAP.md"), *fragments)
 
@@ -371,14 +371,14 @@ class ChecksValuesTest(CodeReviewTest):
     def test_not_needed_on_round_one_s_code_review_is_refused(self):
         self.round_one()
         self.with_code_review(self.SKIP)
-        self.refused("CODEREVIEW.md line ", "round 1's code-review is never skipped")
+        self.check_refused("CODEREVIEW.md line ", "round 1's code-review is never skipped")
 
     def test_not_needed_with_no_reason_or_a_bar_is_refused(self):
         self.answered_round_two()
         self.with_code_review("code-review: not needed,")
-        self.refused("CODEREVIEW.md line ", "\"code-review: not needed,\" gives no reason")
+        self.check_refused("CODEREVIEW.md line ", "\"code-review: not needed,\" gives no reason")
         self.with_code_review("code-review: not needed, a | b")
-        self.refused("CODEREVIEW.md line ", "the reason holds a |")
+        self.check_refused("CODEREVIEW.md line ", "the reason holds a |")
 
     def test_writing_for_agents_not_needed_passes_in_round_two(self):
         self.answered_round_two()

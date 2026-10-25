@@ -25,7 +25,7 @@ class OrchestratorTest(SceneTest):
         self.box.write(os.path.join(".scratch", "demo", "spec.md"), "# Spec\n")
         self.box.write(os.path.join(".scratch", "demo", "issues", "01-one.md"), "# 01\n")
 
-    def policies(self):
+    def policies(self) -> tuple[str, ...]:
         """The Coder's Respawn policy set, so start places at once."""
         return ("respawn Coder never",)
 

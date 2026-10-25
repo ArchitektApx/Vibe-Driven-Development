@@ -1,6 +1,8 @@
 """One idea file: its text readers (text.py) and the idea model (idea.py),
 reached as one module."""
 
+# pyright: reportUnusedImport=false
+
 from .idea import Idea  # noqa: F401
 from .text import (  # noqa: F401
     CLOSED,

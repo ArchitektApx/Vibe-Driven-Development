@@ -2,6 +2,8 @@
 slug, by the checked-out branch or as the only open loop (find), re-exported
 here for their callers."""
 
+# pyright: reportUnusedImport=false
+
 from .find import (  # noqa: F401
     NO_STATE,
     ROOT_FIX,
