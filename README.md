@@ -42,6 +42,7 @@ Works on <br>
 - [🧪 Beta channel](#-beta-channel)
 - [🔁 Workflow](#-workflow)
 - [🧭 Before the loop](#-before-the-loop)
+- [🛠 The VDD tool](#-the-vdd-tool)
 
 ## 🎯 Why this works
 
@@ -292,6 +293,14 @@ Two optional Roles come before the loop. Both run in your own session, outside a
 | 🗺 Wayfinder | a change is too big or too foggy for one loop | `.scratch/<effort>/handoffs/`: an overview and one handoff per loop, which that loop's Planner plans from |
 
 [**docs/VDD-WORKFLOW.md**](docs/VDD-WORKFLOW.md#-before-the-loop) explains each one and how to take its result into a loop.
+
+## 🛠 The VDD tool
+
+Most of this repository is Python, not skill text. The VDD tool, [`skills/vdd-setup/scripts/`](skills/vdd-setup/scripts/), does every step in VDD that has one right outcome: the Loop file, the Doorbells, the review files, the fold, the PR and the idea store. Code does the same thing on every run and its tests pin it, while prose is followed a little differently by every model. The Roles keep the judgment and the conversation with you.
+
+The tool also guides each Role through its work. Every command ends by naming the exact next step, and says what to tell you when you need to know something, so a Role never loses its place, even deep into a long session.
+
+It uses Python's standard library only, opens no network connection of its own, and writes inside your project and its own directory only (on Codex it also removes an older VDD's hook entry). Setup copies it into that directory, outside the plugin, and every Role runs that copy. [**docs/VDD-TOOL.md**](docs/VDD-TOOL.md) explains how it is built and how to work on it.
 
 ---
 
