@@ -5,7 +5,7 @@ All notable changes to Vibe Driven Development are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.16.0] - 2026-10-25
 
 **TL;DR:** VDD's routine work, such as Setup, the Doorbells and the review
 files, now runs in the VDD tool, a Python program that ships with the plugin
