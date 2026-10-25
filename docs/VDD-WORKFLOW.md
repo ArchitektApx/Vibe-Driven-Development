@@ -33,7 +33,7 @@ If the other session does not wake, paste the line the Role prints.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="workflow-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="workflow-light.svg">
-  <img alt="The VDD workflow: you start the loop as the Planner, and an Orchestrator session runs the rest. The Planner and the Plan-Reviewer the Orchestrator hosts exchange the spec and PLAN-REVIEW.md until sign-off, the hosted Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, and VDD folds the branch. Then the Orchestrator invokes the PR-Author, which opens the PR or hands it to you; on PR: no the Orchestrator closes the loop and no PR-Author runs. Every file named here lives in the tracker directory .scratch/&lt;slug&gt;/, beside the spec, the tickets and the Loop file." src="workflow-light.svg" width="900">
+  <img alt="The VDD workflow: you start the loop as the Planner, and an Orchestrator session runs the rest. The Planner and the Plan-Reviewer the Orchestrator hosts exchange the spec and PLAN-REVIEW.md until sign-off, the hosted Coder and Code-Reviewer exchange FIXES.md and CODEREVIEW.md until sign-off, then the Orchestrator invokes the PR-Author, which opens the PR or hands it to you, unless the loop's PR: line is no. Every file named here lives in the tracker directory .scratch/&lt;slug&gt;/, beside the spec, the tickets and the Loop file." src="workflow-light.svg" width="900">
 </picture>
 
 </div>
