@@ -130,6 +130,16 @@ os.environ.update({
 })
 
 
+def init_bare(path):
+    """A bare repository a push starts no maintenance in. git unsets
+    GIT_CONFIG_COUNT for the receive-pack of a local push, so the setting
+    above does not reach it, and receive-pack detaches a maintenance run
+    that takes objects/maintenance.lock while a scene is copied (seen on
+    Ubuntu CI)."""
+    subprocess.run(["git", "init", "-q", "--bare", path], check=True)
+    subprocess.run(["git", "config", "receive.autogc", "false"], cwd=path, check=True)
+
+
 def b64(data):
     return None if data is None else base64.b64encode(data).decode("ascii")
 
@@ -564,7 +574,7 @@ class Sandbox:
         """A local bare repository inside the sandbox as the remote name,
         each branch in push pushed to it. Returns its path."""
         bare = os.path.join(self.root, name + ".git")
-        self.git("init", "-q", "--bare", bare)
+        init_bare(bare)
         self.git("remote", "add", name, bare)
         for branch in push:
             self.git("push", "-q", name, branch)

@@ -14,7 +14,7 @@ import subprocess
 import sys
 import unittest
 
-from vddtest import GH, PLAN_SIGNED, URL, WINDOWS, LoopRepoTest, SceneTest, tool_command
+from vddtest import GH, PLAN_SIGNED, URL, WINDOWS, LoopRepoTest, SceneTest, init_bare, tool_command
 
 HOSTS_REFUSED = "failed to read configuration: open ~/.config/gh/hosts.yml: operation not permitted"
 
@@ -78,7 +78,7 @@ class PRTest(PRScene):
         """origin at a GitHub URL, its push mapped to a local bare
         repository."""
         self.bare = os.path.join(self.box.root, "bare.git")
-        subprocess.run(["git", "init", "-q", "--bare", self.bare], check=True)
+        init_bare(self.bare)
         self.git("remote", "add", "origin", URL)
         self.git("config", "url.%s.pushInsteadOf" % self.bare, URL)
 

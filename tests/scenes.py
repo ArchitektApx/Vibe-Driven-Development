@@ -5,10 +5,9 @@ import json
 import os
 import shutil
 import stat
-import subprocess
 import sys
 
-from vddtest import GH, PLAN_SIGNED, SCRIPTS, URL, LoopRepoTest
+from vddtest import GH, PLAN_SIGNED, SCRIPTS, URL, LoopRepoTest, init_bare
 
 TODAY = "2026-10-20"
 CC = ("--harness", "claude-code")
@@ -255,7 +254,7 @@ class Staged(LoopRepoTest):
     def origin(self):
         """A local bare origin with main pushed."""
         bare = os.path.join(self.box.root, "origin.git")
-        self.git("init", "-q", "--bare", bare)
+        init_bare(bare)
         self.git("remote", "add", "origin", bare)
         self.git("push", "-q", "origin", "main")
 
@@ -272,7 +271,7 @@ class Staged(LoopRepoTest):
         self.box.stub("gh", GH % {"python": sys.executable, "log": log, "plan": plan_file})
         if remote:
             bare = os.path.join(self.box.root, "bare.git")
-            subprocess.run(["git", "init", "-q", "--bare", bare], check=True)
+            init_bare(bare)
             self.git("remote", "add", "origin", URL)
             self.git("config", "url.%s.pushInsteadOf" % bare, URL)
 
