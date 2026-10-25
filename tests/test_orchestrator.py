@@ -92,6 +92,26 @@ class PlacementTest(OrchestratorTest):
         self.assertNext(result, "doorbell wait --role Orchestrator --harness claude-code --slug demo")
         self.assertIn("orchestrator session 1", self.state())
 
+    def test_a_stray_line_while_the_planner_is_owed_starts_the_wait_before_the_relay(self):
+        """Prevents a Tell the user never reads, or a wait that never starts,
+        on a start that owes the Planner's wait: the Tell about a stray line
+        in the Doorbell file came before the wait, and a Next: that names the
+        relay first lost the wait or the Tell."""
+        relay_last = "holds every Tell the user verbatim line above, unchanged"
+        for label, name in (("Claude Code", "claude-code"), ("Codex", "codex")):
+            with self.subTest(harness=name):
+                self.box.write_loop("demo", text=(
+                    "# VDD Loop\n\nFormat: 2\nFeature: demo\nBase branch: main\nFeature branch: demo\n"
+                    "Minors: fix\nPR: ask at sign-off\nHarness: %s\n" % label), extra=self.policies())
+                self.rings("not a doorbell")
+                result = self.orch("start", "--slug", "demo", "--harness", name)
+                self.assertEqual(result.code, 0, result)
+                self.assertIn("is not a Doorbell", result.text)
+                self.assertFalse(result.last.startswith("Next: Relay"), result.last)
+                wait = "doorbell wait --role Orchestrator --harness %s" % name
+                self.assertNext(result, wait, relay_last)
+                self.assertLess(result.last.index(wait), result.last.index(relay_last))
+
     def test_a_rung_round_with_no_review_spawns_the_plan_reviewer(self):
         """A fresh Plan-Reviewer answers the Planner's Doorbell, since one an
         earlier Session spawned is gone."""
